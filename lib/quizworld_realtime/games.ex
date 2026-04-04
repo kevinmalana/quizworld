@@ -88,7 +88,25 @@ defmodule QuizworldRealtime.Games do
     end
   end
 
-  def topic(pin), do: "game:" <> pin
+  @pubsub_topic_max_length 48
+
+  def topic(pin) do
+    sanitized =
+      pin
+      |> to_string()
+      |> String.replace(~r/[:*\s]/, "")
+      |> String.slice(0, @pubsub_topic_max_length - 5)
+
+    "game:" <> sanitized
+  end
+
+  def sanitize_pin(pin) do
+    pin
+    |> to_string()
+    |> String.replace(~r/[:*\s]/, "")
+    |> String.slice(0, 20)
+    |> String.upcase()
+  end
 
   defp safe_call(callback) do
     callback.()

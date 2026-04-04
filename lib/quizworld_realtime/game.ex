@@ -358,7 +358,7 @@ defmodule QuizworldRealtime.Game do
         "text" => fetch_string(question, "text"),
         "time_limit" => Map.get(question, "time_limit", 20),
         "points" => Map.get(question, "points", 1000),
-        "order_index" => Map.get(question, "order_index", 0),
+        "order_index" => Map.get(question, "order_index") || Map.get(question, "order") || 0,
         "answers" =>
           question
           |> Map.get("answers", [])
