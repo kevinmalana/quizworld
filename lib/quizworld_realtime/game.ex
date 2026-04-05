@@ -99,11 +99,11 @@ defmodule QuizworldRealtime.Game do
 
   def host_token(%__MODULE__{} = game), do: game.host_token
 
-  def join_player(%__MODULE__{status: status} = game, _attrs) when status != "waiting" do
+  def join_player(%__MODULE__{status: status}, _attrs) when status != "waiting" do
     {:error, :session_closed}
   end
 
-  def join_player(%__MODULE__{players: players} = game, _attrs)
+  def join_player(%__MODULE__{players: players}, _attrs)
       when map_size(players) >= @max_players do
     {:error, :game_full}
   end
@@ -292,6 +292,7 @@ defmodule QuizworldRealtime.Game do
     %{
       "id" => question["id"],
       "text" => question["text"],
+      "question_type" => question["question_type"],
       "time_limit" => question["time_limit"],
       "points" => question["points"],
       "order_index" => question["order_index"],
@@ -353,13 +354,19 @@ defmodule QuizworldRealtime.Game do
   defp normalize_questions(questions) do
     questions
     |> Enum.map(fn question ->
-      %{
-        "id" => fetch_string(question, "id"),
-        "text" => fetch_string(question, "text"),
-        "time_limit" => Map.get(question, "time_limit", 20),
-        "points" => Map.get(question, "points", 1000),
-        "order_index" => Map.get(question, "order_index") || Map.get(question, "order") || 0,
-        "answers" =>
+      question_type = normalize_question_type(Map.get(question, "question_type"))
+
+      answers =
+        if question_type == "true_false" do
+          [
+            %{"id" => fetch_string(question, "true_answer_id") || "true", "text" => "True",
+              "is_correct" => Map.get(question, "correct_answer") == "true" or
+                             Map.get(question, "correct_answer") == true},
+            %{"id" => fetch_string(question, "false_answer_id") || "false", "text" => "False",
+              "is_correct" => Map.get(question, "correct_answer") == "false" or
+                             Map.get(question, "correct_answer") == false}
+          ]
+        else
           question
           |> Map.get("answers", [])
           |> Enum.map(fn answer ->
@@ -369,10 +376,25 @@ defmodule QuizworldRealtime.Game do
               "is_correct" => Map.get(answer, "is_correct", false)
             }
           end)
+        end
+
+      %{
+        "id" => fetch_string(question, "id"),
+        "text" => fetch_string(question, "text"),
+        "question_type" => question_type,
+        "time_limit" => Map.get(question, "time_limit", 20),
+        "points" => Map.get(question, "points", 1000),
+        "order_index" => Map.get(question, "order_index") || Map.get(question, "order") || 0,
+        "answers" => answers
       }
     end)
     |> Enum.sort_by(& &1["order_index"])
   end
+
+  defp normalize_question_type("multiple_choice"), do: "multiple_choice"
+  defp normalize_question_type("true_false"), do: "true_false"
+  defp normalize_question_type(nil), do: "multiple_choice"
+  defp normalize_question_type(_), do: "multiple_choice"
 
   defp fetch_string(map, key) do
     map
