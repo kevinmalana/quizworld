@@ -5,6 +5,7 @@ defmodule QuizworldRealtime.Game do
     :host_id,
     :host_token,
     :quiz_id,
+    :category,
     :created_at,
     :updated_at,
     :game_mode,
@@ -28,6 +29,7 @@ defmodule QuizworldRealtime.Game do
       host_id: fetch_string(attrs, "host_id"),
       host_token: token(),
       quiz_id: fetch_string(attrs, "quiz_id"),
+      category: normalize_category(Map.get(attrs, "category")),
       questions: normalize_questions(Map.get(attrs, "questions", [])),
       game_mode: normalize_game_mode(Map.get(attrs, "game_mode")),
       created_at: now,
@@ -72,9 +74,11 @@ defmodule QuizworldRealtime.Game do
     %{
       pin: game.pin,
       quiz_id: game.quiz_id,
+      category: game.category,
       game_mode: game.game_mode || "classic",
       quiz: %{
         id: game.quiz_id,
+        category: game.category,
         questions:
           Enum.map(game.questions, fn question ->
             %{
@@ -432,6 +436,12 @@ defmodule QuizworldRealtime.Game do
 
   defp normalize_game_mode("classic"), do: "classic"
   defp normalize_game_mode(_), do: "classic"
+
+  defp normalize_category(nil), do: nil
+  defp normalize_category(value) do
+    trimmed = value |> to_string() |> String.trim()
+    if trimmed == "", do: nil, else: trimmed
+  end
 
   defp touch(%__MODULE__{} = game) do
     %{game | updated_at: DateTime.utc_now()}

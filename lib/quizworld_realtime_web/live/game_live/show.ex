@@ -209,6 +209,11 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
                   <div style={status_pill_style(@snapshot)}>
                     <%= status_label(@snapshot) %>
                   </div>
+                  <%= if @snapshot && @snapshot.category do %>
+                    <div style="padding:0.5rem 0.9rem;border-radius:999px;background:rgba(148,163,184,0.20);border:1px solid rgba(255,255,255,0.12);font-size:0.78rem;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;color:#e2e8f0;">
+                      <%= @snapshot.category %>
+                    </div>
+                  <% end %>
                 </div>
                 <div style="font-size:1.15rem;line-height:1.6;color:rgba(255,255,255,0.78);max-width:680px;">
                   <%= stage_copy(@snapshot, @host_token, @player_token) %>
@@ -248,7 +253,9 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
               <div class={"card-rise #{if waiting?(@snapshot), do: "lobby-pulse", else: ""}"} style={main_stage_style()}>
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.2rem;">
                   <div>
-                    <div style={eyebrow_dark_style()}><%= stage_eyebrow(@snapshot) %></div>
+                    <div style={eyebrow_dark_style()}>
+                      <%= stage_eyebrow(@snapshot) %><%= if @snapshot && @snapshot.category, do: " · #{@snapshot.category}" %>
+                    </div>
                     <div style="font-size:clamp(1.5rem,3vw,2.25rem);font-weight:900;letter-spacing:-0.03em;color:#0f172a;">
                       <%= stage_title(@snapshot) %>
                     </div>
