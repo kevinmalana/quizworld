@@ -1,0 +1,6 @@
+{
+  "framework": null,
+  "outputDirectory": ".next",
+  "buildCommand": "echo skip",
+  "installCommand": "echo skip"
+}
