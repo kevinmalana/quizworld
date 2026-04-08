@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabase/client";
 import { PageHero } from "@/components/page-hero";
 import { SectionCard } from "@/components/section-card";
 
-// Import what we still need locally for icons
 import { CATEGORY_COLORS, CATEGORY_EMOJIS, type Quiz } from "@/lib/store";
 
 const CATEGORY_LIST = ["All", ...Object.keys(CATEGORY_COLORS)];
@@ -21,6 +20,7 @@ function ExplorePageContent() {
     categoryParam && CATEGORY_LIST.includes(categoryParam) ? categoryParam : "All"
   );
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (categoryParam && CATEGORY_LIST.includes(categoryParam)) {
@@ -30,6 +30,8 @@ function ExplorePageContent() {
 
   useEffect(() => {
     async function fetchQuizzes() {
+      setLoading(true);
+      setFetchError(null);
       const { data, error } = await supabase
         .from("quizzes")
         .select("*, questions(*, answers(*))")
@@ -39,6 +41,7 @@ function ExplorePageContent() {
 
       if (error) {
         console.error("Error fetching quizzes:", error);
+        setFetchError("Could not load the quiz catalog. Please try again in a moment.");
       } else if (data) {
         setQuizzes(data as any);
       }
@@ -47,6 +50,8 @@ function ExplorePageContent() {
 
     fetchQuizzes();
   }, []);
+
+  const hasActiveFilter = activeCategory !== "All" || search.trim().length > 0;
 
   const filtered = useMemo(() => {
     return quizzes.filter((q) => {
@@ -166,31 +171,93 @@ function ExplorePageContent() {
 
         {/* ── Results ── */}
         {loading ? (
-          <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--muted)" }}>
-            <p>Loading quizzes...</p>
-          </div>
-        ) : filtered.length === 0 ? (
           <div
             style={{
               textAlign: "center",
-              padding: "4rem 0",
+              padding: "5rem 0",
+              color: "var(--muted)",
+            }}
+          >
+            <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>📡</div>
+            <p style={{ fontWeight: 600 }}>Loading quizzes...</p>
+          </div>
+        ) : fetchError ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "4rem 2rem",
               background: "var(--surface)",
               borderRadius: "var(--radius-xl)",
               border: "1px dashed var(--line-strong)",
             }}
           >
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔍</div>
+            <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⚠️</div>
             <h3 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>
-              No quizzes found
+              Could not load quizzes
             </h3>
-            <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
-              Try adjusting your search or filter.
-            </p>
+            <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>{fetchError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn btn-primary"
+              style={{ marginTop: "1.25rem" }}
+            >
+              Retry
+            </button>
           </div>
+        ) : filtered.length === 0 ? (
+          hasActiveFilter ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "4rem 2rem",
+                background: "var(--surface)",
+                borderRadius: "var(--radius-xl)",
+                border: "1px dashed var(--line-strong)",
+              }}
+            >
+              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔍</div>
+              <h3 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>
+                No quizzes match your search
+              </h3>
+              <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
+                Try different keywords or remove the{activeCategory !== "All" ? " category filter" : " search"}.
+              </p>
+              {(search.trim().length > 0 || activeCategory !== "All") && (
+                <button
+                  onClick={() => { setSearch(""); setActiveCategory("All"); }}
+                  className="btn btn-secondary"
+                  style={{ marginTop: "1.25rem" }}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "4rem 2rem",
+                background: "var(--surface)",
+                borderRadius: "var(--radius-xl)",
+                border: "1px dashed var(--line-strong)",
+              }}
+            >
+              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>📝</div>
+              <h3 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>
+                No public quizzes yet
+              </h3>
+              <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
+                Be the first to create and share a quiz!
+              </p>
+              <Link href="/create" className="btn btn-primary" style={{ marginTop: "1.25rem", display: "inline-flex" }}>
+                Create Quiz
+              </Link>
+            </div>
+          )
         ) : (
           <SectionCard
             title="Public Catalog"
-            description="These quizzes are currently visible in Explore and ready for hosting or self-study."
+            description={`Showing ${filtered.length} quiz${filtered.length !== 1 ? "zes" : ""}${hasActiveFilter ? " matching your filters" : ""}.`}
           >
             <div className="grid-3">
               {filtered.map((q) => (
@@ -264,7 +331,10 @@ function ExplorePageContent() {
 
 export default function ExplorePage() {
   return (
-    <Suspense fallback={<div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>Loading quizzes...</div>}>
+    <Suspense fallback={<div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
+      <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>📡</div>
+      <p style={{ color: "var(--muted)" }}>Loading...</p>
+    </div>}>
       <ExplorePageContent />
     </Suspense>
   );
