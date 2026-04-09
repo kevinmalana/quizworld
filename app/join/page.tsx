@@ -219,13 +219,41 @@ function JoinForm() {
             maxLength={20}
           />
 
-          <button 
+          {/* Avatar picker */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--muted)", marginBottom: "0.75rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+              Pick Your Avatar
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.5rem", maxWidth: 280, margin: "0 auto" }}>
+              {AVATARS.map((a) => (
+                <button
+                  key={a}
+                  onClick={() => setAvatar(a)}
+                  style={{
+                    fontSize: "1.5rem",
+                    padding: "0.5rem",
+                    borderRadius: 12,
+                    border: avatar === a ? "2px solid var(--accent)" : "2px solid transparent",
+                    background: avatar === a ? "var(--accent-light)" : "var(--bg)",
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                    transform: avatar === a ? "scale(1.1)" : "scale(1)",
+                    boxShadow: avatar === a ? "0 0 0 3px var(--accent-light)" : "none",
+                  }}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
             onClick={handleJoinSubmit}
             disabled={joining}
             className="btn btn-primary btn-lg"
             style={{ width: "100%" }}
           >
-            {joining ? "Joining..." : "Join Game 🎮"}
+            {joining ? "Joining..." : `Join as ${nickname.trim() || "Player"} 🎮`}
           </button>
         </div>
       </div>
