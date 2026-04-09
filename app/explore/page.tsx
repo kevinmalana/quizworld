@@ -11,6 +11,78 @@ import { CATEGORY_COLORS, CATEGORY_EMOJIS, type Quiz } from "@/lib/store";
 
 const CATEGORY_LIST = ["All", ...Object.keys(CATEGORY_COLORS)];
 
+type SortMode = "popular" | "newest" | "az" | "za";
+
+const SORT_OPTIONS: { value: SortMode; label: string; icon: string }[] = [
+  { value: "popular", label: "Most Played", icon: "🔥" },
+  { value: "newest", label: "Newest", icon: "✨" },
+  { value: "az", label: "A → Z", icon: "🔤" },
+  { value: "za", label: "Z → A", icon: "🔤" },
+];
+
+function QuizCard({ q }: { q: Quiz }) {
+  return (
+    <div
+      className="card card-hover"
+      style={{ display: "flex", flexDirection: "column", padding: "1.5rem", background: "linear-gradient(180deg, var(--surface), var(--bg-subtle))", border: "1px solid var(--line)" }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "16px",
+            background: `${q.color}15`,
+            display: "grid",
+            placeItems: "center",
+            fontSize: "2rem",
+          }}
+        >
+          {q.emoji || CATEGORY_EMOJIS[q.category] || "📌"}
+        </div>
+        <span
+          className="tag"
+          style={{
+            background: "var(--bg-subtle)",
+            color: "var(--muted)",
+            fontSize: "0.75rem",
+          }}
+        >
+          {q.category}
+        </span>
+      </div>
+
+      <h3
+        className="font-display"
+        style={{ fontSize: "1.125rem", fontWeight: 800, color: "var(--ink)", marginBottom: "0.5rem", lineHeight: 1.3 }}
+      >
+        {q.title}
+      </h3>
+      <div style={{ display: "flex", gap: "1rem", fontSize: "0.8125rem", color: "var(--muted)", marginBottom: "1.5rem" }}>
+        <span>{q.questions?.length || 0} Qs</span>
+        <span>▶ {q.plays.toLocaleString()} plays</span>
+      </div>
+
+      <div style={{ marginTop: "auto", display: "flex", gap: "0.5rem" }}>
+        <Link
+          href={`/host?quiz=${q.id}`}
+          className="btn btn-primary"
+          style={{ flex: 1, padding: "0.6rem 0" }}
+        >
+          Host
+        </Link>
+        <Link
+          href={`/study/${q.id}`}
+          className="btn btn-secondary"
+          style={{ padding: "0.6rem 1rem" }}
+        >
+          Study
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function ExplorePageContent() {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get("category");
@@ -19,6 +91,7 @@ function ExplorePageContent() {
   const [activeCategory, setActiveCategory] = useState(
     categoryParam && CATEGORY_LIST.includes(categoryParam) ? categoryParam : "All"
   );
+  const [sortMode, setSortMode] = useState<SortMode>("popular");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -54,7 +127,7 @@ function ExplorePageContent() {
   const hasActiveFilter = activeCategory !== "All" || search.trim().length > 0;
 
   const filtered = useMemo(() => {
-    return quizzes.filter((q) => {
+    let result = quizzes.filter((q) => {
       const matchCat = activeCategory === "All" || q.category === activeCategory;
       const matchSearch =
         !search.trim() ||
@@ -62,7 +135,36 @@ function ExplorePageContent() {
         q.category.toLowerCase().includes(search.toLowerCase());
       return matchCat && matchSearch;
     });
-  }, [quizzes, search, activeCategory]);
+
+    // Sort filtered results
+    if (sortMode === "popular") {
+      result = [...result].sort((a, b) => b.plays - a.plays);
+    } else if (sortMode === "newest") {
+      // Supabase returns created_at; local store type uses createdAt
+      result = [...result].sort((a, b) => {
+        const aTime = (a as any).created_at ?? a.createdAt ?? 0;
+        const bTime = (b as any).created_at ?? b.createdAt ?? 0;
+        return bTime - aTime;
+      });
+    } else if (sortMode === "az") {
+      result = [...result].sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sortMode === "za") {
+      result = [...result].sort((a, b) => b.title.localeCompare(a.title));
+    }
+
+    return result;
+  }, [quizzes, search, activeCategory, sortMode]);
+
+  // Trending: top 6 by plays, unfiltered by search/category
+  const trending = useMemo(() => {
+    return [...quizzes]
+      .sort((a, b) => b.plays - a.plays)
+      .slice(0, 6);
+  }, [quizzes]);
+
+  const catalogDescription = hasActiveFilter
+    ? `${filtered.length} quiz${filtered.length !== 1 ? "zes" : ""} matching your filters`
+    : `All ${filtered.length} public quiz${filtered.length !== 1 ? "zes" : ""}`;
 
   return (
     <div className="explore-page" style={{ position: "relative", zIndex: 10, paddingBottom: "5rem" }}>
@@ -101,7 +203,7 @@ function ExplorePageContent() {
               gap: "1rem",
             }}
           >
-            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
               <input
                 type="text"
                 placeholder="Search topics or keywords..."
@@ -120,6 +222,37 @@ function ExplorePageContent() {
                   background: "var(--bg)",
                 }}
               />
+
+              {/* Sort selector */}
+              <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexShrink: 0 }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginRight: "0.25rem" }}>Sort:</span>
+                {SORT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSortMode(opt.value)}
+                    title={opt.label}
+                    style={{
+                      padding: "0.45rem 0.75rem",
+                      borderRadius: "999px",
+                      fontSize: "0.8rem",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      border: sortMode === opt.value ? "1px solid transparent" : "1px solid var(--line)",
+                      background: sortMode === opt.value ? "linear-gradient(135deg, var(--accent), var(--secondary))" : "var(--surface)",
+                      color: sortMode === opt.value ? "#fff" : "var(--muted)",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                    }}
+                  >
+                    <span style={{ fontSize: "0.9rem" }}>{opt.icon}</span>
+                    <span>{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+
               <div
                 style={{
                   display: "inline-flex",
@@ -129,6 +262,8 @@ function ExplorePageContent() {
                   background: "var(--accent-light)",
                   color: "var(--accent)",
                   fontWeight: 800,
+                  fontSize: "0.875rem",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {filtered.length} results
@@ -255,74 +390,39 @@ function ExplorePageContent() {
             </div>
           )
         ) : (
-          <SectionCard
-            title="Public Catalog"
-            description={`Showing ${filtered.length} quiz${filtered.length !== 1 ? "zes" : ""}${hasActiveFilter ? " matching your filters" : ""}.`}
-          >
-            <div className="grid-3">
-              {filtered.map((q) => (
-                <div
-                  key={q.id}
-                  className="card card-hover"
-                  style={{ display: "flex", flexDirection: "column", padding: "1.5rem", background: "linear-gradient(180deg, var(--surface), var(--bg-subtle))", border: "1px solid var(--line)" }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
-                    <div
-                      style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: "16px",
-                        background: `${q.color}15`,
-                        display: "grid",
-                        placeItems: "center",
-                        fontSize: "2rem",
-                      }}
-                    >
-                      {q.emoji || CATEGORY_EMOJIS[q.category] || "📌"}
-                    </div>
-                    <span
-                      className="tag"
-                      style={{
-                        background: "var(--bg-subtle)",
-                        color: "var(--muted)",
-                        fontSize: "0.75rem",
-                      }}
-                    >
-                      {q.category}
-                    </span>
-                  </div>
-
-                  <h3
-                    className="font-display"
-                    style={{ fontSize: "1.125rem", fontWeight: 800, color: "var(--ink)", marginBottom: "0.5rem", lineHeight: 1.3 }}
-                  >
-                    {q.title}
-                  </h3>
-                  <div style={{ display: "flex", gap: "1rem", fontSize: "0.8125rem", color: "var(--muted)", marginBottom: "1.5rem" }}>
-                    <span>{q.questions?.length || 0} Qs</span>
-                    <span>▶ {q.plays.toLocaleString()} plays</span>
-                  </div>
-
-                  <div style={{ marginTop: "auto", display: "flex", gap: "0.5rem" }}>
-                    <Link
-                      href={`/host?quiz=${q.id}`}
-                      className="btn btn-primary"
-                      style={{ flex: 1, padding: "0.6rem 0" }}
-                    >
-                      Host
-                    </Link>
-                    <Link
-                      href={`/study/${q.id}`}
-                      className="btn btn-secondary"
-                      style={{ padding: "0.6rem 1rem" }}
-                    >
-                      Study
-                    </Link>
-                  </div>
+          <>
+            {/* ── Trending Section (shown when no filter/search is active) ── */}
+            {!hasActiveFilter && trending.length >= 3 && (
+              <div style={{ marginBottom: "2.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>🔥</span>
+                  <h2 className="font-display" style={{ fontSize: "1.375rem", fontWeight: 900, color: "var(--ink)" }}>
+                    Trending Now
+                  </h2>
+                  <span style={{ fontSize: "0.8rem", color: "var(--muted)", fontWeight: 600 }}>
+                    Most played this week
+                  </span>
                 </div>
-              ))}
-            </div>
-          </SectionCard>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+                  {trending.slice(0, 6).map((q) => (
+                    <QuizCard key={q.id} q={q} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Full Catalog ── */}
+            <SectionCard
+              title={hasActiveFilter ? "Search Results" : "All Quizzes"}
+              description={catalogDescription}
+            >
+              <div className="grid-3">
+                {filtered.map((q) => (
+                  <QuizCard key={q.id} q={q} />
+                ))}
+              </div>
+            </SectionCard>
+          </>
         )}
       </div>
     </div>
