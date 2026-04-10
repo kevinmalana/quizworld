@@ -20,7 +20,27 @@ const SORT_OPTIONS: { value: SortMode; label: string; icon: string }[] = [
   { value: "za", label: "Z → A", icon: "🔤" },
 ];
 
-function QuizCard({ q }: { q: Quiz }) {
+function getTimeOfDayLabel() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function getTimeBasedAccent() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "linear-gradient(135deg, #f59e0b 0%, #2563eb 100%)";
+  if (hour < 17) return "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)";
+  return "linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)";
+}
+
+type QuizWithCreator = Quiz & { creator_name?: string };
+
+function QuizCard({ q }: { q: QuizWithCreator }) {
+  const creatorLabel = q.creator_name
+    ? `by ${q.creator_name.length > 32 ? q.creator_name.slice(0, 32) + "…" : q.creator_name}`
+    : null;
+
   return (
     <div
       className="card card-hover"
@@ -54,10 +74,15 @@ function QuizCard({ q }: { q: Quiz }) {
 
       <h3
         className="font-display"
-        style={{ fontSize: "1.125rem", fontWeight: 800, color: "var(--ink)", marginBottom: "0.5rem", lineHeight: 1.3 }}
+        style={{ fontSize: "1.125rem", fontWeight: 800, color: "var(--ink)", marginBottom: creatorLabel ? "0.25rem" : "0.5rem", lineHeight: 1.3 }}
       >
         {q.title}
       </h3>
+      {creatorLabel && (
+        <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.5rem", fontStyle: "italic" }}>
+          {creatorLabel}
+        </p>
+      )}
       <div style={{ display: "flex", gap: "1rem", fontSize: "0.8125rem", color: "var(--muted)", marginBottom: "1.5rem" }}>
         <span>{q.questions?.length || 0} Qs</span>
         <span>▶ {q.plays.toLocaleString()} plays</span>
@@ -86,7 +111,7 @@ function QuizCard({ q }: { q: Quiz }) {
 function ExplorePageContent() {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get("category");
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizzes, setQuizzes] = useState<QuizWithCreator[]>([]);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState(
     categoryParam && CATEGORY_LIST.includes(categoryParam) ? categoryParam : "All"
@@ -105,6 +130,7 @@ function ExplorePageContent() {
     async function fetchQuizzes() {
       setLoading(true);
       setFetchError(null);
+
       const { data, error } = await supabase
         .from("quizzes")
         .select("*, questions(*, answers(*))")
@@ -115,8 +141,31 @@ function ExplorePageContent() {
       if (error) {
         console.error("Error fetching quizzes:", error);
         setFetchError("Could not load the quiz catalog. Please try again in a moment.");
-      } else if (data) {
-        setQuizzes(data as any);
+      } else if (data && data.length > 0) {
+        // Fetch creator names from profiles in parallel
+        const creatorIds = [...new Set(data.map((q: any) => q.creator_id).filter(Boolean))];
+        let creatorMap: Record<string, string> = {};
+
+        if (creatorIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, nickname")
+            .in("id", creatorIds);
+          if (profiles) {
+            creatorMap = profiles.reduce((acc: Record<string, string>, p: any) => {
+              if (p.nickname) acc[p.id] = p.nickname;
+              return acc;
+            }, {});
+          }
+        }
+
+        const quizzesWithCreator = data.map((q: any) => ({
+          ...q,
+          creator_name: creatorMap[q.creator_id] ?? undefined,
+        }));
+        setQuizzes(quizzesWithCreator as QuizWithCreator[]);
+      } else {
+        setQuizzes([]);
       }
       setLoading(false);
     }
@@ -175,10 +224,10 @@ function ExplorePageContent() {
 
       <div className="container" style={{ paddingTop: "3rem" }}>
         <PageHero
-          eyebrow="Explore"
+          eyebrow={getTimeOfDayLabel()}
           title="Discover Quizzes"
           description="Search public quiz sets, jump into host mode, or study a topic at your own pace."
-          accent="linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)"
+          accent={getTimeBasedAccent()}
           actions={
             <>
               <Link href="/create" className="btn btn-primary" style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.22)" }}>
