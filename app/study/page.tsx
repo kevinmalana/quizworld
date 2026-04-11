@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
+import { CATEGORY_EMOJIS } from "@/lib/store";
 
 type StudyProgressRow = {
   quiz_id: string;
@@ -187,7 +188,7 @@ export default function StudyListPage() {
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
                       <div style={{ width: 48, height: 48, borderRadius: 12, background: `${quiz.color}15`, display: "grid", placeItems: "center", fontSize: "1.5rem" }}>
-                        {quiz.emoji || "📝"}
+                        {quiz.emoji || CATEGORY_EMOJIS[quiz.category] || "📝"}
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 700, color: "var(--ink)" }}>{quiz.title}</div>
@@ -261,11 +262,11 @@ export default function StudyListPage() {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
                   <div style={{ width: 48, height: 48, borderRadius: 12, background: `${quiz.color}15`, display: "grid", placeItems: "center", fontSize: "1.5rem" }}>
-                    {quiz.emoji || "📝"}
+                    {quiz.emoji || CATEGORY_EMOJIS[quiz.category] || "📝"}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, color: "var(--ink)" }}>{quiz.title}</div>
-                    <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>{quiz.questions?.length || 0} questions</div>
+                    <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>{quiz.questions?.length || 0} questions · {quiz.category}</div>
                   </div>
                 </div>
                 <button className="btn btn-primary" style={{ width: "100%" }}>
