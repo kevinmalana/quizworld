@@ -1460,3 +1460,72 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.player_answers;
   END IF;
 END $$;
+
+-- ─── Study Sessions (XP + session tracking) ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.study_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  quiz_id UUID NOT NULL REFERENCES public.quizzes(id) ON DELETE CASCADE,
+  xp_earned INTEGER NOT NULL DEFAULT 0,
+  correct INTEGER NOT NULL DEFAULT 0,
+  total INTEGER NOT NULL DEFAULT 0,
+  study_mode TEXT NOT NULL DEFAULT 'flashcard', -- 'flashcard' | 'quickfire'
+  duration_secs INTEGER,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.study_sessions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users read own study sessions"
+ON public.study_sessions FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users insert own study sessions"
+ON public.study_sessions FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+-- ─── Profiles: add gamification columns ───────────────────────────────────────
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS total_xp INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS study_streak INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS longest_streak INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS last_study_date DATE;
+
+CREATE OR REPLACE FUNCTION update_study_streak(user_uuid UUID)
+RETURNS VOID AS $$
+DECLARE
+  last_date DATE;
+  new_streak INTEGER;
+BEGIN
+  SELECT last_study_date INTO last_date FROM profiles WHERE id = user_uuid;
+
+  IF last_date IS NULL THEN
+    new_streak := 1;
+  ELSIF last_date = CURRENT_DATE THEN
+    -- same day, no change
+    RETURN;
+  ELSIF last_date = CURRENT_DATE - INTERVAL '1 day' THEN
+    -- consecutive day
+    new_streak := COALESCE((SELECT study_streak FROM profiles WHERE id = user_uuid), 0) + 1;
+  ELSE
+    -- streak broken
+    new_streak := 1;
+  END IF;
+
+  UPDATE profiles
+  SET
+    study_streak = new_streak,
+    longest_streak = GREATEST(longest_streak, new_streak),
+    last_study_date = CURRENT_DATE
+  WHERE id = user_uuid;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION increment_xp(user_uuid UUID, xp_amount INTEGER)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE profiles
+  SET total_xp = total_xp + xp_amount
+  WHERE id = user_uuid;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

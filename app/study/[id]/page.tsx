@@ -177,23 +177,51 @@ export default function StudyPage() {
 
     setSaving(true);
     const mastery = Math.round((result.correct / Math.max(result.total, 1)) * 100);
-    const { error } = await supabase.from("study_progress").upsert(
-      {
+    const now = new Date().toISOString();
+
+    // ── XP calculation ─────────────────────────────────────────────────────────
+    // flashcard: 25 XP/correct + 50 completion bonus + 100 perfect bonus
+    // quickfire: 45 XP/correct (25+20) + same bonuses
+    const xpPerCorrect = mode === "quickfire" ? 45 : 25;
+    const completionBonus = result.correct === result.total && result.total > 0 ? 50 : 0;
+    const perfectBonus = result.correct === result.total && result.total > 0 ? 100 : 0;
+    const sessionXp = result.correct * xpPerCorrect + completionBonus + perfectBonus;
+    // ──────────────────────────────────────────────────────────────────────────
+
+    const [progressError, sessionError, xpError, streakError] = await Promise.all([
+      supabase.from("study_progress").upsert(
+        {
+          user_id: user.id,
+          quiz_id: quiz.id,
+          questions_studied: result.total,
+          correct: result.correct,
+          mastery,
+          last_studied: now,
+        },
+        { onConflict: "user_id,quiz_id" }
+      ),
+      supabase.from("study_sessions").insert({
         user_id: user.id,
         quiz_id: quiz.id,
-        questions_studied: result.total,
+        xp_earned: sessionXp,
         correct: result.correct,
-        mastery,
-        last_studied: new Date().toISOString(),
-      },
-      { onConflict: "user_id,quiz_id" }
-    );
+        total: result.total,
+        study_mode: mode,
+        duration_secs: null,
+        created_at: now,
+      }),
+      supabase.rpc("update_study_streak", { user_uuid: user.id }),
+      sessionXp > 0
+        ? supabase.rpc("increment_xp", { user_uuid: user.id, xp_amount: sessionXp })
+        : Promise.resolve({ error: null }),
+    ]);
 
-    if (error) {
-      console.error("Error saving study progress:", error);
+    if (progressError || sessionError) {
+      console.error("Error saving study progress:", progressError ?? sessionError);
       setSaveMessage("Could not save progress this time.");
     } else {
-      setSaveMessage("Progress saved.");
+      const xpLabel = sessionXp > 0 ? ` +${sessionXp} XP earned` : "";
+      setSaveMessage(`Progress saved.${xpLabel}`);
     }
     setSaving(false);
   };
@@ -249,24 +277,42 @@ export default function StudyPage() {
 
   if (sessionResult) {
     const pct = Math.round((sessionResult.correct / Math.max(sessionResult.total, 1)) * 100);
+    const xpPerCorrect = mode === "quickfire" ? 45 : 25;
+    const completionBonus = sessionResult.correct === sessionResult.total && sessionResult.total > 0 ? 50 : 0;
+    const perfectBonus = sessionResult.correct === sessionResult.total && sessionResult.total > 0 ? 100 : 0;
+    const sessionXp = sessionResult.correct * xpPerCorrect + completionBonus + perfectBonus;
+
     return (
       <div className="container" style={{ paddingTop: "4rem", textAlign: "center", maxWidth: 500 }}>
         <div className="card" style={{ padding: "3rem" }}>
-          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🎉</div>
+          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>{pct === 100 ? "🏆" : pct >= 70 ? "🎉" : "💪"}</div>
           <h2 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "1rem" }}>Session Complete</h2>
           <div style={{ fontSize: "3rem", fontWeight: 900, color: pct >= 70 ? "var(--success)" : "var(--primary)", marginBottom: "1rem" }}>{pct}%</div>
-          <p style={{ color: "var(--muted)", marginBottom: "0.75rem" }}>
+          <p style={{ color: "var(--muted)", marginBottom: "0.5rem" }}>
             {sessionResult.correct} out of {sessionResult.total} correct
           </p>
-          <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
+          {sessionXp > 0 && (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", borderRadius: 999, background: "#f5f3ff", marginBottom: "0.5rem" }}>
+              <span style={{ fontSize: "1.1rem" }}>⭐</span>
+              <span style={{ fontWeight: 800, color: "#8b5cf6" }}>+{sessionXp} XP earned</span>
+            </div>
+          )}
+          {pct === 100 && (
+            <div style={{ fontSize: "0.85rem", color: "var(--success)", fontWeight: 700, marginBottom: "0.75rem" }}>
+              Perfect score! +100 bonus XP ⚡
+            </div>
+          )}
+          <p style={{ color: "var(--muted)", marginBottom: "2rem", fontSize: "0.875rem" }}>
             {saving ? "Saving progress..." : saveMessage}
           </p>
-          <button onClick={resetSession} className="btn btn-primary" style={{ marginRight: "1rem" }}>
-            Study Again
-          </button>
-          <button onClick={() => router.push("/study")} className="btn btn-secondary">
-            Back to Study
-          </button>
+          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
+            <button onClick={resetSession} className="btn btn-primary">
+              Study Again
+            </button>
+            <button onClick={() => router.push("/study")} className="btn btn-secondary">
+              Back to Study
+            </button>
+          </div>
         </div>
       </div>
     );
