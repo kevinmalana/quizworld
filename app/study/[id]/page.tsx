@@ -188,7 +188,9 @@ export default function StudyPage() {
     const sessionXp = result.correct * xpPerCorrect + completionBonus + perfectBonus;
     // ──────────────────────────────────────────────────────────────────────────
 
-    const [progressError, sessionError, xpError, streakError] = await Promise.all([
+    // Call update_study_streak always (a session with 0 XP still counts for streak).
+    // Call increment_xp only when there's XP to award.
+    const [progressError, sessionError, streakResult, xpResult] = await Promise.all([
       supabase.from("study_progress").upsert(
         {
           user_id: user.id,
