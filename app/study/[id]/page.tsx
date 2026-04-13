@@ -118,6 +118,7 @@ export default function StudyPage() {
   const [saveMessage, setSaveMessage] = useState("");
   const [quickFireTimeLeft, setQuickFireTimeLeft] = useState(0);
   const [advancing, setAdvancing] = useState(false);
+  const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
 
   useEffect(() => {
     async function fetchQuiz() {
@@ -250,6 +251,7 @@ export default function StudyPage() {
   const recordAnswer = async (correct: boolean) => {
     if (advancing) return;
 
+    setLastAnswerCorrect(correct);
     const nextCorrect = correctCount + (correct ? 1 : 0);
     const nextTotal = answeredCount + 1;
     setCorrectCount(nextCorrect);
@@ -267,6 +269,7 @@ export default function StudyPage() {
     setAdvancing(false);
     setQuickFireTimeLeft(0);
     setMode("choose");
+    setLastAnswerCorrect(null);
   };
 
   if (loading) {
@@ -354,7 +357,12 @@ export default function StudyPage() {
           <button onClick={() => setMode("choose")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
             ← Exit
           </button>
-          <div style={{ fontWeight: 700 }}>{currentIndex + 1} / {quiz.questions?.length}</div>
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+            <div style={{ fontWeight: 700, color: "var(--success)", fontSize: "0.9rem" }}>
+              ✅ {correctCount} / {answeredCount}
+            </div>
+            <div style={{ fontWeight: 700 }}>{currentIndex + 1} / {quiz.questions?.length}</div>
+          </div>
         </div>
 
         <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
@@ -373,6 +381,11 @@ export default function StudyPage() {
           >
             {quickFireTimeLeft}
           </div>
+          {lastAnswerCorrect !== null && !advancing && (
+            <div style={{ marginTop: "0.75rem", fontSize: "1rem", fontWeight: 800, color: lastAnswerCorrect ? "var(--success)" : "#ef4444" }}>
+              {lastAnswerCorrect ? "✅ Correct!" : "❌ Wrong!"}
+            </div>
+          )}
         </div>
 
         <div className="card" style={{ padding: "2rem", maxWidth: 680, margin: "0 auto 2rem", textAlign: "center" }}>
