@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { Suspense, useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/components/supabase-provider";
 import { PageHero } from "@/components/page-hero";
 import { SectionCard } from "@/components/section-card";
 
@@ -109,7 +110,9 @@ function QuizCard({ q }: { q: QuizWithCreator }) {
 }
 
 function ExplorePageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const categoryParam = searchParams.get("category");
   const [quizzes, setQuizzes] = useState<QuizWithCreator[]>([]);
   const [search, setSearch] = useState("");
@@ -119,6 +122,8 @@ function ExplorePageContent() {
   const [sortMode, setSortMode] = useState<SortMode>("popular");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [quickPlayLoading, setQuickPlayLoading] = useState(false);
+  const [quickPlayError, setQuickPlayError] = useState<string | null>(null);
 
   useEffect(() => {
     if (categoryParam && CATEGORY_LIST.includes(categoryParam)) {
@@ -172,6 +177,98 @@ function ExplorePageContent() {
 
     fetchQuizzes();
   }, []);
+
+  // ── Quick Play ─────────────────────────────────────────────────────────────
+  async function handleQuickPlay() {
+    if (!user) {
+      sessionStorage.setItem("qw_post_login_redirect", "/host");
+      router.push("/login");
+      return;
+    }
+
+    if (quizzes.length === 0) {
+      setQuickPlayError("No public quizzes available to play right now.");
+      return;
+    }
+
+    setQuickPlayLoading(true);
+    setQuickPlayError(null);
+
+    try {
+      // Pick a random quiz weighted toward more-played ones
+      const weights = quizzes.map((q) => Math.max(1, Math.floor(Math.log(q.plays + 1) * 2)));
+      const totalWeight = weights.reduce((a, b) => a + b, 0);
+      let r = Math.floor(Math.random() * totalWeight);
+      let quizIndex = 0;
+      for (let i = 0; i < weights.length; i++) {
+        r -= weights[i];
+        if (r < 0) { quizIndex = i; break; }
+      }
+      const randomQuiz = quizzes[quizIndex];
+
+      // Load full quiz with questions via Supabase
+      const { data: fullQuiz, error: quizError } = await supabase
+        .from("quizzes")
+        .select("*, questions(*, answers(*))")
+        .eq("id", randomQuiz.id)
+        .single();
+
+      if (quizError || !fullQuiz) {
+        throw quizError ?? new Error("Could not load the selected quiz.");
+      }
+
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+
+      if (!authSession?.access_token) {
+        throw new Error("Sign in again before hosting a game.");
+      }
+
+      // Use the Phoenix game engine client (same as host/page.tsx)
+      const { createPhoenixSession } = await import("@/lib/game-engine/client");
+
+      const questions = [...(fullQuiz.questions ?? [])].sort(
+        (l, r) => (l.order_index ?? 0) - (r.order_index ?? 0)
+      );
+
+      const response = await createPhoenixSession(
+        {
+          quiz_id: fullQuiz.id,
+          game_mode: "classic",
+          questions: questions.map((q: any) => ({
+            id: q.id,
+            text: q.text,
+            time_limit: q.time_limit ?? 20,
+            points: q.points ?? 1000,
+            order_index: q.order_index ?? 0,
+            answers: (q.answers ?? []).map((a: any) => ({
+              id: a.id,
+              text: a.text,
+              is_correct: a.is_correct ?? false,
+            })),
+          })),
+        },
+        authSession.access_token
+      );
+
+      if (!response?.host_token || !response?.session?.pin) {
+        throw new Error("Failed to create the game session.");
+      }
+
+      const { writeHostSession } = await import("@/lib/host-session");
+      writeHostSession(response.session.pin, {
+        hostId: user.id,
+        hostToken: response.host_token,
+      });
+
+      router.push(`/game/${response.session.pin}`);
+    } catch (err) {
+      console.error("Quick Play error:", err);
+      setQuickPlayError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+      setQuickPlayLoading(false);
+    }
+  }
 
   const hasActiveFilter = activeCategory !== "All" || search.trim().length > 0;
 
@@ -230,6 +327,25 @@ function ExplorePageContent() {
           accent={getTimeBasedAccent()}
           actions={
             <>
+              <button
+                onClick={() => void handleQuickPlay()}
+                disabled={quickPlayLoading || loading}
+                className="btn btn-primary"
+                style={{
+                  background: quickPlayLoading
+                    ? "rgba(255,255,255,0.5)"
+                    : "linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)",
+                  border: "1px solid rgba(255,255,255,0.22)",
+                  boxShadow: "0 4px 14px rgba(124,58,237,0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  cursor: quickPlayLoading || loading ? "not-allowed" : "pointer",
+                }}
+              >
+                <span style={{ fontSize: "1.1rem" }}>⚡</span>
+                <span>{quickPlayLoading ? "Finding Quiz..." : "Quick Play"}</span>
+              </button>
               <Link href="/create" className="btn btn-primary" style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.22)" }}>
                 Create Quiz
               </Link>
@@ -239,6 +355,31 @@ function ExplorePageContent() {
             </>
           }
         />
+
+        {/* ── Quick Play error ── */}
+        {quickPlayError && (
+          <div
+            className="card"
+            style={{
+              padding: "0.875rem 1.1rem",
+              marginBottom: "1rem",
+              border: "1px solid var(--line)",
+              background: "var(--primary-light)",
+              color: "var(--primary)",
+              fontWeight: 600,
+              fontSize: "0.9rem",
+              borderRadius: "var(--radius-xl)",
+            }}
+          >
+            {quickPlayError}
+            <button
+              onClick={() => setQuickPlayError(null)}
+              style={{ float: "right", background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontWeight: 800, padding: "0 0.25rem" }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* ── Search & Filter ── */}
         <SectionCard
