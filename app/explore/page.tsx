@@ -37,6 +37,55 @@ function getTimeBasedAccent() {
 
 type QuizWithCreator = Quiz & { creator_name?: string };
 
+function ShareButton({ quizId, quizTitle }: { quizId: string; quizTitle: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleShare(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}/study/${quizId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for browsers without clipboard API
+      const textarea = document.createElement("textarea");
+      textarea.value = url;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleShare}
+      title={`Share "${quizTitle}"`}
+      style={{
+        background: copied ? "var(--success-light)" : "var(--bg)",
+        border: `1px solid ${copied ? "var(--success)" : "var(--line)"}`,
+        borderRadius: "var(--radius-lg)",
+        color: copied ? "var(--success)" : "var(--muted)",
+        cursor: "pointer",
+        padding: "0.6rem 0.75rem",
+        fontSize: "0.875rem",
+        fontWeight: 700,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.3rem",
+        transition: "all 0.15s ease",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {copied ? "✓ Copied" : "Share"}
+    </button>
+  );
+}
+
 function QuizCard({ q }: { q: QuizWithCreator }) {
   const creatorLabel = q.creator_name
     ? `by ${q.creator_name.length > 32 ? q.creator_name.slice(0, 32) + "…" : q.creator_name}`
@@ -104,6 +153,7 @@ function QuizCard({ q }: { q: QuizWithCreator }) {
         >
           Study
         </Link>
+        <ShareButton quizId={q.id} quizTitle={q.title} />
       </div>
     </div>
   );

@@ -2,6 +2,54 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+
+function ShareButton({ quizId, quizTitle }: { quizId: string; quizTitle: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleShare(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}/study/${quizId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = url;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleShare}
+      title={`Share "${quizTitle}"`}
+      style={{
+        background: copied ? "var(--success-light)" : "var(--bg)",
+        border: `1px solid ${copied ? "var(--success)" : "var(--line)"}`,
+        borderRadius: "var(--radius-lg)",
+        color: copied ? "var(--success)" : "var(--muted)",
+        cursor: "pointer",
+        padding: "0.5rem 0.75rem",
+        fontSize: "0.8rem",
+        fontWeight: 700,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.3rem",
+        transition: "all 0.15s ease",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {copied ? "✓ Copied" : "Share"}
+    </button>
+  );
+}
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { CATEGORY_EMOJIS } from "@/lib/store";
@@ -510,6 +558,7 @@ export default function StudyListPage() {
                       <Link href={`/study/${quiz.id}`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }} onClick={(e) => e.stopPropagation()}>
                         Study Again
                       </Link>
+                      <ShareButton quizId={quiz.id} quizTitle={quiz.title} />
                     </div>
                     {quizProgress?.last_studied && (
                       <div style={{ fontSize: "0.7rem", color: "var(--muted)", marginTop: "0.5rem", textAlign: "right", position: "relative" }}>
@@ -577,9 +626,12 @@ export default function StudyListPage() {
                       <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{questionCount} questions · {quiz.category}</div>
                     </div>
                   </div>
-                  <button className="btn btn-primary" style={{ width: "100%" }}>
-                    Study Now
-                  </button>
+                  <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+                    <button className="btn btn-primary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+                      Study Now
+                    </button>
+                    <ShareButton quizId={quiz.id} quizTitle={quiz.title} />
+                  </div>
                 </Link>
               );
             })}
