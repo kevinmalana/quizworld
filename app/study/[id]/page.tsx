@@ -453,6 +453,24 @@ export default function StudyPage() {
           total={quiz.questions.length}
         />
       )}
+
+      {/* Score display for flashcard mode */}
+      <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
+        <div style={{ display: "inline-flex", gap: "0.75rem", alignItems: "center" }}>
+          <div style={{ fontWeight: 700, color: "var(--success)", fontSize: "0.9rem" }}>
+            ✅ {correctCount}
+          </div>
+          <div style={{ color: "var(--line-strong)", fontWeight: 700 }}>/</div>
+          <div style={{ fontWeight: 700, color: "#ef4444", fontSize: "0.9rem" }}>
+            ❌ {answeredCount - correctCount}
+          </div>
+        </div>
+        {lastAnswerCorrect !== null && !advancing && (
+          <div style={{ marginTop: "0.75rem", fontSize: "1rem", fontWeight: 800, color: lastAnswerCorrect ? "var(--success)" : "#ef4444" }}>
+            {lastAnswerCorrect ? "✅ Correct!" : "❌ Wrong!"}
+          </div>
+        )}
+      </div>
     </div>
   );
-}
+};
