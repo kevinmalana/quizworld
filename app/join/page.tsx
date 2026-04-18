@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { writePlayerSession } from "@/lib/player-session";
 import { fetchPhoenixSession, joinPhoenixSession } from "@/lib/game-engine/client";
+import { GAME_PIN_LENGTH, getGamePinDigits, isCompleteGamePin, sanitizeGamePinInput } from "@/lib/game-pin";
 import {
   isPhoenixGameEngine,
   legacySupabaseGameEngine,
@@ -21,18 +22,16 @@ type JoinGameResponse = {
 function JoinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialPin = searchParams.get("pin") ?? "";
+  const initialPin = sanitizeGamePinInput(searchParams.get("pin") ?? "");
 
   const [step, setStep] = useState<"pin" | "nickname">("pin");
-  const [pin, setPin] = useState(initialPin.toUpperCase());
+  const [pin, setPin] = useState(initialPin);
   const [nickname, setNickname] = useState("");
   const [avatar, setAvatar] = useState(AVATARS[0]);
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
 
-  const [digits, setDigits] = useState<string[]>(
-    initialPin ? initialPin.toUpperCase().split("").slice(0, 6).concat(Array(6).fill("")).slice(0, 6) : Array(6).fill("")
-  );
+  const [digits, setDigits] = useState<string[]>(getGamePinDigits(initialPin));
   const digitRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   if (liveGameEngineMisconfigured) {
@@ -68,11 +67,12 @@ function JoinForm() {
   }
 
   const handleDigitChange = (idx: number, val: string) => {
-    const char = val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(-1);
+    const sanitizedValue = sanitizeGamePinInput(val);
+    const char = sanitizedValue ? sanitizedValue.at(-1) ?? "" : "";
     const newDigits = [...digits];
     newDigits[idx] = char;
     setDigits(newDigits);
-    if (char && idx < 5) {
+    if (char && idx < GAME_PIN_LENGTH - 1) {
       digitRefs.current[idx + 1]?.focus();
     }
     setPin(newDigits.join(""));
@@ -83,12 +83,12 @@ function JoinForm() {
     if (e.key === "Backspace" && !digits[idx] && idx > 0) {
       digitRefs.current[idx - 1]?.focus();
     }
-    if (e.key === "Enter" && digits.join("").length === 6) handlePinSubmit();
+    if (e.key === "Enter" && isCompleteGamePin(digits.join(""))) handlePinSubmit();
   };
 
   const handlePinSubmit = async () => {
-    const p = digits.join("").toUpperCase();
-    if (p.length !== 6) { setError("Enter the full 6-character PIN"); return; }
+    const p = sanitizeGamePinInput(digits.join(""));
+    if (!isCompleteGamePin(p)) { setError(`Enter the full ${GAME_PIN_LENGTH}-character PIN`); return; }
     
     setError("");
     setJoining(true);
@@ -268,7 +268,7 @@ function JoinForm() {
           Join a Game
         </h2>
         <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
-          Enter the 6-character PIN
+          Enter the {GAME_PIN_LENGTH}-character PIN
         </p>
 
         <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center", marginBottom: "1.5rem" }}>
@@ -311,7 +311,7 @@ function JoinForm() {
 
           <button 
             onClick={handlePinSubmit}
-            disabled={joining || digits.join("").length !== 6}
+            disabled={joining || !isCompleteGamePin(digits.join(""))}
             className="btn btn-primary btn-lg"
             style={{ width: "100%" }}
           >

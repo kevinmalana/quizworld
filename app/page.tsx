@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CATEGORY_EMOJIS } from "@/lib/store";
+import { GAME_PIN_LENGTH, isCompleteGamePin, sanitizeGamePinInput } from "@/lib/game-pin";
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   "Art & Literature": "Books, art & culture",
@@ -33,11 +35,14 @@ const categories = [
 
 
 export default function HomePage() {
+  const router = useRouter();
   const [pin, setPin] = useState("");
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin.trim()) window.location.href = `/join?pin=${pin}`;
+    const sanitizedPin = sanitizeGamePinInput(pin);
+    if (!isCompleteGamePin(sanitizedPin)) return;
+    router.push(`/join?pin=${sanitizedPin}`);
   };
 
   return (
@@ -124,24 +129,29 @@ export default function HomePage() {
                     Ready to play?
                   </h2>
                   <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: "1.5rem" }}>
-                    Enter a game PIN to join instantly
+                    Enter the {GAME_PIN_LENGTH}-character game PIN to join instantly
                   </p>
                   <form onSubmit={handleJoin}>
                     <input
                       type="text"
-                      placeholder="Game PIN"
+                      inputMode="text"
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      placeholder="ABC123"
+                      aria-label="6-character game PIN"
                       className="input-pin"
                       value={pin}
-                      onChange={(e) => setPin(e.target.value.toUpperCase())}
-                      maxLength={8}
+                      onChange={(e) => setPin(sanitizeGamePinInput(e.target.value))}
+                      maxLength={GAME_PIN_LENGTH}
                       style={{ marginBottom: "1rem" }}
                     />
-                    <button type="submit" className="btn btn-accent btn-lg" style={{ width: "100%" }}>
+                    <button type="submit" className="btn btn-accent btn-lg" style={{ width: "100%" }} disabled={!isCompleteGamePin(pin)}>
                       Enter Game
                     </button>
                   </form>
                   <p style={{ marginTop: "1rem", fontSize: "0.75rem", color: "var(--faint)", fontWeight: 600 }}>
-                    No account needed
+                    No account needed · PINs are 6 letters/numbers
                   </p>
                 </div>
               </div>
