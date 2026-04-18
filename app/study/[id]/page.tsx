@@ -8,6 +8,16 @@ import { useAuth } from "@/components/supabase-provider";
 type StudyMode = "choose" | "flashcard" | "quickfire";
 type CardState = "front" | "back";
 type SessionResult = { correct: number; total: number };
+type StudyQuestion = {
+  id: string;
+  text: string;
+  time_limit?: number | null;
+  answers: Array<{
+    id: string;
+    text: string;
+    is_correct: boolean;
+  }>;
+};
 
 const ANSWER_SURFACES = [
   { surface: "#fce7f3", border: "#ec4899", iconBg: "#ec4899" },
@@ -15,6 +25,15 @@ const ANSWER_SURFACES = [
   { surface: "#fef3c7", border: "#d97706", iconBg: "#d97706" },
   { surface: "#d1fae5", border: "#059669", iconBg: "#059669" },
 ];
+
+function shuffleQuestions<T>(questions: T[]) {
+  const cloned = [...questions];
+  for (let index = cloned.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [cloned[index], cloned[swapIndex]] = [cloned[swapIndex], cloned[index]];
+  }
+  return cloned;
+}
 
 function FlashCard({
   question,
@@ -109,6 +128,11 @@ export default function StudyPage() {
   const [quiz, setQuiz] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<StudyMode>("choose");
+  const [shuffleEnabled, setShuffleEnabled] = useState(false);
+  const [sessionScope, setSessionScope] = useState<"all" | "incorrect">("all");
+  const [activeQuestions, setActiveQuestions] = useState<StudyQuestion[]>([]);
+  const [retryQuestionIds, setRetryQuestionIds] = useState<string[]>([]);
+  const [incorrectQuestionIds, setIncorrectQuestionIds] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [cardState, setCardState] = useState<CardState>("front");
   const [correctCount, setCorrectCount] = useState(0);
@@ -134,6 +158,7 @@ export default function StudyPage() {
           (left, right) => (left.order_index ?? 0) - (right.order_index ?? 0)
         );
         setQuiz({ ...data, questions: sortedQuestions });
+        setActiveQuestions(sortedQuestions as StudyQuestion[]);
       } else {
         console.error("Error loading quiz:", error);
       }
@@ -143,7 +168,30 @@ export default function StudyPage() {
     fetchQuiz();
   }, [quizId]);
 
-  const currentQuestion = quiz?.questions?.[currentIndex] ?? null;
+  const currentQuestion = activeQuestions[currentIndex] ?? null;
+  const totalQuestions = activeQuestions.length || quiz?.questions?.length || 0;
+
+  function startSession(nextMode: Exclude<StudyMode, "choose">, scope: "all" | "incorrect" = "all") {
+    const baseQuestions = (quiz?.questions ?? []) as StudyQuestion[];
+    const scopedQuestions = scope === "incorrect"
+      ? baseQuestions.filter((question) => retryQuestionIds.includes(question.id))
+      : baseQuestions;
+
+    const orderedQuestions = shuffleEnabled ? shuffleQuestions(scopedQuestions) : [...scopedQuestions];
+    setActiveQuestions(orderedQuestions);
+    setSessionScope(scope);
+    setMode(nextMode);
+    setCurrentIndex(0);
+    setCardState("front");
+    setCorrectCount(0);
+    setAnsweredCount(0);
+    setSessionResult(null);
+    setSaveMessage("");
+    setAdvancing(false);
+    setQuickFireTimeLeft(0);
+    setLastAnswerCorrect(null);
+    setIncorrectQuestionIds([]);
+  }
 
   useEffect(() => {
     if (mode !== "quickfire" || !currentQuestion || sessionResult) return;
@@ -229,13 +277,14 @@ export default function StudyPage() {
     setSaving(false);
   };
 
-  const finishSession = async (result: SessionResult) => {
+  const finishSession = async (result: SessionResult, nextRetryQuestionIds: string[]) => {
+    setRetryQuestionIds(nextRetryQuestionIds);
     setSessionResult(result);
     await persistProgress(result);
   };
 
-  const advanceToNextQuestion = async (nextCorrect: number, nextTotal: number) => {
-    if (currentIndex < (quiz?.questions?.length || 0) - 1) {
+  const advanceToNextQuestion = async (nextCorrect: number, nextTotal: number, nextRetryQuestionIds: string[]) => {
+    if (currentIndex < totalQuestions - 1) {
       setAdvancing(true);
       window.setTimeout(() => {
         setCurrentIndex((index) => index + 1);
@@ -245,18 +294,23 @@ export default function StudyPage() {
       return;
     }
 
-    await finishSession({ correct: nextCorrect, total: nextTotal });
+    await finishSession({ correct: nextCorrect, total: nextTotal }, nextRetryQuestionIds);
   };
 
   const recordAnswer = async (correct: boolean) => {
-    if (advancing) return;
+    if (advancing || !currentQuestion) return;
 
     setLastAnswerCorrect(correct);
     const nextCorrect = correctCount + (correct ? 1 : 0);
     const nextTotal = answeredCount + 1;
+    const nextIncorrectQuestionIds = correct
+      ? incorrectQuestionIds
+      : Array.from(new Set([...incorrectQuestionIds, currentQuestion.id]));
+
     setCorrectCount(nextCorrect);
     setAnsweredCount(nextTotal);
-    await advanceToNextQuestion(nextCorrect, nextTotal);
+    setIncorrectQuestionIds(nextIncorrectQuestionIds);
+    await advanceToNextQuestion(nextCorrect, nextTotal, nextIncorrectQuestionIds);
   };
 
   const resetSession = () => {
@@ -269,6 +323,9 @@ export default function StudyPage() {
     setAdvancing(false);
     setQuickFireTimeLeft(0);
     setMode("choose");
+    setSessionScope("all");
+    setActiveQuestions((quiz?.questions ?? []) as StudyQuestion[]);
+    setIncorrectQuestionIds([]);
     setLastAnswerCorrect(null);
   };
 
@@ -286,6 +343,7 @@ export default function StudyPage() {
     const completionBonus = sessionResult.correct === sessionResult.total && sessionResult.total > 0 ? 50 : 0;
     const perfectBonus = sessionResult.correct === sessionResult.total && sessionResult.total > 0 ? 100 : 0;
     const sessionXp = sessionResult.correct * xpPerCorrect + completionBonus + perfectBonus;
+    const missedCount = retryQuestionIds.length;
 
     return (
       <div className="container" style={{ paddingTop: "4rem", textAlign: "center", maxWidth: 500 }}>
@@ -296,6 +354,16 @@ export default function StudyPage() {
           <p style={{ color: "var(--muted)", marginBottom: "0.5rem" }}>
             {sessionResult.correct} out of {sessionResult.total} correct
           </p>
+          <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+            <span className="tag">{mode === "quickfire" ? "⚡ Quick Fire" : "🃏 Flashcards"}</span>
+            <span className="tag">{shuffleEnabled ? "🔀 Shuffled" : "➡️ In order"}</span>
+            {sessionScope === "incorrect" && <span className="tag">🎯 Retry set</span>}
+          </div>
+          {missedCount > 0 && (
+            <div style={{ fontSize: "0.9rem", color: "var(--muted)", marginBottom: "0.5rem" }}>
+              {missedCount} missed question{missedCount === 1 ? "" : "s"} ready for a focused retry.
+            </div>
+          )}
           {sessionXp > 0 && (
             <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", borderRadius: 999, background: "#f5f3ff", marginBottom: "0.5rem" }}>
               <span style={{ fontSize: "1.1rem" }}>⭐</span>
@@ -314,6 +382,11 @@ export default function StudyPage() {
             <button onClick={resetSession} className="btn btn-primary">
               Study Again
             </button>
+            {missedCount > 0 && (
+              <button onClick={() => startSession(mode as Exclude<StudyMode, "choose">, "incorrect")} className="btn btn-secondary">
+                Retry Missed ({missedCount})
+              </button>
+            )}
             <button onClick={() => router.push("/study")} className="btn btn-secondary">
               Back to Study
             </button>
@@ -324,6 +397,8 @@ export default function StudyPage() {
   }
 
   if (mode === "choose") {
+    const hasRetrySet = retryQuestionIds.length > 0;
+
     return (
       <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem" }}>
         <button onClick={() => router.push("/study")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", marginBottom: "2rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -331,20 +406,52 @@ export default function StudyPage() {
         </button>
 
         <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.5rem" }}>{quiz.title}</h1>
-        <p style={{ color: "var(--muted)", marginBottom: "3rem" }}>{quiz.questions?.length || 0} questions</p>
+        <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>{quiz.questions?.length || 0} questions</p>
+
+        <div className="card" style={{ padding: "1.25rem", maxWidth: 520, marginBottom: "1rem", border: "1px solid var(--line)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontWeight: 800, marginBottom: "0.2rem" }}>Session options</div>
+              <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                Shuffle question order for a fresher study run.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShuffleEnabled((value) => !value)}
+              className="btn btn-secondary"
+              style={{ minWidth: 148 }}
+            >
+              {shuffleEnabled ? "🔀 Shuffle On" : "➡️ In Order"}
+            </button>
+          </div>
+          {hasRetrySet && (
+            <div style={{ marginTop: "0.9rem", fontSize: "0.875rem", color: "var(--muted)" }}>
+              You still have {retryQuestionIds.length} missed question{retryQuestionIds.length === 1 ? "" : "s"} from your last run.
+            </div>
+          )}
+        </div>
 
         <div style={{ display: "grid", gap: "1rem", maxWidth: 520 }}>
-          <button onClick={() => setMode("flashcard")} className="card card-hover" style={{ padding: "2rem", textAlign: "left", cursor: "pointer", border: "2px solid var(--line)" }}>
+          <button onClick={() => startSession("flashcard")} className="card card-hover" style={{ padding: "2rem", textAlign: "left", cursor: "pointer", border: "2px solid var(--line)" }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🃏</div>
             <div style={{ fontWeight: 700, fontSize: "1.25rem" }}>Flashcards</div>
             <div style={{ color: "var(--muted)" }}>Reveal each prompt and answer at your own pace.</div>
           </button>
 
-          <button onClick={() => setMode("quickfire")} className="card card-hover" style={{ padding: "2rem", textAlign: "left", cursor: "pointer", border: "2px solid var(--line)" }}>
+          <button onClick={() => startSession("quickfire")} className="card card-hover" style={{ padding: "2rem", textAlign: "left", cursor: "pointer", border: "2px solid var(--line)" }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>⚡</div>
             <div style={{ fontWeight: 700, fontSize: "1.25rem" }}>Quick Fire</div>
             <div style={{ color: "var(--muted)" }}>Answer against the clock using each question's timer.</div>
           </button>
+
+          {hasRetrySet && (
+            <button onClick={() => startSession("flashcard", "incorrect")} className="card card-hover" style={{ padding: "1.5rem 2rem", textAlign: "left", cursor: "pointer", border: "2px dashed var(--line-strong)", background: "linear-gradient(180deg, var(--surface), var(--bg-subtle))" }}>
+              <div style={{ fontSize: "1.5rem", marginBottom: "0.35rem" }}>🎯</div>
+              <div style={{ fontWeight: 700, fontSize: "1.1rem" }}>Retry Missed Questions</div>
+              <div style={{ color: "var(--muted)" }}>Rebuild confidence on the {retryQuestionIds.length} question{retryQuestionIds.length === 1 ? "" : "s"} you missed last time.</div>
+            </button>
+          )}
         </div>
       </div>
     );
@@ -361,7 +468,7 @@ export default function StudyPage() {
             <div style={{ fontWeight: 700, color: "var(--success)", fontSize: "0.9rem" }}>
               ✅ {correctCount} / {answeredCount}
             </div>
-            <div style={{ fontWeight: 700 }}>{currentIndex + 1} / {quiz.questions?.length}</div>
+            <div style={{ fontWeight: 700 }}>{currentIndex + 1} / {totalQuestions}</div>
           </div>
         </div>
 
@@ -440,7 +547,7 @@ export default function StudyPage() {
         <button onClick={() => setMode("choose")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
           ← Exit
         </button>
-        <div style={{ fontWeight: 700 }}>{currentIndex + 1} / {quiz.questions?.length}</div>
+        <div style={{ fontWeight: 700 }}>{currentIndex + 1} / {totalQuestions}</div>
       </div>
 
       {currentQuestion && (
@@ -450,7 +557,7 @@ export default function StudyPage() {
           onFlip={() => setCardState((state) => (state === "front" ? "back" : "front"))}
           onAnswer={(correct) => void recordAnswer(correct)}
           index={currentIndex}
-          total={quiz.questions.length}
+          total={totalQuestions}
         />
       )}
 
