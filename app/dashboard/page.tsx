@@ -103,11 +103,13 @@ function DashboardPageContent() {
           supabase
             .from("quiz_drafts")
             .select("id, quiz_id, title, category, emoji, color, is_public, source_type, updated_at")
+            .eq("owner_id", userId)
             .order("updated_at", { ascending: false })
             .limit(6),
           supabase
             .from("quiz_versions")
             .select("id, quiz_id, creator_id, version_number, title, category, emoji, color, is_public, snapshot, created_at")
+            .eq("creator_id", userId)
             .order("created_at", { ascending: false })
             .limit(8),
           supabase
