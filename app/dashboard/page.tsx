@@ -70,6 +70,7 @@ function DashboardPageContent() {
   const [gameResults, setGameResults] = useState<GameResultRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [actioningQuizId, setActioningQuizId] = useState<string | null>(null);
+  const [actioningDraftId, setActioningDraftId] = useState<string | null>(null);
   const [actioningVersionId, setActioningVersionId] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState("");
   const [actionError, setActionError] = useState("");
@@ -240,6 +241,35 @@ function DashboardPageContent() {
     );
     setActionNotice(isPublic ? "Quiz is now public." : "Quiz is now private.");
     setActioningQuizId(null);
+  }
+
+  async function deleteDraft(draftId: string) {
+    if (!user) return;
+    const confirmed = window.confirm(
+      "Delete this saved draft? This only removes the draft copy from your dashboard and cannot be undone."
+    );
+    if (!confirmed) return;
+
+    setActioningDraftId(draftId);
+    setActionError("");
+    setActionNotice("");
+
+    const { error } = await supabase
+      .from("quiz_drafts")
+      .delete()
+      .eq("id", draftId)
+      .eq("owner_id", user.id);
+
+    if (error) {
+      console.error("Error deleting quiz draft:", error);
+      setActionError("Could not delete the draft.");
+      setActioningDraftId(null);
+      return;
+    }
+
+    setDrafts((current) => current.filter((draft) => draft.id !== draftId));
+    setActionNotice("Draft deleted.");
+    setActioningDraftId(null);
   }
 
   async function restoreVersionToDraft(version: QuizVersionRow) {
@@ -429,7 +459,7 @@ function DashboardPageContent() {
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.5rem" }}>
                     <Link href={`/create?draft=${draft.id}`} className="btn btn-primary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
                       Continue
                     </Link>
@@ -442,6 +472,21 @@ function DashboardPageContent() {
                         Unpublished
                       </div>
                     )}
+                    <button
+                      onClick={() => void deleteDraft(draft.id)}
+                      disabled={actioningDraftId === draft.id}
+                      className="btn btn-secondary"
+                      style={{
+                        flex: 1,
+                        fontSize: "0.875rem",
+                        padding: "0.5rem",
+                        color: "var(--primary)",
+                        borderColor: "rgba(225, 29, 72, 0.18)",
+                        background: "var(--primary-light)",
+                      }}
+                    >
+                      {actioningDraftId === draft.id ? "Deleting..." : "Delete"}
+                    </button>
                   </div>
                 </div>
               ))}
