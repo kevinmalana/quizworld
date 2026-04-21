@@ -31,6 +31,15 @@ type QuizRow = {
   questions?: { count: number }[];
 };
 
+function matchesDashboardSearch(query: string, values: Array<string | null | undefined>) {
+  if (!query) return true;
+  return values.some((value) => value?.toLowerCase().includes(query));
+}
+
+function quizSwatchBackground(color: string | null | undefined, opacity = "15") {
+  return color ? `${color}${opacity}` : "var(--accent-light)";
+}
+
 function MetricCard({
   label,
   value,
@@ -72,6 +81,7 @@ function DashboardPageContent() {
   const [actioningQuizId, setActioningQuizId] = useState<string | null>(null);
   const [actioningDraftId, setActioningDraftId] = useState<string | null>(null);
   const [actioningVersionId, setActioningVersionId] = useState<string | null>(null);
+  const [libraryQuery, setLibraryQuery] = useState("");
   const [actionNotice, setActionNotice] = useState("");
   const [actionError, setActionError] = useState("");
   const createdQuizId = searchParams.get("created");
@@ -185,6 +195,24 @@ function DashboardPageContent() {
   const activeQuizzes = quizzes.filter((quiz) => !quiz.archived_at);
   const archivedQuizzes = quizzes.filter((quiz) => Boolean(quiz.archived_at));
   const totalQuizPlays = activeQuizzes.reduce((sum, quiz) => sum + (quiz.plays ?? 0), 0);
+  const normalizedLibraryQuery = libraryQuery.trim().toLowerCase();
+  const filteredDrafts = drafts.filter((draft) =>
+    matchesDashboardSearch(normalizedLibraryQuery, [draft.title, draft.category, draft.source_type])
+  );
+  const filteredVersions = versions.filter((version) =>
+    matchesDashboardSearch(normalizedLibraryQuery, [version.title, version.category, `v${version.version_number}`])
+  );
+  const filteredActiveQuizzes = activeQuizzes.filter((quiz) =>
+    matchesDashboardSearch(normalizedLibraryQuery, [quiz.title, quiz.emoji, quiz.is_public ? "public" : "private"])
+  );
+  const filteredArchivedQuizzes = archivedQuizzes.filter((quiz) =>
+    matchesDashboardSearch(normalizedLibraryQuery, [quiz.title, quiz.emoji, "archived"])
+  );
+  const filteredResultCount =
+    filteredDrafts.length +
+    filteredVersions.length +
+    filteredActiveQuizzes.length +
+    filteredArchivedQuizzes.length;
 
   async function updateArchiveState(quizId: string, archived: boolean) {
     if (!user) return;
@@ -432,7 +460,66 @@ function DashboardPageContent() {
           <MetricCard label="Quiz Plays" value={totalQuizPlays} tone="var(--primary)" />
         </div>
 
-        {drafts.length > 0 && (
+        <div
+          className="card"
+          style={{
+            padding: "1rem 1.25rem",
+            marginBottom: "1.5rem",
+            border: "1px solid var(--line)",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.9rem",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "0.55rem" }}>
+              Search your library
+            </div>
+            <input
+              type="search"
+              value={libraryQuery}
+              onChange={(event) => setLibraryQuery(event.target.value)}
+              placeholder="Search quizzes, drafts, versions, categories…"
+              className="input"
+              style={{ width: "100%" }}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.35rem" }}>
+            <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--ink)" }}>
+              {normalizedLibraryQuery ? `${filteredResultCount} match${filteredResultCount === 1 ? "" : "es"}` : "Search all creator content"}
+            </div>
+            {normalizedLibraryQuery ? (
+              <button
+                onClick={() => setLibraryQuery("")}
+                className="btn btn-secondary"
+                style={{ padding: "0.45rem 0.75rem", fontSize: "0.875rem" }}
+              >
+                Clear search
+              </button>
+            ) : (
+              <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+                Try “science”, “private”, or “v3”.
+              </span>
+            )}
+          </div>
+        </div>
+
+        {normalizedLibraryQuery && filteredResultCount === 0 && (
+          <div className="card" style={{ padding: "2rem", marginBottom: "1.5rem", border: "1px dashed var(--line-strong)", textAlign: "center" }}>
+            <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>🔎</div>
+            <h3 style={{ fontWeight: 800, marginBottom: "0.5rem" }}>No library matches</h3>
+            <p style={{ color: "var(--muted)", marginBottom: "1rem" }}>
+              Nothing matched “{libraryQuery.trim()}”. Try a quiz title, category, source type, or version number.
+            </p>
+            <button onClick={() => setLibraryQuery("")} className="btn btn-primary">
+              Reset Search
+            </button>
+          </div>
+        )}
+
+        {filteredDrafts.length > 0 && (
           <SectionCard
             title="Saved Drafts"
             description="Continue editing drafts saved to your account or jump back into live hosting for already published work."
@@ -444,7 +531,7 @@ function DashboardPageContent() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
-              {drafts.map((draft) => (
+              {filteredDrafts.map((draft) => (
                 <div key={draft.id} className="card" style={{ padding: "1.5rem", border: "1px solid var(--line)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
                     <div style={{ width: 48, height: 48, borderRadius: 12, background: `${draft.color ?? "var(--accent)"}15`, display: "grid", placeItems: "center", fontSize: "1.5rem" }}>
@@ -494,14 +581,14 @@ function DashboardPageContent() {
           </SectionCard>
         )}
 
-        {versions.length > 0 && (
-          <div style={{ marginTop: drafts.length > 0 ? "1.5rem" : 0, marginBottom: "2rem" }}>
+        {filteredVersions.length > 0 && (
+          <div style={{ marginTop: filteredDrafts.length > 0 ? "1.5rem" : 0, marginBottom: "2rem" }}>
             <SectionCard
               title="Recent Versions"
               description="Each republish writes a version snapshot. Use these entries to reopen an earlier snapshot in the builder."
             >
               <div style={{ display: "grid", gap: "0.75rem" }}>
-                {versions.map((version) => (
+                {filteredVersions.map((version) => (
                   <div
                     key={version.id}
                     className="card"
@@ -554,23 +641,23 @@ function DashboardPageContent() {
         )}
 
         {/* Quizzes Grid */}
-        {activeQuizzes.length === 0 ? (
+        {filteredActiveQuizzes.length === 0 && !normalizedLibraryQuery ? (
           <div className="card" style={{ padding: "3rem", textAlign: "center", border: "2px dashed var(--line)" }}>
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📭</div>
             <h3 style={{ fontWeight: 700, marginBottom: "0.5rem" }}>No quizzes yet</h3>
             <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>Create your first quiz to get started</p>
             <Link href="/create" className="btn btn-primary">Create Quiz</Link>
           </div>
-        ) : (
+        ) : filteredActiveQuizzes.length > 0 ? (
           <SectionCard
             title="Published Quizzes"
             description="Jump between host, edit, and study flows without leaving the same dashboard surface."
           >
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
-              {activeQuizzes.map((q) => (
+              {filteredActiveQuizzes.map((q) => (
                 <div key={q.id} className="card card-hover" style={{ padding: "1.5rem", border: "1px solid var(--line)", background: "linear-gradient(180deg, var(--surface), var(--bg-subtle))" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-                    <div style={{ width: 52, height: 52, borderRadius: 16, background: `${q.color}15`, display: "grid", placeItems: "center", fontSize: "1.5rem" }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 16, background: quizSwatchBackground(q.color), display: "grid", placeItems: "center", fontSize: "1.5rem" }}>
                       {q.emoji || "📝"}
                     </div>
                     <div style={{ flex: 1 }}>
@@ -631,19 +718,19 @@ function DashboardPageContent() {
               ))}
             </div>
           </SectionCard>
-        )}
+        ) : null}
 
-        {archivedQuizzes.length > 0 && (
+        {filteredArchivedQuizzes.length > 0 && (
           <div style={{ marginTop: "1.5rem" }}>
             <SectionCard
               title="Archived Quizzes"
               description="Archived quizzes are hidden from discovery and hosting lists until restored."
             >
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
-                {archivedQuizzes.map((q) => (
+                {filteredArchivedQuizzes.map((q) => (
                   <div key={q.id} className="card" style={{ padding: "1.5rem", border: "1px dashed var(--line-strong)", background: "var(--surface)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-                      <div style={{ width: 52, height: 52, borderRadius: 16, background: `${q.color}12`, display: "grid", placeItems: "center", fontSize: "1.5rem", opacity: 0.7 }}>
+                      <div style={{ width: 52, height: 52, borderRadius: 16, background: quizSwatchBackground(q.color, "12"), display: "grid", placeItems: "center", fontSize: "1.5rem", opacity: 0.7 }}>
                         {q.emoji || "📝"}
                       </div>
                       <div style={{ flex: 1 }}>
