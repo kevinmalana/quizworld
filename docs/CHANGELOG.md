@@ -9,6 +9,7 @@
 - Preview toggle is now available on small screens.
 - Timer and points controls are available in the main editor flow on small screens via Question Settings.
 - AI source drafts preserve their original source type when loaded into the builder.
+- Builder questions can now be reordered directly from the focused editor or the sidebar.
 - No database schema changes, no new migrations, no new API routes.
 - `npm run build` verified successfully with standard Supabase env vars present.
 

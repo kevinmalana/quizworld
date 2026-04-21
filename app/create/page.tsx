@@ -29,6 +29,11 @@ import {
   aiDraftToQuestions,
   type AIQuizDraft,
 } from "@/lib/quiz-ai";
+import {
+  getAdjacentMoveTarget,
+  moveItem,
+  type MoveDirection,
+} from "@/lib/quiz-builder";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -257,12 +262,13 @@ function AnswerCell({
 // ─── QuestionEditor (focused single-card view) ───────────────────────────────
 
 function QuestionEditor({
-  question, index, total, issues, onChange, onDelete, onDuplicate,
+  question, index, total, issues, onChange, onDelete, onDuplicate, onMove,
 }: {
   question: Question; index: number; total: number; issues: QuestionIssue[];
   onChange: (q: Question) => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  onMove: (direction: MoveDirection) => void;
 }) {
   const errorCount = issues.filter((i) => i.severity === "error").length;
   const warnCount = issues.length - errorCount;
@@ -314,11 +320,27 @@ function QuestionEditor({
         </div>
         <div className="flex items-center gap-1">
           <button
+            type="button"
+            onClick={() => onMove("up")}
+            disabled={index === 0}
+            title="Move up"
+            className="w-8 h-8 rounded-lg hover:bg-[#f1f5f9] text-[var(--muted)] text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >↑</button>
+          <button
+            type="button"
+            onClick={() => onMove("down")}
+            disabled={index >= total - 1}
+            title="Move down"
+            className="w-8 h-8 rounded-lg hover:bg-[#f1f5f9] text-[var(--muted)] text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >↓</button>
+          <button
+            type="button"
             onClick={onDuplicate}
             title="Duplicate"
             className="w-8 h-8 rounded-lg hover:bg-[#f1f5f9] text-[var(--muted)] text-sm transition-colors"
           >⧉</button>
           <button
+            type="button"
             onClick={onDelete}
             title="Delete"
             className="w-8 h-8 rounded-lg hover:bg-red-50 text-red-400 text-sm transition-colors"
@@ -367,10 +389,11 @@ function QuestionEditor({
 // ─── SidebarItem ─────────────────────────────────────────────────────────────
 
 function SidebarItem({
-  question, index, isActive, issueCount, isComplete, onClick,
+  question, index, total, isActive, issueCount, isComplete, onClick, onMove,
 }: {
-  question: Question; index: number; isActive: boolean;
+  question: Question; index: number; total: number; isActive: boolean;
   issueCount: number; isComplete: boolean; onClick: () => void;
+  onMove: (direction: MoveDirection) => void;
 }) {
   const dot = isComplete
     ? { bg: "var(--success)", title: "Ready" }
@@ -379,33 +402,64 @@ function SidebarItem({
       : { bg: "var(--muted)", title: "Empty" };
 
   return (
-    <button
-      onClick={onClick}
-      className="w-32 lg:w-full text-left px-3 py-2.5 rounded-xl transition-all duration-150 flex items-center gap-2.5 group flex-shrink-0"
+    <div
+      className="w-32 lg:w-full rounded-xl transition-all duration-150 flex items-center gap-2 p-1.5 group flex-shrink-0"
       style={{
         background: isActive ? "var(--accent-light)" : "transparent",
         border: isActive ? "1px solid var(--accent)" : "1px solid transparent",
       }}
     >
-      <div
-        className="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center font-display font-black text-xs transition-colors"
-        style={{
-          background: isActive ? "var(--accent)" : "var(--bg)",
-          color: isActive ? "#fff" : "var(--muted)",
-          border: isActive ? "none" : "1px solid var(--line)",
-        }}
+      <button
+        type="button"
+        onClick={onClick}
+        className="min-w-0 flex-1 text-left px-1.5 py-1 flex items-center gap-2.5"
       >
-        {index + 1}
+        <div
+          className="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center font-display font-black text-xs transition-colors"
+          style={{
+            background: isActive ? "var(--accent)" : "var(--bg)",
+            color: isActive ? "#fff" : "var(--muted)",
+            border: isActive ? "none" : "1px solid var(--line)",
+          }}
+        >
+          {index + 1}
+        </div>
+        <p className="flex-1 text-xs font-semibold text-[var(--ink)] truncate leading-snug" style={{ maxWidth: 120 }}>
+          {question.text || "Empty question"}
+        </p>
+        <span
+          className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{ background: dot.bg }}
+          title={dot.title}
+        />
+      </button>
+      <div className="flex flex-col gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onMove("up");
+          }}
+          title="Move up"
+          disabled={index === 0}
+          className="w-6 h-6 rounded-md text-[10px] font-bold text-[var(--muted)] hover:bg-[var(--bg)] disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onMove("down");
+          }}
+          title="Move down"
+          disabled={index === total - 1}
+          className="w-6 h-6 rounded-md text-[10px] font-bold text-[var(--muted)] hover:bg-[var(--bg)] disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          ↓
+        </button>
       </div>
-      <p className="flex-1 text-xs font-semibold text-[var(--ink)] truncate leading-snug" style={{ maxWidth: 120 }}>
-        {question.text || "Empty question"}
-      </p>
-      <span
-        className="w-2 h-2 rounded-full flex-shrink-0"
-        style={{ background: dot.bg }}
-        title={dot.title}
-      />
-    </button>
+    </div>
   );
 }
 
@@ -858,6 +912,15 @@ function CreatePageContent() {
 
   const updateQuestion = (idx: number, q: Question) =>
     setQuestions((qs) => qs.map((old, i) => (i === idx ? q : old)));
+
+  const moveQuestion = (idx: number, direction: MoveDirection) => {
+    const targetIndex = getAdjacentMoveTarget(idx, direction, questions.length);
+    if (targetIndex === idx) return;
+    setQuestions((qs) => moveItem(qs, idx, targetIndex));
+    setActiveQuestionIndex(targetIndex);
+    setSaveDraftNotice(`Moved question ${idx + 1} ${direction}.`);
+    setSaveDraftError("");
+  };
 
   const deleteQuestion = (idx: number) => {
     if (questions.length === 1) return;
@@ -1624,10 +1687,12 @@ function CreatePageContent() {
                 key={q.id}
                 question={q}
                 index={i}
+                total={questions.length}
                 isActive={i === safeActiveIdx}
                 issueCount={(questionIssues[i] ?? []).filter((iss) => iss.severity === "error").length}
                 isComplete={isQuestionComplete(normalizedQs[i] ?? q)}
                 onClick={() => { setActiveQuestionIndex(i); setShowPreview(false); }}
+                onMove={(direction) => moveQuestion(i, direction)}
               />
             ))}
           </div>
@@ -1756,6 +1821,7 @@ function CreatePageContent() {
                   onChange={(q) => updateQuestion(safeActiveIdx, q)}
                   onDelete={() => deleteQuestion(safeActiveIdx)}
                   onDuplicate={() => duplicateQuestion(safeActiveIdx)}
+                  onMove={(direction) => moveQuestion(safeActiveIdx, direction)}
                 />
               </div>
 
