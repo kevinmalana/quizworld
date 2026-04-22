@@ -205,19 +205,60 @@ function JoinForm() {
           <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.5rem" }}>
             Enter Your Nickname
           </h2>
-          <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
+          <p style={{ color: "var(--muted)", marginBottom: "1.25rem" }}>
             Game PIN: <strong>{pin}</strong>
           </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStep("pin");
+              setError("");
+              setJoining(false);
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--muted)",
+              cursor: "pointer",
+              marginBottom: "1rem",
+              fontWeight: 700,
+            }}
+          >
+            ← Change PIN
+          </button>
 
           <input
             type="text"
             placeholder="Nickname"
             value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
+            onChange={(e) => {
+              setNickname(e.target.value);
+              if (error) setError("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !joining) {
+                void handleJoinSubmit();
+              }
+            }}
             className="input-pin"
-            style={{ marginBottom: "1.5rem", textAlign: "center", fontSize: "1.25rem" }}
+            style={{ marginBottom: "1rem", textAlign: "center", fontSize: "1.25rem" }}
             maxLength={20}
           />
+
+          {error && (
+            <div style={{
+              color: "var(--primary)",
+              background: "var(--primary-light)",
+              padding: "0.75rem",
+              borderRadius: "var(--radius-lg)",
+              marginBottom: "1rem",
+              fontWeight: 600,
+              fontSize: "0.875rem"
+            }}>
+              {error}
+            </div>
+          )}
 
           {/* Avatar picker */}
           <div style={{ marginBottom: "1.5rem" }}>
@@ -228,7 +269,10 @@ function JoinForm() {
               {AVATARS.map((a) => (
                 <button
                   key={a}
-                  onClick={() => setAvatar(a)}
+                  onClick={() => {
+                    setAvatar(a);
+                    if (error) setError("");
+                  }}
                   style={{
                     fontSize: "1.5rem",
                     padding: "0.5rem",
