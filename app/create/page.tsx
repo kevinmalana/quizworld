@@ -42,6 +42,14 @@ type SourceType = "ai-topic" | "ai-pdf" | "ai-url" | "manual" | "paste-text";
 type DraftSyncState = "idle" | "dirty" | "saving" | "saved" | "error";
 type AIQuestionCount = 3 | 5 | 8 | 10;
 type QuestionIssue = { message: string; severity: "error" | "warning" };
+type BuilderSnapshot = {
+  quizTitle: string;
+  quizCategory: string;
+  isPublic: boolean;
+  sourceType: SourceType;
+  questions: Question[];
+  activeQuestionIndex: number;
+};
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -51,6 +59,7 @@ const POINT_OPTIONS = [500, 1000, 2000];
 const ANSWER_COLORS = ["#e11d48", "#2563eb", "#d97706", "#059669"];
 const ANSWER_ICONS = ["▲", "◆", "●", "■"];
 const CREATE_DRAFT_KEY = "qw_create_draft_v81";
+const BUILDER_HISTORY_LIMIT = 50;
 const PLACEHOLDER_SNIPPETS = [
   "fill in the correct answer",
   "wrong option",
@@ -136,6 +145,45 @@ function normalizeQuestions(questions: Question[]) {
     text: q.text.trim(),
     answers: q.answers.map((a) => ({ ...a, text: a.text.trim() })),
   }));
+}
+
+function cloneQuestions(questions: Question[]) {
+  return questions.map((q) => ({
+    ...q,
+    answers: q.answers.map((a) => ({ ...a })),
+  }));
+}
+
+function cloneBuilderSnapshot(snapshot: BuilderSnapshot): BuilderSnapshot {
+  return {
+    ...snapshot,
+    questions: cloneQuestions(snapshot.questions),
+  };
+}
+
+function serializeBuilderSnapshot(snapshot: BuilderSnapshot) {
+  return JSON.stringify({
+    quizTitle: snapshot.quizTitle,
+    quizCategory: snapshot.quizCategory,
+    isPublic: snapshot.isPublic,
+    sourceType: snapshot.sourceType,
+    activeQuestionIndex: snapshot.activeQuestionIndex,
+    questions: snapshot.questions.map((q) => ({
+      text: q.text,
+      timeLimit: q.timeLimit,
+      points: q.points,
+      answers: q.answers.map((a) => ({ id: a.id, text: a.text, isCorrect: a.isCorrect })),
+    })),
+  });
+}
+
+function pushHistorySnapshot(stack: BuilderSnapshot[], snapshot: BuilderSnapshot) {
+  const nextSnapshot = cloneBuilderSnapshot(snapshot);
+  const nextKey = serializeBuilderSnapshot(nextSnapshot);
+  if (stack.length > 0 && serializeBuilderSnapshot(stack[stack.length - 1]) === nextKey) return stack;
+  const next = [...stack, nextSnapshot];
+  if (next.length > BUILDER_HISTORY_LIMIT) next.shift();
+  return next;
 }
 
 function toPublishPayload(questions: Question[]) {
@@ -513,11 +561,17 @@ function CreatePageContent() {
   const [saveDraftError, setSaveDraftError] = useState("");
   const [saveDraftNotice, setSaveDraftNotice] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
+  const [historyPast, setHistoryPast] = useState<BuilderSnapshot[]>([]);
+  const [historyFuture, setHistoryFuture] = useState<BuilderSnapshot[]>([]);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipAutosaveRef = useRef(true);
   const lastSyncedDraftRef = useRef("");
+  const historyReadyRef = useRef(false);
+  const historySuspendedRef = useRef(true);
+  const historySnapshotRef = useRef<BuilderSnapshot | null>(null);
+  const historySnapshotKeyRef = useRef("");
 
   // ── Derived values ──────────────────────────────────────────────────────────
   const normalizedQs = normalizeQuestions(questions);
@@ -558,6 +612,8 @@ function CreatePageContent() {
   const activeQuestion = questions[activeQuestionIndex] ?? questions[0];
   const activeIssues = questionIssues[activeQuestionIndex] ?? [];
   const safeActiveIdx = Math.min(activeQuestionIndex, questions.length - 1);
+  const canUndo = historyPast.length > 0;
+  const canRedo = historyFuture.length > 0;
 
   // ── Draft sync label ────────────────────────────────────────────────────────
   const draftStatusMeta = !user
@@ -576,6 +632,66 @@ function CreatePageContent() {
                   tone: "var(--success)", bg: "var(--success-light)",
                 }
               : { label: "Ready to save", tone: "var(--success)", bg: "var(--success-light)" };
+
+  const buildBuilderSnapshot = (): BuilderSnapshot => ({
+    quizTitle,
+    quizCategory,
+    isPublic,
+    sourceType,
+    questions: cloneQuestions(questions),
+    activeQuestionIndex: safeActiveIdx,
+  });
+
+  const resetHistoryState = () => {
+    setHistoryPast([]);
+    setHistoryFuture([]);
+    historyReadyRef.current = false;
+    historySuspendedRef.current = true;
+    historySnapshotRef.current = null;
+    historySnapshotKeyRef.current = "";
+  };
+
+  const applyHistorySnapshot = (snapshot: BuilderSnapshot) => {
+    const nextSnapshot = cloneBuilderSnapshot(snapshot);
+    historySuspendedRef.current = true;
+    historySnapshotRef.current = nextSnapshot;
+    historySnapshotKeyRef.current = serializeBuilderSnapshot(nextSnapshot);
+    setQuizTitle(nextSnapshot.quizTitle);
+    setQuizCategory(nextSnapshot.quizCategory);
+    setIsPublic(nextSnapshot.isPublic);
+    setSourceType(nextSnapshot.sourceType);
+    setQuestions(nextSnapshot.questions);
+    setActiveQuestionIndex(Math.min(nextSnapshot.activeQuestionIndex, Math.max(nextSnapshot.questions.length - 1, 0)));
+    setShowPreview(false);
+    setPreviewIndex(0);
+    setPreviewSelections({});
+    setPublishError("");
+    window.setTimeout(() => {
+      historySuspendedRef.current = false;
+    }, 0);
+  };
+
+  const handleUndo = () => {
+    const previous = historyPast[historyPast.length - 1];
+    if (!previous) return;
+    const currentSnapshot = buildBuilderSnapshot();
+    setHistoryPast((stack) => stack.slice(0, -1));
+    setHistoryFuture((stack) => pushHistorySnapshot(stack, currentSnapshot));
+    applyHistorySnapshot(previous);
+    setSaveDraftNotice("Undid the last builder change.");
+    setSaveDraftError("");
+  };
+
+  const handleRedo = () => {
+    const next = historyFuture[historyFuture.length - 1];
+    if (!next) return;
+    const currentSnapshot = buildBuilderSnapshot();
+    setHistoryFuture((stack) => stack.slice(0, -1));
+    setHistoryPast((stack) => pushHistorySnapshot(stack, currentSnapshot));
+    applyHistorySnapshot(next);
+    setSaveDraftNotice("Reapplied the last builder change.");
+    setSaveDraftError("");
+  };
 
   // ── Draft persistence ──────────────────────────────────────────────────────
   async function persistDraft(mode: "manual" | "auto") {
@@ -662,6 +778,7 @@ function CreatePageContent() {
             .from("quiz_drafts").select("id,quiz_id,title,category,emoji,color,is_public,source_type,updated_at")
             .eq("id", draftParam).single();
           if (draftError) throw draftError;
+          resetHistoryState();
           const { data: draftQs, error: dqErr } = await supabase
             .from("quiz_draft_questions").select("id,draft_id,text,time_limit,points,order_index")
             .eq("draft_id", draftParam).order("order_index", { ascending: true });
@@ -689,6 +806,7 @@ function CreatePageContent() {
             .eq("id", quizParam).eq("creator_id", user!.id).single();
           if (quizErr) throw quizErr;
           if (cancelled) return;
+          resetHistoryState();
           const lq = quiz as PublishedQuizRow;
           setRemoteDraftId(null); setRemoteDraftUpdatedAt(null);
           setEditingQuizId(duplicateParam ? null : lq.id);
@@ -707,6 +825,7 @@ function CreatePageContent() {
             .eq("id", versionParam).single();
           if (vErr) throw vErr;
           if (cancelled) return;
+          resetHistoryState();
           const lv = version as QuizVersionRow;
           setRemoteDraftId(null); setRemoteDraftUpdatedAt(null); setEditingQuizId(lv.quiz_id);
           setQuizTitle(lv.snapshot.title ?? lv.title ?? ""); setQuizCategory(lv.snapshot.category ?? lv.category ?? "Trivia");
@@ -729,6 +848,70 @@ function CreatePageContent() {
   }, [authLoading, draftParam, duplicateParam, quizParam, router, user, versionParam]);
 
   useEffect(() => {
+    const snapshot = buildBuilderSnapshot();
+    const snapshotKey = serializeBuilderSnapshot(snapshot);
+
+    const shouldSuspendHistory = step === "source" || step === "ai-loading";
+
+    if (!historyReadyRef.current) {
+      historyReadyRef.current = true;
+      historySnapshotRef.current = snapshot;
+      historySnapshotKeyRef.current = snapshotKey;
+      historySuspendedRef.current = shouldSuspendHistory;
+      return;
+    }
+
+    if (historySuspendedRef.current || shouldSuspendHistory) {
+      historySnapshotRef.current = snapshot;
+      historySnapshotKeyRef.current = snapshotKey;
+      historySuspendedRef.current = shouldSuspendHistory;
+      return;
+    }
+
+    if (snapshotKey === historySnapshotKeyRef.current) return;
+
+    const previousSnapshot = historySnapshotRef.current;
+    if (previousSnapshot) {
+      setHistoryPast((stack) => pushHistorySnapshot(stack, previousSnapshot));
+      setHistoryFuture([]);
+    }
+
+    historySnapshotRef.current = snapshot;
+    historySnapshotKeyRef.current = snapshotKey;
+  }, [
+    activeQuestionIndex,
+    isPublic,
+    questions,
+    quizCategory,
+    quizTitle,
+    safeActiveIdx,
+    sourceType,
+    step,
+  ]);
+
+  useEffect(() => {
+    if (step === "source" || step === "ai-loading") return;
+
+    const handleHistoryShortcut = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      const key = event.key.toLowerCase();
+      const wantsUndo = key === "z" && !event.shiftKey;
+      const wantsRedo = key === "y" || (key === "z" && event.shiftKey);
+      if (wantsUndo && canUndo) {
+        event.preventDefault();
+        handleUndo();
+      }
+      if (wantsRedo && canRedo) {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener("keydown", handleHistoryShortcut);
+    return () => window.removeEventListener("keydown", handleHistoryShortcut);
+  }, [canRedo, canUndo, handleRedo, handleUndo, step]);
+
+  useEffect(() => {
     if (!showPreview) return;
     setPreviewIndex((c) => Math.min(c, Math.max(completeQuestions.length - 1, 0)));
   }, [completeQuestions.length, showPreview]);
@@ -740,6 +923,7 @@ function CreatePageContent() {
     try {
       const d = JSON.parse(raw);
       if (!d || !Array.isArray(d.questions) || !hasDraftContent({ quizTitle: d.quizTitle ?? "", questions: d.questions })) return;
+      resetHistoryState();
       setQuizTitle(d.quizTitle ?? ""); setQuizCategory(d.quizCategory ?? "Trivia");
       setIsPublic(d.isPublic ?? true); setQuestions(d.questions); setSourceType(d.sourceType ?? "manual");
       setRestoredDraft(true); lastSyncedDraftRef.current = ""; skipAutosaveRef.current = false;
@@ -787,6 +971,7 @@ function CreatePageContent() {
   const resetBuilder = () => {
     if (!confirmDiscardBuilderChanges()) return;
     sessionStorage.removeItem(CREATE_DRAFT_KEY);
+    resetHistoryState();
     if (autosaveTimeoutRef.current) { clearTimeout(autosaveTimeoutRef.current); autosaveTimeoutRef.current = null; }
     lastSyncedDraftRef.current = ""; skipAutosaveRef.current = true;
     setRemoteDraftId(null); setRemoteDraftUpdatedAt(null); setEditingQuizId(null);
@@ -814,6 +999,7 @@ function CreatePageContent() {
       setAiStatus(steps[Math.min(i, steps.length - 1)]);
       if (i >= steps.length) {
         clearInterval(progressRef.current!);
+        resetHistoryState();
         setQuestions(generateAIQuestions(aiTopic));
         setQuizTitle(aiTopic.charAt(0).toUpperCase() + aiTopic.slice(1) + " Quiz");
         setActiveQuestionIndex(0); setRestoredDraft(false); setPreviewSelections({});
@@ -826,6 +1012,7 @@ function CreatePageContent() {
   };
 
   const loadImportedQuestions = (qs: Question[], nextSourceType: SourceType) => {
+    resetHistoryState();
     setQuestions(qs); setSourceType(nextSourceType); setStep("builder"); setActiveQuestionIndex(0);
     setShowPreview(false); setPreviewIndex(0); setPreviewSelections({}); setRestoredDraft(false);
     setRemoteDraftId(null); setRemoteDraftUpdatedAt(null); setEditingQuizId(null);
@@ -1371,6 +1558,22 @@ function CreatePageContent() {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleUndo}
+                disabled={!canUndo}
+                className="btn btn-secondary btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Undo (Ctrl/Cmd+Z)"
+              >
+                ↶ Undo
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={!canRedo}
+                className="btn btn-secondary btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Redo (Ctrl/Cmd+Shift+Z or Ctrl+Y)"
+              >
+                ↷ Redo
+              </button>
               <span className="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-bold"
                 style={{ background: draftStatusMeta.bg, color: draftStatusMeta.tone }}>
                 {draftStatusMeta.label}
@@ -1657,6 +1860,22 @@ function CreatePageContent() {
 
         {/* Actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={handleUndo}
+            disabled={!canUndo}
+            className="btn btn-secondary btn-sm disabled:opacity-40 disabled:cursor-not-allowed hidden sm:flex"
+            title="Undo (Ctrl/Cmd+Z)"
+          >
+            ↶ Undo
+          </button>
+          <button
+            onClick={handleRedo}
+            disabled={!canRedo}
+            className="btn btn-secondary btn-sm disabled:opacity-40 disabled:cursor-not-allowed hidden sm:flex"
+            title="Redo (Ctrl/Cmd+Shift+Z or Ctrl+Y)"
+          >
+            ↷ Redo
+          </button>
           <button
             onClick={handleSaveDraft}
             disabled={savingDraft || draftSyncState === "saving" || !hasAnyDraftContent}
