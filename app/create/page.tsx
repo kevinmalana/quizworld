@@ -554,6 +554,7 @@ function CreatePageContent() {
     quizTitle, quizCategory, isPublic, sourceType, editingQuizId, questions: normalizedQs,
   });
   const hasAnyDraftContent = hasDraftContent({ quizTitle, questions: normalizedQs });
+  const hasPendingDraftChanges = hasAnyDraftContent && draftFingerprint !== lastSyncedDraftRef.current;
   const activeQuestion = questions[activeQuestionIndex] ?? questions[0];
   const activeIssues = questionIssues[activeQuestionIndex] ?? [];
   const safeActiveIdx = Math.min(activeQuestionIndex, questions.length - 1);
@@ -765,8 +766,26 @@ function CreatePageContent() {
     return () => { if (autosaveTimeoutRef.current) { clearTimeout(autosaveTimeoutRef.current); autosaveTimeoutRef.current = null; } };
   }, [authLoading, draftFingerprint, hasAnyDraftContent, loadingRemoteSource, step, user]);
 
+  useEffect(() => {
+    if (!hasPendingDraftChanges || step === "source" || step === "ai-loading") return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasPendingDraftChanges, step]);
+
   // ── Actions ────────────────────────────────────────────────────────────────
+  const confirmDiscardBuilderChanges = () => {
+    if (!hasPendingDraftChanges) return true;
+    return window.confirm("You have unsaved quiz changes. Leave the builder and lose them?");
+  };
+
   const resetBuilder = () => {
+    if (!confirmDiscardBuilderChanges()) return;
     sessionStorage.removeItem(CREATE_DRAFT_KEY);
     if (autosaveTimeoutRef.current) { clearTimeout(autosaveTimeoutRef.current); autosaveTimeoutRef.current = null; }
     lastSyncedDraftRef.current = ""; skipAutosaveRef.current = true;
@@ -1580,7 +1599,13 @@ function CreatePageContent() {
         style={{ background: "var(--surface)", borderColor: "var(--line)", height: 56 }}
       >
         {/* Back */}
-        <button onClick={() => setStep("source")} className="btn btn-ghost btn-sm gap-1 text-[var(--muted)] hover:text-[var(--ink)]">
+        <button
+          onClick={() => {
+            if (!confirmDiscardBuilderChanges()) return;
+            setStep("source");
+          }}
+          className="btn btn-ghost btn-sm gap-1 text-[var(--muted)] hover:text-[var(--ink)]"
+        >
           ← Source
         </button>
         <div className="h-5 w-px flex-shrink-0" style={{ background: "var(--line)" }} />
