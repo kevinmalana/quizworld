@@ -9,32 +9,44 @@ defmodule QuizworldRealtime.Games do
   end
 
   def snapshot(pin) do
-    with {:ok, snapshot} <- safe_call(fn -> GameServer.snapshot(pin) end) do
-      {:ok, snapshot}
+    pin = sanitize_pin(pin)
+
+    case safe_call(fn -> GameServer.snapshot(pin) end) do
+      {:error, reason} -> {:error, reason}
+      snapshot -> {:ok, snapshot}
     end
   end
 
   def join_player(pin, player) do
+    pin = sanitize_pin(pin)
     transition(pin, fn -> GameServer.join_player(pin, player) end)
   end
 
   def start_game(pin, host_token) do
+    pin = sanitize_pin(pin)
     transition(pin, fn -> GameServer.start_game(pin, host_token) end)
   end
 
   def submit_answer(pin, player_id, player_token, answer_id, response_time_ms) do
-    transition(pin, fn -> GameServer.submit_answer(pin, player_id, player_token, answer_id, response_time_ms) end)
+    pin = sanitize_pin(pin)
+
+    transition(pin, fn ->
+      GameServer.submit_answer(pin, player_id, player_token, answer_id, response_time_ms)
+    end)
   end
 
   def reveal_current_question(pin, host_token) do
+    pin = sanitize_pin(pin)
     transition(pin, fn -> GameServer.reveal_current_question(pin, host_token) end)
   end
 
   def advance(pin, host_token) do
+    pin = sanitize_pin(pin)
     transition(pin, fn -> GameServer.advance(pin, host_token) end)
   end
 
   def reconnect_player(pin, player_id, player_token) do
+    pin = sanitize_pin(pin)
     safe_call(fn -> GameServer.reconnect_player(pin, player_id, player_token) end)
   end
 
@@ -93,8 +105,7 @@ defmodule QuizworldRealtime.Games do
   def topic(pin) do
     sanitized =
       pin
-      |> to_string()
-      |> String.replace(~r/[:*\s]/, "")
+      |> sanitize_pin()
       |> String.slice(0, @pubsub_topic_max_length - 5)
 
     "game:" <> sanitized
@@ -125,7 +136,8 @@ defmodule QuizworldRealtime.Games do
          ) do
       {:ok, _pid} ->
         with {:ok, snapshot} <- broadcast(pin),
-             host_token when is_binary(host_token) <- safe_call(fn -> GameServer.host_token(pin) end) do
+             host_token when is_binary(host_token) <-
+               safe_call(fn -> GameServer.host_token(pin) end) do
           {:ok, snapshot, host_token}
         else
           {:error, reason} -> {:error, reason}
@@ -157,9 +169,7 @@ defmodule QuizworldRealtime.Games do
     provided_pin =
       attrs
       |> Map.get("pin")
-      |> to_string()
-      |> String.trim()
-      |> String.upcase()
+      |> sanitize_pin()
 
     if provided_pin == "" do
       attrs
