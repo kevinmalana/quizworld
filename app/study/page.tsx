@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { readCatalogCache, writeCatalogCache } from "@/lib/catalog-cache";
+import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/components/supabase-provider";
+import { CATEGORY_EMOJIS } from "@/lib/store";
 
 function ShareButton({ quizId, quizTitle }: { quizId: string; quizTitle: string }) {
   const [copied, setCopied] = useState(false);
@@ -50,9 +54,6 @@ function ShareButton({ quizId, quizTitle }: { quizId: string; quizTitle: string 
     </button>
   );
 }
-import { supabase } from "@/lib/supabase/client";
-import { useAuth } from "@/components/supabase-provider";
-import { CATEGORY_EMOJIS } from "@/lib/store";
 
 type StudyProgressRow = {
   quiz_id: string;
@@ -80,6 +81,8 @@ type QuizRow = {
   category: string;
   questions?: { count: number }[];
 };
+
+const CATALOG_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 
 // ─── XP & Level helpers ────────────────────────────────────────────────────────
 
@@ -293,6 +296,8 @@ export default function StudyListPage() {
   const [profile, setProfile] = useState<{ total_xp: number; study_streak: number; longest_streak: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [quizError, setQuizError] = useState<string | null>(null);
+  const [catalogNotice, setCatalogNotice] = useState<string | null>(null);
+  const catalogCacheKey = `qw_study_catalog_${user?.id ?? "public"}_v1`;
 
   useEffect(() => {
     let ignore = false;
@@ -300,6 +305,7 @@ export default function StudyListPage() {
     async function fetchData() {
       setLoading(true);
       setQuizError(null);
+      setCatalogNotice(null);
 
       const quizQuery = supabase
         .from("quizzes")
@@ -316,10 +322,22 @@ export default function StudyListPage() {
 
       if (quizError) {
         console.error("Error loading study quizzes:", quizError);
-        setQuizError("Could not load study sets. Please try again.");
-        setQuizzes([]);
+        const cachedCatalog = readCatalogCache<QuizRow>(catalogCacheKey, CATALOG_CACHE_MAX_AGE_MS);
+
+        if (cachedCatalog) {
+          setQuizzes(cachedCatalog.items);
+          setCatalogNotice(
+            cachedCatalog.stale
+              ? "Showing a saved study catalog while QuizWorld reconnects. Some counts may be out of date."
+              : "Showing your last loaded study catalog while live data reconnects."
+          );
+        } else {
+          setQuizError("Could not load study sets. Please try again.");
+          setQuizzes([]);
+        }
       } else {
         setQuizzes(quizData ?? []);
+        writeCatalogCache(catalogCacheKey, quizData ?? []);
       }
 
       if (!user) {
@@ -369,7 +387,7 @@ export default function StudyListPage() {
 
     fetchData();
     return () => { ignore = true; };
-  }, [user?.id]);
+  }, [catalogCacheKey, user?.id]);
 
   const progressByQuizId = useMemo(
     () => new Map(progress.map((entry) => [entry.quiz_id, entry])),
@@ -442,6 +460,13 @@ export default function StudyListPage() {
         {!user && (
           <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "2rem", border: "1px solid var(--line)", background: "var(--accent-light)" }}>
             Sign in to save study progress and earn XP across sessions.
+          </div>
+        )}
+
+        {catalogNotice && (
+          <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.5rem", border: "1px solid var(--line)", background: "var(--secondary-light)" }}>
+            <strong style={{ color: "var(--secondary)" }}>Offline-friendly catalog:</strong>{" "}
+            <span>{catalogNotice}</span>
           </div>
         )}
 

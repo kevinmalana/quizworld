@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useState, useEffect, useMemo } from "react";
+import { Suspense, useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { readCatalogCache, writeCatalogCache } from "@/lib/catalog-cache";
 import { useAuth } from "@/components/supabase-provider";
 import { PageHero } from "@/components/page-hero";
 import { SectionCard } from "@/components/section-card";
@@ -11,6 +12,8 @@ import { SectionCard } from "@/components/section-card";
 import { CATEGORY_COLORS, CATEGORY_EMOJIS, type Quiz } from "@/lib/store";
 
 const CATEGORY_LIST = ["All", ...Object.keys(CATEGORY_COLORS)];
+const PUBLIC_EXPLORE_CACHE_KEY = "qw_public_explore_catalog_v1";
+const CATALOG_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 
 type SortMode = "popular" | "newest" | "az" | "za";
 
@@ -172,6 +175,7 @@ function ExplorePageContent() {
   const [sortMode, setSortMode] = useState<SortMode>("popular");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [catalogNotice, setCatalogNotice] = useState<string | null>(null);
   const [quickPlayLoading, setQuickPlayLoading] = useState(false);
   const [quickPlayError, setQuickPlayError] = useState<string | null>(null);
 
@@ -181,52 +185,72 @@ function ExplorePageContent() {
     }
   }, [categoryParam]);
 
-  useEffect(() => {
-    async function fetchQuizzes() {
-      setLoading(true);
-      setFetchError(null);
+  const fetchQuizzes = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+    setCatalogNotice(null);
 
-      const { data, error } = await supabase
-        .from("quizzes")
-        .select("*, questions(*, answers(*))")
-        .eq("is_public", true)
-        .is("archived_at", null)
-        .order("plays", { ascending: false });
+    const { data, error } = await supabase
+      .from("quizzes")
+      .select("*, questions(*, answers(*))")
+      .eq("is_public", true)
+      .is("archived_at", null)
+      .order("plays", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching quizzes:", error);
-        setFetchError("Could not load the quiz catalog. Please try again in a moment.");
-      } else if (data && data.length > 0) {
-        // Fetch creator names from profiles in parallel
-        const creatorIds = [...new Set(data.map((q: any) => q.creator_id).filter(Boolean))];
-        let creatorMap: Record<string, string> = {};
+    if (error) {
+      console.error("Error fetching quizzes:", error);
+      const cachedCatalog = readCatalogCache<QuizWithCreator>(PUBLIC_EXPLORE_CACHE_KEY, CATALOG_CACHE_MAX_AGE_MS);
 
-        if (creatorIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("id, nickname")
-            .in("id", creatorIds);
-          if (profiles) {
-            creatorMap = profiles.reduce((acc: Record<string, string>, p: any) => {
-              if (p.nickname) acc[p.id] = p.nickname;
-              return acc;
-            }, {});
-          }
-        }
-
-        const quizzesWithCreator = data.map((q: any) => ({
-          ...q,
-          creator_name: creatorMap[q.creator_id] ?? undefined,
-        }));
-        setQuizzes(quizzesWithCreator as QuizWithCreator[]);
+      if (cachedCatalog) {
+        setQuizzes(cachedCatalog.items);
+        setCatalogNotice(
+          cachedCatalog.stale
+            ? "Showing a saved quiz catalog while QuizWorld reconnects. Play counts may be slightly out of date."
+            : "Showing your last loaded quiz catalog while live data reconnects."
+        );
       } else {
+        setFetchError("Could not load the quiz catalog. Please try again in a moment.");
         setQuizzes([]);
       }
+
       setLoading(false);
+      return;
     }
 
-    fetchQuizzes();
+    if (data && data.length > 0) {
+      const creatorIds = [...new Set(data.map((q: any) => q.creator_id).filter(Boolean))];
+      let creatorMap: Record<string, string> = {};
+
+      if (creatorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, nickname")
+          .in("id", creatorIds);
+        if (profiles) {
+          creatorMap = profiles.reduce((acc: Record<string, string>, p: any) => {
+            if (p.nickname) acc[p.id] = p.nickname;
+            return acc;
+          }, {});
+        }
+      }
+
+      const quizzesWithCreator = data.map((q: any) => ({
+        ...q,
+        creator_name: creatorMap[q.creator_id] ?? undefined,
+      }));
+      setQuizzes(quizzesWithCreator as QuizWithCreator[]);
+      writeCatalogCache(PUBLIC_EXPLORE_CACHE_KEY, quizzesWithCreator);
+    } else {
+      setQuizzes([]);
+      writeCatalogCache(PUBLIC_EXPLORE_CACHE_KEY, []);
+    }
+
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    void fetchQuizzes();
+  }, [fetchQuizzes]);
 
   // ── Quick Play ─────────────────────────────────────────────────────────────
   async function handleQuickPlay() {
@@ -544,6 +568,21 @@ function ExplorePageContent() {
           </div>
         </SectionCard>
 
+        {catalogNotice && !loading && !fetchError && (
+          <div
+            className="card"
+            style={{
+              padding: "1rem 1.25rem",
+              marginBottom: "1.5rem",
+              border: "1px solid var(--line)",
+              background: "var(--secondary-light)",
+            }}
+          >
+            <strong style={{ color: "var(--secondary)" }}>Offline-friendly catalog:</strong>{" "}
+            <span style={{ color: "var(--ink)" }}>{catalogNotice}</span>
+          </div>
+        )}
+
         {/* ── Results ── */}
         {loading ? (
           <div
@@ -572,7 +611,7 @@ function ExplorePageContent() {
             </h3>
             <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>{fetchError}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => void fetchQuizzes()}
               className="btn btn-primary"
               style={{ marginTop: "1.25rem" }}
             >
