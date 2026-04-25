@@ -34,6 +34,10 @@ import {
   moveItem,
   type MoveDirection,
 } from "@/lib/quiz-builder";
+import {
+  buildQuestionNavigation,
+  getNextVisibleQuestionIndex,
+} from "@/lib/quiz-builder-navigation.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -41,6 +45,7 @@ type Step = "source" | "ai-loading" | "builder" | "publish";
 type SourceType = "ai-topic" | "ai-pdf" | "ai-url" | "manual" | "paste-text";
 type DraftSyncState = "idle" | "dirty" | "saving" | "saved" | "error";
 type AIQuestionCount = 3 | 5 | 8 | 10;
+type SidebarFilter = "all" | "needs-attention" | "warnings" | "ready";
 type QuestionIssue = { message: string; severity: "error" | "warning" };
 type BuilderSnapshot = {
   quizTitle: string;
@@ -60,6 +65,12 @@ const ANSWER_COLORS = ["#e11d48", "#2563eb", "#d97706", "#059669"];
 const ANSWER_ICONS = ["▲", "◆", "●", "■"];
 const CREATE_DRAFT_KEY = "qw_create_draft_v81";
 const BUILDER_HISTORY_LIMIT = 50;
+const SIDEBAR_FILTERS: Array<{ value: SidebarFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "needs-attention", label: "Needs Fixes" },
+  { value: "warnings", label: "Warnings" },
+  { value: "ready", label: "Ready" },
+];
 const PLACEHOLDER_SNIPPETS = [
   "fill in the correct answer",
   "wrong option",
@@ -437,17 +448,19 @@ function QuestionEditor({
 // ─── SidebarItem ─────────────────────────────────────────────────────────────
 
 function SidebarItem({
-  question, index, total, isActive, issueCount, isComplete, onClick, onMove,
+  question, index, total, isActive, issueCount, warningCount, isComplete, onClick, onMove,
 }: {
   question: Question; index: number; total: number; isActive: boolean;
-  issueCount: number; isComplete: boolean; onClick: () => void;
+  issueCount: number; warningCount: number; isComplete: boolean; onClick: () => void;
   onMove: (direction: MoveDirection) => void;
 }) {
-  const dot = isComplete
+  const dot = isComplete && warningCount === 0
     ? { bg: "var(--success)", title: "Ready" }
     : issueCount > 0
       ? { bg: "var(--primary)", title: `${issueCount} issue${issueCount === 1 ? "" : "s"}` }
-      : { bg: "var(--muted)", title: "Empty" };
+      : warningCount > 0
+        ? { bg: "#d97706", title: `${warningCount} warning${warningCount === 1 ? "" : "s"}` }
+        : { bg: "var(--muted)", title: "Empty" };
 
   return (
     <div
@@ -525,6 +538,8 @@ function CreatePageContent() {
   // ── Core state ──────────────────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("source");
   const [sourceType, setSourceType] = useState<SourceType>("manual");
+  const [sidebarQuery, setSidebarQuery] = useState("");
+  const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>("all");
   const [aiTopic, setAiTopic] = useState("");
   const [aiProgress, setAiProgress] = useState(0);
   const [aiStatus, setAiStatus] = useState("");
@@ -583,6 +598,19 @@ function CreatePageContent() {
   const questionIssues = normalizedQs.map((q) =>
     getQuestionIssues(q, { duplicateQuestionText: (questionTextCounts.get(q.text.trim().toLowerCase()) ?? 0) > 1 })
   );
+  const navigationEntries = normalizedQs.map((q, index) => ({
+    id: q.id,
+    index,
+    text: q.text,
+    isComplete: isQuestionComplete(q),
+    errorCount: (questionIssues[index] ?? []).filter((issue) => issue.severity === "error").length,
+    warningCount: (questionIssues[index] ?? []).filter((issue) => issue.severity === "warning").length,
+  }));
+  const sidebarNavigation = buildQuestionNavigation(navigationEntries, {
+    filter: sidebarFilter,
+    query: sidebarQuery,
+  });
+  const visibleSidebarItems = sidebarNavigation.visible;
   const validCount = normalizedQs.filter(isQuestionComplete).length;
   const incompleteCount = normalizedQs.length - validCount;
   const warningCount = questionIssues.flat().filter((i) => i.severity === "warning").length;
@@ -609,9 +637,9 @@ function CreatePageContent() {
   });
   const hasAnyDraftContent = hasDraftContent({ quizTitle, questions: normalizedQs });
   const hasPendingDraftChanges = hasAnyDraftContent && draftFingerprint !== lastSyncedDraftRef.current;
-  const activeQuestion = questions[activeQuestionIndex] ?? questions[0];
-  const activeIssues = questionIssues[activeQuestionIndex] ?? [];
   const safeActiveIdx = Math.min(activeQuestionIndex, questions.length - 1);
+  const activeQuestion = questions[safeActiveIdx] ?? questions[0];
+  const activeIssues = questionIssues[safeActiveIdx] ?? [];
   const canUndo = historyPast.length > 0;
   const canRedo = historyFuture.length > 0;
 
@@ -692,6 +720,14 @@ function CreatePageContent() {
     setSaveDraftNotice("Reapplied the last builder change.");
     setSaveDraftError("");
   };
+
+  useEffect(() => {
+    if (step !== "builder") return;
+    const nextIndex = getNextVisibleQuestionIndex(safeActiveIdx, visibleSidebarItems);
+    if (nextIndex !== null && nextIndex !== safeActiveIdx) {
+      setActiveQuestionIndex(nextIndex);
+    }
+  }, [safeActiveIdx, step, visibleSidebarItems]);
 
   // ── Draft persistence ──────────────────────────────────────────────────────
   async function persistDraft(mode: "manual" | "auto") {
@@ -1914,31 +1950,83 @@ function CreatePageContent() {
           }}
         >
           {/* Sidebar header */}
-          <div className="flex items-center justify-between px-3 py-3 border-b flex-shrink-0" style={{ borderColor: "var(--line)" }}>
-            <span className="text-xs font-bold uppercase tracking-widest text-[var(--muted)]">Questions</span>
-            <div className="flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black" style={{ background: "var(--success-light)", color: "var(--success)" }}>
-                {validCount}
-              </span>
-              <span className="text-xs text-[var(--muted)]">/ {questions.length}</span>
+          <div className="px-3 py-3 border-b flex-shrink-0 space-y-3" style={{ borderColor: "var(--line)" }}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-[var(--muted)]">Questions</span>
+              <div className="flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black" style={{ background: "var(--success-light)", color: "var(--success)" }}>
+                  {validCount}
+                </span>
+                <span className="text-xs text-[var(--muted)]">/ {questions.length}</span>
+              </div>
             </div>
+            <input
+              type="search"
+              value={sidebarQuery}
+              onChange={(event) => setSidebarQuery(event.target.value)}
+              placeholder="Search questions"
+              className="w-full rounded-xl px-3 py-2 text-sm font-medium outline-none"
+              style={{ border: "1px solid var(--line)", background: "var(--bg)" }}
+              aria-label="Search questions"
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {SIDEBAR_FILTERS.map((filterOption) => {
+                const count = filterOption.value === "all"
+                  ? sidebarNavigation.counts.all
+                  : filterOption.value === "needs-attention"
+                    ? sidebarNavigation.counts.needsAttention
+                    : filterOption.value === "warnings"
+                      ? sidebarNavigation.counts.warnings
+                      : sidebarNavigation.counts.ready;
+                const isActive = sidebarFilter === filterOption.value;
+                return (
+                  <button
+                    key={filterOption.value}
+                    type="button"
+                    onClick={() => setSidebarFilter(filterOption.value)}
+                    className="rounded-full px-2.5 py-1 text-[11px] font-bold transition-all"
+                    style={{
+                      background: isActive ? "var(--accent-light)" : "var(--bg)",
+                      color: isActive ? "var(--accent)" : "var(--muted)",
+                      border: `1px solid ${isActive ? "var(--accent)" : "var(--line)"}`,
+                    }}
+                  >
+                    {filterOption.label} · {count}
+                  </button>
+                );
+              })}
+            </div>
+            {(sidebarQuery.trim() || sidebarFilter !== "all") && (
+              <div className="text-[11px] font-semibold text-[var(--muted)]">
+                Showing {visibleSidebarItems.length} of {questions.length}
+              </div>
+            )}
           </div>
 
           {/* Question list */}
           <div className="flex-1 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto p-2 flex lg:block gap-2 lg:space-y-1">
-            {questions.map((q, i) => (
-              <SidebarItem
-                key={q.id}
-                question={q}
-                index={i}
-                total={questions.length}
-                isActive={i === safeActiveIdx}
-                issueCount={(questionIssues[i] ?? []).filter((iss) => iss.severity === "error").length}
-                isComplete={isQuestionComplete(normalizedQs[i] ?? q)}
-                onClick={() => { setActiveQuestionIndex(i); setShowPreview(false); }}
-                onMove={(direction) => moveQuestion(i, direction)}
-              />
-            ))}
+            {visibleSidebarItems.length > 0 ? visibleSidebarItems.map((item) => {
+              const question = questions[item.index];
+              if (!question) return null;
+              return (
+                <SidebarItem
+                  key={question.id}
+                  question={question}
+                  index={item.index}
+                  total={questions.length}
+                  isActive={item.index === safeActiveIdx}
+                  issueCount={item.errorCount}
+                  warningCount={item.warningCount}
+                  isComplete={item.isComplete}
+                  onClick={() => { setActiveQuestionIndex(item.index); setShowPreview(false); }}
+                  onMove={(direction) => moveQuestion(item.index, direction)}
+                />
+              );
+            }) : (
+              <div className="rounded-xl border border-dashed px-3 py-4 text-xs font-semibold text-[var(--muted)] text-center" style={{ borderColor: "var(--line)", background: "var(--bg)" }}>
+                No questions match this search or filter yet.
+              </div>
+            )}
           </div>
 
           {/* Add question buttons */}
