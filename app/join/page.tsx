@@ -5,7 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { writePlayerSession } from "@/lib/player-session";
 import { fetchPhoenixSession, joinPhoenixSession } from "@/lib/game-engine/client";
-import { GAME_PIN_LENGTH, getGamePinDigits, isCompleteGamePin, sanitizeGamePinInput } from "@/lib/game-pin";
+import {
+  GAME_PIN_LENGTH,
+  getGamePinDigits,
+  isCompleteGamePin,
+  mergeGamePinDigits,
+  sanitizeGamePinInput,
+} from "@/lib/game-pin";
 import {
   isPhoenixGameEngine,
   legacySupabaseGameEngine,
@@ -68,15 +74,40 @@ function JoinForm() {
 
   const handleDigitChange = (idx: number, val: string) => {
     const sanitizedValue = sanitizeGamePinInput(val);
-    const char = sanitizedValue ? sanitizedValue.at(-1) ?? "" : "";
+
+    if (sanitizedValue.length > 1) {
+      const nextDigits = mergeGamePinDigits(digits, sanitizedValue, idx);
+      setDigits(nextDigits);
+      setPin(nextDigits.join(""));
+      digitRefs.current[Math.min(idx + sanitizedValue.length, GAME_PIN_LENGTH - 1)]?.focus();
+      setError("");
+      return;
+    }
+
     const newDigits = [...digits];
-    newDigits[idx] = char;
+    newDigits[idx] = sanitizedValue;
     setDigits(newDigits);
-    if (char && idx < GAME_PIN_LENGTH - 1) {
+    if (sanitizedValue && idx < GAME_PIN_LENGTH - 1) {
       digitRefs.current[idx + 1]?.focus();
     }
     setPin(newDigits.join(""));
     setError("");
+  };
+
+  const handleDigitPaste = (idx: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pastedValue = e.clipboardData.getData("text");
+    const pastedDigits = sanitizeGamePinInput(pastedValue);
+
+    if (pastedDigits.length <= 1) {
+      return;
+    }
+
+    e.preventDefault();
+    const nextDigits = mergeGamePinDigits(digits, pastedDigits, idx);
+    setDigits(nextDigits);
+    setPin(nextDigits.join(""));
+    setError("");
+    digitRefs.current[Math.min(idx + pastedDigits.length, GAME_PIN_LENGTH - 1)]?.focus();
   };
 
   const handleDigitKeyDown = (idx: number, e: React.KeyboardEvent) => {
@@ -325,6 +356,7 @@ function JoinForm() {
               maxLength={1}
               value={d}
               onChange={(e) => handleDigitChange(i, e.target.value)}
+              onPaste={(e) => handleDigitPaste(i, e)}
               onKeyDown={(e) => handleDigitKeyDown(i, e)}
               className="input-pin"
               style={{ 
