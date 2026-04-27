@@ -10,6 +10,7 @@ import { PageHero } from "@/components/page-hero";
 import { SectionCard } from "@/components/section-card";
 
 import { CATEGORY_COLORS, CATEGORY_EMOJIS, type Quiz } from "@/lib/store";
+import { buildExploreCategoryHref, getValidExploreCategory } from "@/lib/explore-routing";
 
 const CATEGORY_LIST = ["All", ...Object.keys(CATEGORY_COLORS)];
 const PUBLIC_EXPLORE_CACHE_KEY = "qw_public_explore_catalog_v1";
@@ -170,7 +171,7 @@ function ExplorePageContent() {
   const [quizzes, setQuizzes] = useState<QuizWithCreator[]>([]);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState(
-    categoryParam && CATEGORY_LIST.includes(categoryParam) ? categoryParam : "All"
+    getValidExploreCategory(categoryParam, CATEGORY_LIST)
   );
   const [sortMode, setSortMode] = useState<SortMode>("popular");
   const [loading, setLoading] = useState(true);
@@ -180,10 +181,13 @@ function ExplorePageContent() {
   const [quickPlayError, setQuickPlayError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (categoryParam && CATEGORY_LIST.includes(categoryParam)) {
-      setActiveCategory(categoryParam);
-    }
+    setActiveCategory(getValidExploreCategory(categoryParam, CATEGORY_LIST));
   }, [categoryParam]);
+
+  const handleCategoryChange = (category: string) => {
+    setActiveCategory(category);
+    router.replace(buildExploreCategoryHref(category), { scroll: false });
+  };
 
   const fetchQuizzes = useCallback(async () => {
     setLoading(true);
@@ -546,7 +550,7 @@ function ExplorePageContent() {
               {CATEGORY_LIST.map((cat) => (
                 <button
                   key={cat}
-                  onClick={() => setActiveCategory(cat)}
+                  onClick={() => handleCategoryChange(cat)}
                   style={{
                     padding: "0.6rem 1rem",
                     borderRadius: "999px",

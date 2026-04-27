@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CATEGORY_EMOJIS } from "@/lib/store";
+import { buildExploreCategoryHref } from "@/lib/explore-routing";
 import { GAME_PIN_LENGTH, isCompleteGamePin, sanitizeGamePinInput } from "@/lib/game-pin";
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
@@ -188,7 +189,7 @@ export default function HomePage() {
             {categories.map((c) => (
               <Link
                 key={c.label}
-                href={`/explore?category=${c.label}`}
+                href={buildExploreCategoryHref(c.label)}
                 className="card card-hover"
                 style={{
                   padding: "1.5rem",
