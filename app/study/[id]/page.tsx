@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
+import {
+  getStudyAnswerShortcutIndex,
+  isEditableShortcutTarget,
+} from "@/lib/study-shortcuts";
 
 type StudyMode = "choose" | "flashcard" | "quickfire";
 type CardState = "front" | "back";
@@ -67,7 +71,7 @@ function FlashCard({
           <div className="card" style={{ padding: "2rem", textAlign: "center", background: "var(--surface)", border: "2px solid var(--line)" }}>
             <div style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: "1rem" }}>Question {index + 1} of {total}</div>
             <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--ink)" }}>{question.text}</div>
-            <div style={{ marginTop: "2rem", fontSize: "0.875rem", color: "var(--muted)" }}>Tap to reveal answers</div>
+            <div style={{ marginTop: "2rem", fontSize: "0.875rem", color: "var(--muted)" }}>Tap or press Space to reveal answers</div>
           </div>
         </div>
         <div style={{ position: "absolute", width: "100%", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
@@ -104,11 +108,15 @@ function FlashCard({
                       display: "grid",
                       placeItems: "center",
                       fontSize: "0.875rem",
+                      flex: "0 0 auto",
                     }}
                   >
                     {String.fromCharCode(65 + index)}
                   </span>
-                  {answer.text}
+                  <span style={{ flex: 1 }}>{answer.text}</span>
+                  <span style={{ color: "var(--muted)", fontSize: "0.8rem", fontWeight: 800 }}>
+                    {index + 1}
+                  </span>
                 </button>
               ))}
             </div>
@@ -313,6 +321,38 @@ export default function StudyPage() {
     await advanceToNextQuestion(nextCorrect, nextTotal, nextIncorrectQuestionIds);
   };
 
+  useEffect(() => {
+    if (mode === "choose" || sessionResult || !currentQuestion) return;
+
+    const handleStudyShortcut = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || isEditableShortcutTarget(event.target)) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMode("choose");
+        return;
+      }
+
+      if (mode === "flashcard" && event.key === " " && cardState === "front") {
+        event.preventDefault();
+        setCardState("back");
+        return;
+      }
+
+      const answerIndex = getStudyAnswerShortcutIndex(event.key, currentQuestion.answers?.length ?? 0);
+      if (answerIndex === null || advancing) return;
+      if (mode === "flashcard" && cardState !== "back") return;
+
+      const answer = currentQuestion.answers?.[answerIndex];
+      if (!answer) return;
+      event.preventDefault();
+      void recordAnswer(answer.is_correct);
+    };
+
+    window.addEventListener("keydown", handleStudyShortcut);
+    return () => window.removeEventListener("keydown", handleStudyShortcut);
+  }, [advancing, cardState, currentQuestion, mode, recordAnswer, sessionResult]);
+
   const resetSession = () => {
     setCurrentIndex(0);
     setCardState("front");
@@ -442,7 +482,7 @@ export default function StudyPage() {
           <button onClick={() => startSession("quickfire")} className="card card-hover" style={{ padding: "2rem", textAlign: "left", cursor: "pointer", border: "2px solid var(--line)" }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>⚡</div>
             <div style={{ fontWeight: 700, fontSize: "1.25rem" }}>Quick Fire</div>
-            <div style={{ color: "var(--muted)" }}>Answer against the clock using each question's timer.</div>
+            <div style={{ color: "var(--muted)" }}>Answer against the clock using each question's timer. Use A-D or 1-4 on your keyboard.</div>
           </button>
 
           {hasRetrySet && (
@@ -464,7 +504,10 @@ export default function StudyPage() {
           <button onClick={() => setMode("choose")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
             ← Exit
           </button>
-          <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ color: "var(--muted)", fontSize: "0.8rem", fontWeight: 700 }}>
+              Keys: A-D / 1-4 · Esc exits
+            </div>
             <div style={{ fontWeight: 700, color: "var(--success)", fontSize: "0.9rem" }}>
               ✅ {correctCount} / {answeredCount}
             </div>
@@ -529,11 +572,15 @@ export default function StudyPage() {
                   display: "grid",
                   placeItems: "center",
                   fontWeight: 900,
+                  flex: "0 0 auto",
                 }}
               >
                 {String.fromCharCode(65 + index)}
               </span>
-              {answer.text}
+              <span style={{ flex: 1 }}>{answer.text}</span>
+              <span style={{ color: "var(--muted)", fontSize: "0.85rem", fontWeight: 900 }}>
+                {index + 1}
+              </span>
             </button>
           ))}
         </div>
@@ -547,7 +594,12 @@ export default function StudyPage() {
         <button onClick={() => setMode("choose")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
           ← Exit
         </button>
-        <div style={{ fontWeight: 700 }}>{currentIndex + 1} / {totalQuestions}</div>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ color: "var(--muted)", fontSize: "0.8rem", fontWeight: 700 }}>
+            Space flips · A-D / 1-4 answer · Esc exits
+          </div>
+          <div style={{ fontWeight: 700 }}>{currentIndex + 1} / {totalQuestions}</div>
+        </div>
       </div>
 
       {currentQuestion && (
