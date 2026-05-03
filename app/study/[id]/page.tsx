@@ -297,8 +297,9 @@ export default function StudyPage() {
       window.setTimeout(() => {
         setCurrentIndex((index) => index + 1);
         setCardState("front");
+        setLastAnswerCorrect(null);
         setAdvancing(false);
-      }, 350);
+      }, 500);
       return;
     }
 
@@ -531,7 +532,7 @@ export default function StudyPage() {
           >
             {quickFireTimeLeft}
           </div>
-          {lastAnswerCorrect !== null && !advancing && (
+          {lastAnswerCorrect !== null && advancing && (
             <div style={{ marginTop: "0.75rem", fontSize: "1rem", fontWeight: 800, color: lastAnswerCorrect ? "var(--success)" : "#ef4444" }}>
               {lastAnswerCorrect ? "✅ Correct!" : "❌ Wrong!"}
             </div>
@@ -624,7 +625,7 @@ export default function StudyPage() {
             ❌ {answeredCount - correctCount}
           </div>
         </div>
-        {lastAnswerCorrect !== null && !advancing && (
+        {lastAnswerCorrect !== null && advancing && (
           <div style={{ marginTop: "0.75rem", fontSize: "1rem", fontWeight: 800, color: lastAnswerCorrect ? "var(--success)" : "#ef4444" }}>
             {lastAnswerCorrect ? "✅ Correct!" : "❌ Wrong!"}
           </div>
