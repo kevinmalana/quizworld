@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
@@ -12,6 +12,7 @@ import {
   liveGameEngineMisconfigured,
 } from "@/lib/game-engine/config";
 import { writeHostSession } from "@/lib/host-session";
+import { filterHostQuizzes, getHostQuizQuestionCount } from "@/lib/host-quiz-search";
 
 function generatePin(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -40,7 +41,7 @@ function toPhoenixQuestions(quiz: any) {
 }
 
 function questionCount(quiz: any) {
-  if (Array.isArray(quiz?.questions)) return quiz.questions.length;
+  if (Array.isArray(quiz?.questions)) return getHostQuizQuestionCount(quiz);
   return quiz?.questions?.[0]?.count || 0;
 }
 
@@ -52,8 +53,10 @@ function HostPageContent() {
 
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [selectedQuiz, setSelectedQuiz] = useState<any>(null);
+  const [quizSearch, setQuizSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const filteredQuizzes = useMemo(() => filterHostQuizzes(quizzes, quizSearch), [quizzes, quizSearch]);
 
   useEffect(() => {
     if (!user) {
@@ -244,40 +247,80 @@ function HostPageContent() {
       </p>
 
       <div style={{ marginBottom: "2rem" }}>
-        <h3 style={{ fontWeight: 700, marginBottom: "1rem" }}>Select a Quiz</h3>
-        <div style={{ display: "grid", gap: "0.75rem" }}>
-          {quizzes.map((quiz) => (
-            <button
-              key={quiz.id}
-              onClick={() => setSelectedQuiz(quiz)}
-              style={{
-                padding: "1rem 1.5rem",
-                borderRadius: "var(--radius-xl)",
-                border:
-                  selectedQuiz?.id === quiz.id
-                    ? "3px solid var(--accent)"
-                    : "3px solid var(--line)",
-                background:
-                  selectedQuiz?.id === quiz.id
-                    ? "var(--accent-light)"
-                    : "var(--surface)",
-                cursor: "pointer",
-                textAlign: "left",
-                display: "flex",
-                alignItems: "center",
-                gap: "1rem",
-              }}
-            >
-              <span style={{ fontSize: "1.5rem" }}>{quiz.emoji || "📝"}</span>
-              <div>
-                <div style={{ fontWeight: 700 }}>{quiz.title}</div>
-                <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
-                  {questionCount(quiz)} questions
-                </div>
-              </div>
-            </button>
-          ))}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+          <div>
+            <h3 style={{ fontWeight: 700, marginBottom: "0.25rem" }}>Select a Quiz</h3>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+              {filteredQuizzes.length === quizzes.length
+                ? `${quizzes.length} quizzes available`
+                : `${filteredQuizzes.length} of ${quizzes.length} quizzes match`}
+            </p>
+          </div>
+          <input
+            type="search"
+            value={quizSearch}
+            onChange={(event) => setQuizSearch(event.target.value)}
+            placeholder="Search by title, category, emoji, or size"
+            aria-label="Search quizzes to host"
+            style={{
+              minWidth: 280,
+              flex: "1 1 320px",
+              maxWidth: 460,
+              padding: "0.85rem 1rem",
+              borderRadius: "var(--radius-xl)",
+              border: "2px solid var(--line)",
+              background: "var(--surface)",
+              color: "var(--ink)",
+              fontWeight: 700,
+            }}
+          />
         </div>
+        {filteredQuizzes.length === 0 ? (
+          <div className="card" style={{ padding: "1.5rem", textAlign: "center", border: "1px solid var(--line)" }}>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🔎</div>
+            <div style={{ fontWeight: 800, marginBottom: "0.35rem" }}>No quizzes match that search</div>
+            <p style={{ color: "var(--muted)", marginBottom: "1rem" }}>
+              Try a different title, category, emoji, or question count.
+            </p>
+            <button type="button" className="btn btn-secondary" onClick={() => setQuizSearch("")}>
+              Clear search
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: "0.75rem" }}>
+            {filteredQuizzes.map((quiz) => (
+              <button
+                key={quiz.id}
+                onClick={() => setSelectedQuiz(quiz)}
+                style={{
+                  padding: "1rem 1.5rem",
+                  borderRadius: "var(--radius-xl)",
+                  border:
+                    selectedQuiz?.id === quiz.id
+                      ? "3px solid var(--accent)"
+                      : "3px solid var(--line)",
+                  background:
+                    selectedQuiz?.id === quiz.id
+                      ? "var(--accent-light)"
+                      : "var(--surface)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1rem",
+                }}
+              >
+                <span style={{ fontSize: "1.5rem" }}>{quiz.emoji || "📝"}</span>
+                <div>
+                  <div style={{ fontWeight: 700 }}>{quiz.title}</div>
+                  <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
+                    {questionCount(quiz)} questions{quiz.category ? ` · ${quiz.category}` : ""}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ marginBottom: "2rem" }}>
