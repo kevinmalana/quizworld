@@ -19,22 +19,23 @@ import {
 } from "@/lib/quiz-drafts";
 import { PageHero } from "@/components/page-hero";
 import { SectionCard } from "@/components/section-card";
+import {
+  getDashboardQuizQuestionCount,
+  getDashboardQuizSearchValues,
+  matchesDashboardSearch,
+} from "@/lib/dashboard-library-search";
 
 type QuizRow = {
   id: string;
   title: string;
   emoji: string | null;
   color: string | null;
+  category: string | null;
   plays: number | null;
   is_public: boolean;
   archived_at: string | null;
   questions?: { count: number }[];
 };
-
-function matchesDashboardSearch(query: string, values: Array<string | null | undefined>) {
-  if (!query) return true;
-  return values.some((value) => value?.toLowerCase().includes(query));
-}
 
 function quizSwatchBackground(color: string | null | undefined, opacity = "15") {
   return color ? `${color}${opacity}` : "var(--accent-light)";
@@ -108,7 +109,7 @@ function DashboardPageContent() {
         await Promise.all([
           supabase
             .from("quizzes")
-            .select("id, title, emoji, color, plays, is_public, archived_at, questions(count)")
+            .select("id, title, emoji, color, category, plays, is_public, archived_at, questions(count)")
             .eq("creator_id", userId)
             .order("created_at", { ascending: false }),
           supabase
@@ -203,10 +204,10 @@ function DashboardPageContent() {
     matchesDashboardSearch(normalizedLibraryQuery, [version.title, version.category, `v${version.version_number}`])
   );
   const filteredActiveQuizzes = activeQuizzes.filter((quiz) =>
-    matchesDashboardSearch(normalizedLibraryQuery, [quiz.title, quiz.emoji, quiz.is_public ? "public" : "private"])
+    matchesDashboardSearch(normalizedLibraryQuery, getDashboardQuizSearchValues(quiz))
   );
   const filteredArchivedQuizzes = archivedQuizzes.filter((quiz) =>
-    matchesDashboardSearch(normalizedLibraryQuery, [quiz.title, quiz.emoji, "archived"])
+    matchesDashboardSearch(normalizedLibraryQuery, getDashboardQuizSearchValues(quiz))
   );
   const filteredResultCount =
     filteredDrafts.length +
@@ -481,7 +482,7 @@ function DashboardPageContent() {
               type="search"
               value={libraryQuery}
               onChange={(event) => setLibraryQuery(event.target.value)}
-              placeholder="Search quizzes, drafts, versions, categories…"
+              placeholder="Search quizzes, drafts, versions, categories, counts…"
               className="input"
               style={{ width: "100%" }}
             />
@@ -500,7 +501,7 @@ function DashboardPageContent() {
               </button>
             ) : (
               <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-                Try “science”, “private”, or “v3”.
+                Try “science”, “private”, or “10 questions”.
               </span>
             )}
           </div>
@@ -654,68 +655,72 @@ function DashboardPageContent() {
             description="Jump between host, edit, and study flows without leaving the same dashboard surface."
           >
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
-              {filteredActiveQuizzes.map((q) => (
-                <div key={q.id} className="card card-hover" style={{ padding: "1.5rem", border: "1px solid var(--line)", background: "linear-gradient(180deg, var(--surface), var(--bg-subtle))" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-                    <div style={{ width: 52, height: 52, borderRadius: 16, background: quizSwatchBackground(q.color), display: "grid", placeItems: "center", fontSize: "1.5rem" }}>
-                      {q.emoji || "📝"}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, color: "var(--ink)" }}>{q.title}</div>
-                      <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
-                        {q.questions?.[0]?.count ?? 0} questions · {(q.plays ?? 0).toLocaleString()} plays
+              {filteredActiveQuizzes.map((q) => {
+                const questionCount = getDashboardQuizQuestionCount(q);
+
+                return (
+                  <div key={q.id} className="card card-hover" style={{ padding: "1.5rem", border: "1px solid var(--line)", background: "linear-gradient(180deg, var(--surface), var(--bg-subtle))" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
+                      <div style={{ width: 52, height: 52, borderRadius: 16, background: quizSwatchBackground(q.color), display: "grid", placeItems: "center", fontSize: "1.5rem" }}>
+                        {q.emoji || "📝"}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 800, color: "var(--ink)" }}>{q.title}</div>
+                        <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
+                          {q.category ? `${q.category} · ` : ""}{questionCount} question{questionCount === 1 ? "" : "s"} · {(q.plays ?? 0).toLocaleString()} play{(q.plays ?? 0) === 1 ? "" : "s"}
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          padding: "0.45rem 0.75rem",
+                          borderRadius: "999px",
+                          background: q.is_public ? "var(--success-light)" : "var(--warning-light)",
+                          color: q.is_public ? "var(--success)" : "var(--warning)",
+                          fontSize: "0.75rem",
+                          fontWeight: 800,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {q.is_public ? "Public" : "Private"}
                       </div>
                     </div>
-                    <div
-                      style={{
-                        padding: "0.45rem 0.75rem",
-                        borderRadius: "999px",
-                        background: q.is_public ? "var(--success-light)" : "var(--warning-light)",
-                        color: q.is_public ? "var(--success)" : "var(--warning)",
-                        fontSize: "0.75rem",
-                        fontWeight: 800,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {q.is_public ? "Public" : "Private"}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                      <Link href={`/host?quiz=${q.id}`} className="btn btn-primary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+                        Host
+                      </Link>
+                      <Link href={`/create?quiz=${q.id}`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+                        Edit
+                      </Link>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.5rem" }}>
+                      <Link href={`/create?quiz=${q.id}&duplicate=1`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+                        Duplicate
+                      </Link>
+                      <Link href={`/study/${q.id}`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+                        Study
+                      </Link>
+                      <button
+                        onClick={() => void updateVisibility(q.id, !q.is_public)}
+                        disabled={actioningQuizId === q.id}
+                        className="btn btn-secondary"
+                        style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}
+                      >
+                        {actioningQuizId === q.id ? "..." : q.is_public ? "Make Private" : "Make Public"}
+                      </button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
+                      <button
+                        onClick={() => void updateArchiveState(q.id, true)}
+                        disabled={actioningQuizId === q.id}
+                        className="btn btn-secondary"
+                        style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}
+                      >
+                        {actioningQuizId === q.id ? "..." : "Archive"}
+                      </button>
                     </div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                    <Link href={`/host?quiz=${q.id}`} className="btn btn-primary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
-                      Host
-                    </Link>
-                    <Link href={`/create?quiz=${q.id}`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
-                      Edit
-                    </Link>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.5rem" }}>
-                    <Link href={`/create?quiz=${q.id}&duplicate=1`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
-                      Duplicate
-                    </Link>
-                    <Link href={`/study/${q.id}`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
-                      Study
-                    </Link>
-                    <button
-                      onClick={() => void updateVisibility(q.id, !q.is_public)}
-                      disabled={actioningQuizId === q.id}
-                      className="btn btn-secondary"
-                      style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}
-                    >
-                      {actioningQuizId === q.id ? "..." : q.is_public ? "Make Private" : "Make Public"}
-                    </button>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
-                    <button
-                      onClick={() => void updateArchiveState(q.id, true)}
-                      disabled={actioningQuizId === q.id}
-                      className="btn btn-secondary"
-                      style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}
-                    >
-                      {actioningQuizId === q.id ? "..." : "Archive"}
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </SectionCard>
         ) : null}
