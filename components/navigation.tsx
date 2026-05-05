@@ -57,6 +57,10 @@ export function Navigation() {
               <span>🧠</span>
               <span>Study</span>
             </Link>
+            <Link href="/host" className={`nav-item ${pathname === "/host" ? "active" : ""}`}>
+              <span>🎤</span>
+              <span>Host</span>
+            </Link>
             <Link href="/create" className={`nav-item nav-item-create ${pathname === "/create" ? "active" : ""}`}>
               <span>+</span>
               <span>Create</span>
