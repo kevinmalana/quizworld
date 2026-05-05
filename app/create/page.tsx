@@ -568,7 +568,7 @@ function CreatePageContent() {
         {/* Left sidebar */}
         <div
           className="card"
-          style={{ width: 220, flexShrink: 0, borderRadius: 0, borderRight: "1px solid var(--line)", borderLeft: "none", borderTop: "none", borderBottom: "none", display: "flex", flexDirection: "column" }}
+          style={{ width: 260, flexShrink: 0, borderRadius: 0, borderRight: "1px solid var(--line)", borderLeft: "none", borderTop: "none", borderBottom: "none", display: "flex", flexDirection: "column" }}
         >
           <QuestionSidebar
             questions={questions}
@@ -592,7 +592,7 @@ function CreatePageContent() {
         </div>
 
         {/* Main editor */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" style={{ padding: "1.5rem", background: "var(--bg)" }}>
           {showPreview ? (
             /* Preview mode */
             <div className="max-w-2xl mx-auto p-6">
