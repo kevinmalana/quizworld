@@ -392,31 +392,31 @@ function CreatePageContent() {
 
         {/* Inline source inputs */}
         {sourceType === "ai-topic" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "var(--surface)", boxShadow: "0 24px 64px rgba(0,0,0,0.15)" }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
+            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "#1e1e2e", boxShadow: "0 24px 64px rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
               <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-xl text-[var(--ink)]">💡 AI Topic Generator</h2>
-                <button onClick={() => setSourceType("manual")} className="w-8 h-8 rounded-lg hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)]">✕</button>
+                <h2 className="font-display font-bold text-xl text-white">💡 AI Topic Generator</h2>
+                <button onClick={() => setSourceType("manual")} className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.04)" }}>✕</button>
               </div>
               <textarea
                 value={aiTopic}
                 onChange={(e) => setAiTopic(e.target.value)}
                 placeholder="Describe your topic in detail… e.g. 'The solar system and its planets, including dwarf planets and major moons'"
                 rows={4}
-                className="w-full rounded-2xl p-4 text-sm font-medium text-[var(--ink)] outline-none resize-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--bg)" }}
+                className="w-full rounded-2xl p-4 text-sm font-medium text-white outline-none resize-none"
+                style={{ border: "1.5px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#fff" }}
                 autoFocus
               />
               {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[var(--muted)]">Questions:</span>
+                  <span className="text-xs font-bold text-[rgba(255,255,255,0.4)]">Questions:</span>
                   {[3, 5, 8, 10].map((n) => (
                     <button
                       key={n}
                       onClick={() => setAiCount(n as AIQuestionCount)}
                       className="px-2.5 py-1 rounded-lg text-xs font-bold"
-                      style={{ background: aiCount === n ? "var(--accent)" : "var(--bg)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "none" : "1px solid var(--line)" }}
+                      style={{ background: aiCount === n ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "rgba(255,255,255,0.06)", color: aiCount === n ? "#fff" : "rgba(255,255,255,0.5)", border: aiCount === n ? "none" : "1px solid rgba(255,255,255,0.08)" }}
                     >
                       {n}
                     </button>
@@ -435,19 +435,19 @@ function CreatePageContent() {
         )}
 
         {sourceType === "paste" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "var(--surface)", boxShadow: "0 24px 64px rgba(0,0,0,0.15)" }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
+            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "#1e1e2e", boxShadow: "0 24px 64px rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
               <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-xl text-[var(--ink)]">📋 Paste Questions</h2>
-                <button onClick={() => setSourceType("manual")} className="w-8 h-8 rounded-lg hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)]">✕</button>
+                <h2 className="font-display font-bold text-xl text-white">📋 Paste Questions</h2>
+                <button onClick={() => setSourceType("manual")} className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.04)" }}>✕</button>
               </div>
               <textarea
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
                 placeholder={"Question 1: What is the capital of France?\n* Paris\n- London\n- Berlin\n- Rome\n\nQuestion 2: Which planet is closest to the Sun?\nA. Mercury\nB. Venus\nC. Earth\nD. Mars\nAnswer: A"}
                 rows={10}
-                className="w-full rounded-2xl p-4 text-sm font-mono text-[var(--ink)] outline-none resize-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--bg)" }}
+                className="w-full rounded-2xl p-4 text-sm font-mono text-white outline-none resize-none"
+                style={{ border: "1.5px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#fff" }}
                 autoFocus
               />
               {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
@@ -459,29 +459,29 @@ function CreatePageContent() {
         )}
 
         {sourceType === "ai-url" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "var(--surface)", boxShadow: "0 24px 64px rgba(0,0,0,0.15)" }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
+            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "#1e1e2e", boxShadow: "0 24px 64px rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
               <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-xl text-[var(--ink)]">🔗 AI from URL</h2>
-                <button onClick={() => setSourceType("manual")} className="w-8 h-8 rounded-lg hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)]">✕</button>
+                <h2 className="font-display font-bold text-xl text-white">🔗 AI from URL</h2>
+                <button onClick={() => setSourceType("manual")} className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.04)" }}>✕</button>
               </div>
               <input
                 value={aiUrl}
                 onChange={(e) => setAiUrl(e.target.value)}
                 placeholder="https://en.wikipedia.org/wiki/..."
-                className="w-full rounded-2xl p-4 text-sm font-medium text-[var(--ink)] outline-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--bg)" }}
+                className="w-full rounded-2xl p-4 text-sm font-medium text-white outline-none"
+                style={{ border: "1.5px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#fff" }}
                 autoFocus
               />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[var(--muted)]">Questions:</span>
+                  <span className="text-xs font-bold text-[rgba(255,255,255,0.4)]">Questions:</span>
                   {[3, 5, 8, 10].map((n) => (
                     <button
                       key={n}
                       onClick={() => setAiCount(n as AIQuestionCount)}
                       className="px-2.5 py-1 rounded-lg text-xs font-bold"
-                      style={{ background: aiCount === n ? "var(--accent)" : "var(--bg)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "none" : "1px solid var(--line)" }}
+                      style={{ background: aiCount === n ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "rgba(255,255,255,0.06)", color: aiCount === n ? "#fff" : "rgba(255,255,255,0.5)", border: aiCount === n ? "none" : "1px solid rgba(255,255,255,0.08)" }}
                     >
                       {n}
                     </button>
@@ -497,32 +497,32 @@ function CreatePageContent() {
         )}
 
         {sourceType === "ai-document" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "var(--surface)", boxShadow: "0 24px 64px rgba(0,0,0,0.15)" }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
+            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "#1e1e2e", boxShadow: "0 24px 64px rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
               <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-xl text-[var(--ink)]">📄 AI from Document</h2>
-                <button onClick={() => setSourceType("manual")} className="w-8 h-8 rounded-lg hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)]">✕</button>
+                <h2 className="font-display font-bold text-xl text-white">📄 AI from Document</h2>
+                <button onClick={() => setSourceType("manual")} className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.04)" }}>✕</button>
               </div>
-              <p className="text-sm text-[var(--muted)]">Paste your document text below and AI will generate quiz questions from it.</p>
+              <p className="text-sm text-[rgba(255,255,255,0.4)]">Paste your document text below and AI will generate quiz questions from it.</p>
               <textarea
                 value={aiTopic}
                 onChange={(e) => setAiTopic(e.target.value)}
                 placeholder="Paste document content here…"
                 rows={10}
-                className="w-full rounded-2xl p-4 text-sm font-medium text-[var(--ink)] outline-none resize-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--bg)" }}
+                className="w-full rounded-2xl p-4 text-sm font-medium text-white outline-none resize-none"
+                style={{ border: "1.5px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#fff" }}
                 autoFocus
               />
               {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[var(--muted)]">Questions:</span>
+                  <span className="text-xs font-bold text-[rgba(255,255,255,0.4)]">Questions:</span>
                   {[3, 5, 8, 10].map((n) => (
                     <button
                       key={n}
                       onClick={() => setAiCount(n as AIQuestionCount)}
                       className="px-2.5 py-1 rounded-lg text-xs font-bold"
-                      style={{ background: aiCount === n ? "var(--accent)" : "var(--bg)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "none" : "1px solid var(--line)" }}
+                      style={{ background: aiCount === n ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "rgba(255,255,255,0.06)", color: aiCount === n ? "#fff" : "rgba(255,255,255,0.5)", border: aiCount === n ? "none" : "1px solid rgba(255,255,255,0.08)" }}
                     >
                       {n}
                     </button>
@@ -541,7 +541,7 @@ function CreatePageContent() {
 
   // Builder step
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col">
+    <div className="builder-dark flex flex-col">
       {/* Toolbar */}
       <BuilderToolbar
         title={quizTitle}
@@ -597,21 +597,21 @@ function CreatePageContent() {
             /* Preview mode */
             <div className="max-w-2xl mx-auto p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="font-display font-bold text-xl text-[var(--ink)]">Preview</h2>
+                <h2 className="font-display font-bold text-xl text-white">Preview</h2>
                 <button onClick={() => setShowPreview(false)} className="btn btn-secondary btn-sm">Back to Editor</button>
               </div>
               {questions.filter(isQuestionComplete).map((q, idx) => (
-                <div key={q.id} className="mb-6 p-5 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
-                  <p className="font-display font-bold text-lg text-[var(--ink)] mb-4">{idx + 1}. {q.text}</p>
+                <div key={q.id} className="mb-6 p-5 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <p className="font-display font-bold text-lg text-white mb-4">{idx + 1}. {q.text}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {q.answers.map((a, ai) => (
                       <div
                         key={a.id}
                         className="rounded-xl p-3 text-sm font-semibold"
                         style={{
-                          background: a.isCorrect ? "var(--success-light)" : "var(--bg)",
-                          border: a.isCorrect ? "1px solid var(--success)" : "1px solid var(--line)",
-                          color: a.isCorrect ? "var(--success)" : "var(--ink)",
+                          background: a.isCorrect ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.03)",
+                          border: a.isCorrect ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                          color: a.isCorrect ? "#10b981" : "rgba(255,255,255,0.7)",
                         }}
                       >
                         {["A", "B", "C", "D", "E", "F"][ai]}. {a.text} {a.isCorrect ? "✓" : ""}
@@ -619,7 +619,7 @@ function CreatePageContent() {
                     ))}
                   </div>
                   {q.explanation && (
-                    <p className="mt-3 text-sm text-[var(--muted)] italic">💡 {q.explanation}</p>
+                    <p className="mt-3 text-sm text-[rgba(255,255,255,0.4)] italic">💡 {q.explanation}</p>
                   )}
                 </div>
               ))}
@@ -645,7 +645,7 @@ function CreatePageContent() {
                 >
                   ← Previous
                 </button>
-                <span className="text-xs font-bold text-[var(--muted)]">
+                <span className="text-xs font-bold text-[rgba(255,255,255,0.4)]">
                   {activeIndex + 1} / {questions.length}
                 </span>
                 <button
@@ -666,15 +666,15 @@ function CreatePageContent() {
               <div className="flex items-center gap-2 mt-4 justify-center">
                 <button
                   onClick={addQuestion}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--muted)] hover:text-[var(--accent)] transition-all"
-                  style={{ border: "1px solid var(--line)" }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-[rgba(255,255,255,0.4)] hover:text-[var(--accent)] transition-all"
+                  style={{ border: "1px solid rgba(255,255,255,0.08)" }}
                 >
                   + Multiple Choice
                 </button>
                 <button
                   onClick={addTrueFalse}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--muted)] hover:text-[var(--accent)] transition-all"
-                  style={{ border: "1px solid var(--line)" }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-[rgba(255,255,255,0.4)] hover:text-[var(--accent)] transition-all"
+                  style={{ border: "1px solid rgba(255,255,255,0.08)" }}
                 >
                   + True/False
                 </button>
@@ -682,7 +682,7 @@ function CreatePageContent() {
             </div>
           ) : (
             <div className="flex items-center justify-center h-full">
-              <p className="text-[var(--muted)]">Add a question to get started</p>
+              <p className="text-[rgba(255,255,255,0.4)]">Add a question to get started</p>
             </div>
           )}
         </div>
