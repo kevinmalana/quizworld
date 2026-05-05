@@ -1,51 +1,63 @@
-# QuizWorld Realtime
+# QuizWorld v12
 
-This is the `v9` Phoenix/Elixir game engine for QuizWorld.
+QuizWorld v12 is a hybrid architecture:
 
-## Purpose
+- `Next.js + Supabase` for auth, quiz content, dashboard, study, and profile flows
+- `Phoenix + Elixir + optional Redis` for authoritative live multiplayer sessions
 
-The existing Next.js app still handles:
+## Current State
 
-- marketing pages
-- Supabase auth
-- quiz authoring
-- dashboard, study, and profile flows
+- The existing Next.js app remains in `app/` and still builds with `npm run build`.
+- The new Phoenix game service lives in `services/quizworld_realtime/`.
+- Supabase remains the system of record for users and quiz content.
+- The Phoenix service is the live host/join/game runtime when `NEXT_PUBLIC_GAME_ENGINE=phoenix`.
+- The quiz builder includes account-backed drafts, republish versioning, archive/visibility controls, URL/document import, and an AI source-draft review flow.
+- The current builder layout is responsive: mobile/tablet users can preview quizzes, edit timers/points, and work through questions without the desktop-only right rail.
+- Source-based AI drafts preserve their originating source type when loaded into the builder.
+- Elixir tooling is not installed in this workspace, so the Phoenix service was scaffolded and documented but not compiled locally here.
 
-This service is the new authoritative runtime for live multiplayer sessions:
+## Repo Layout
 
-- host-controlled game sessions
-- anonymous player join
-- server-generated PIN creation for Phoenix-hosted sessions
-- server-generated player identity and player token issuance
-- server-side answer locking
-- server-owned question timeout and auto-reveal
-- server-side reveal and scoring
-- Phoenix Channels for realtime fan-out
-- optional LiveView game screen under `/live/game/:pin`
-- optional Redis snapshot persistence
-- end-of-game result write-back to Supabase
+- `app/`: Next.js routes
+- `components/`: shared UI and auth provider
+- `lib/supabase/`: Supabase browser client
+- `lib/game-engine/`: frontend config/helpers for the new realtime engine
+- `supabase/`: existing SQL schema and migrations
+- `services/quizworld_realtime/`: Phoenix realtime game service
+- `app/host`, `app/join`, `app/game/[pin]`: dual-engine frontend routes that use Phoenix when enabled
 
-The LiveView surface is intended to feel like a dedicated game stage, with a host deck, player join card, animated leaderboard, round timer, reveal state, and final results view.
+## Quick Start
 
-## Local Requirements
+Frontend:
 
-- Elixir
-- Erlang/OTP
-- Phoenix dependencies via `mix deps.get`
+```bash
+npm install
+npm run dev
+```
 
-These tools are not installed in the current workspace, so this service was scaffolded manually and should be verified in an Elixir-capable environment.
+Phoenix service:
 
-## Key Files
-
-- `mix.exs`
-- `config/runtime.exs`
-- `lib/quizworld_realtime/application.ex`
-- `lib/quizworld_realtime/games.ex`
-- `lib/quizworld_realtime/game_server.ex`
-- `lib/quizworld_realtime_web/channels/game_channel.ex`
-- `lib/quizworld_realtime_web/live/game_live/show.ex`
+```bash
+cd services/quizworld_realtime
+mix deps.get
+mix phx.server
+```
 
 ## Environment
+
+Frontend `.env.local`:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+NEXT_PUBLIC_GAME_ENGINE=phoenix
+NEXT_PUBLIC_GAME_SERVICE_URL=http://localhost:4100
+QUIZWORLD_AI_API_KEY=...
+QUIZWORLD_AI_MODEL=...
+QUIZWORLD_AI_API_URL=https://<openai-compatible-endpoint>/v1/chat/completions
+```
+
+Phoenix service env:
 
 ```bash
 PORT=4100
@@ -57,23 +69,35 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
-## Run
+## Read This First
 
-```bash
-mix deps.get
-mix phx.server
-```
+1. [docs/START_HERE.md](./docs/START_HERE.md)
+2. [docs/V12_RELEASE.md](./docs/V12_RELEASE.md)
+3. [docs/PHOENIX_V2_HANDOFF.md](./docs/PHOENIX_V2_HANDOFF.md)
+4. [docs/V9_RELEASE.md](./docs/V9_RELEASE.md) (historical v9 rollout context)
+5. [docs/V9_CONTRACT.md](./docs/V9_CONTRACT.md) (still useful for service-boundary reference)
+6. [docs/HANDBOOK.md](./docs/HANDBOOK.md)
+7. [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+8. [docs/BUSINESS_DOCUMENTATION.md](./docs/BUSINESS_DOCUMENTATION.md)
+9. [docs/USE_CASES.md](./docs/USE_CASES.md)
+10. [docs/TECHNICAL_DOCUMENTATION.md](./docs/TECHNICAL_DOCUMENTATION.md)
+11. [docs/STYLE_GUIDE.md](./docs/STYLE_GUIDE.md)
+12. [docs/DEV_GUIDE.md](./docs/DEV_GUIDE.md)
+13. [docs/TESTING_GUIDE.md](./docs/TESTING_GUIDE.md)
+14. [docs/BA_GUIDE.md](./docs/BA_GUIDE.md)
+15. [docs/QUIZ_BUILDER_AGENT_HANDOVER.md](./docs/QUIZ_BUILDER_AGENT_HANDOVER.md)
+16. [OPENCLAW_DEPLOY_HANDOVER.md](./OPENCLAW_DEPLOY_HANDOVER.md)
+17. [services/quizworld_realtime/README.md](./services/quizworld_realtime/README.md)
 
-## Current Runtime Notes
+## Deployment Shape
 
-- Phoenix currently enforces `classic` mode only. Other modes should stay hidden until implemented server-side.
-- The service now includes a small `ExUnit` test suite under `test/`.
-- Redis is still optional for single-node development, but multi-node production should not be treated as safe without shared realtime state.
-
-## API Surface
-
-- `GET /api/health`
-- `POST /api/sessions`
-- `GET /api/sessions/:pin`
-- Channel topic: `game:<PIN>`
-- LiveView route: `/live/game/:pin`
+- Vercel: Next.js frontend
+- Supabase: auth + quiz/study data
+- Existing Supabase projects should apply:
+  - `supabase/migrations/20260327_v92_game_results.sql`
+  - `supabase/migrations/20260331_v93_production_hardening.sql`
+  - `supabase/migrations/20260331_v94_quiz_drafts.sql`
+  - `supabase/migrations/20260331_v95_quiz_versioning.sql`
+  - `supabase/migrations/20260331_v96_quiz_archive.sql`
+- Render/Fly.io/Railway or equivalent: Phoenix game service
+- Redis OSS: optional session snapshot persistence and shared state support

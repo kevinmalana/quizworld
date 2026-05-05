@@ -1,0 +1,98 @@
+<svg width="1600" height="1100" viewBox="0 0 1600 1100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="180" y1="80" x2="1420" y2="1020" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#081225"/>
+      <stop offset="1" stop-color="#10203F"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="180" y1="120" x2="1280" y2="420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <filter id="shadow" x="120" y="80" width="1360" height="940" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#020617" flood-opacity="0.28"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#0F172A" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="1100" fill="url(#bg)"/>
+  <circle cx="1320" cy="180" r="210" fill="#38BDF8" fill-opacity="0.12"/>
+  <circle cx="250" cy="930" r="260" fill="#2563EB" fill-opacity="0.12"/>
+
+  <g filter="url(#shadow)">
+    <rect x="140" y="100" width="1320" height="900" rx="34" fill="#E2E8F0" fill-opacity="0.08"/>
+
+    <rect x="180" y="120" width="1240" height="210" rx="30" fill="url(#hero)"/>
+    <text x="230" y="168" fill="#93C5FD" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">QUIZWORLD LIVE STAGE</text>
+    <text x="230" y="244" fill="white" font-family="Arial, sans-serif" font-size="72" font-weight="800">PIN ABC123</text>
+    <rect x="615" y="186" width="170" height="44" rx="22" fill="#16A34A"/>
+    <text x="650" y="214" fill="white" font-family="Arial, sans-serif" font-size="22" font-weight="800">ACTIVE</text>
+    <text x="230" y="290" fill="#DBEAFE" font-family="Arial, sans-serif" font-size="28" font-weight="500">Question 3 of 10 is live. Phoenix owns the timer, scoring, and broadcasts.</text>
+
+    <rect x="1130" y="155" width="240" height="130" rx="24" fill="#0F172A" fill-opacity="0.48" stroke="#334155"/>
+    <text x="1170" y="190" fill="#94A3B8" font-family="Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="2">LIVE ROOM</text>
+    <text x="1170" y="232" fill="#CBD5E1" font-family="Arial, sans-serif" font-size="24">Players</text>
+    <text x="1310" y="232" fill="white" font-family="Arial, sans-serif" font-size="28" font-weight="800">42</text>
+    <text x="1170" y="268" fill="#CBD5E1" font-family="Arial, sans-serif" font-size="24">Timer</text>
+    <text x="1300" y="268" fill="#FDE68A" font-family="Arial, sans-serif" font-size="34" font-weight="800">12s</text>
+
+    <rect x="180" y="370" width="780" height="560" rx="30" fill="url(#card)"/>
+    <text x="230" y="430" fill="#64748B" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="3">CURRENT QUESTION</text>
+    <text x="230" y="510" fill="#0F172A" font-family="Arial, sans-serif" font-size="44" font-weight="800">Which planet is known as the Red Planet?</text>
+
+    <circle cx="850" cy="470" r="68" fill="url(#accent)" filter="url(#soft)"/>
+    <text x="817" y="483" fill="white" font-family="Arial, sans-serif" font-size="42" font-weight="800">12</text>
+
+    <g filter="url(#soft)">
+      <rect x="230" y="575" width="680" height="78" rx="22" fill="#FCE7F3" stroke="#EC4899" stroke-width="3"/>
+      <circle cx="274" cy="614" r="20" fill="#EC4899"/>
+      <text x="266" y="622" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="800">A</text>
+      <text x="320" y="624" fill="#0F172A" font-family="Arial, sans-serif" font-size="28" font-weight="700">Mercury</text>
+    </g>
+
+    <g filter="url(#soft)">
+      <rect x="230" y="675" width="680" height="78" rx="22" fill="#DBEAFE" stroke="#2563EB" stroke-width="3"/>
+      <circle cx="274" cy="714" r="20" fill="#2563EB"/>
+      <text x="266" y="722" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="800">B</text>
+      <text x="320" y="724" fill="#0F172A" font-family="Arial, sans-serif" font-size="28" font-weight="700">Mars</text>
+    </g>
+
+    <g filter="url(#soft)">
+      <rect x="230" y="775" width="680" height="78" rx="22" fill="#FEF3C7" stroke="#D97706" stroke-width="3"/>
+      <circle cx="274" cy="814" r="20" fill="#D97706"/>
+      <text x="266" y="822" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="800">C</text>
+      <text x="320" y="824" fill="#0F172A" font-family="Arial, sans-serif" font-size="28" font-weight="700">Venus</text>
+    </g>
+
+    <rect x="1000" y="370" width="420" height="260" rx="30" fill="#F8FAFC"/>
+    <text x="1040" y="425" fill="#64748B" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="3">LIVE STATS</text>
+    <text x="1040" y="485" fill="#0F172A" font-family="Arial, sans-serif" font-size="34" font-weight="800">31 of 42 answered</text>
+    <rect x="1040" y="520" width="340" height="18" rx="9" fill="#CBD5E1"/>
+    <rect x="1040" y="520" width="252" height="18" rx="9" fill="url(#accent)"/>
+    <text x="1040" y="585" fill="#475569" font-family="Arial, sans-serif" font-size="24">Realtime via Phoenix Channels</text>
+
+    <rect x="1000" y="655" width="420" height="275" rx="30" fill="#F8FAFC"/>
+    <text x="1040" y="710" fill="#64748B" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="3">LEADERBOARD</text>
+
+    <rect x="1035" y="740" width="350" height="48" rx="16" fill="#EEF2FF"/>
+    <text x="1060" y="772" fill="#0F172A" font-family="Arial, sans-serif" font-size="24" font-weight="700">1. 🚀 Mia</text>
+    <text x="1290" y="772" fill="#334155" font-family="Arial, sans-serif" font-size="24" font-weight="800">4,850</text>
+
+    <rect x="1035" y="800" width="350" height="48" rx="16" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="1060" y="832" fill="#0F172A" font-family="Arial, sans-serif" font-size="24" font-weight="700">2. 🦊 Noah</text>
+    <text x="1290" y="832" fill="#334155" font-family="Arial, sans-serif" font-size="24" font-weight="800">4,200</text>
+
+    <rect x="1035" y="860" width="350" height="48" rx="16" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="1060" y="892" fill="#0F172A" font-family="Arial, sans-serif" font-size="24" font-weight="700">3. 🐯 Ava</text>
+    <text x="1290" y="892" fill="#334155" font-family="Arial, sans-serif" font-size="24" font-weight="800">3,980</text>
+  </g>
+</svg>
