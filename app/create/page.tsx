@@ -211,14 +211,19 @@ function CreatePageContent() {
   }, []);
 
   const handleAiGenerate = useCallback(async () => {
-    if (!aiTopic.trim() || aiTopic.trim().length < 10) return;
+    const topic = aiTopic.trim();
+    if (!topic || topic.length < 5) return;
     setAiLoading(true);
     setAiError("");
     try {
+      // Pad short topics to meet the 200-char minimum for source text
+      const sourceText = topic.length < 200
+        ? `Topic: ${topic}.\n\nGenerate quiz questions about this topic. Include relevant facts, key concepts, and important details that would make good educational quiz questions. The questions should test knowledge about ${topic}.`
+        : topic;
       const res = await fetch("/api/ai-source-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceText: aiTopic, sourceTitle: aiTopic.slice(0, 60), questionCount: aiCount }),
+        body: JSON.stringify({ sourceText, sourceTitle: topic.slice(0, 60), questionCount: aiCount }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "AI generation failed");
@@ -419,7 +424,7 @@ function CreatePageContent() {
                 </div>
                 <button
                   onClick={handleAiGenerate}
-                  disabled={aiLoading || aiTopic.trim().length < 10}
+                  disabled={aiLoading || aiTopic.trim().length < 5}
                   className="btn btn-primary btn-sm"
                 >
                   {aiLoading ? "Generating…" : "Generate ✨"}
@@ -523,7 +528,7 @@ function CreatePageContent() {
                     </button>
                   ))}
                 </div>
-                <button onClick={handleAiGenerate} disabled={aiLoading || aiTopic.trim().length < 100} className="btn btn-primary btn-sm">
+                <button onClick={handleAiGenerate} disabled={aiLoading || aiTopic.trim().length < 20} className="btn btn-primary btn-sm">
                   {aiLoading ? "Generating…" : "Generate ✨"}
                 </button>
               </div>
