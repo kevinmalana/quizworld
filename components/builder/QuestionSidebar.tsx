@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useCallback } from "react";
 import type { QuestionData } from "./QuestionCard";
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
   onAdd: () => void;
 }
 
-function getQuestionStatus(q: QuestionData): "ready" | "error" | "empty" {
+function getStatus(q: QuestionData): "ready" | "error" | "empty" {
   if (!q.text.trim()) return "empty";
   const filled = q.answers.filter((a) => a.text.trim()).length;
   const correct = q.answers.filter((a) => a.isCorrect).length;
@@ -20,105 +20,62 @@ function getQuestionStatus(q: QuestionData): "ready" | "error" | "empty" {
 }
 
 export function QuestionSidebar({ questions, activeIndex, onSelect, onReorder, onAdd }: Props) {
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const readyCount = questions.filter((q) => getStatus(q) === "ready").length;
 
   const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
-    setDragIndex(idx);
     e.dataTransfer.effectAllowed = "move";
     (e.currentTarget as HTMLElement).style.opacity = "0.4";
   }, []);
 
-  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
-    e.preventDefault();
-    setDropIndex(idx);
-  }, []);
-
-  const handleDragEnd = useCallback((e: React.DragEvent) => {
+  const handleDragEnd = useCallback((e: React.DragEvent, idx: number, dropIdx: number | null) => {
     (e.currentTarget as HTMLElement).style.opacity = "1";
-    if (dragIndex !== null && dropIndex !== null && dragIndex !== dropIndex) {
-      onReorder(dragIndex, dropIndex);
-    }
-    setDragIndex(null);
-    setDropIndex(null);
-  }, [dragIndex, dropIndex, onReorder]);
-
-  const readyCount = questions.filter((q) => getQuestionStatus(q) === "ready").length;
+    if (dropIdx !== null && idx !== dropIdx) onReorder(idx, dropIdx);
+  }, [onReorder]);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: "var(--line)" }}>
-        <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--muted)]">Questions</span>
-        <span className="text-[11px] font-semibold" style={{ color: "var(--success)" }}>
-          {readyCount}/{questions.length}
-        </span>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span className="tag tag-accent" style={{ fontSize: "0.65rem" }}>Questions {questions.length}</span>
+        <span className="tag tag-success" style={{ fontSize: "0.65rem" }}>{readyCount} ready</span>
       </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5" onDragOver={(e) => e.preventDefault()}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "0.375rem" }}>
         {questions.map((q, idx) => {
-          const status = getQuestionStatus(q);
+          const status = getStatus(q);
           const isActive = idx === activeIndex;
-          const isDropTarget = idx === dropIndex && dragIndex !== null && dragIndex !== idx;
-
           return (
-            <div
-              key={q.id}
-              draggable
+            <div key={q.id} draggable
               onDragStart={(e) => handleDragStart(e, idx)}
-              onDragOver={(e) => handleDragOver(e, idx)}
-              onDragEnd={handleDragEnd}
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnd={(e) => handleDragEnd(e, idx, null)}
               onClick={() => onSelect(idx)}
-              className="flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-all duration-100 select-none group"
+              className={isActive ? "card" : ""}
               style={{
+                display: "flex", alignItems: "center", gap: "0.5rem",
+                padding: "0.5rem 0.625rem", marginBottom: "0.125rem",
+                borderRadius: "var(--radius-sm)", cursor: "pointer",
                 background: isActive ? "var(--accent-light)" : "transparent",
-                border: isActive ? "1px solid var(--accent)" : isDropTarget ? "1px dashed var(--accent)" : "1px solid transparent",
-              }}
-            >
-              {/* Drag handle */}
-              <div className="flex-shrink-0 w-3 flex flex-col items-center gap-px opacity-0 group-hover:opacity-40 transition-opacity cursor-grab">
-                <div className="w-2 h-0.5 rounded-full bg-[var(--muted)]" />
-                <div className="w-2 h-0.5 rounded-full bg-[var(--muted)]" />
-                <div className="w-2 h-0.5 rounded-full bg-[var(--muted)]" />
-              </div>
-
-              {/* Number */}
-              <div
-                className="flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center font-display font-black text-[10px] transition-colors"
-                style={{
-                  background: isActive ? "var(--accent)" : status === "ready" ? "var(--success)" : status === "error" ? "var(--primary)" : "var(--bg)",
-                  color: isActive || status !== "empty" ? "#fff" : "var(--muted)",
-                }}
-              >
+                border: isActive ? "1px solid var(--accent)" : "1px solid transparent",
+                transition: "all 0.15s",
+              }}>
+              <div className="tag" style={{
+                padding: "0.125rem 0.375rem", fontSize: "0.6rem", minWidth: "1.25rem", justifyContent: "center",
+                background: isActive ? "var(--accent)" : status === "ready" ? "var(--success)" : status === "error" ? "var(--primary)" : "var(--bg-subtle)",
+                color: isActive || status !== "empty" ? "#fff" : "var(--muted)",
+              }}>
                 {idx + 1}
               </div>
-
-              {/* Text */}
-              <p className="flex-1 text-[11px] font-semibold text-[var(--ink)] truncate leading-tight">
+              <p style={{ flex: 1, fontSize: "0.7rem", fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {q.text || "Empty"}
               </p>
-
-              {/* Dot */}
-              <div
-                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                style={{ background: status === "ready" ? "var(--success)" : status === "error" ? "var(--primary)" : "var(--line)" }}
-              />
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: status === "ready" ? "var(--success)" : status === "error" ? "var(--primary)" : "var(--line)", flexShrink: 0 }} />
             </div>
           );
         })}
       </div>
 
-      {/* Add */}
-      <div className="p-1.5 border-t" style={{ borderColor: "var(--line)" }}>
-        <button
-          onClick={onAdd}
-          className="w-full py-2 rounded-lg text-xs font-bold text-[var(--accent)] transition-all flex items-center justify-center gap-1"
-          style={{ border: "1px dashed var(--accent)", background: "var(--accent-light)" }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
-          Add
-        </button>
+      <div style={{ padding: "0.375rem", borderTop: "1px solid var(--line)" }}>
+        <button onClick={onAdd} className="btn btn-sm btn-secondary" style={{ width: "100%", borderStyle: "dashed" }}>+ Add Question</button>
       </div>
     </div>
   );

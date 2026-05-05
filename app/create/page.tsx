@@ -392,8 +392,8 @@ function CreatePageContent() {
 
         {/* Inline source inputs */}
         {sourceType === "ai-topic" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "var(--surface)", boxShadow: "0 16px 48px rgba(0,0,0,0.12)", border: "1px solid var(--line)" }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
+            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
               <div className="flex items-center justify-between">
                 <h2 className="font-display font-bold text-xl text-[var(--ink)]">💡 AI Topic Generator</h2>
                 <button onClick={() => setSourceType("manual")} className="w-7 h-7 rounded-md hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)] transition-colors">✕</button>
@@ -435,8 +435,8 @@ function CreatePageContent() {
         )}
 
         {sourceType === "paste" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "var(--surface)", boxShadow: "0 16px 48px rgba(0,0,0,0.12)", border: "1px solid var(--line)" }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
+            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
               <div className="flex items-center justify-between">
                 <h2 className="font-display font-bold text-xl text-[var(--ink)]">📋 Paste Questions</h2>
                 <button onClick={() => setSourceType("manual")} className="w-7 h-7 rounded-md hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)] transition-colors">✕</button>
@@ -459,8 +459,8 @@ function CreatePageContent() {
         )}
 
         {sourceType === "ai-url" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "var(--surface)", boxShadow: "0 16px 48px rgba(0,0,0,0.12)", border: "1px solid var(--line)" }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
+            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
               <div className="flex items-center justify-between">
                 <h2 className="font-display font-bold text-xl text-[var(--ink)]">🔗 AI from URL</h2>
                 <button onClick={() => setSourceType("manual")} className="w-7 h-7 rounded-md hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)] transition-colors">✕</button>
@@ -497,8 +497,8 @@ function CreatePageContent() {
         )}
 
         {sourceType === "ai-document" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="w-full max-w-lg mx-4 rounded-3xl p-6 space-y-4" style={{ background: "var(--surface)", boxShadow: "0 16px 48px rgba(0,0,0,0.12)", border: "1px solid var(--line)" }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
+            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
               <div className="flex items-center justify-between">
                 <h2 className="font-display font-bold text-xl text-[var(--ink)]">📄 AI from Document</h2>
                 <button onClick={() => setSourceType("manual")} className="w-7 h-7 rounded-md hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)] transition-colors">✕</button>
@@ -567,8 +567,8 @@ function CreatePageContent() {
       <div className="flex-1 flex">
         {/* Left sidebar */}
         <div
-          className="flex-shrink-0 border-r hidden md:flex flex-col"
-          style={{ width: 220, borderColor: "var(--line)", background: "var(--surface)" }}
+          className="card"
+          style={{ width: 220, flexShrink: 0, borderRadius: 0, borderRight: "1px solid var(--line)", borderLeft: "none", borderTop: "none", borderBottom: "none", display: "flex", flexDirection: "column" }}
         >
           <QuestionSidebar
             questions={questions}
@@ -582,8 +582,8 @@ function CreatePageContent() {
         <div className="md:hidden fixed bottom-4 left-4 z-40">
           <button
             onClick={addQuestion}
-            className="w-12 h-12 rounded-full flex items-center justify-center text-[var(--ink)] shadow-lg"
-            style={{ background: "var(--accent)" }}
+            className="btn btn-primary"
+            style={{ width: "3rem", height: "3rem", borderRadius: "50%", padding: 0 }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 5v14M5 12h14" />
@@ -666,15 +666,15 @@ function CreatePageContent() {
               <div className="flex items-center gap-2 mt-4 justify-center">
                 <button
                   onClick={addQuestion}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--muted)] hover:text-[var(--accent)] transition-all"
-                  style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+                  className="btn btn-sm btn-ghost"
+                  style={{ border: "1px solid var(--line)" }}
                 >
                   + Multiple Choice
                 </button>
                 <button
                   onClick={addTrueFalse}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--muted)] hover:text-[var(--accent)] transition-all"
-                  style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+                  className="btn btn-sm btn-ghost"
+                  style={{ border: "1px solid var(--line)" }}
                 >
                   + True/False
                 </button>

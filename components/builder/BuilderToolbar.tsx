@@ -22,21 +22,11 @@ interface Props {
   isEditing: boolean;
 }
 
-const CATEGORIES = [
-  "Trivia", "Science & Nature", "History", "Geography", "Entertainment",
-  "Sports", "Languages", "Art & Literature", "Music", "Movies",
-  "Technology", "Math", "Programming", "Business", "General Knowledge",
-];
-
-const CATEGORY_EMOJIS: Record<string, string> = {
-  "Trivia": "💡", "Science & Nature": "🔬", "History": "📜", "Geography": "🌍",
-  "Entertainment": "🎬", "Sports": "⚽", "Languages": "💬", "Art & Literature": "🎨",
-  "Music": "🎵", "Movies": "🎬", "Technology": "💻", "Math": "🔢",
-  "Programming": "🧑‍💻", "Business": "💼", "General Knowledge": "🧠",
-};
+const CATEGORIES = ["Trivia", "Science & Nature", "History", "Geography", "Entertainment", "Sports", "Languages", "Art & Literature", "Music", "Movies", "Technology", "Math", "Programming", "Business", "General Knowledge"];
+const CATEGORY_EMOJIS: Record<string, string> = { "Trivia": "💡", "Science & Nature": "🔬", "History": "📜", "Geography": "🌍", "Entertainment": "🎬", "Sports": "⚽", "Languages": "💬", "Art & Literature": "🎨", "Music": "🎵", "Movies": "🎬", "Technology": "💻", "Math": "🔢", "Programming": "🧑‍💻", "Business": "💼", "General Knowledge": "🧠" };
 
 export function BuilderToolbar({
-  title, category, emoji, isPublic, questionCount, readyCount, draftState, canPublish,
+  title, category, isPublic, questionCount, readyCount, draftState, canPublish,
   onTitleChange, onCategoryChange, onEmojiChange, onPublicChange,
   onSaveDraft, onPreview, onPublish, onBack, isEditing,
 }: Props) {
@@ -46,49 +36,48 @@ export function BuilderToolbar({
   const draftLabel = draftState === "saving" ? "Saving…" : draftState === "saved" ? "Saved ✓" : draftState === "error" ? "Failed" : "";
 
   return (
-    <div className="sticky top-0 z-30 border-b" style={{ background: "var(--surface)", borderColor: "var(--line)" }}>
-      <div className="flex items-center justify-between gap-3 px-4 py-2">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <button onClick={onBack} className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-[var(--muted)] hover:bg-[var(--bg)] transition-colors">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-          </button>
+    <div className="nav-header" style={{ position: "sticky", top: 0, zIndex: 30 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", padding: "0 1.25rem", height: "var(--nav-height)", maxWidth: 1200, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0, flex: 1 }}>
+          <button onClick={onBack} className="btn btn-sm btn-ghost" style={{ padding: "0.375rem" }}>←</button>
           {editingTitle ? (
-            <input autoFocus value={title} onChange={(e) => onTitleChange(e.target.value)} onBlur={() => setEditingTitle(false)} onKeyDown={(e) => e.key === "Enter" && setEditingTitle(false)}
-              className="font-display font-bold text-sm text-[var(--ink)] bg-transparent outline-none border-b-2 min-w-0 flex-1" style={{ borderColor: "var(--accent)" }} placeholder="Quiz title…" />
+            <input autoFocus value={title} onChange={(e) => onTitleChange(e.target.value)}
+              onBlur={() => setEditingTitle(false)} onKeyDown={(e) => e.key === "Enter" && setEditingTitle(false)}
+              className="input" style={{ fontWeight: 700, fontSize: "0.875rem", padding: "0.25rem 0.5rem", flex: 1, minWidth: 0, fontFamily: "var(--font-display)" }} />
           ) : (
-            <button onClick={() => setEditingTitle(true)} className="font-display font-bold text-sm text-[var(--ink)] truncate min-w-0 text-left hover:opacity-70 transition-opacity">
-              {title || "Untitled Quiz"} <span className="text-[var(--muted)] text-[10px]">✎</span>
+            <button onClick={() => setEditingTitle(true)}
+              style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--ink)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-display)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {title || "Untitled Quiz"} <span style={{ color: "var(--faint)", fontSize: "0.625rem" }}>✎</span>
             </button>
           )}
-          {draftLabel && <span className="text-[10px] font-semibold text-[var(--muted)]">{draftLabel}</span>}
+          {draftLabel && <span className="tag" style={{ fontSize: "0.6rem", background: draftState === "saved" ? "var(--success-light)" : "var(--bg-subtle)", color: draftState === "saved" ? "var(--success)" : "var(--muted)" }}>{draftLabel}</span>}
         </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <div className="relative">
-            <button onClick={() => setShowSettings(!showSettings)} className="w-7 h-7 rounded-md flex items-center justify-center text-[var(--muted)] hover:bg-[var(--bg)] transition-colors" title="Settings">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M12 1v4m0 14v4M4.22 4.22l2.83 2.83m9.9 9.9l2.83 2.83M1 12h4m14 0h4M4.22 19.78l2.83-2.83m9.9-9.9l2.83-2.83" /></svg>
-            </button>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexShrink: 0 }}>
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setShowSettings(!showSettings)} className="btn btn-sm btn-ghost" style={{ padding: "0.375rem" }}>⚙</button>
             {showSettings && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
-                <div className="absolute right-0 top-9 z-50 w-64 rounded-xl p-3 space-y-3" style={{ background: "var(--surface)", border: "1px solid var(--line)", boxShadow: "0 12px 40px rgba(0,0,0,0.1)" }}>
+                <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setShowSettings(false)} />
+                <div className="card-elevated" style={{ position: "absolute", right: 0, top: "2.5rem", zIndex: 50, width: "16rem", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                   <div>
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)] mb-1 block">Category</label>
+                    <label style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", display: "block", marginBottom: "0.25rem" }}>Category</label>
                     <select value={category} onChange={(e) => { onCategoryChange(e.target.value); onEmojiChange(CATEGORY_EMOJIS[e.target.value] || "💡"); }}
-                      className="w-full px-2.5 py-2 rounded-lg text-xs font-semibold text-[var(--ink)] outline-none" style={{ border: "1px solid var(--line)", background: "var(--bg)" }}>
+                      className="input" style={{ fontSize: "0.8125rem", padding: "0.5rem" }}>
                       {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_EMOJIS[c] || "💡"} {c}</option>)}
                     </select>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-[var(--ink)]">Public</span>
-                    <button onClick={() => onPublicChange(!isPublic)} className="w-9 h-5 rounded-full transition-all relative" style={{ background: isPublic ? "var(--accent)" : "var(--line)" }}>
-                      <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all shadow-sm" style={{ left: isPublic ? 18 : 2 }} />
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--ink)" }}>Public</span>
+                    <button onClick={() => onPublicChange(!isPublic)} style={{ width: "2.25rem", height: "1.25rem", borderRadius: "var(--radius-full)", background: isPublic ? "var(--accent)" : "var(--line)", border: "none", cursor: "pointer", position: "relative", transition: "all 0.2s" }}>
+                      <div style={{ position: "absolute", top: "0.125rem", width: "1rem", height: "1rem", borderRadius: "50%", background: "#fff", transition: "all 0.2s", left: isPublic ? "1.125rem" : "0.125rem" }} />
                     </button>
                   </div>
-                  <div className="flex gap-1.5 pt-2 border-t" style={{ borderColor: "var(--line)" }}>
+                  <div style={{ display: "flex", gap: "0.375rem", paddingTop: "0.5rem", borderTop: "1px solid var(--line)" }}>
                     {[{ l: "Ready", v: readyCount, c: "var(--success)" }, { l: "Fix", v: questionCount - readyCount, c: "var(--primary)" }, { l: "Total", v: questionCount, c: "var(--accent)" }].map(({ l, v, c }) => (
-                      <div key={l} className="flex-1 rounded-lg p-2 text-center" style={{ background: c + "12" }}>
-                        <div className="font-display font-black text-sm" style={{ color: c }}>{v}</div>
-                        <div className="text-[9px] font-bold" style={{ color: c }}>{l}</div>
+                      <div key={l} className="card" style={{ flex: 1, padding: "0.5rem", textAlign: "center", borderRadius: "var(--radius-sm)", background: `color-mix(in srgb, ${c} 8%, transparent)` }}>
+                        <div style={{ fontWeight: 800, fontSize: "1rem", color: c }}>{v}</div>
+                        <div style={{ fontSize: "0.6rem", fontWeight: 700, color: c }}>{l}</div>
                       </div>
                     ))}
                   </div>
@@ -96,9 +85,9 @@ export function BuilderToolbar({
               </>
             )}
           </div>
-          <button onClick={onSaveDraft} className="btn btn-secondary btn-sm">Save</button>
-          <button onClick={onPreview} className="btn btn-secondary btn-sm">Preview</button>
-          <button onClick={onPublish} disabled={!canPublish} className="btn btn-primary btn-sm">{isEditing ? "Update" : "Publish"} →</button>
+          <button onClick={onSaveDraft} className="btn btn-sm btn-secondary">Save</button>
+          <button onClick={onPreview} className="btn btn-sm btn-secondary">Preview</button>
+          <button onClick={onPublish} disabled={!canPublish} className="btn btn-sm btn-primary">{isEditing ? "Update" : "Publish"} →</button>
         </div>
       </div>
     </div>

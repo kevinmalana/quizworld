@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 export type SourceType = "manual" | "paste" | "ai-topic" | "ai-url" | "ai-document";
 
 interface Props {
@@ -9,45 +7,36 @@ interface Props {
 }
 
 const SOURCES = [
-  { key: "manual" as const, icon: "✏️", title: "Start from Scratch", desc: "Build question by question.", color: "var(--accent)" },
-  { key: "ai-topic" as const, icon: "💡", title: "AI from Topic", desc: "Describe a topic, get a draft.", color: "#f59e0b" },
-  { key: "paste" as const, icon: "📋", title: "Paste Questions", desc: "Paste in any format.", color: "#2563eb" },
-  { key: "ai-url" as const, icon: "🔗", title: "AI from URL", desc: "Extract questions from a link.", color: "#059669" },
-  { key: "ai-document" as const, icon: "📄", title: "AI from Document", desc: "Upload or paste text.", color: "#e11d48" },
+  { key: "manual" as const, icon: "✏️", title: "Start from Scratch", desc: "Build question by question." },
+  { key: "ai-topic" as const, icon: "💡", title: "AI from Topic", desc: "Describe a topic, get a draft." },
+  { key: "paste" as const, icon: "📋", title: "Paste Questions", desc: "Paste in any format." },
+  { key: "ai-url" as const, icon: "🔗", title: "AI from URL", desc: "Extract questions from a link." },
+  { key: "ai-document" as const, icon: "📄", title: "AI from Document", desc: "Upload or paste text." },
 ];
 
 export function SourcePicker({ onSelect }: Props) {
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-6">
-      <div className="w-full max-w-xl">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-3" style={{ background: "var(--accent-light)" }}>
-            <span className="text-xs">✦</span>
-            <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--accent)]">Quiz Builder</span>
-          </div>
-          <h1 className="font-display text-3xl font-black text-[var(--ink)] mb-2">Create a new quiz</h1>
-          <p className="text-[var(--muted)] text-sm">Choose how you want to start.</p>
+    <div className="container" style={{ minHeight: "calc(100vh - var(--nav-height))", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+      <div style={{ width: "100%", maxWidth: "36rem" }}>
+        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+          <div className="tag tag-accent" style={{ marginBottom: "0.75rem" }}>✦ Quiz Builder</div>
+          <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, color: "var(--ink)", marginBottom: "0.5rem" }}>Create a new quiz</h1>
+          <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Choose how you want to start.</p>
         </div>
-        <div className="space-y-2">
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           {SOURCES.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => onSelect(s.key)}
-              className="w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all duration-150 group"
-              style={{ background: "var(--surface)", border: "1.5px solid var(--line)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = s.color; e.currentTarget.style.boxShadow = `0 4px 16px ${s.color}15`; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.boxShadow = "none"; }}
-            >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: s.color + "12" }}>
+            <button key={s.key} onClick={() => onSelect(s.key)}
+              className="card card-hover"
+              style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "1rem", textAlign: "left", cursor: "pointer", border: "1px solid var(--line)", borderRadius: "var(--radius-xl)" }}>
+              <div style={{ width: "2.5rem", height: "2.5rem", borderRadius: "var(--radius-md)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.25rem", background: "var(--accent-light)", flexShrink: 0 }}>
                 {s.icon}
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-display font-bold text-sm text-[var(--ink)]">{s.title}</h3>
-                <p className="text-xs text-[var(--muted)]">{s.desc}</p>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--ink)", fontFamily: "var(--font-display)" }}>{s.title}</h3>
+                <p style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{s.desc}</p>
               </div>
-              <svg className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth="2">
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
+              <span style={{ color: "var(--faint)", fontSize: "0.875rem" }}>→</span>
             </button>
           ))}
         </div>
