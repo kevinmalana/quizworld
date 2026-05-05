@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/supabase-provider";
+import { getProfileInsights } from "@/lib/profile-insights";
 import { supabase } from "@/lib/supabase/client";
 import {
   type GameResultRow,
@@ -103,6 +104,8 @@ export default function ProfilePage() {
     };
   }, [user?.id]);
 
+  const performanceInsights = useMemo(() => getProfileInsights(stats), [stats]);
+
   if (authLoading || loading) {
     return (
       <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
@@ -185,6 +188,43 @@ export default function ProfilePage() {
           <div className="card" style={{ padding: "1.5rem", textAlign: "center" }}>
             <div style={{ fontSize: "2rem", fontWeight: 900, color: "var(--accent)" }}>{stats.bestHostedScore}</div>
             <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>Best Score</div>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: "1.5rem", marginBottom: "2rem", border: "1px solid var(--line)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", marginBottom: "0.35rem" }}>
+                Performance Snapshot
+              </div>
+              <h2 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 900, margin: 0 }}>
+                Creator momentum at a glance
+              </h2>
+            </div>
+            <Link href="/dashboard" className="btn btn-secondary" style={{ fontSize: "0.85rem", padding: "0.6rem 0.9rem" }}>
+              Grow library
+            </Link>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "0.9rem" }}>
+            {performanceInsights.map((insight) => {
+              const color = insight.tone === "success" ? "var(--success)" : insight.tone === "warning" ? "#f97316" : "var(--accent)";
+              const background = insight.tone === "success" ? "var(--success-light)" : insight.tone === "warning" ? "#fff7ed" : "var(--accent-light)";
+
+              return (
+                <div key={insight.label} style={{ padding: "1rem", borderRadius: "var(--radius-lg)", background, border: `1px solid ${color}22` }}>
+                  <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--muted)", marginBottom: "0.45rem" }}>
+                    {insight.label}
+                  </div>
+                  <div style={{ fontSize: "2rem", fontWeight: 950, color, lineHeight: 1 }}>
+                    {insight.value}
+                  </div>
+                  <div style={{ marginTop: "0.6rem", fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.45 }}>
+                    {insight.helper}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
