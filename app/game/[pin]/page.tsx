@@ -7,6 +7,7 @@ if (typeof document !== 'undefined' && !document.getElementById('qw-game-animati
   style.textContent = `
     @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-200px); } }
     @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @media (max-width: 480px) { .lobby-pin-qr { flex-direction: column !important; gap: 1rem !important; } }
   `;
   document.head.appendChild(style);
 }
@@ -799,8 +800,8 @@ export default function GamePage() {
           <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.5rem" }}>
             Waiting for host...
           </h1>
-          {/* PIN + QR side by side */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1.5rem", marginBottom: "2rem", flexWrap: "wrap" }}>
+          {/* PIN + QR side by side, stacked on mobile */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1.5rem", marginBottom: "2rem", flexWrap: "wrap", flexDirection: "row" }} className="lobby-pin-qr">
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "0.5rem" }}>Game PIN</div>
               <div style={{ fontSize: "2.5rem", fontWeight: 900, letterSpacing: "0.2em", color: "var(--accent)", fontFamily: "var(--font-display)" }}>{pin}</div>
