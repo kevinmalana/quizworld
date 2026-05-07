@@ -253,11 +253,31 @@ export default function PresentationLive() {
             </div>
           )}
           <div style={{ flex: 1 }} />
-          <button onClick={() => channelRef.current?.prevSlide()} disabled={currentIndex === 0}
+          <button onClick={async () => {
+            if (channelRef.current) { channelRef.current.prevSlide(); }
+            else {
+              const newIdx = Math.max(0, currentIndex - 1);
+              await supabase.from("presentations").update({current_slide_index: newIdx}).eq("id", code);
+              setCurrentIndex(newIdx); setSubmitted(false); setResponse(""); setSelectedOption(null);
+            }
+          }} disabled={currentIndex === 0}
             style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-full)", border: "1px solid var(--line)", background: "var(--surface)", cursor: "pointer" }}>← Prev</button>
-          <button onClick={() => channelRef.current?.nextSlide()} disabled={currentIndex === slides.length - 1}
+          <button onClick={async () => {
+            if (channelRef.current) { channelRef.current.nextSlide(); }
+            else {
+              const newIdx = Math.min(slides.length - 1, currentIndex + 1);
+              await supabase.from("presentations").update({current_slide_index: newIdx}).eq("id", code);
+              setCurrentIndex(newIdx); setSubmitted(false); setResponse(""); setSelectedOption(null);
+            }
+          }} disabled={currentIndex === slides.length - 1}
             style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-full)", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>Next →</button>
-          <button onClick={() => channelRef.current?.endPresentation()}
+          <button onClick={async () => {
+            if (channelRef.current) { channelRef.current.endPresentation(); }
+            else {
+              await supabase.from("presentations").update({status:"finished", finished_at: new Date().toISOString()}).eq("id", code);
+              router.push(`/present/${code}/report`);
+            }
+          }}
             style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-full)", border: "1px solid var(--primary)", background: "transparent", color: "var(--primary)", cursor: "pointer" }}>End</button>
         </div>
       )}
