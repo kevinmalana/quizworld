@@ -57,6 +57,10 @@ export function Navigation() {
               <span>📖</span>
               <span>Study</span>
             </Link>
+            <Link href="/present" className={`nav-item ${pathname === "/present" || pathname.startsWith("/present/") ? "active" : ""}`}>
+              <span>🎤</span>
+              <span>Present</span>
+            </Link>
             <Link href="/create" className={`nav-item nav-item-create ${pathname === "/create" ? "active" : ""}`}>
               <span>+</span>
               <span>Create</span>
@@ -103,6 +107,7 @@ export function Navigation() {
               <Link href="/join" className="mobile-link">🎮 Join</Link>
               <Link href="/explore" className="mobile-link">🔍 Explore</Link>
               <Link href="/study" className="mobile-link">📖 Study</Link>
+              <Link href="/present" className="mobile-link">🎤 Present</Link>
               <Link href="/create" className="mobile-link">✨ Create</Link>
               <Link href="/host" className="mobile-link">🎤 Host</Link>
               {user ? (
