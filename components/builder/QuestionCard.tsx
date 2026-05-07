@@ -157,6 +157,23 @@ export function QuestionCard({ question, index, total, onChange, onDelete, onDup
         compact
       />
 
+      {/* Instruction for picking correct answer */}
+      <div style={{
+        padding: "0.5rem 0.75rem",
+        borderRadius: "var(--radius-lg)",
+        background: question.answers.filter((a) => a.isCorrect).length === 1 ? "var(--success-light)" : "var(--accent-light)",
+        fontSize: "0.8125rem",
+        fontWeight: 700,
+        color: question.answers.filter((a) => a.isCorrect).length === 1 ? "var(--success)" : "var(--accent)",
+        display: "flex",
+        alignItems: "center",
+        gap: "0.5rem",
+      }}>
+        {question.answers.filter((a) => a.isCorrect).length === 1
+          ? "✅ Correct answer selected"
+          : "👉 Tap a letter (A, B, C, D) to pick the correct answer"}
+      </div>
+
       {/* Answers — single column, big */}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
         {question.answers.map((answer, idx) => {
@@ -172,13 +189,19 @@ export function QuestionCard({ question, index, total, onChange, onDelete, onDup
             }}>
               {/* Marker — click to mark correct */}
               <button onClick={() => setCorrect(idx)} style={{
-                width: "2.5rem", height: "2.5rem", borderRadius: "var(--radius-md)", border: "none",
+                width: "3rem", height: "3rem", borderRadius: "var(--radius-lg)", border: "none",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontWeight: 800, fontSize: "1rem", cursor: "pointer", flexShrink: 0,
+                fontWeight: 900, fontSize: "1.125rem", cursor: "pointer", flexShrink: 0,
                 background: answer.isCorrect ? c.solid : c.bg,
                 color: answer.isCorrect ? "#fff" : c.solid,
-                boxShadow: answer.isCorrect ? `0 2px 10px ${c.solid}30` : "none",
-              }}>
+                boxShadow: answer.isCorrect ? `0 2px 12px ${c.solid}40` : "none",
+                transition: "all 0.2s",
+                outline: answer.isCorrect ? "none" : `2px dashed ${c.solid}40`,
+                outlineOffset: -2,
+              }}
+              onMouseEnter={(e) => { if (!answer.isCorrect) e.currentTarget.style.background = c.solid + '25'; }}
+              onMouseLeave={(e) => { if (!answer.isCorrect) e.currentTarget.style.background = c.bg; }}
+              >
                 {answer.isCorrect ? "✓" : String.fromCharCode(65 + idx)}
               </button>
               {/* Input */}
