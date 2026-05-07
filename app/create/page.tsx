@@ -557,8 +557,7 @@ function CreatePageContent() {
                 onChange={(e) => setAiTopic(e.target.value)}
                 placeholder="Describe your topic… e.g. 'The solar system and its planets'"
                 rows={2}
-                className="w-full rounded-xl p-3 text-sm font-medium text-[var(--ink)] outline-none resize-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--surface)" }}
+                style={{ border: "1.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)", padding: "0.75rem", borderRadius: "var(--radius-xl)", fontSize: "0.875rem", fontWeight: 500, width: "100%", outline: "none", resize: "none", fontFamily: "inherit" }}
                 autoFocus
               />
               {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
@@ -599,10 +598,9 @@ function CreatePageContent() {
               <textarea
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
-                placeholder={"Question 1: What is the capital of France?\n* Paris\n- London\n- Berlin\n- Rome\n\nQuestion 2: Which planet is closest to the Sun?\nA. Mercury\nB. Venus\nC. Earth\nD. Mars\nAnswer: A"}
+                placeholder={"Question 1: What is the capital of France?\n* Paris\n- London\n- Berlin\n- Rome"}
                 rows={6}
-                className="w-full rounded-xl p-3 text-sm font-mono text-[var(--ink)] outline-none resize-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--surface)" }}
+                style={{ border: "1.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)", padding: "0.75rem", borderRadius: "var(--radius-xl)", fontSize: "0.8125rem", fontWeight: 500, fontFamily: "monospace", width: "100%", outline: "none", resize: "none" }}
                 autoFocus
               />
               {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
@@ -624,8 +622,7 @@ function CreatePageContent() {
                 value={aiUrl}
                 onChange={(e) => setAiUrl(e.target.value)}
                 placeholder="https://en.wikipedia.org/wiki/..."
-                className="w-full rounded-xl p-3 text-sm font-medium text-[var(--ink)] outline-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--surface)" }}
+                style={{ border: "1.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)", padding: "0.75rem", borderRadius: "var(--radius-xl)", fontSize: "0.875rem", fontWeight: 500, width: "100%", outline: "none", fontFamily: "inherit" }}
                 autoFocus
               />
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>

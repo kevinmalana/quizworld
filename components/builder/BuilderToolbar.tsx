@@ -52,6 +52,20 @@ export function BuilderToolbar({
         {/* Spacer */}
         <div style={{ flex: "1 1 0", minWidth: 8 }} />
 
+        {/* Public/Private toggle */}
+        <button
+          onClick={() => onPublicChange(!isPublic)}
+          style={{
+            minHeight: 34, padding: "0.3rem 0.5rem", fontSize: "0.7rem", fontWeight: 700,
+            borderRadius: "var(--radius-lg)", border: "1.5px solid " + (isPublic ? "var(--accent)" : "var(--line)"),
+            background: isPublic ? "var(--accent-light)" : "var(--surface)",
+            color: isPublic ? "var(--accent)" : "var(--muted)",
+            cursor: "pointer", flexShrink: 0,
+          }}
+        >
+          {isPublic ? "🌐 Public" : "🔒 Private"}
+        </button>
+
         {/* Category */}
         <select
           value={category}
