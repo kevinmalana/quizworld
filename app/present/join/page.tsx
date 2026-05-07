@@ -1,14 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-export default function PresentJoinPage() {
+function JoinForm() {
   const router = useRouter();
-  const [code, setCode] = useState("");
+  const searchParams = useSearchParams();
+  const initialCode = (searchParams.get("code") || "").toUpperCase().slice(0, 6);
+  const [code, setCode] = useState(initialCode);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Auto-join if code is provided in URL
+  useEffect(() => {
+    if (initialCode.length === 6) {
+      void handleJoin();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleJoin = async () => {
     const joinCode = code.trim().toUpperCase();
@@ -82,5 +91,13 @@ export default function PresentJoinPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function PresentJoinPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "4rem", textAlign: "center" }}>Loading...</div>}>
+      <JoinForm />
+    </Suspense>
   );
 }
