@@ -30,18 +30,19 @@ export function AnswerEditor({ answer, index, onChange, onCorrect, onRemove, can
   return (
     <div
       className="group relative rounded-2xl transition-all duration-200"
+      onClick={onCorrect}
       style={{
         background: answer.isCorrect ? color + "0a" : "var(--surface)",
         border: `1.5px solid ${answer.isCorrect ? color + "60" : focused ? color + "40" : "var(--line)"}`,
         boxShadow: focused ? `0 0 0 3px ${color}15` : "none",
+        cursor: "pointer",
       }}
     >
       <div className="flex items-center gap-3 p-3.5">
         {/* Correct toggle */}
-        <button
-          onClick={onCorrect}
-          title={answer.isCorrect ? "Correct answer" : "Mark as correct"}
-          className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm transition-all duration-200 hover:scale-105"
+        <div
+          title={answer.isCorrect ? "Correct answer" : "Click to mark correct"}
+          className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm transition-all duration-200"
           style={{
             background: answer.isCorrect ? color : color + "15",
             color: answer.isCorrect ? "#fff" : color,
@@ -49,13 +50,14 @@ export function AnswerEditor({ answer, index, onChange, onCorrect, onRemove, can
           }}
         >
           {answer.isCorrect ? "✓" : label}
-        </button>
+        </div>
 
         {/* Text input */}
         <input
           type="text"
           value={answer.text}
           onChange={(e) => onChange(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           placeholder={`Answer ${label}${answer.isCorrect ? " (correct)" : ""}`}

@@ -31,7 +31,6 @@ export function BuilderToolbar({
   onTitleChange, onCategoryChange, onEmojiChange, onPublicChange,
   onSaveDraft, onPreview, onPublish, onBack, isEditing, isSignedIn,
 }: Props) {
-  const [editingTitle, setEditingTitle] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   const draftLabel = draftState === "saving" ? "Saving…" : draftState === "saved" ? "Saved ✓" : draftState === "error" ? "Failed" : "";
@@ -41,16 +40,13 @@ export function BuilderToolbar({
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", padding: "0 1.25rem", height: "var(--nav-height)", maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0, flex: 1 }}>
           <button onClick={onBack} className="btn btn-sm btn-ghost" style={{ padding: "0.5rem 0.625rem", minWidth: 36, minHeight: 36, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>←</button>
-          {editingTitle ? (
-            <input autoFocus value={title} onChange={(e) => onTitleChange(e.target.value)}
-              onBlur={() => setEditingTitle(false)} onKeyDown={(e) => e.key === "Enter" && setEditingTitle(false)}
-              className="input" style={{ fontWeight: 700, fontSize: "0.875rem", padding: "0.25rem 0.5rem", flex: 1, minWidth: 0, fontFamily: "var(--font-display)" }} />
-          ) : (
-            <button onClick={() => setEditingTitle(true)}
-              style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--ink)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-display)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {title || "Untitled Quiz"} <span style={{ color: "var(--faint)", fontSize: "0.625rem" }}>✎</span>
-            </button>
-          )}
+          <input
+            value={title}
+            onChange={(e) => onTitleChange(e.target.value)}
+            placeholder="Quiz title…"
+            className="input"
+            style={{ fontWeight: 700, fontSize: "0.875rem", padding: "0.35rem 0.65rem", flex: 1, minWidth: 0, fontFamily: "var(--font-display)", border: "1.5px solid var(--line)", borderRadius: "var(--radius-lg)" }}
+          />
           {draftLabel && <span className="tag" style={{ fontSize: "0.6rem", background: draftState === "saved" ? "var(--success-light)" : "var(--bg-subtle)", color: draftState === "saved" ? "var(--success)" : "var(--muted)" }}>{draftLabel}</span>}
         </div>
 
@@ -89,7 +85,7 @@ export function BuilderToolbar({
           <button onClick={onSaveDraft} className="btn btn-sm btn-secondary" style={{ minHeight: 36 }}>Save</button>
           <button onClick={onPreview} className="btn btn-sm btn-secondary" style={{ minHeight: 36 }}>Preview</button>
           {!canPublish && readyCount < questionCount && (
-            <span style={{ fontSize: "0.6rem", color: "var(--muted)", fontWeight: 700, whiteSpace: "nowrap" }}>Fill all answers to publish</span>
+            <span style={{ fontSize: "0.6rem", color: "var(--muted)", fontWeight: 700, whiteSpace: "nowrap" }}>Complete all questions to publish</span>
           )}
           {!isSignedIn && canPublish && (
             <span style={{ fontSize: "0.65rem", color: "var(--accent)", fontWeight: 700, whiteSpace: "nowrap" }}>🔐 Sign in to publish</span>

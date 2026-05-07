@@ -75,8 +75,9 @@ function makeTrueFalse(): QuestionData {
 
 function isQuestionComplete(q: QuestionData): boolean {
   if (!q.text.trim()) return false;
-  if (q.answers.some((a) => !a.text.trim())) return false;
-  if (q.type !== "poll" && q.answers.filter((a) => a.isCorrect).length !== 1) return false;
+  const filled = q.answers.filter((a) => a.text.trim());
+  if (filled.length < 2) return false;
+  if (q.type !== "poll" && q.answers.filter((a) => a.isCorrect && a.text.trim()).length !== 1) return false;
   return true;
 }
 
