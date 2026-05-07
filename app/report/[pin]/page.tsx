@@ -82,6 +82,29 @@ function DifficultyBadge({ difficulty }: { difficulty: string }) {
   );
 }
 
+function QualityScore({ q }: { q: QuestionBreakdown }) {
+  if (q.total_responses < 3) return <span style={{ fontSize: "0.6rem", color: "var(--muted)", fontWeight: 700 }}>Need 3+ players</span>;
+  const accuracy = q.accuracy_pct;
+  const avgTimeSec = q.avg_response_time_ms / 1000;
+  const timeLimit = q.time_limit;
+  const timePressure = avgTimeSec / timeLimit;
+  let score = 50;
+  if (accuracy >= 40 && accuracy <= 85) score += 25;
+  else if (accuracy < 40) score -= 15;
+  if (timePressure > 0.3 && timePressure < 0.9) score += 15;
+  else if (timePressure <= 0.3) score -= 10;
+  const spread = Math.max(...q.distribution.map(d => d.percentage)) - Math.min(...q.distribution.map(d => d.percentage));
+  if (spread < 60) score += 10;
+  score = Math.max(0, Math.min(100, score));
+  const color = score >= 75 ? "var(--success)" : score >= 50 ? "#f59e0b" : "var(--primary)";
+  const label = score >= 75 ? "Great" : score >= 50 ? "OK" : "Needs work";
+  return (
+    <span style={{ fontSize: "0.6rem", fontWeight: 800, color }} title={`Quality: ${score}/100`}>
+      {score >= 75 ? "✅" : score >= 50 ? "⚠️" : "❌"} {label}
+    </span>
+  );
+}
+
 function AccuracyBar({ pct }: { pct: number }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -293,7 +316,10 @@ export default function ReportPage() {
                       <div style={{ fontSize: "0.65rem", fontWeight: 800, color: "var(--muted)", marginBottom: "0.25rem" }}>Q{i + 1}</div>
                       <div style={{ fontWeight: 700 }}>{q.text}</div>
                     </div>
-                    <DifficultyBadge difficulty={q.difficulty} />
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <QualityScore q={q} />
+                      <DifficultyBadge difficulty={q.difficulty} />
+                    </div>
                   </div>
 
                   {/* Stats row */}

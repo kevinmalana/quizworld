@@ -136,6 +136,11 @@ export default function GamePage() {
   // Feature 13: Reactions
   const [reactions, setReactions] = useState<{id: string; emoji: string; x: number; ts: number}[]>([]);
   const reactionIdRef = useRef(0);
+  // Achievements
+  const [achievements, setAchievements] = useState<Record<string, string[]>>({});
+  // AI Summary
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   // Feature 12: Sound
   const audioCtxRef = useRef<AudioContext | null>(null);
   const getAudioCtx = useCallback(() => {
@@ -608,6 +613,63 @@ export default function GamePage() {
     setTimeout(() => setReactions(prev => prev.filter(r => r.id !== id)), 2500);
   }, []);
 
+  // Calculate achievements from game data
+  const playerAchievements = useMemo(() => {
+    const result: Record<string, { emoji: string; label: string }[]> = {};
+    for (const player of players) {
+      const badges: { emoji: string; label: string }[] = [];
+      const correctCount = playerCorrectCounts[player.id] ?? 0;
+      const streak = playerStreaks[player.id] ?? 0;
+      if (correctCount >= 3 && totalQuestions > 0 && correctCount === totalQuestions) badges.push({ emoji: "🧠", label: "Perfect Score" });
+      if (streak >= 3) badges.push({ emoji: "🔥", label: `On Fire (${streak})` });
+      if (streak >= 5) badges.push({ emoji: "⚡", label: "Unstoppable" });
+      const bestTime = questionHistory.reduce((best, qh) => {
+        const resp = qh.responses?.find(r => r.player_id === player.id);
+        return resp ? Math.min(best, resp.response_time_ms) : best;
+      }, Infinity);
+      if (bestTime < 3000 && bestTime < Infinity) badges.push({ emoji: "⚡", label: "Speed Demon" });
+      const rank = leaderboard.findIndex(p => p.id === player.id);
+      if (rank === 0 && players.length >= 2) badges.push({ emoji: "🏆", label: "Champion" });
+      result[player.id] = badges;
+    }
+    return result;
+  }, [players, playerCorrectCounts, playerStreaks, questionHistory, leaderboard, totalQuestions]);
+
+  // AI post-game summary
+  const generateAiSummary = useCallback(async () => {
+    if (aiSummary || aiSummaryLoading) return;
+    setAiSummaryLoading(true);
+    try {
+      const summaryData = {
+        quiz_title: (session as any)?.quiz?.title || 'Quiz',
+        total_players: players.length,
+        total_questions: totalQuestions,
+        avg_score: players.length > 0 ? Math.round(players.reduce((s, p) => s + (p.score ?? 0), 0) / players.length) : 0,
+        leaderboard: leaderboard.slice(0, 5).map(p => ({ nickname: p.nickname, score: p.score ?? 0, correct: playerCorrectCounts[p.id] ?? 0 })),
+        question_stats: questionHistory.map(qh => ({
+          text: qh.text,
+          correct_pct: qh.responses ? Math.round(qh.responses.filter(r => r.is_correct).length / qh.responses.length * 100) : 0,
+          avg_time: qh.responses ? Math.round(qh.responses.reduce((s, r) => s + r.response_time_ms, 0) / qh.responses.length / 1000 * 10) / 10 : 0,
+        })),
+      };
+      const res = await fetch('/api/ai-source-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourceText: `Analyze this quiz game result and provide 3-4 short insights for the host. Be concise and actionable.\n\nGame data: ${JSON.stringify(summaryData)}`,
+          sourceTitle: 'Quiz Analytics',
+          questionCount: 1,
+        }),
+      });
+      const data = await res.json();
+      if (data.draft?.title) setAiSummary(data.draft.title);
+      else setAiSummary('AI analysis unavailable right now.');
+    } catch {
+      setAiSummary('Could not generate AI summary.');
+    }
+    setAiSummaryLoading(false);
+  }, [aiSummary, aiSummaryLoading, session, players, totalQuestions, leaderboard, playerCorrectCounts, questionHistory]);
+
   const currentPlayer = playerSession?.playerId
     ? players.find((player) => player.id === playerSession.playerId) ?? null
     : null;
@@ -967,10 +1029,42 @@ export default function GamePage() {
         )}
 
         {isHost ? (
-          <div className="card" style={{ padding: "1.5rem", maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
-            <p style={{ fontWeight: 700, marginBottom: "0.5rem" }}>
-              {currentAnswers.length} of {players.length} players have answered.
-            </p>
+          <div className="card" style={{ padding: "1.25rem", maxWidth: 680, margin: "0 auto" }}>
+            {/* Live Host Dashboard */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem", marginBottom: "0.75rem" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "1.5rem", fontWeight: 900, color: "var(--accent)" }}>{currentAnswers.length}/{players.length}</div>
+                <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Answered</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "1.5rem", fontWeight: 900, color: currentAnswers.length > 0 && currentAnswers.filter(a => a.is_correct).length / currentAnswers.length >= 0.7 ? "var(--success)" : "var(--primary)" }}>
+                  {currentAnswers.length > 0 ? Math.round(currentAnswers.filter(a => a.is_correct).length / currentAnswers.length * 100) : 0}%
+                </div>
+                <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Accuracy</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "1.5rem", fontWeight: 900, color: timeLeft <= 5 ? "var(--primary)" : "var(--ink)" }}>{timeLeft}s</div>
+                <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Time Left</div>
+              </div>
+            </div>
+            {/* Answer distribution mini bars */}
+            {currentAnswers.length > 0 && currentQuestion?.answers && (
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(${currentQuestion.answers.length}, 1fr)`, gap: "0.375rem" }}>
+                {currentQuestion.answers.map((a, i) => {
+                  const count = currentAnswers.filter(r => r.answer_id === a.id).length;
+                  const pct = Math.round(count / currentAnswers.length * 100);
+                  return (
+                    <div key={a.id} style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: "0.75rem", fontWeight: 800, color: a.is_correct ? "var(--accent)" : "var(--muted)" }}>{String.fromCharCode(65 + i)}</div>
+                      <div style={{ height: 40, borderRadius: 4, background: "var(--line)", overflow: "hidden", position: "relative" }}>
+                        <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${pct}%`, borderRadius: 4, background: a.is_correct ? "var(--accent)" : "var(--muted)", transition: "height 0.3s" }} />
+                      </div>
+                      <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--muted)" }}>{pct}%</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : !playerSessionReady || !currentPlayer ? (
           <div className="card" style={{ padding: "1.5rem", maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
@@ -1137,6 +1231,10 @@ export default function GamePage() {
                   <span style={{ fontWeight: 700 }}>
                     {index + 1}. {player.avatar || "🎮"} {player.nickname}
                     {(playerStreaks[player.id] ?? 0) >= 2 && <span style={{ marginLeft: "0.5rem" }}>🔥{playerStreaks[player.id]}</span>}
+                    {/* Achievement badges */}
+                    {(playerAchievements[player.id] ?? []).map((badge, bi) => (
+                      <span key={bi} style={{ marginLeft: "0.375rem", fontSize: "0.75rem" }} title={badge.label}>{badge.emoji}</span>
+                    ))}
                   </span>
                   <span style={{ color: "var(--muted)", fontWeight: 700 }}>
                     {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
@@ -1217,6 +1315,10 @@ export default function GamePage() {
             >
               <span style={{ fontWeight: 700 }}>
                 {index < 3 ? ["🥇","🥈","🥉"][index] : (index+1)+"."} {player.avatar || "🎮"} {player.nickname}
+                {/* Achievement badges */}
+                {(playerAchievements[player.id] ?? []).map((badge, bi) => (
+                  <span key={bi} style={{ marginLeft: "0.375rem", fontSize: "0.875rem" }} title={badge.label}>{badge.emoji}</span>
+                ))}
               </span>
               <span style={{ fontWeight: 700 }}>
                 {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
@@ -1224,6 +1326,32 @@ export default function GamePage() {
             </div>
           ))}
         </div>
+
+        {/* AI Post-Game Summary */}
+        {isHost && (
+          <div style={{ marginBottom: "1.5rem", textAlign: "left" }}>
+            {!aiSummary && !aiSummaryLoading && (
+              <button
+                onClick={() => void generateAiSummary()}
+                className="btn btn-secondary"
+                style={{ width: "100%", padding: "0.75rem" }}
+              >
+                🧠 Get AI Insights
+              </button>
+            )}
+            {aiSummaryLoading && (
+              <div style={{ padding: "1rem", borderRadius: "var(--radius-lg)", background: "var(--bg)", textAlign: "center", color: "var(--muted)", fontWeight: 600 }}>
+                🧠 Analyzing game data...
+              </div>
+            )}
+            {aiSummary && (
+              <div style={{ padding: "1rem 1.25rem", borderRadius: "var(--radius-lg)", background: "var(--accent-light)", border: "1px solid var(--accent)" }}>
+                <div style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--accent)", marginBottom: "0.5rem" }}>🧠 AI Insights</div>
+                <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--ink)", whiteSpace: "pre-wrap" }}>{aiSummary}</div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
           {/* Feature 4: Play Again */}
