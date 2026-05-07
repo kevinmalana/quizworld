@@ -7,6 +7,12 @@ defmodule QuizworldRealtimeWeb.Endpoint do
     signing_salt: "v9salt"
   ]
 
+  plug Plug.Static,
+    at: "/",
+    from: :quizworld_realtime,
+    gzip: false,
+    only: ~w(css)
+
   socket "/live", Phoenix.LiveView.Socket,
     websocket: [connect_info: [session: @session_options]]
 

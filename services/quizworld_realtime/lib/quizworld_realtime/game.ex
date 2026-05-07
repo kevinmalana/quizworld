@@ -5,6 +5,7 @@ defmodule QuizworldRealtime.Game do
     :host_id,
     :host_token,
     :quiz_id,
+    :category,
     :created_at,
     :updated_at,
     :game_mode,
@@ -28,6 +29,7 @@ defmodule QuizworldRealtime.Game do
       host_id: fetch_string(attrs, "host_id"),
       host_token: token(),
       quiz_id: fetch_string(attrs, "quiz_id"),
+      category: normalize_category(Map.get(attrs, "category")),
       questions: normalize_questions(Map.get(attrs, "questions", [])),
       game_mode: normalize_game_mode(Map.get(attrs, "game_mode")),
       created_at: now,
@@ -69,12 +71,46 @@ defmodule QuizworldRealtime.Game do
         nil
       end
 
+    # Build question history for host analytics
+    question_history =
+      game.questions
+      |> Enum.with_index()
+      |> Enum.filter(fn {_q, idx} -> idx < game.current_question_index end)
+      |> Enum.map(fn {question, idx} ->
+        question_answers = Map.get(game.answers, question["id"], %{})
+        correct_answer = Enum.find(question["answers"] || [], &Map.get(&1, "is_correct", false))
+        %{
+          "index" => idx,
+          "text" => question["text"],
+          "correct_answer_id" => if(correct_answer, do: correct_answer["id"], else: nil),
+          "correct_answer_text" => if(correct_answer, do: correct_answer["text"], else: nil),
+          "time_limit" => question["time_limit"],
+          "points" => question["points"],
+          "responses" =>
+            question_answers
+            |> Enum.map(fn {pid, row} ->
+              player = Map.get(game.players, pid)
+              %{
+                "player_id" => pid,
+                "nickname" => if(player, do: player.nickname, else: "Unknown"),
+                "avatar" => if(player, do: Map.get(player, :avatar), else: nil),
+                "answer_id" => row.answer_id,
+                "is_correct" => row.is_correct,
+                "points_awarded" => row.points_awarded,
+                "response_time_ms" => row.response_time_ms
+              }
+            end)
+        }
+      end)
+
     %{
       pin: game.pin,
       quiz_id: game.quiz_id,
+      category: game.category,
       game_mode: game.game_mode || "classic",
       quiz: %{
         id: game.quiz_id,
+        category: game.category,
         questions:
           Enum.map(game.questions, fn question ->
             %{
@@ -93,17 +129,18 @@ defmodule QuizworldRealtime.Game do
       current_answers:
         current_answers
         |> Map.values()
-        |> Enum.map(&Map.take(&1, [:player_id, :answer_id, :response_time_ms, :is_correct, :points_awarded]))
+        |> Enum.map(&Map.take(&1, [:player_id, :answer_id, :response_time_ms, :is_correct, :points_awarded])),
+      question_history: question_history
     }
   end
 
   def host_token(%__MODULE__{} = game), do: game.host_token
 
-  def join_player(%__MODULE__{status: status} = game, _attrs) when status != "waiting" do
+  def join_player(%__MODULE__{status: status}, _attrs) when status != "waiting" do
     {:error, :session_closed}
   end
 
-  def join_player(%__MODULE__{players: players} = game, _attrs)
+  def join_player(%__MODULE__{players: players}, _attrs)
       when map_size(players) >= @max_players do
     {:error, :game_full}
   end
@@ -292,6 +329,9 @@ defmodule QuizworldRealtime.Game do
     %{
       "id" => question["id"],
       "text" => question["text"],
+      "image_url" => Map.get(question, "image_url"),
+      "video_url" => Map.get(question, "video_url"),
+      "question_type" => question["question_type"],
       "time_limit" => question["time_limit"],
       "points" => question["points"],
       "order_index" => question["order_index"],
@@ -305,7 +345,8 @@ defmodule QuizworldRealtime.Game do
   defp public_answer(answer, status) do
     base = %{
       "id" => answer["id"],
-      "text" => answer["text"]
+      "text" => answer["text"],
+      "image_url" => Map.get(answer, "image_url")
     }
 
     if status in ["reveal", "finished"] do
@@ -353,26 +394,50 @@ defmodule QuizworldRealtime.Game do
   defp normalize_questions(questions) do
     questions
     |> Enum.map(fn question ->
-      %{
-        "id" => fetch_string(question, "id"),
-        "text" => fetch_string(question, "text"),
-        "time_limit" => Map.get(question, "time_limit", 20),
-        "points" => Map.get(question, "points", 1000),
-        "order_index" => Map.get(question, "order_index", 0),
-        "answers" =>
+      question_type = normalize_question_type(Map.get(question, "question_type"))
+
+      answers =
+        if question_type == "true_false" do
+          [
+            %{"id" => fetch_string(question, "true_answer_id") || "true", "text" => "True",
+              "is_correct" => Map.get(question, "correct_answer") == "true" or
+                             Map.get(question, "correct_answer") == true},
+            %{"id" => fetch_string(question, "false_answer_id") || "false", "text" => "False",
+              "is_correct" => Map.get(question, "correct_answer") == "false" or
+                             Map.get(question, "correct_answer") == false}
+          ]
+        else
           question
           |> Map.get("answers", [])
           |> Enum.map(fn answer ->
             %{
               "id" => fetch_string(answer, "id"),
               "text" => fetch_string(answer, "text"),
+              "image_url" => Map.get(answer, "image_url"),
               "is_correct" => Map.get(answer, "is_correct", false)
             }
           end)
+        end
+
+      %{
+        "id" => fetch_string(question, "id"),
+        "text" => fetch_string(question, "text"),
+        "image_url" => Map.get(question, "image_url"),
+        "video_url" => Map.get(question, "video_url"),
+        "question_type" => question_type,
+        "time_limit" => Map.get(question, "time_limit", 20),
+        "points" => Map.get(question, "points", 1000),
+        "order_index" => Map.get(question, "order_index") || Map.get(question, "order") || 0,
+        "answers" => answers
       }
     end)
     |> Enum.sort_by(& &1["order_index"])
   end
+
+  defp normalize_question_type("multiple_choice"), do: "multiple_choice"
+  defp normalize_question_type("true_false"), do: "true_false"
+  defp normalize_question_type(nil), do: "multiple_choice"
+  defp normalize_question_type(_), do: "multiple_choice"
 
   defp fetch_string(map, key) do
     map
@@ -410,6 +475,12 @@ defmodule QuizworldRealtime.Game do
 
   defp normalize_game_mode("classic"), do: "classic"
   defp normalize_game_mode(_), do: "classic"
+
+  defp normalize_category(nil), do: nil
+  defp normalize_category(value) do
+    trimmed = value |> to_string() |> String.trim()
+    if trimmed == "", do: nil, else: trimmed
+  end
 
   defp touch(%__MODULE__{} = game) do
     %{game | updated_at: DateTime.utc_now()}
