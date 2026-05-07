@@ -70,14 +70,14 @@ export function BuilderToolbar({
         <select
           value={category}
           onChange={(e) => { onCategoryChange(e.target.value); onEmojiChange(CATEGORY_EMOJIS[e.target.value] || "💡"); }}
-          style={{ padding: "0.3rem 0.4rem", borderRadius: "var(--radius-lg)", border: "1.5px solid var(--line)", background: "var(--surface)", fontSize: "0.7rem", fontWeight: 700, color: "var(--ink)", cursor: "pointer", minHeight: 34, maxWidth: 160, flexShrink: 0 }}
+          style={{ padding: "0.3rem 0.5rem", borderRadius: "var(--radius-full)", border: "1.5px solid var(--line)", background: "var(--surface)", fontSize: "0.7rem", fontWeight: 700, color: "var(--ink)", cursor: "pointer", minHeight: 34, maxWidth: 160, flexShrink: 0 }}
         >
           {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_EMOJIS[c] || "💡"} {c}</option>)}
         </select>
 
         {/* Actions */}
-        <button onClick={onSaveDraft} style={{ minHeight: 34, padding: "0.3rem 0.6rem", fontSize: "0.75rem", fontWeight: 600, borderRadius: "var(--radius-lg)", border: "1.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)", cursor: "pointer", flexShrink: 0 }}>Save</button>
-        <button onClick={onPreview} style={{ minHeight: 34, padding: "0.3rem 0.6rem", fontSize: "0.75rem", fontWeight: 600, borderRadius: "var(--radius-lg)", border: "1.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)", cursor: "pointer", flexShrink: 0 }}>Preview</button>
+        <button onClick={onSaveDraft} style={{ minHeight: 34, padding: "0.3rem 0.6rem", fontSize: "0.75rem", fontWeight: 600, borderRadius: "var(--radius-full)", border: "1.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)", cursor: "pointer", flexShrink: 0 }}>Save</button>
+        <button onClick={onPreview} style={{ minHeight: 34, padding: "0.3rem 0.6rem", fontSize: "0.75rem", fontWeight: 600, borderRadius: "var(--radius-full)", border: "1.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)", cursor: "pointer", flexShrink: 0 }}>Preview</button>
 
         {/* Hints */}
         {!canPublish && !title.trim() && (
@@ -91,7 +91,7 @@ export function BuilderToolbar({
         )}
 
         {/* Publish */}
-        <button onClick={onPublish} disabled={!canPublish} style={{ minHeight: 34, padding: "0.3rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-lg)", border: "none", background: canPublish ? "var(--accent)" : "var(--line)", color: canPublish ? "#fff" : "var(--muted)", cursor: canPublish ? "pointer" : "default", flexShrink: 0, opacity: canPublish ? 1 : 0.6 }}>{isEditing ? "Update" : "Publish"} →</button>
+        <button onClick={onPublish} disabled={!canPublish} style={{ minHeight: 34, padding: "0.3rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-full)", border: "none", background: canPublish ? "var(--accent)" : "var(--line)", color: canPublish ? "#fff" : "var(--muted)", cursor: canPublish ? "pointer" : "default", flexShrink: 0, opacity: canPublish ? 1 : 0.6 }}>{isEditing ? "Update" : "Publish"} →</button>
       </div>
     </div>
   );
