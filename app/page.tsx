@@ -177,9 +177,12 @@ export default function HomePage() {
                       Enter Game
                     </button>
                   </form>
-                  <p style={{ marginTop: "1rem", fontSize: "0.75rem", color: "var(--faint)", fontWeight: 600 }}>
+                  <p style={{ marginTop: "0.75rem", fontSize: "0.75rem", color: "var(--faint)", fontWeight: 600 }}>
                     No account needed
                   </p>
+                  <Link href="/present/join" style={{ display: "block", marginTop: "0.75rem", fontSize: "0.8125rem", fontWeight: 700, color: "var(--accent)", textDecoration: "none" }}>
+                    🎤 Join a Presentation
+                  </Link>
                 </div>
               </div>
             </div>
