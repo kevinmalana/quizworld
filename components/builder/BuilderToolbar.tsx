@@ -70,7 +70,7 @@ export function BuilderToolbar({
         <select
           value={category}
           onChange={(e) => { onCategoryChange(e.target.value); onEmojiChange(CATEGORY_EMOJIS[e.target.value] || "💡"); }}
-          style={{ padding: "0.3rem 0.5rem", borderRadius: "var(--radius-full)", border: "1.5px solid var(--line)", background: "var(--surface)", fontSize: "0.7rem", fontWeight: 700, color: "var(--ink)", cursor: "pointer", minHeight: 34, maxWidth: 160, flexShrink: 0 }}
+          style={{ padding: "0.3rem 2rem 0.3rem 0.5rem", borderRadius: "var(--radius-full)", border: "1.5px solid var(--line)", background: "var(--surface)", fontSize: "0.7rem", fontWeight: 700, color: "var(--ink)", cursor: "pointer", minHeight: 34, maxWidth: 180, flexShrink: 0, appearance: "none", WebkitAppearance: "none", backgroundImage: "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"12\" height=\"12\" viewBox=\"0 0 12 12\"><path fill=\"%23666\" d=\"M2 4l4 4 4-4\"/></svg>')", backgroundRepeat: "no-repeat", backgroundPosition: "right 0.5rem center" }}
         >
           {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_EMOJIS[c] || "💡"} {c}</option>)}
         </select>
