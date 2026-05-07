@@ -141,15 +141,14 @@ function QuizCard({ q }: { q: QuizWithCreator }) {
       <div style={{ marginTop: "auto", display: "flex", gap: "0.5rem" }}>
         <Link
           href={`/host?quiz=${q.id}`}
-          className="btn btn-primary"
-          style={{ flex: 1, padding: "0.6rem 0" }}
+          className="btn btn-primary btn-compact"
+          style={{ flex: 1 }}
         >
           Host
         </Link>
         <Link
           href={`/study/${q.id}`}
-          className="btn btn-secondary"
-          style={{ padding: "0.6rem 1rem" }}
+          className="btn btn-secondary btn-compact"
         >
           Study
         </Link>
@@ -464,25 +463,18 @@ function ExplorePageContent() {
               />
 
               {/* Sort selector */}
-              <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexShrink: 0 }}>
+              <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>
                 <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginRight: "0.25rem" }}>Sort:</span>
                 {SORT_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => setSortMode(opt.value)}
                     title={opt.label}
+                    className="btn btn-pill"
                     style={{
-                      padding: "0.45rem 0.75rem",
-                      borderRadius: "999px",
-                      fontSize: "0.8rem",
-                      fontWeight: 700,
-                      whiteSpace: "nowrap",
-                      border: sortMode === opt.value ? "1px solid transparent" : "1px solid var(--line)",
                       background: sortMode === opt.value ? "linear-gradient(135deg, var(--accent), var(--secondary))" : "var(--surface)",
                       color: sortMode === opt.value ? "#fff" : "var(--muted)",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                      display: "flex",
+                      border: sortMode === opt.value ? "1px solid transparent" : "1px solid var(--line)",
                       alignItems: "center",
                       gap: "0.3rem",
                     }}
@@ -514,27 +506,25 @@ function ExplorePageContent() {
               className="hide-scrollbar"
               style={{
                 display: "flex",
-                gap: "0.5rem",
+                gap: "0.375rem",
                 overflowX: "auto",
                 paddingBottom: "0.5rem",
+                flexWrap: "nowrap",
               }}
             >
               {CATEGORY_LIST.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
+                  className="btn btn-chip"
                   style={{
-                    padding: "0.6rem 1rem",
-                    borderRadius: "999px",
-                    fontSize: "0.875rem",
-                    fontWeight: 800,
-                    whiteSpace: "nowrap",
-                    border: activeCategory === cat ? "1px solid transparent" : "1px solid var(--line)",
-                    background: activeCategory === cat ? "linear-gradient(135deg, var(--accent), var(--secondary))" : "var(--surface)",
+                    flexShrink: 0,
+                    background: activeCategory === cat ? "var(--accent)" : "var(--surface)",
                     color: activeCategory === cat ? "#fff" : "var(--muted)",
-                    cursor: "pointer",
+                    border: activeCategory === cat ? "1px solid var(--accent)" : "1px solid var(--line)",
                     transition: "all 0.15s ease",
-                    boxShadow: activeCategory === cat ? "var(--shadow-sm)" : "none",
+                    padding: "0.45rem 0.75rem",
+                    fontSize: "0.8125rem",
                   }}
                 >
                   {cat === "All" ? "All topics" : `${CATEGORY_EMOJIS[cat] || "📌"} ${cat}`}

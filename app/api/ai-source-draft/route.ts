@@ -4,6 +4,7 @@ import {
   sanitizeJsonString,
   validateAIQuizDraft,
 } from "@/lib/quiz-ai";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 function requireEnv(name: string) {
   const value = process.env[name]?.trim();
@@ -14,6 +15,10 @@ function requireEnv(name: string) {
 }
 
 export async function POST(request: Request) {
+  // Rate limiting
+  const rateLimitResponse = checkRateLimit(request as any);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = (await request.json()) as {
       sourceText?: string;

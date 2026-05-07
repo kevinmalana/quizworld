@@ -1,1 +1,11 @@
 User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /host
+Disallow: /profile
+Disallow: /create
+Disallow: /game/
+Disallow: /login
+
+Sitemap: https://www.quizworld.xyz/sitemap.xml

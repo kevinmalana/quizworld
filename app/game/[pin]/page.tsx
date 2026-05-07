@@ -73,6 +73,7 @@ function normalizePhoenixSession(rawSession: Record<string, unknown>) {
     },
     current_question: currentQuestion,
     current_answers: (rawSession?.current_answers as unknown[]) ?? [],
+    question_history: (rawSession?.question_history as unknown[]) ?? [],
   };
 }
 
@@ -87,6 +88,9 @@ export default function GamePage() {
   >([]);
   const [currentAnswers, setCurrentAnswers] = useState<
     { player_id: string; answer_id: string; is_correct?: boolean; points_awarded?: number }[]
+  >([]);
+  const [questionHistory, setQuestionHistory] = useState<
+    { index: number; text: string; correct_answer_text?: string; responses?: { player_id: string; nickname: string; avatar?: string; is_correct: boolean; points_awarded: number; response_time_ms: number }[] }[]
   >([]);
   const [gameStatus, setGameStatus] = useState<GameStatus>("waiting");
   const [currentQuestion, setCurrentQuestion] = useState<{
@@ -197,6 +201,7 @@ export default function GamePage() {
       setCurrentAnswers(nextAnswers);
       setGameStatus(((normalizedSession.status as string) ?? "waiting") as GameStatus);
       setCurrentQuestion(nextQuestion);
+      setQuestionHistory((normalizedSession.question_history as typeof questionHistory) ?? []);
       setSelectedAnswer(
         playerSession?.playerId
           ? nextAnswers.find((answer) => answer.player_id === playerSession.playerId)?.answer_id ??

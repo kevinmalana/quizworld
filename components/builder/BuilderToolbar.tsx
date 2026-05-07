@@ -39,7 +39,7 @@ export function BuilderToolbar({
     <div className="nav-header" style={{ position: "sticky", top: 0, zIndex: 30 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", padding: "0 1.25rem", height: "var(--nav-height)", maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0, flex: 1 }}>
-          <button onClick={onBack} className="btn btn-sm btn-ghost" style={{ padding: "0.375rem" }}>←</button>
+          <button onClick={onBack} className="btn btn-sm btn-ghost" style={{ padding: "0.5rem 0.625rem", minWidth: 36, minHeight: 36, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>←</button>
           {editingTitle ? (
             <input autoFocus value={title} onChange={(e) => onTitleChange(e.target.value)}
               onBlur={() => setEditingTitle(false)} onKeyDown={(e) => e.key === "Enter" && setEditingTitle(false)}
@@ -55,7 +55,7 @@ export function BuilderToolbar({
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexShrink: 0 }}>
           <div style={{ position: "relative" }}>
-            <button onClick={() => setShowSettings(!showSettings)} className="btn btn-sm btn-ghost" style={{ padding: "0.375rem" }}>⚙</button>
+            <button onClick={() => setShowSettings(!showSettings)} className="btn btn-sm btn-ghost" style={{ padding: "0.5rem 0.625rem", minWidth: 36, minHeight: 36, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>⚙</button>
             {showSettings && (
               <>
                 <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setShowSettings(false)} />
@@ -85,9 +85,9 @@ export function BuilderToolbar({
               </>
             )}
           </div>
-          <button onClick={onSaveDraft} className="btn btn-sm btn-secondary">Save</button>
-          <button onClick={onPreview} className="btn btn-sm btn-secondary">Preview</button>
-          <button onClick={onPublish} disabled={!canPublish} className="btn btn-sm btn-primary">{isEditing ? "Update" : "Publish"} →</button>
+          <button onClick={onSaveDraft} className="btn btn-sm btn-secondary" style={{ minHeight: 36 }}>Save</button>
+          <button onClick={onPreview} className="btn btn-sm btn-secondary" style={{ minHeight: 36 }}>Preview</button>
+          <button onClick={onPublish} disabled={!canPublish} className="btn btn-sm btn-primary" style={{ minHeight: 36 }}>{isEditing ? "Update" : "Publish"} →</button>
         </div>
       </div>
     </div>

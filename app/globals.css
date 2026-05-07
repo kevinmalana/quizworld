@@ -251,6 +251,83 @@ button { font-family: inherit; }
   padding: 0.5rem 1rem;
   font-size: 0.8125rem;
   border-radius: var(--radius-sm);
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Compact button — used inside cards, grids */
+.btn-compact {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  border-radius: var(--radius-sm);
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Pill button — used for tags, chips, sort selectors */
+.btn-pill {
+  padding: 0.45rem 0.875rem;
+  font-size: 0.8125rem;
+  border-radius: 999px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+/* Chip button — category/filter chips */
+.btn-chip {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  border-radius: 999px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+/* Sidebar — hidden on mobile, visible on desktop */
+.sidebar-desktop {
+  display: none !important;
+}
+@media (min-width: 768px) {
+  .sidebar-desktop {
+    display: flex !important;
+  }
+}
+
+/* Icon-only button — minimum 36px touch target */
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-icon:hover {
+  background: var(--bg-subtle);
+  color: var(--ink);
 }
 
 .btn-lg {

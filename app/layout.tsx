@@ -2,10 +2,52 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Navigation } from "@/components/navigation";
 import { AuthProvider } from "@/components/supabase-provider";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export const metadata: Metadata = {
-  title: "QuizWorld — Live Quizzes That Feel Like Game Night",
+  title: {
+    default: "QuizWorld — Live Quizzes That Feel Like Game Night",
+    template: "%s | QuizWorld",
+  },
   description: "Host live quiz sessions, join games with friends, or study with AI-powered quizzes. Play anytime, anywhere.",
+  metadataBase: new URL("https://www.quizworld.xyz"),
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://www.quizworld.xyz",
+    siteName: "QuizWorld",
+    title: "QuizWorld — Live Quizzes That Feel Like Game Night",
+    description: "Host live quiz sessions, join games with friends, or study with AI-powered quizzes.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "QuizWorld",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "QuizWorld — Live Quizzes That Feel Like Game Night",
+    description: "Host live quiz sessions, join games with friends, or study with AI-powered quizzes.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -23,7 +65,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <Navigation />
           <main style={{ paddingTop: "var(--nav-height)" }}>
-            {children}
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
           </main>
         </AuthProvider>
       </body>

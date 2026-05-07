@@ -283,12 +283,16 @@ function JoinForm() {
               onChange={(e) => handleDigitChange(i, e.target.value)}
               onKeyDown={(e) => handleDigitKeyDown(i, e)}
               className="input-pin"
+              aria-label={`PIN character ${i + 1}`}
               style={{ 
                 width: 48, 
-                height: 56, 
+                height: 56,
+                padding: 0,
                 textAlign: "center", 
                 fontSize: "1.5rem", 
+                lineHeight: "56px",
                 fontWeight: 800,
+                letterSpacing: 0,
                 textTransform: "uppercase"
               }}
             />

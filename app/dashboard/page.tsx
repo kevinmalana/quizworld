@@ -428,15 +428,15 @@ function DashboardPageContent() {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <Link href={`/create?draft=${draft.id}`} className="btn btn-primary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+                    <Link href={`/create?draft=${draft.id}`} className="btn btn-primary btn-compact" style={{ flex: 1 }}>
                       Continue
                     </Link>
                     {draft.quiz_id ? (
-                      <Link href={`/host?quiz=${draft.quiz_id}`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+                      <Link href={`/host?quiz=${draft.quiz_id}`} className="btn btn-secondary btn-compact" style={{ flex: 1 }}>
                         Host Live
                       </Link>
                     ) : (
-                      <div className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem", opacity: 0.45, pointerEvents: "none" }}>
+                      <div className="btn btn-secondary btn-compact" style={{ flex: 1, opacity: 0.45, pointerEvents: "none" }}>
                         Unpublished
                       </div>
                     )}
@@ -486,15 +486,14 @@ function DashboardPageContent() {
                         <button
                           onClick={() => void restoreVersionToDraft(version)}
                           disabled={actioningVersionId === version.id}
-                          className="btn btn-primary"
-                          style={{ padding: "0.5rem 0.85rem", fontSize: "0.875rem" }}
+                          className="btn btn-primary btn-compact"
                         >
                           {actioningVersionId === version.id ? "Restoring..." : "Restore As Draft"}
                         </button>
-                        <Link href={`/create?version=${version.id}`} className="btn btn-secondary" style={{ padding: "0.5rem 0.85rem", fontSize: "0.875rem" }}>
+                        <Link href={`/create?version=${version.id}`} className="btn btn-secondary btn-compact">
                           Open Snapshot
                         </Link>
-                        <Link href={`/create?quiz=${version.quiz_id}`} className="btn btn-primary" style={{ padding: "0.5rem 0.85rem", fontSize: "0.875rem" }}>
+                        <Link href={`/create?quiz=${version.quiz_id}`} className="btn btn-primary btn-compact">
                           Edit Current
                         </Link>
                       </div>
@@ -547,25 +546,24 @@ function DashboardPageContent() {
                     </div>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                    <Link href={`/host?quiz=${q.id}`} className="btn btn-primary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+                    <Link href={`/host?quiz=${q.id}`} className="btn btn-primary btn-compact" style={{ flex: 1 }}>
                       Host
                     </Link>
-                    <Link href={`/create?quiz=${q.id}`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+                    <Link href={`/create?quiz=${q.id}`} className="btn btn-secondary btn-compact" style={{ flex: 1 }}>
                       Edit
                     </Link>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.5rem" }}>
-                    <Link href={`/create?quiz=${q.id}&duplicate=1`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+                    <Link href={`/create?quiz=${q.id}&duplicate=1`} className="btn btn-secondary btn-compact" style={{ flex: 1 }}>
                       Duplicate
                     </Link>
-                    <Link href={`/study/${q.id}`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+                    <Link href={`/study/${q.id}`} className="btn btn-secondary btn-compact" style={{ flex: 1 }}>
                       Study
                     </Link>
                     <button
                       onClick={() => void updateVisibility(q.id, !q.is_public)}
                       disabled={actioningQuizId === q.id}
-                      className="btn btn-secondary"
-                      style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}
+                      className="btn btn-secondary btn-compact" style={{ flex: 1 }}
                     >
                       {actioningQuizId === q.id ? "..." : q.is_public ? "Make Private" : "Make Public"}
                     </button>
@@ -574,8 +572,7 @@ function DashboardPageContent() {
                     <button
                       onClick={() => void updateArchiveState(q.id, true)}
                       disabled={actioningQuizId === q.id}
-                      className="btn btn-secondary"
-                      style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}
+                      className="btn btn-secondary btn-compact" style={{ flex: 1 }}
                     >
                       {actioningQuizId === q.id ? "..." : "Archive"}
                     </button>
@@ -607,14 +604,13 @@ function DashboardPageContent() {
                       </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem" }}>
-                      <Link href={`/create?quiz=${q.id}&duplicate=1`} className="btn btn-secondary" style={{ fontSize: "0.875rem", padding: "0.5rem" }}>
+                      <Link href={`/create?quiz=${q.id}&duplicate=1`} className="btn btn-secondary btn-compact">
                         Duplicate
                       </Link>
                       <button
                         onClick={() => void updateArchiveState(q.id, false)}
                         disabled={actioningQuizId === q.id}
-                        className="btn btn-primary"
-                        style={{ fontSize: "0.875rem", padding: "0.5rem" }}
+                        className="btn btn-primary btn-compact"
                       >
                         {actioningQuizId === q.id ? "..." : "Restore"}
                       </button>

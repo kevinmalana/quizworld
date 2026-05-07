@@ -9,3 +9,9 @@ tsconfig.tsbuildinfo
 deps
 _build
 rel
+
+# Local/generated files
+.env.vercel
+playwright-report/
+test-results/
+supabase/.temp/

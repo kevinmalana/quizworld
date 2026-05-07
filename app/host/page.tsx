@@ -28,12 +28,14 @@ function toPhoenixQuestions(quiz: any) {
   return questions.map((question: any) => ({
     id: question.id,
     text: question.text,
+    image_url: question.image_url || null,
     time_limit: question.time_limit ?? 20,
     points: question.points ?? 1000,
     order_index: question.order_index ?? 0,
     answers: (question.answers ?? []).map((answer: any) => ({
       id: answer.id,
       text: answer.text,
+      image_url: answer.image_url || null,
       is_correct: answer.is_correct ?? false,
     })),
   }));

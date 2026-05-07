@@ -31,6 +31,8 @@ import { SourcePicker, type SourceType } from "@/components/builder/SourcePicker
 import { BuilderToolbar } from "@/components/builder/BuilderToolbar";
 import { QuestionSidebar } from "@/components/builder/QuestionSidebar";
 import { QuestionCard, type QuestionData, type QuestionType } from "@/components/builder/QuestionCard";
+import { Confetti } from "@/components/builder/Confetti";
+import { LivePreview } from "@/components/builder/LivePreview";
 import type { AnswerData } from "@/components/builder/AnswerEditor";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -81,9 +83,10 @@ function isQuestionComplete(q: QuestionData): boolean {
 function questionsToPublishPayload(questions: QuestionData[]) {
   return questions.map((q) => ({
     text: q.text,
+    image_url: q.imageUrl || "",
     time_limit: q.timeLimit,
     points: q.points,
-    answers: q.answers.map((a) => ({ text: a.text, is_correct: a.isCorrect })),
+    answers: q.answers.map((a) => ({ text: a.text, image_url: a.imageUrl || "", is_correct: a.isCorrect })),
   }));
 }
 
@@ -173,7 +176,18 @@ function CreatePageContent() {
   }, [questions.length]);
 
   const updateQuestion = useCallback((idx: number, q: QuestionData) => {
-    setQuestions((prev) => prev.map((p, i) => (i === idx ? q : p)));
+    // Smart defaults (#10): auto-detect T/F from question text
+    let updated = q;
+    if (q.type === "multiple_choice") {
+      const lower = q.text.toLowerCase().trim();
+      if (lower.startsWith("true or false") || lower.startsWith("true/false") || lower.startsWith("is it true") || lower.startsWith("is this true")) {
+        updated = { ...q, type: "true_false", answers: [
+          { id: uid(), text: "True", isCorrect: true },
+          { id: uid(), text: "False", isCorrect: false },
+        ] };
+      }
+    }
+    setQuestions((prev) => prev.map((p, i) => (i === idx ? updated : p)));
     setDraftState("dirty");
   }, []);
 
@@ -298,6 +312,7 @@ function CreatePageContent() {
         title: quizTitle,
         category: quizCategory,
         emoji: quizEmoji,
+        color: "",
         is_public: isPublic,
         source_type: sourceType,
         owner_id: user.id,
@@ -320,12 +335,12 @@ function CreatePageContent() {
         for (let i = 0; i < questions.length; i++) {
           const q = questions[i];
           const { data: insertedQ } = await supabase.from("quiz_draft_questions").insert({
-            draft_id: draftId, text: q.text, time_limit: q.timeLimit, points: q.points, order_index: i,
+            draft_id: draftId, text: q.text, image_url: q.imageUrl || null, time_limit: q.timeLimit, points: q.points, order_index: i,
           }).select("id").single();
           if (insertedQ) {
             await supabase.from("quiz_draft_answers").insert(
               q.answers.map((a, ai) => ({
-                question_id: insertedQ.id, text: a.text, is_correct: a.isCorrect, order_index: ai,
+                question_id: insertedQ.id, text: a.text, image_url: a.imageUrl || null, is_correct: a.isCorrect, order_index: ai,
               }))
             );
           }
@@ -348,6 +363,31 @@ function CreatePageContent() {
     return () => { if (draftTimer.current) clearTimeout(draftTimer.current); };
   }, [draftState, saveDraftToSupabase]);
 
+  // ── Keyboard shortcuts (#2) ──
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Ctrl+S / Cmd+S → save
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        void saveDraftToSupabase("manual");
+        return;
+      }
+      // Ctrl+Enter → add question
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        addQuestion();
+        return;
+      }
+      // Ctrl+Z → undo (simple: do nothing for now, prevents browser undo)
+      // Don't interfere with normal text editing
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [saveDraftToSupabase, addQuestion]);
+
+  // ── Confetti state (#14) ──
+  const [showConfetti, setShowConfetti] = useState(false);
+
   // ── Publish ──
   const handlePublish = useCallback(async () => {
     if (!user || !canPublish) return;
@@ -357,6 +397,7 @@ function CreatePageContent() {
         p_title: quizTitle,
         p_category: quizCategory,
         p_emoji: quizEmoji,
+        p_color: "",
         p_is_public: isPublic,
         p_questions: questionsToPublishPayload(questions.filter(isQuestionComplete)),
       };
@@ -375,7 +416,9 @@ function CreatePageContent() {
         await supabase.from("quiz_drafts").update({ quiz_id: createdId, updated_at: new Date().toISOString() }).eq("id", remoteDraftId).eq("owner_id", user.id);
       }
 
-      router.push("/dashboard");
+      // Confetti! (#14)
+      setShowConfetti(true);
+      setTimeout(() => { router.push("/dashboard"); }, 1500);
     } catch (err) {
       console.error("Publish error:", err);
       setDraftState("error");
@@ -393,30 +436,30 @@ function CreatePageContent() {
         {/* Inline source inputs */}
         {sourceType === "ai-topic" && (
           <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
-            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-xl text-[var(--ink)]">💡 AI Topic Generator</h2>
-                <button onClick={() => setSourceType("manual")} className="w-7 h-7 rounded-md hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)] transition-colors">✕</button>
+                <h2 className="font-display font-bold text-lg text-[var(--ink)]">💡 AI Topic Generator</h2>
+                <button onClick={() => setSourceType("manual")} style={{ width: 36, height: 36, borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", cursor: "pointer", border: "none", background: "transparent", transition: "background 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>✕</button>
               </div>
               <textarea
                 value={aiTopic}
                 onChange={(e) => setAiTopic(e.target.value)}
-                placeholder="Describe your topic in detail… e.g. 'The solar system and its planets, including dwarf planets and major moons'"
-                rows={4}
-                className="w-full rounded-2xl p-4 text-sm font-medium text-[var(--ink)] outline-none resize-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--bg)" }}
+                placeholder="Describe your topic… e.g. 'The solar system and its planets'"
+                rows={2}
+                className="w-full rounded-xl p-3 text-sm font-medium text-[var(--ink)] outline-none resize-none"
+                style={{ border: "1.5px solid var(--line)", background: "var(--surface)" }}
                 autoFocus
               />
               {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[var(--muted)]">Questions:</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                  <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)", marginRight: "0.25rem" }}>Q:</span>
                   {[3, 5, 8, 10].map((n) => (
                     <button
                       key={n}
                       onClick={() => setAiCount(n as AIQuestionCount)}
-                      className="px-2.5 py-1 rounded-lg text-xs font-bold"
-                      style={{ background: aiCount === n ? "var(--accent)" : "var(--bg)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "none" : "1px solid var(--line)" }}
+                      className="btn btn-compact"
+                      style={{ background: aiCount === n ? "var(--accent)" : "var(--surface)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "1px solid var(--accent)" : "1px solid var(--line)", padding: "0.375rem 0.625rem", fontSize: "0.8125rem" }}
                     >
                       {n}
                     </button>
@@ -425,7 +468,8 @@ function CreatePageContent() {
                 <button
                   onClick={handleAiGenerate}
                   disabled={aiLoading || aiTopic.trim().length < 5}
-                  className="btn btn-primary btn-sm"
+                  className="btn btn-primary btn-compact"
+                  style={{ flexShrink: 0 }}
                 >
                   {aiLoading ? "Generating…" : "Generate ✨"}
                 </button>
@@ -436,23 +480,23 @@ function CreatePageContent() {
 
         {sourceType === "paste" && (
           <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
-            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-xl text-[var(--ink)]">📋 Paste Questions</h2>
-                <button onClick={() => setSourceType("manual")} className="w-7 h-7 rounded-md hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)] transition-colors">✕</button>
+                <h2 className="font-display font-bold text-lg text-[var(--ink)]">📋 Paste Questions</h2>
+                <button onClick={() => setSourceType("manual")} style={{ width: 36, height: 36, borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", cursor: "pointer", border: "none", background: "transparent", transition: "background 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>✕</button>
               </div>
               <textarea
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
                 placeholder={"Question 1: What is the capital of France?\n* Paris\n- London\n- Berlin\n- Rome\n\nQuestion 2: Which planet is closest to the Sun?\nA. Mercury\nB. Venus\nC. Earth\nD. Mars\nAnswer: A"}
-                rows={10}
-                className="w-full rounded-2xl p-4 text-sm font-mono text-[var(--ink)] outline-none resize-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--bg)" }}
+                rows={6}
+                className="w-full rounded-xl p-3 text-sm font-mono text-[var(--ink)] outline-none resize-none"
+                style={{ border: "1.5px solid var(--line)", background: "var(--surface)" }}
                 autoFocus
               />
               {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
               <div className="flex justify-end">
-                <button onClick={handlePasteImport} className="btn btn-primary btn-sm">Import →</button>
+                <button onClick={handlePasteImport} className="btn btn-primary btn-compact">Import →</button>
               </div>
             </div>
           </div>
@@ -460,34 +504,34 @@ function CreatePageContent() {
 
         {sourceType === "ai-url" && (
           <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
-            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-xl text-[var(--ink)]">🔗 AI from URL</h2>
-                <button onClick={() => setSourceType("manual")} className="w-7 h-7 rounded-md hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)] transition-colors">✕</button>
+                <h2 className="font-display font-bold text-lg text-[var(--ink)]">🔗 AI from URL</h2>
+                <button onClick={() => setSourceType("manual")} style={{ width: 36, height: 36, borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", cursor: "pointer", border: "none", background: "transparent", transition: "background 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>✕</button>
               </div>
               <input
                 value={aiUrl}
                 onChange={(e) => setAiUrl(e.target.value)}
                 placeholder="https://en.wikipedia.org/wiki/..."
-                className="w-full rounded-2xl p-4 text-sm font-medium text-[var(--ink)] outline-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--bg)" }}
+                className="w-full rounded-xl p-3 text-sm font-medium text-[var(--ink)] outline-none"
+                style={{ border: "1.5px solid var(--line)", background: "var(--surface)" }}
                 autoFocus
               />
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[var(--muted)]">Questions:</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                  <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)", marginRight: "0.25rem" }}>Q:</span>
                   {[3, 5, 8, 10].map((n) => (
                     <button
                       key={n}
                       onClick={() => setAiCount(n as AIQuestionCount)}
-                      className="px-2.5 py-1 rounded-lg text-xs font-bold"
-                      style={{ background: aiCount === n ? "var(--accent)" : "var(--bg)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "none" : "1px solid var(--line)" }}
+                      className="btn btn-compact"
+                      style={{ background: aiCount === n ? "var(--accent)" : "var(--surface)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "1px solid var(--accent)" : "1px solid var(--line)", padding: "0.375rem 0.75rem", fontSize: "0.8125rem" }}
                     >
                       {n}
                     </button>
                   ))}
                 </div>
-                <button onClick={handleUrlFetch} disabled={aiLoading || !aiUrl.trim()} className="btn btn-primary btn-sm">
+                <button onClick={handleUrlFetch} disabled={aiLoading || !aiUrl.trim()} className="btn btn-primary btn-compact" style={{ flexShrink: 0 }}>
                   {aiLoading ? "Fetching…" : "Fetch & Generate ✨"}
                 </button>
               </div>
@@ -498,37 +542,37 @@ function CreatePageContent() {
 
         {sourceType === "ai-document" && (
           <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
-            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-xl text-[var(--ink)]">📄 AI from Document</h2>
-                <button onClick={() => setSourceType("manual")} className="w-7 h-7 rounded-md hover:bg-[var(--bg)] flex items-center justify-center text-[var(--muted)] transition-colors">✕</button>
+                <h2 className="font-display font-bold text-lg text-[var(--ink)]">📄 AI from Document</h2>
+                <button onClick={() => setSourceType("manual")} style={{ width: 36, height: 36, borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", cursor: "pointer", border: "none", background: "transparent", transition: "background 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>✕</button>
               </div>
               <p className="text-sm text-[var(--muted)]">Paste your document text below and AI will generate quiz questions from it.</p>
               <textarea
                 value={aiTopic}
                 onChange={(e) => setAiTopic(e.target.value)}
                 placeholder="Paste document content here…"
-                rows={10}
-                className="w-full rounded-2xl p-4 text-sm font-medium text-[var(--ink)] outline-none resize-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--bg)" }}
+                rows={6}
+                className="w-full rounded-xl p-3 text-sm font-medium text-[var(--ink)] outline-none resize-none"
+                style={{ border: "1.5px solid var(--line)", background: "var(--surface)" }}
                 autoFocus
               />
               {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[var(--muted)]">Questions:</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                  <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)", marginRight: "0.25rem" }}>Q:</span>
                   {[3, 5, 8, 10].map((n) => (
                     <button
                       key={n}
                       onClick={() => setAiCount(n as AIQuestionCount)}
-                      className="px-2.5 py-1 rounded-lg text-xs font-bold"
-                      style={{ background: aiCount === n ? "var(--accent)" : "var(--bg)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "none" : "1px solid var(--line)" }}
+                      className="btn btn-compact"
+                      style={{ background: aiCount === n ? "var(--accent)" : "var(--surface)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "1px solid var(--accent)" : "1px solid var(--line)", padding: "0.375rem 0.75rem", fontSize: "0.8125rem" }}
                     >
                       {n}
                     </button>
                   ))}
                 </div>
-                <button onClick={handleAiGenerate} disabled={aiLoading || aiTopic.trim().length < 20} className="btn btn-primary btn-sm">
+                <button onClick={handleAiGenerate} disabled={aiLoading || aiTopic.trim().length < 20} className="btn btn-primary btn-compact" style={{ flexShrink: 0 }}>
                   {aiLoading ? "Generating…" : "Generate ✨"}
                 </button>
               </div>
@@ -542,6 +586,7 @@ function CreatePageContent() {
   // Builder step
   return (
     <div className="min-h-[calc(100vh-64px)] flex flex-col">
+      {showConfetti && <Confetti />}
       {/* Toolbar */}
       <BuilderToolbar
         title={quizTitle}
@@ -552,10 +597,10 @@ function CreatePageContent() {
         readyCount={readyCount}
         draftState={draftState}
         canPublish={canPublish}
-        onTitleChange={setQuizTitle}
-        onCategoryChange={setQuizCategory}
-        onEmojiChange={setQuizEmoji}
-        onPublicChange={setIsPublic}
+        onTitleChange={(v) => { setQuizTitle(v); setDraftState("dirty"); }}
+        onCategoryChange={(v) => { setQuizCategory(v); setDraftState("dirty"); }}
+        onEmojiChange={(v) => { setQuizEmoji(v); setDraftState("dirty"); }}
+        onPublicChange={(v) => { setIsPublic(v); setDraftState("dirty"); }}
         onSaveDraft={() => void saveDraftToSupabase("manual")}
         onPreview={() => setShowPreview(!showPreview)}
         onPublish={handlePublish}
@@ -565,10 +610,10 @@ function CreatePageContent() {
 
       {/* Main content: sidebar + editor */}
       <div className="flex-1 flex">
-        {/* Left sidebar */}
+        {/* Left sidebar — hidden on mobile, visible on desktop */}
         <div
-          className="card"
-          style={{ width: 260, flexShrink: 0, borderRadius: 0, borderRight: "1px solid var(--line)", borderLeft: "none", borderTop: "none", borderBottom: "none", display: "flex", flexDirection: "column" }}
+          className="card sidebar-desktop"
+          style={{ width: 260, flexShrink: 0, borderRadius: 0, borderRight: "1px solid var(--line)", borderLeft: "none", borderTop: "none", borderBottom: "none", flexDirection: "column" }}
         >
           <QuestionSidebar
             questions={questions}
@@ -576,6 +621,8 @@ function CreatePageContent() {
             onSelect={setActiveIndex}
             onReorder={reorderQuestions}
             onAdd={addQuestion}
+            onDelete={deleteQuestion}
+            onDuplicate={duplicateQuestion}
           />
         </div>
         {/* Mobile sidebar toggle */}
@@ -592,41 +639,19 @@ function CreatePageContent() {
         </div>
 
         {/* Main editor */}
-        <div className="flex-1 overflow-y-auto" style={{ padding: "1.5rem", background: "var(--bg)" }}>
-          {showPreview ? (
-            /* Preview mode */
-            <div className="max-w-2xl mx-auto p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-display font-bold text-xl text-[var(--ink)]">Preview</h2>
-                <button onClick={() => setShowPreview(false)} className="btn btn-secondary btn-sm">Back to Editor</button>
-              </div>
-              {questions.filter(isQuestionComplete).map((q, idx) => (
-                <div key={q.id} className="mb-6 p-5 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <p className="font-display font-bold text-lg text-[var(--ink)] mb-4">{idx + 1}. {q.text}</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {q.answers.map((a, ai) => (
-                      <div
-                        key={a.id}
-                        className="rounded-xl p-3 text-sm font-semibold"
-                        style={{
-                          background: a.isCorrect ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.03)",
-                          border: a.isCorrect ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(255,255,255,0.06)",
-                          color: a.isCorrect ? "#10b981" : "rgba(255,255,255,0.7)",
-                        }}
-                      >
-                        {["A", "B", "C", "D", "E", "F"][ai]}. {a.text} {a.isCorrect ? "✓" : ""}
-                      </div>
-                    ))}
-                  </div>
-                  {q.explanation && (
-                    <p className="mt-3 text-sm text-[var(--muted)] italic">💡 {q.explanation}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : activeQuestion ? (
+        <div className="flex-1 overflow-y-auto" style={{ padding: "1rem 1.5rem", background: "var(--bg)" }}>
+          {/* Live Preview Modal (#3) */}
+          {showPreview && activeQuestion && (
+            <LivePreview
+              question={activeQuestion}
+              index={activeIndex}
+              total={questions.length}
+              onClose={() => setShowPreview(false)}
+            />
+          )}
+          {activeQuestion ? (
             /* Question editor */
-            <div className="max-w-3xl mx-auto p-6">
+            <div className="max-w-3xl mx-auto" style={{ padding: "0.5rem 0" }}>
               <QuestionCard
                 question={activeQuestion}
                 index={activeIndex}
@@ -637,7 +662,7 @@ function CreatePageContent() {
               />
 
               {/* Navigation */}
-              <div className="flex items-center justify-between mt-6">
+              <div className="flex items-center justify-between mt-3">
                 <button
                   onClick={() => setActiveIndex((i) => Math.max(i - 1, 0))}
                   disabled={activeIndex === 0}
@@ -663,7 +688,7 @@ function CreatePageContent() {
               </div>
 
               {/* Quick add buttons */}
-              <div className="flex items-center gap-2 mt-4 justify-center">
+              <div className="flex items-center gap-2 mt-2 justify-center">
                 <button
                   onClick={addQuestion}
                   className="btn btn-sm btn-ghost"

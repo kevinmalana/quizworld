@@ -3,8 +3,13 @@ import {
   extractReadableTextFromHtml,
   extractTitleFromHtml,
 } from "@/lib/quiz-import";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  // Rate limiting
+  const rateLimitResponse = checkRateLimit(request as any);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = (await request.json()) as { url?: string };
     const rawUrl = body.url?.trim();
@@ -15,7 +20,9 @@ export async function POST(request: Request) {
 
     let parsedUrl: URL;
     try {
-      parsedUrl = new URL(rawUrl);
+      // Auto-prepend https:// if no protocol
+      const withProtocol = /^(https?:)?\/\//.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+      parsedUrl = new URL(withProtocol);
     } catch {
       return NextResponse.json({ error: "Enter a valid URL." }, { status: 400 });
     }

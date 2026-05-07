@@ -47,6 +47,9 @@ function FlashCard({
         <div style={{ position: "absolute", width: "100%", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}>
           <div className="card" style={{ padding: "2rem", textAlign: "center", background: "var(--surface)", border: "2px solid var(--line)" }}>
             <div style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: "1rem" }}>Question {index + 1} of {total}</div>
+            {question.image_url && (
+              <img src={question.image_url} alt="" style={{ maxWidth: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 16, marginBottom: "1rem" }} />
+            )}
             <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--ink)" }}>{question.text}</div>
             <div style={{ marginTop: "2rem", fontSize: "0.875rem", color: "var(--muted)" }}>Tap to reveal answers</div>
           </div>

@@ -9,8 +9,9 @@ defmodule QuizworldRealtime.Games do
   end
 
   def snapshot(pin) do
-    with {:ok, snapshot} <- safe_call(fn -> GameServer.snapshot(pin) end) do
-      {:ok, snapshot}
+    case safe_call(fn -> GameServer.snapshot(pin) end) do
+      {:error, reason} -> {:error, reason}
+      snapshot -> {:ok, snapshot}
     end
   end
 

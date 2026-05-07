@@ -71,6 +71,38 @@ defmodule QuizworldRealtime.Game do
         nil
       end
 
+    # Build question history for host analytics
+    question_history =
+      game.questions
+      |> Enum.with_index()
+      |> Enum.filter(fn {_q, idx} -> idx < game.current_question_index end)
+      |> Enum.map(fn {question, idx} ->
+        question_answers = Map.get(game.answers, question["id"], %{})
+        correct_answer = Enum.find(question["answers"] || [], &Map.get(&1, "is_correct", false))
+        %{
+          "index" => idx,
+          "text" => question["text"],
+          "correct_answer_id" => if(correct_answer, do: correct_answer["id"], else: nil),
+          "correct_answer_text" => if(correct_answer, do: correct_answer["text"], else: nil),
+          "time_limit" => question["time_limit"],
+          "points" => question["points"],
+          "responses" =>
+            question_answers
+            |> Enum.map(fn {pid, row} ->
+              player = Map.get(game.players, pid)
+              %{
+                "player_id" => pid,
+                "nickname" => if(player, do: player.nickname, else: "Unknown"),
+                "avatar" => if(player, do: Map.get(player, :avatar), else: nil),
+                "answer_id" => row.answer_id,
+                "is_correct" => row.is_correct,
+                "points_awarded" => row.points_awarded,
+                "response_time_ms" => row.response_time_ms
+              }
+            end)
+        }
+      end)
+
     %{
       pin: game.pin,
       quiz_id: game.quiz_id,
@@ -97,7 +129,8 @@ defmodule QuizworldRealtime.Game do
       current_answers:
         current_answers
         |> Map.values()
-        |> Enum.map(&Map.take(&1, [:player_id, :answer_id, :response_time_ms, :is_correct, :points_awarded]))
+        |> Enum.map(&Map.take(&1, [:player_id, :answer_id, :response_time_ms, :is_correct, :points_awarded])),
+      question_history: question_history
     }
   end
 
@@ -296,6 +329,7 @@ defmodule QuizworldRealtime.Game do
     %{
       "id" => question["id"],
       "text" => question["text"],
+      "image_url" => Map.get(question, "image_url"),
       "question_type" => question["question_type"],
       "time_limit" => question["time_limit"],
       "points" => question["points"],
@@ -310,7 +344,8 @@ defmodule QuizworldRealtime.Game do
   defp public_answer(answer, status) do
     base = %{
       "id" => answer["id"],
-      "text" => answer["text"]
+      "text" => answer["text"],
+      "image_url" => Map.get(answer, "image_url")
     }
 
     if status in ["reveal", "finished"] do
@@ -377,6 +412,7 @@ defmodule QuizworldRealtime.Game do
             %{
               "id" => fetch_string(answer, "id"),
               "text" => fetch_string(answer, "text"),
+              "image_url" => Map.get(answer, "image_url"),
               "is_correct" => Map.get(answer, "is_correct", false)
             }
           end)
@@ -385,6 +421,7 @@ defmodule QuizworldRealtime.Game do
       %{
         "id" => fetch_string(question, "id"),
         "text" => fetch_string(question, "text"),
+        "image_url" => Map.get(question, "image_url"),
         "question_type" => question_type,
         "time_limit" => Map.get(question, "time_limit", 20),
         "points" => Map.get(question, "points", 1000),
