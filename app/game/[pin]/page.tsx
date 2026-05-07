@@ -799,18 +799,21 @@ export default function GamePage() {
           <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.5rem" }}>
             Waiting for host...
           </h1>
-          <p style={{ color: "var(--muted)", marginBottom: "1rem" }}>
-            PIN: <strong style={{ fontSize: "1.5rem", letterSpacing: "0.15em" }}>{pin}</strong>
-          </p>
-
-          {/* Feature 8: QR Code */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(joinUrl)}`}
-              alt="Scan to join"
-              style={{ borderRadius: 12, border: "2px solid var(--line)" }}
-            />
-            <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.5rem" }}>Scan to join</p>
+          {/* PIN + QR side by side */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1.5rem", marginBottom: "2rem", flexWrap: "wrap" }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "0.5rem" }}>Game PIN</div>
+              <div style={{ fontSize: "2.5rem", fontWeight: 900, letterSpacing: "0.2em", color: "var(--accent)", fontFamily: "var(--font-display)" }}>{pin}</div>
+            </div>
+            <div style={{ width: 1, height: 60, background: "var(--line)" }} />
+            <div style={{ textAlign: "center" }}>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(joinUrl)}`}
+                alt="Scan to join"
+                style={{ borderRadius: 10, border: "1.5px solid var(--line)", boxShadow: "var(--shadow-sm)" }}
+              />
+              <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--muted)", marginTop: "0.35rem" }}>Scan to join</div>
+            </div>
           </div>
 
           {players.length > 0 && (

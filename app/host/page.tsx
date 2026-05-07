@@ -319,8 +319,13 @@ function HostPageContent() {
         className="btn btn-primary btn-lg"
         style={{ width: "100%" }}
       >
-        {loading ? "Creating..." : "Launch Game 🚀"}
+        {loading ? (selectedQuiz?.questions?.some((q: any) => q.image_url) ? "Creating... (images loading)" : "Creating...") : "Launch Game 🚀"}
       </button>
+      {loading && selectedQuiz?.questions?.some((q: any) => q.image_url) && (
+        <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: "0.75rem", textAlign: "center" }}>
+          Quizzes with images may take a few extra seconds to set up.
+        </p>
+      )}
     </div>
   );
 }
