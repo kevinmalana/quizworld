@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS public.presentations (
   title TEXT NOT NULL DEFAULT 'Untitled Presentation',
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'live', 'finished')),
   join_code TEXT UNIQUE,
+  current_slide_index INTEGER NOT NULL DEFAULT 0,
   settings JSONB DEFAULT '{}',
   results JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
