@@ -56,7 +56,7 @@ export function BuilderToolbar({
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexShrink: 0 }}>
           <div style={{ position: "relative" }}>
-            <button onClick={() => setShowSettings(!showSettings)} className="btn btn-sm btn-ghost" style={{ padding: "0.5rem 0.625rem", minWidth: 36, minHeight: 36, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>⚙</button>
+            <button onClick={() => setShowSettings(!showSettings)} className="btn btn-sm btn-ghost" style={{ padding: "0.5rem", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "1.125rem" }}>⚙</button>
             {showSettings && (
               <>
                 <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setShowSettings(false)} />
