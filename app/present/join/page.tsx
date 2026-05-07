@@ -15,7 +15,12 @@ function JoinForm() {
   // Auto-join if code is provided in URL
   useEffect(() => {
     if (initialCode.length === 6) {
-      void handleJoin();
+      setCode(initialCode);
+      // If name is already saved, auto-join directly
+      const savedName = localStorage.getItem("qw_present_name");
+      if (savedName) {
+        void handleJoin();
+      }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

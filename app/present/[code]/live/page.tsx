@@ -242,13 +242,16 @@ export default function PresentationLive() {
           {joinCode && (
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=64x64&data=${encodeURIComponent("https://www.quizworld.xyz/present/join")}`}
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent("https://www.quizworld.xyz/present/join?code=" + joinCode)}`}
                 alt="Scan to join"
-                style={{ borderRadius: 6, border: "1px solid var(--line)" }}
+                width={150}
+                height={150}
+                style={{ borderRadius: 10, border: "2px solid var(--line)", width: 150, height: 150 }}
               />
-              <div style={{ lineHeight: 1.2 }}>
-                <div style={{ fontSize: "0.5rem", fontWeight: 700, color: "var(--muted)" }}>quizworld.xyz/present/join</div>
-                <div style={{ fontSize: "1.25rem", fontWeight: 900, letterSpacing: "0.15em", color: "var(--ink)" }}>{joinCode}</div>
+              <div style={{ lineHeight: 1.3 }}>
+                <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--muted)" }}>Scan to join</div>
+                <div style={{ fontSize: "0.65rem", fontWeight: 600, color: "var(--muted)" }}>quizworld.xyz/present/join</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 900, letterSpacing: "0.2em", color: "var(--accent)" }}>{joinCode}</div>
               </div>
             </div>
           )}
