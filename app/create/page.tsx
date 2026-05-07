@@ -208,7 +208,27 @@ function CreatePageContent() {
   // ── Derived ──
   const activeQuestion = questions[activeIndex] || null;
   const readyCount = questions.filter(isQuestionComplete).length;
-  const canPublish = Boolean(quizTitle.trim()) && readyCount > 0 && Boolean(user);
+  const canPublish = Boolean(quizTitle.trim()) && readyCount > 0;
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  // ── Restore saved quiz state after login ──
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const saved = sessionStorage.getItem("qw_pending_publish");
+      if (saved) {
+        const data = JSON.parse(saved);
+        sessionStorage.removeItem("qw_pending_publish");
+        if (data.quizTitle) setQuizTitle(data.quizTitle);
+        if (data.quizCategory) setQuizCategory(data.quizCategory);
+        if (data.quizEmoji) setQuizEmoji(data.quizEmoji);
+        if (data.isPublic !== undefined) setIsPublic(data.isPublic);
+        if (data.questions?.length) { setQuestions(data.questions); setActiveIndex(0); }
+        if (data.editingQuizId) setEditingQuizId(data.editingQuizId);
+        setStep("builder");
+      }
+    } catch {}
+  }, [user]);
 
   // ── Question actions ──
   const addQuestion = useCallback(() => {
@@ -438,7 +458,17 @@ function CreatePageContent() {
 
   // ── Publish ──
   const handlePublish = useCallback(async () => {
-    if (!user || !canPublish) return;
+    if (!canPublish) return;
+    if (!user) {
+      // Save state and prompt sign-in
+      try {
+        sessionStorage.setItem("qw_pending_publish", JSON.stringify({
+          quizTitle, quizCategory, quizEmoji, isPublic, questions, editingQuizId,
+        }));
+      } catch {}
+      setShowLoginPrompt(true);
+      return;
+    }
     setDraftState("saving");
     try {
       const payload = {
@@ -471,9 +501,41 @@ function CreatePageContent() {
       console.error("Publish error:", err);
       setDraftState("error");
     }
-  }, [user, canPublish, quizTitle, quizCategory, quizEmoji, isPublic, questions, editingQuizId, remoteDraftId, router]);
+  }, [user, canPublish, quizTitle, quizCategory, quizEmoji, isPublic, questions, editingQuizId, remoteDraftId, router, step]);
 
-  // ── Render ──
+  // ── Login Prompt Modal ──
+  if (showLoginPrompt) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+        <div className="card" style={{ padding: "2.5rem", maxWidth: 420, margin: "0 1rem", textAlign: "center" }}>
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔐</div>
+          <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.75rem" }}>
+            Sign in to publish
+          </h2>
+          <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
+            Your quiz is saved and will be waiting for you after sign in.
+          </p>
+          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+            <button
+              onClick={() => {
+                sessionStorage.setItem("qw_post_login_redirect", "/create");
+                router.push("/login");
+              }}
+              className="btn btn-primary"
+            >
+              Sign In / Sign Up
+            </button>
+            <button
+              onClick={() => setShowLoginPrompt(false)}
+              className="btn btn-secondary"
+            >
+              Keep Editing
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Source step
   if (step === "source") {
@@ -654,6 +716,7 @@ function CreatePageContent() {
         onPublish={handlePublish}
         onBack={() => setStep("source")}
         isEditing={Boolean(editingQuizId)}
+        isSignedIn={Boolean(user)}
       />
 
       {/* Main content: sidebar + editor */}

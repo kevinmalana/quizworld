@@ -20,6 +20,7 @@ interface Props {
   onPublish: () => void;
   onBack: () => void;
   isEditing: boolean;
+  isSignedIn?: boolean;
 }
 
 const CATEGORIES = ["Trivia", "Science & Nature", "History", "Geography", "Entertainment", "Sports", "Languages", "Art & Literature", "Music", "Movies", "Technology", "Math", "Programming", "Business", "General Knowledge"];
@@ -28,7 +29,7 @@ const CATEGORY_EMOJIS: Record<string, string> = { "Trivia": "💡", "Science & N
 export function BuilderToolbar({
   title, category, isPublic, questionCount, readyCount, draftState, canPublish,
   onTitleChange, onCategoryChange, onEmojiChange, onPublicChange,
-  onSaveDraft, onPreview, onPublish, onBack, isEditing,
+  onSaveDraft, onPreview, onPublish, onBack, isEditing, isSignedIn,
 }: Props) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -87,6 +88,9 @@ export function BuilderToolbar({
           </div>
           <button onClick={onSaveDraft} className="btn btn-sm btn-secondary" style={{ minHeight: 36 }}>Save</button>
           <button onClick={onPreview} className="btn btn-sm btn-secondary" style={{ minHeight: 36 }}>Preview</button>
+          {!isSignedIn && canPublish && (
+            <span style={{ fontSize: "0.65rem", color: "var(--accent)", fontWeight: 700, whiteSpace: "nowrap" }}>🔐 Sign in to publish</span>
+          )}
           <button onClick={onPublish} disabled={!canPublish} className="btn btn-sm btn-primary" style={{ minHeight: 36 }}>{isEditing ? "Update" : "Publish"} →</button>
         </div>
       </div>
