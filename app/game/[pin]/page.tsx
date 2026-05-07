@@ -1232,6 +1232,11 @@ export default function GamePage() {
               Play Again 🔄
             </Link>
           )}
+          {isHost && (
+            <Link href={`/report/${pin}`} className="btn btn-secondary">
+              View Report 📊
+            </Link>
+          )}
           <Link href="/" className="btn btn-secondary">
             Back to Home
           </Link>

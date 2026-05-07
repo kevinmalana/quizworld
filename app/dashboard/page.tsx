@@ -648,9 +648,14 @@ function DashboardPageContent() {
                       {new Date(game.finished_at).toLocaleString()}
                     </div>
                   </div>
-                  <span style={{ color: "var(--muted)", fontWeight: 700 }}>
-                    {getBestHostedScore([game]).toLocaleString()} top score
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <span style={{ color: "var(--muted)", fontWeight: 700, fontSize: "0.875rem" }}>
+                      {getBestHostedScore([game]).toLocaleString()} top
+                    </span>
+                    <Link href={`/report/${game.pin}`} className="btn btn-secondary btn-compact">
+                      📊 Report
+                    </Link>
+                  </div>
                 </div>
               ))}
             </div>
