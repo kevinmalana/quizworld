@@ -1,5 +1,16 @@
 "use client";
 
+// Feature 11+12+13: CSS animations
+if (typeof document !== 'undefined' && !document.getElementById('qw-game-animations')) {
+  const style = document.createElement('style');
+  style.id = 'qw-game-animations';
+  style.textContent = `
+    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-200px); } }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+  `;
+  document.head.appendChild(style);
+}
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
@@ -110,6 +121,32 @@ export default function GamePage() {
   const [playerSessionReady, setPlayerSessionReady] = useState(false);
   const [phoenixChannelConnected, setPhoenixChannelConnected] = useState(false);
   const phaseTransitionLock = useRef(false);
+  // Feature 5: Ready-up
+  const [readyPlayers, setReadyPlayers] = useState<Set<string>>(new Set());
+  const [amReady, setAmReady] = useState(false);
+  // Feature 6: Streak tracking
+  const [playerStreaks, setPlayerStreaks] = useState<Record<string, number>>({});
+  // Feature 13: Reactions
+  const [reactions, setReactions] = useState<{id: string; emoji: string; x: number; ts: number}[]>([]);
+  const reactionIdRef = useRef(0);
+  // Feature 12: Sound
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const getAudioCtx = useCallback(() => {
+    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    return audioCtxRef.current;
+  }, []);
+  const playTone = useCallback((freq: number, duration: number, type: OscillatorType = 'sine', vol = 0.15) => {
+    try {
+      const ctx = getAudioCtx(); const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.type = type; osc.frequency.value = freq; gain.gain.value = vol;
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + duration);
+    } catch {}
+  }, [getAudioCtx]);
+  const playCorrect = useCallback(() => { playTone(880, 0.15); setTimeout(() => playTone(1100, 0.2), 150); }, [playTone]);
+  const playWrong = useCallback(() => { playTone(200, 0.3, 'sawtooth', 0.1); }, [playTone]);
+  const playTick = useCallback(() => { playTone(600, 0.08, 'sine', 0.08); }, [playTone]);
+  const playFanfare = useCallback(() => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.3, 'sine', 0.12), i * 150)); }, [playTone]);
   const isHost = isPhoenixGameEngine
     ? !!user?.id && !!hostSession && hostSession.hostId === user.id
     : !!user?.id && session?.host_id === user.id;
@@ -453,6 +490,27 @@ export default function GamePage() {
     };
   }, [loadSession, phoenixChannelConnected]);
 
+  // Feature 6: Update streaks when reveal happens
+  useEffect(() => {
+    if (gameStatus !== "reveal" || !currentAnswers.length) return;
+    setPlayerStreaks(prev => {
+      const next = { ...prev };
+      for (const ans of currentAnswers) {
+        if (ans.is_correct) next[ans.player_id] = (next[ans.player_id] || 0) + 1;
+        else next[ans.player_id] = 0;
+      }
+      return next;
+    });
+    // Feature 12: Play correct/wrong sound
+    if (ownAnswer) { ownAnswer.is_correct ? playCorrect() : playWrong(); }
+  }, [gameStatus]);
+
+  // Feature 12: Tick sound in last 5 seconds
+  useEffect(() => {
+    if (gameStatus !== "active" || timeLeft > 5 || timeLeft <= 0) return;
+    playTick();
+  }, [timeLeft, gameStatus]);
+
   useEffect(() => {
     if (gameStatus !== "active" || !currentQuestion) return;
 
@@ -501,10 +559,47 @@ export default function GamePage() {
     timeLeft,
   ]);
 
+  // Feature 12: Fanfare on finish
+  useEffect(() => {
+    if (gameStatus === "finished") playFanfare();
+  }, [gameStatus]);
+
+  const totalQuestions = useMemo(() => ((session?.quiz as { questions?: unknown[] })?.questions?.length ?? 0), [session]);
+  const currentIndex = ((session?.current_question_index as number) ?? 0);
+
+  // Feature 1: Correct count per player from history + current answers
+  const playerCorrectCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const qh of questionHistory) {
+      for (const r of (qh.responses ?? [])) {
+        if (r.is_correct) counts[r.player_id] = (counts[r.player_id] || 0) + 1;
+      }
+    }
+    // Also count current reveal answers
+    if (gameStatus === "reveal") {
+      for (const ans of currentAnswers) {
+        if (ans.is_correct) counts[ans.player_id] = (counts[ans.player_id] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [questionHistory, currentAnswers, gameStatus]);
+
+  // Feature 10: Question breakdown
+  const correctCountThisQ = currentAnswers.filter(a => a.is_correct).length;
+  const totalAnsweredThisQ = currentAnswers.length;
+
   const leaderboard = useMemo(
     () => [...players].sort((left, right) => (right.score ?? 0) - (left.score ?? 0)),
     [players]
   );
+
+  // Feature 13: Send reaction
+  const sendReaction = useCallback((emoji: string) => {
+    const id = String(++reactionIdRef.current);
+    const x = 10 + Math.random() * 80;
+    setReactions(prev => [...prev, { id, emoji, x, ts: Date.now() }]);
+    setTimeout(() => setReactions(prev => prev.filter(r => r.id !== id)), 2500);
+  }, []);
 
   const currentPlayer = playerSession?.playerId
     ? players.find((player) => player.id === playerSession.playerId) ?? null
@@ -690,6 +785,8 @@ export default function GamePage() {
   }
 
   if (gameStatus === "waiting") {
+    const joinUrl = `https://www.quizworld.xyz/join?pin=${pin}`;
+    const readyCount = readyPlayers.size;
     return (
       <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
         {notice && (
@@ -702,38 +799,74 @@ export default function GamePage() {
           <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.5rem" }}>
             Waiting for host...
           </h1>
-          <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
-            PIN: <strong>{pin}</strong> · {players.length} player{players.length !== 1 ? "s" : ""} joined
+          <p style={{ color: "var(--muted)", marginBottom: "1rem" }}>
+            PIN: <strong style={{ fontSize: "1.5rem", letterSpacing: "0.15em" }}>{pin}</strong>
           </p>
 
+          {/* Feature 8: QR Code */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(joinUrl)}`}
+              alt="Scan to join"
+              style={{ borderRadius: 12, border: "2px solid var(--line)" }}
+            />
+            <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.5rem" }}>Scan to join</p>
+          </div>
+
           {players.length > 0 && (
-            <div
-              style={{
-                display: "grid",
-                gap: "0.5rem",
-                marginBottom: "2rem",
-                maxWidth: 400,
-                marginLeft: "auto",
-                marginRight: "auto",
-              }}
+            <>
+              {/* Feature 5: Ready count for host */}
+              {isHost && readyCount > 0 && (
+                <p style={{ fontSize: "0.875rem", color: "var(--success)", fontWeight: 700, marginBottom: "0.75rem" }}>
+                  ✅ {readyCount}/{players.length} players ready
+                </p>
+              )}
+              <div
+                style={{
+                  display: "grid",
+                  gap: "0.5rem",
+                  marginBottom: "1.5rem",
+                  maxWidth: 400,
+                  marginLeft: "auto",
+                  marginRight: "auto",
+                }}
+              >
+                {players.map((player) => (
+                  <div
+                    key={player.id}
+                    style={{
+                      padding: "0.75rem 1rem",
+                      borderRadius: "var(--radius-lg)",
+                      background: readyPlayers.has(player.id) ? "var(--accent-light)" : "var(--bg)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      fontWeight: 700,
+                      border: readyPlayers.has(player.id) ? "2px solid var(--accent)" : "2px solid transparent",
+                    }}
+                  >
+                    <span>{player.avatar || "🎮"}</span>
+                    <span style={{ flex: 1, textAlign: "left" }}>{player.nickname}</span>
+                    {readyPlayers.has(player.id) && <span style={{ color: "var(--success)" }}>✅ Ready</span>}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Feature 5: Ready button for players */}
+          {!isHost && currentPlayer && !amReady && (
+            <button
+              onClick={() => { setAmReady(true); setReadyPlayers(prev => new Set(prev).add(playerSession?.playerId ?? '')); }}
+              className="btn btn-primary"
+              style={{ width: "100%", marginBottom: "0.75rem" }}
             >
-              {players.map((player) => (
-                <div
-                  key={player.id}
-                  style={{
-                    padding: "0.75rem 1rem",
-                    borderRadius: "var(--radius-lg)",
-                    background: "var(--bg)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  <span>{player.avatar || "🎮"}</span>
-                  <span>{player.nickname}</span>
-                </div>
-              ))}
+              Ready ✅
+            </button>
+          )}
+          {!isHost && currentPlayer && amReady && (
+            <div style={{ padding: "0.75rem", background: "var(--accent-light)", borderRadius: "var(--radius-lg)", marginBottom: "0.75rem", fontWeight: 700, color: "var(--success)" }}>
+              ✅ You're ready!
             </div>
           )}
 
@@ -759,6 +892,7 @@ export default function GamePage() {
   }
 
   if (gameStatus === "active" && currentQuestion) {
+    const progressPct = totalQuestions > 0 ? ((currentIndex + 1) / totalQuestions) * 100 : 0;
     return (
       <div className="container" style={{ paddingTop: "3rem", paddingBottom: "5rem" }}>
         {notice && (
@@ -766,6 +900,18 @@ export default function GamePage() {
             {notice}
           </div>
         )}
+
+        {/* Feature 2: Progress bar */}
+        <div style={{ maxWidth: 720, margin: "0 auto 1rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)", marginBottom: "0.35rem" }}>
+            <span>Question {currentIndex + 1} of {totalQuestions}</span>
+            <span>{Math.round(progressPct)}%</span>
+          </div>
+          <div style={{ height: 8, borderRadius: 4, background: "var(--line)", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${progressPct}%`, background: "var(--accent)", borderRadius: 4, transition: "width 0.4s" }} />
+          </div>
+        </div>
+
         <div className="card" style={{ padding: "2rem", maxWidth: 720, margin: "0 auto 2rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
             <span style={{ color: "var(--muted)", fontWeight: 700 }}>
@@ -786,6 +932,19 @@ export default function GamePage() {
             />
           )}
         </div>
+
+        {/* Feature 9: Host controls */}
+        {isHost && (
+          <div style={{ maxWidth: 680, margin: "0 auto 1rem", display: "flex", gap: "0.5rem", justifyContent: "center", flexWrap: "wrap" }}>
+            <button
+              onClick={async () => { if (hostSession?.hostToken) { await revealPhoenixSession(pin, hostSession.hostToken); await loadSession(); } }}
+              className="btn btn-secondary btn-compact"
+              style={{ fontSize: "0.8125rem" }}
+            >
+              ⏭ Skip Question
+            </button>
+          </div>
+        )}
 
         {isHost ? (
           <div className="card" style={{ padding: "1.5rem", maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
@@ -855,6 +1014,7 @@ export default function GamePage() {
   }
 
   if (gameStatus === "reveal" && currentQuestion) {
+    const progressPct = totalQuestions > 0 ? ((currentIndex + 1) / totalQuestions) * 100 : 0;
     return (
       <div className="container" style={{ paddingTop: "3rem", paddingBottom: "5rem" }}>
         {notice && (
@@ -862,11 +1022,21 @@ export default function GamePage() {
             {notice}
           </div>
         )}
+        {/* Feature 2: Progress bar */}
+        <div style={{ maxWidth: 720, margin: "0 auto 1rem" }}>
+          <div style={{ height: 8, borderRadius: 4, background: "var(--line)", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${progressPct}%`, background: "var(--accent)", borderRadius: 4 }} />
+          </div>
+        </div>
         <div className="card" style={{ padding: "2rem", maxWidth: 720, margin: "0 auto 2rem" }}>
           <h2 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: "0.5rem" }}>
             Answer Reveal
           </h2>
-          <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>{currentQuestion.text}</p>
+          <p style={{ color: "var(--muted)", marginBottom: "0.75rem" }}>{currentQuestion.text}</p>
+          {/* Feature 10: Question breakdown */}
+          <div style={{ padding: "0.5rem 0.75rem", borderRadius: "var(--radius-lg)", background: "var(--bg)", marginBottom: "1rem", fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)" }}>
+            {correctCountThisQ}/{totalAnsweredThisQ} correct ({totalAnsweredThisQ > 0 ? Math.round((correctCountThisQ / totalAnsweredThisQ) * 100) : 0}%)
+          </div>
           {(currentQuestion as any).image_url && (
             <img
               src={(currentQuestion as any).image_url}
@@ -884,8 +1054,10 @@ export default function GamePage() {
                 marginBottom: "1rem",
               }}
             >
-              <strong>{ownAnswer.is_correct ? "Correct" : "Incorrect"}.</strong>{" "}
+              <strong>{ownAnswer.is_correct ? "✅ Correct" : "❌ Incorrect"}</strong>{" "}
               You earned {ownAnswer.points_awarded ?? 0} points.
+              {(() => { const myRt = currentAnswers.find(a => a.player_id === playerSession?.playerId) as any; return myRt?.response_time_ms ? <span style={{ marginLeft: "0.5rem", fontSize: "0.875rem" }}>Answered in {(myRt.response_time_ms / 1000).toFixed(1)}s ⚡</span> : null; })()}
+              {(playerStreaks[playerSession?.playerId ?? ''] ?? 0) >= 2 && <div style={{ marginTop: "0.5rem", fontSize: "1.125rem" }}>🔥 {playerStreaks[playerSession?.playerId ?? '']} in a row!</div>}
             </div>
           )}
 
@@ -905,7 +1077,7 @@ export default function GamePage() {
                 }}
               >
                 <span style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  {String.fromCharCode(65 + index)}. {answer.text}
+                  {answer.is_correct ? "✅" : String.fromCharCode(65 + index) + "."} {answer.text}
                   {(answer as any).image_url && (
                     <img src={(answer as any).image_url} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />
                   )}
@@ -934,9 +1106,10 @@ export default function GamePage() {
                 >
                   <span style={{ fontWeight: 700 }}>
                     {index + 1}. {player.avatar || "🎮"} {player.nickname}
+                    {(playerStreaks[player.id] ?? 0) >= 2 && <span style={{ marginLeft: "0.5rem" }}>🔥{playerStreaks[player.id]}</span>}
                   </span>
                   <span style={{ color: "var(--muted)", fontWeight: 700 }}>
-                    {(player.score ?? 0).toLocaleString()} pts
+                    {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
                   </span>
                 </div>
               ))}
@@ -974,6 +1147,30 @@ export default function GamePage() {
           Final leaderboard for PIN {pin}
         </p>
 
+        {/* Feature 11: Podium */}
+        {leaderboard.length >= 1 && (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", gap: "1rem", marginBottom: "2rem" }}>
+            {leaderboard.slice(0, 3).map((player, i) => {
+              const medals = ["🥇", "🥈", "🥉"];
+              const heights = [140, 110, 90];
+              const order = [1, 0, 2]; // display order: 2nd, 1st, 3rd
+              const idx = order[i] ?? i;
+              const p = leaderboard[idx];
+              if (!p) return null;
+              return (
+                <div key={p.id} style={{ textAlign: "center", animation: i === 1 ? "pulse 1.5s infinite" : "none" }}>
+                  <div style={{ fontSize: "2rem" }}>{medals[idx]}</div>
+                  <div style={{ fontSize: "1.5rem" }}>{p.avatar || "🎮"}</div>
+                  <div style={{ fontWeight: 800, fontSize: "0.875rem" }}>{p.nickname}</div>
+                  <div style={{ height: heights[idx], width: 80, background: i === 1 ? "var(--accent)" : "var(--line)", borderRadius: "8px 8px 0 0", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0.5rem", marginTop: "0.5rem" }}>
+                    <span style={{ fontWeight: 900, color: i === 1 ? "#fff" : "var(--ink)", fontSize: "0.875rem" }}>{(p.score ?? 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div style={{ display: "grid", gap: "0.75rem", marginBottom: "2rem" }}>
           {leaderboard.map((player, index) => (
             <div
@@ -984,20 +1181,27 @@ export default function GamePage() {
                 justifyContent: "space-between",
                 padding: "1rem 1.25rem",
                 borderRadius: "var(--radius-lg)",
-                background: "var(--bg)",
+                background: index === 0 ? "var(--accent-light)" : "var(--bg)",
+                border: index === 0 ? "2px solid var(--accent)" : "1px solid var(--line)",
               }}
             >
               <span style={{ fontWeight: 700 }}>
-                {index + 1}. {player.avatar || "🎮"} {player.nickname}
+                {index < 3 ? ["🥇","🥈","🥉"][index] : (index+1)+"."} {player.avatar || "🎮"} {player.nickname}
               </span>
-              <span style={{ color: "var(--muted)", fontWeight: 700 }}>
-                {(player.score ?? 0).toLocaleString()} pts
+              <span style={{ fontWeight: 700 }}>
+                {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
               </span>
             </div>
           ))}
         </div>
 
         <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
+          {/* Feature 4: Play Again */}
+          {isHost && (session as any)?.quiz_id && (
+            <Link href={`/host?quiz=${(session as any).quiz_id}`} className="btn btn-primary">
+              Play Again 🔄
+            </Link>
+          )}
           <Link href="/" className="btn btn-secondary">
             Back to Home
           </Link>
