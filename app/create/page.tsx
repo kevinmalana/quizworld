@@ -138,7 +138,7 @@ function CreatePageContent() {
   const [questions, setQuestions] = useState<QuestionData[]>([makeBlankQuestion()]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [quizTitle, setQuizTitle] = useState("");
-  const [quizCategory, setQuizCategory] = useState("Trivia");
+  const [quizCategory, setQuizCategory] = useState("General Knowledge");
   const [quizEmoji, setQuizEmoji] = useState("💡");
   const [isPublic, setIsPublic] = useState(true);
   const [showPreview, setShowPreview] = useState(false);

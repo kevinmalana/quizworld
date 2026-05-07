@@ -16,8 +16,8 @@ interface Props {
 function getStatus(q: QuestionData): "ready" | "error" | "empty" {
   if (!q.text.trim()) return "empty";
   const filled = q.answers.filter((a) => a.text.trim()).length;
-  const correct = q.answers.filter((a) => a.isCorrect).length;
-  if (filled < q.answers.length || (q.type !== "poll" && correct !== 1)) return "error";
+  const correct = q.answers.filter((a) => a.isCorrect && a.text.trim()).length;
+  if (filled < 2 || (q.type !== "poll" && correct !== 1)) return "error";
   return "ready";
 }
 
