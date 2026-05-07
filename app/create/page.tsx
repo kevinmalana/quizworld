@@ -85,6 +85,7 @@ function questionsToPublishPayload(questions: QuestionData[]) {
   return questions.map((q) => ({
     text: q.text,
     image_url: q.imageUrl || "",
+    video_url: q.videoUrl || "",
     time_limit: q.timeLimit,
     points: q.points,
     answers: q.answers.map((a) => ({ text: a.text, image_url: a.imageUrl || "", is_correct: a.isCorrect })),

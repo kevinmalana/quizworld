@@ -29,6 +29,7 @@ function toPhoenixQuestions(quiz: any) {
     id: question.id,
     text: question.text,
     image_url: question.image_url || null,
+    video_url: question.video_url || null,
     time_limit: question.time_limit ?? 20,
     points: question.points ?? 1000,
     order_index: question.order_index ?? 0,

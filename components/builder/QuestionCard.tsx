@@ -21,6 +21,7 @@ export interface QuestionData {
   points: number;
   explanation?: string;
   imageUrl?: string;
+  videoUrl?: string;
   shuffleAnswers?: boolean;
 }
 
@@ -35,6 +36,12 @@ interface Props {
 
 const TIME_OPTIONS = [10, 20, 30, 60];
 const POINT_OPTIONS = [500, 1000, 2000];
+
+function extractYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
 
 function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -156,6 +163,35 @@ export function QuestionCard({ question, index, total, onChange, onDelete, onDup
         label="Add question image"
         compact
       />
+
+      {/* YouTube video */}
+      {question.videoUrl ? (
+        <div style={{ position: "relative", borderRadius: "var(--radius-lg)", overflow: "hidden", background: "var(--bg)" }}>
+          <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+            <iframe
+              src={`https://www.youtube.com/embed/${extractYouTubeId(question.videoUrl)}`}
+              style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+          <button
+            onClick={() => onChange({ ...question, videoUrl: undefined })}
+            style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.7)", color: "#fff", fontSize: "0.75rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+          >✕</button>
+        </div>
+      ) : (
+        <button
+          onClick={() => {
+            const url = prompt("Paste YouTube URL:");
+            if (url && extractYouTubeId(url)) onChange({ ...question, videoUrl: url });
+            else if (url) alert("Please enter a valid YouTube URL");
+          }}
+          style={{ width: "100%", padding: "0.5rem", borderRadius: "var(--radius-lg)", border: "1.5px dashed var(--line)", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: "0.8125rem", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.375rem" }}
+        >
+          🎬 Add YouTube video
+        </button>
+      )}
 
       {/* Instruction for picking correct answer */}
       <div style={{

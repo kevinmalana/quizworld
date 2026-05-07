@@ -44,6 +44,12 @@ import {
 
 type GameStatus = "waiting" | "active" | "reveal" | "finished";
 
+function extractYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
+
 function sortQuestions(quiz: unknown) {
   const q = quiz as { questions?: { order_index?: number }[] } | null;
   if (!q?.questions) return quiz;
@@ -935,6 +941,16 @@ export default function GamePage() {
               style={{ width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 16, marginTop: "1rem" }}
             />
           )}
+          {(currentQuestion as any).video_url && extractYouTubeId((currentQuestion as any).video_url) && (
+            <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, marginTop: "1rem", borderRadius: 16, overflow: "hidden" }}>
+              <iframe
+                src={`https://www.youtube.com/embed/${extractYouTubeId((currentQuestion as any).video_url)}`}
+                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          )}
         </div>
 
         {/* Feature 9: Host controls */}
@@ -1047,6 +1063,16 @@ export default function GamePage() {
               alt=""
               style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 16, marginBottom: "1rem" }}
             />
+          )}
+          {(currentQuestion as any).video_url && extractYouTubeId((currentQuestion as any).video_url) && (
+            <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, marginBottom: "1rem", borderRadius: 16, overflow: "hidden" }}>
+              <iframe
+                src={`https://www.youtube.com/embed/${extractYouTubeId((currentQuestion as any).video_url)}`}
+                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
           )}
 
           {!isHost && ownAnswer && (
