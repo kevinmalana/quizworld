@@ -83,24 +83,6 @@ export function BuilderToolbar({
           >
             {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_EMOJIS[c] || "💡"} {c}</option>)}
           </select>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--ink)" }}>Public</span>
-                    <button onClick={() => onPublicChange(!isPublic)} style={{ width: "2.25rem", height: "1.25rem", borderRadius: "var(--radius-full)", background: isPublic ? "var(--accent)" : "var(--line)", border: "none", cursor: "pointer", position: "relative", transition: "all 0.2s" }}>
-                      <div style={{ position: "absolute", top: "0.125rem", width: "1rem", height: "1rem", borderRadius: "50%", background: "#fff", transition: "all 0.2s", left: isPublic ? "1.125rem" : "0.125rem" }} />
-                    </button>
-                  </div>
-                  <div style={{ display: "flex", gap: "0.375rem", paddingTop: "0.5rem", borderTop: "1px solid var(--line)" }}>
-                    {[{ l: "Ready", v: readyCount, c: "var(--success)" }, { l: "Fix", v: questionCount - readyCount, c: "var(--primary)" }, { l: "Total", v: questionCount, c: "var(--accent)" }].map(({ l, v, c }) => (
-                      <div key={l} className="card" style={{ flex: 1, padding: "0.5rem", textAlign: "center", borderRadius: "var(--radius-sm)", background: `color-mix(in srgb, ${c} 8%, transparent)` }}>
-                        <div style={{ fontWeight: 800, fontSize: "1rem", color: c }}>{v}</div>
-                        <div style={{ fontSize: "0.6rem", fontWeight: 700, color: c }}>{l}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
           <button onClick={onSaveDraft} className="btn btn-sm btn-secondary" style={{ minHeight: 36 }}>Save</button>
           <button onClick={onPreview} className="btn btn-sm btn-secondary" style={{ minHeight: 36 }}>Preview</button>
           {!canPublish && !title.trim() && (
