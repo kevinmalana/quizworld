@@ -23,7 +23,20 @@ interface Props {
   isSignedIn?: boolean;
 }
 
-const CATEGORIES = ["Trivia", "Science & Nature", "History", "Geography", "Entertainment", "Sports", "Languages", "Art & Literature", "Music", "Movies", "Technology", "Math", "Programming", "Business", "General Knowledge"];
+const CATEGORIES = [
+  "General Knowledge", "Trivia", "Education",
+  "Science & Nature", "Space & Astronomy", "Technology", "Math", "Programming",
+  "History", "Geography", "Politics & Government", "Current Events",
+  "Entertainment", "Movies", "TV Shows", "Music", "Pop Culture", "Celebrities", "Comics & Anime",
+  "Sports", "Video Games", "Travel & Tourism",
+  "Art & Literature", "Photography", "Fashion & Style",
+  "Food & Drink", "Health & Medicine", "Animals & Pets", "Nature & Environment",
+  "Psychology & Mind", "Mythology & Folklore", "Religion & Spirituality",
+  "Languages", "Business", "Social Media & Internet", "DIY & Crafts",
+  "Cars & Automotive", "Relationships & Dating", "Holidays & Celebrations",
+  "Inventions & Discoveries",
+  "Other",
+];
 const CATEGORY_EMOJIS: Record<string, string> = { "Trivia": "💡", "Science & Nature": "🔬", "History": "📜", "Geography": "🌍", "Entertainment": "🎬", "Sports": "⚽", "Languages": "💬", "Art & Literature": "🎨", "Music": "🎵", "Movies": "🎬", "Technology": "💻", "Math": "🔢", "Programming": "🧑‍💻", "Business": "💼", "General Knowledge": "🧠" };
 
 export function BuilderToolbar({
@@ -51,19 +64,25 @@ export function BuilderToolbar({
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexShrink: 0 }}>
-          <div style={{ position: "relative" }}>
-            <button onClick={() => setShowSettings(!showSettings)} className="btn btn-sm btn-ghost" style={{ padding: "0.5rem", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "1.125rem" }}>⚙</button>
-            {showSettings && (
-              <>
-                <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setShowSettings(false)} />
-                <div className="card-elevated" style={{ position: "absolute", right: 0, top: "2.5rem", zIndex: 50, width: "16rem", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                  <div>
-                    <label style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", display: "block", marginBottom: "0.25rem" }}>Category</label>
-                    <select value={category} onChange={(e) => { onCategoryChange(e.target.value); onEmojiChange(CATEGORY_EMOJIS[e.target.value] || "💡"); }}
-                      className="input" style={{ fontSize: "0.8125rem", padding: "0.5rem" }}>
-                      {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_EMOJIS[c] || "💡"} {c}</option>)}
-                    </select>
-                  </div>
+          {/* Category selector - always visible */}
+          <select
+            value={category}
+            onChange={(e) => { onCategoryChange(e.target.value); onEmojiChange(CATEGORY_EMOJIS[e.target.value] || "💡"); }}
+            style={{
+              padding: "0.35rem 0.5rem",
+              borderRadius: "var(--radius-lg)",
+              border: "1.5px solid var(--line)",
+              background: "var(--surface)",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              color: "var(--ink)",
+              cursor: "pointer",
+              minHeight: 36,
+              maxWidth: 160,
+            }}
+          >
+            {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_EMOJIS[c] || "💡"} {c}</option>)}
+          </select>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--ink)" }}>Public</span>
                     <button onClick={() => onPublicChange(!isPublic)} style={{ width: "2.25rem", height: "1.25rem", borderRadius: "var(--radius-full)", background: isPublic ? "var(--accent)" : "var(--line)", border: "none", cursor: "pointer", position: "relative", transition: "all 0.2s" }}>
