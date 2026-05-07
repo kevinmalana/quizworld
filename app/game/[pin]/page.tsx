@@ -778,6 +778,13 @@ export default function GamePage() {
           <h2 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800 }}>
             {currentQuestion.text}
           </h2>
+          {(currentQuestion as any).image_url && (
+            <img
+              src={(currentQuestion as any).image_url}
+              alt=""
+              style={{ width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 16, marginTop: "1rem" }}
+            />
+          )}
         </div>
 
         {isHost ? (
@@ -830,10 +837,14 @@ export default function GamePage() {
                     display: "grid",
                     placeItems: "center",
                     fontWeight: 900,
+                    flexShrink: 0,
                   }}
                 >
                   {String.fromCharCode(65 + index)}
                 </span>
+                {(answer as any).image_url && (
+                  <img src={(answer as any).image_url} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                )}
                 {answer.text}
               </button>
             ))}
@@ -856,6 +867,13 @@ export default function GamePage() {
             Answer Reveal
           </h2>
           <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>{currentQuestion.text}</p>
+          {(currentQuestion as any).image_url && (
+            <img
+              src={(currentQuestion as any).image_url}
+              alt=""
+              style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 16, marginBottom: "1rem" }}
+            />
+          )}
 
           {!isHost && ownAnswer && (
             <div
@@ -886,8 +904,11 @@ export default function GamePage() {
                   gap: "1rem",
                 }}
               >
-                <span style={{ fontWeight: 700 }}>
+                <span style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   {String.fromCharCode(65 + index)}. {answer.text}
+                  {(answer as any).image_url && (
+                    <img src={(answer as any).image_url} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />
+                  )}
                 </span>
                 <span style={{ color: "var(--muted)", fontWeight: 700 }}>
                   {answer.count} vote{answer.count !== 1 ? "s" : ""}

@@ -157,6 +157,54 @@ function CreatePageContent() {
   const [aiError, setAiError] = useState("");
   const [pasteText, setPasteText] = useState("");
 
+  // ── Load existing quiz for editing ──
+  useEffect(() => {
+    const quizParam = searchParams.get("quiz");
+    const draftParam = searchParams.get("draft");
+    if (!quizParam || draftParam) return;
+
+    let ignore = false;
+    async function loadQuiz() {
+      const { data: quiz, error } = await supabase
+        .from("quizzes")
+        .select("*, questions(*, answers(*))")
+        .eq("id", quizParam)
+        .single();
+
+      if (ignore || error || !quiz) return;
+
+      const sorted = [...(quiz.questions ?? [])].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+
+      setEditingQuizId(quiz.id);
+      setQuizTitle(quiz.title ?? "");
+      setQuizCategory(quiz.category ?? "Trivia");
+      setQuizEmoji(quiz.emoji ?? "💡");
+      setIsPublic(quiz.is_public ?? true);
+      setStep("builder");
+      setQuestions(
+        sorted.map((q: any) => ({
+          id: q.id || uid(),
+          text: q.text ?? "",
+          type: q.question_type === "true_false" ? "true_false" : "multiple_choice",
+          imageUrl: q.image_url ?? "",
+          timeLimit: q.time_limit ?? 20,
+          points: q.points ?? 1000,
+          answers: [...(q.answers ?? [])]
+            .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
+            .map((a: any) => ({
+              id: a.id || uid(),
+              text: a.text ?? "",
+              imageUrl: a.image_url ?? "",
+              isCorrect: a.is_correct ?? false,
+            })),
+        })) ?? [makeBlankQuestion()]
+      );
+      setActiveIndex(0);
+    }
+    loadQuiz();
+    return () => { ignore = true; };
+  }, [searchParams]);
+
   // ── Derived ──
   const activeQuestion = questions[activeIndex] || null;
   const readyCount = questions.filter(isQuestionComplete).length;
