@@ -5,26 +5,63 @@ import { useState } from "react";
 import { CATEGORY_EMOJIS } from "@/lib/store";
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
-  "Art & Literature": "Books, art & culture",
-  Entertainment: "Movies, music & more",
-  Geography: "Explore the world",
-  History: "Journey through time",
-  Languages: "Master new tongues",
+  "General Knowledge": "Test your smarts",
   "Science & Nature": "Discover & experiment",
+  "Space & Astronomy": "Stars, planets & beyond",
+  Technology: "Gadgets & innovation",
+  Math: "Numbers & logic",
+  Programming: "Code challenges",
+  History: "Journey through time",
+  Geography: "Explore the world",
+  "Politics & Government": "Laws & leaders",
+  "Current Events": "What's happening now",
+  Entertainment: "Movies, music & more",
+  Movies: "Film trivia",
+  "TV Shows": "Series & sitcoms",
+  Music: "Songs & artists",
+  "Pop Culture": "Trends & memes",
+  Celebrities: "Famous faces",
+  "Comics & Anime": "Heroes & manga",
   Sports: "Games & athletes",
-  Trivia: "General knowledge challenges",
+  "Video Games": "Gaming trivia",
+  "Travel & Tourism": "World destinations",
+  "Art & Literature": "Books, art & culture",
+  Photography: "Captured moments",
+  "Fashion & Style": "Trends & designers",
+  "Food & Drink": "Cuisine & recipes",
+  "Health & Medicine": "Body & wellness",
+  "Animals & Pets": "Creatures great & small",
+  "Nature & Environment": "Ecosystems & climate",
+  "Psychology & Mind": "How we think",
+  "Mythology & Folklore": "Legends & myths",
+  "Religion & Spirituality": "Faith & belief",
+  Languages: "Master new tongues",
+  Business: "Markets & money",
+  "Social Media & Internet": "Digital culture",
+  "DIY & Crafts": "Make & create",
+  "Cars & Automotive": "Engines & models",
+  "Relationships & Dating": "Love & connection",
+  "Holidays & Celebrations": "Festive trivia",
+  "Inventions & Discoveries": "Breakthroughs & patents",
+  Other: "Miscellaneous topics",
 };
 
 const categories = [
-  "Geography",
+  "General Knowledge",
   "Science & Nature",
   "History",
   "Entertainment",
-  "Languages",
-  "Art & Literature",
   "Sports",
-  "Trivia",
-].map((label) => ({
+  "Geography",
+  "Music",
+  "Movies",
+  "Technology",
+  "Food & Drink",
+  "Animals & Pets",
+  "Video Games",
+];
+
+const categories_list = categories.map((label) => ({
   label,
   emoji: CATEGORY_EMOJIS[label] || "📌",
   desc: CATEGORY_DESCRIPTIONS[label] || "Play quizzes on this topic",
@@ -175,7 +212,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid-4">
-            {categories.map((c) => (
+            {categories_list.map((c) => (
               <Link
                 key={c.label}
                 href={`/explore?category=${c.label}`}

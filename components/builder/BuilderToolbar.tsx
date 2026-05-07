@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { CATEGORY_EMOJIS } from "@/lib/store";
+
+const CATEGORIES = Object.keys(CATEGORY_EMOJIS);
 
 interface Props {
   title: string;
@@ -23,21 +26,6 @@ interface Props {
   isSignedIn?: boolean;
 }
 
-const CATEGORIES = [
-  "General Knowledge", "Trivia", "Education",
-  "Science & Nature", "Space & Astronomy", "Technology", "Math", "Programming",
-  "History", "Geography", "Politics & Government", "Current Events",
-  "Entertainment", "Movies", "TV Shows", "Music", "Pop Culture", "Celebrities", "Comics & Anime",
-  "Sports", "Video Games", "Travel & Tourism",
-  "Art & Literature", "Photography", "Fashion & Style",
-  "Food & Drink", "Health & Medicine", "Animals & Pets", "Nature & Environment",
-  "Psychology & Mind", "Mythology & Folklore", "Religion & Spirituality",
-  "Languages", "Business", "Social Media & Internet", "DIY & Crafts",
-  "Cars & Automotive", "Relationships & Dating", "Holidays & Celebrations",
-  "Inventions & Discoveries",
-  "Other",
-];
-const CATEGORY_EMOJIS: Record<string, string> = { "Trivia": "💡", "Science & Nature": "🔬", "History": "📜", "Geography": "🌍", "Entertainment": "🎬", "Sports": "⚽", "Languages": "💬", "Art & Literature": "🎨", "Music": "🎵", "Movies": "🎬", "Technology": "💻", "Math": "🔢", "Programming": "🧑‍💻", "Business": "💼", "General Knowledge": "🧠" };
 
 export function BuilderToolbar({
   title, category, isPublic, questionCount, readyCount, draftState, canPublish,
