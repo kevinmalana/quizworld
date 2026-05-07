@@ -209,7 +209,7 @@ function CreatePageContent() {
   // ── Derived ──
   const activeQuestion = questions[activeIndex] || null;
   const readyCount = questions.filter(isQuestionComplete).length;
-  const canPublish = Boolean(quizTitle.trim()) && readyCount > 0;
+  const canPublish = quizTitle.trim().length > 0 && readyCount > 0;
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   // ── Restore saved quiz state after login ──

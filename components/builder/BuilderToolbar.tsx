@@ -84,8 +84,11 @@ export function BuilderToolbar({
           </div>
           <button onClick={onSaveDraft} className="btn btn-sm btn-secondary" style={{ minHeight: 36 }}>Save</button>
           <button onClick={onPreview} className="btn btn-sm btn-secondary" style={{ minHeight: 36 }}>Preview</button>
-          {!canPublish && readyCount < questionCount && (
-            <span style={{ fontSize: "0.6rem", color: "var(--muted)", fontWeight: 700, whiteSpace: "nowrap" }}>Complete all questions to publish</span>
+          {!canPublish && !title.trim() && (
+            <span style={{ fontSize: "0.6rem", color: "var(--primary)", fontWeight: 700, whiteSpace: "nowrap" }}>Add a title</span>
+          )}
+          {!canPublish && title.trim() && readyCount < questionCount && (
+            <span style={{ fontSize: "0.6rem", color: "var(--muted)", fontWeight: 700, whiteSpace: "nowrap" }}>Complete all questions</span>
           )}
           {!isSignedIn && canPublish && (
             <span style={{ fontSize: "0.65rem", color: "var(--accent)", fontWeight: 700, whiteSpace: "nowrap" }}>🔐 Sign in to publish</span>

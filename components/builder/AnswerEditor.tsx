@@ -39,18 +39,22 @@ export function AnswerEditor({ answer, index, onChange, onCorrect, onRemove, can
       }}
     >
       <div className="flex items-center gap-3 p-3.5">
-        {/* Correct toggle */}
-        <div
-          title={answer.isCorrect ? "Correct answer" : "Click to mark correct"}
-          className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm transition-all duration-200"
+        {/* Correct toggle - click to mark correct */}
+        <button
+          onClick={onCorrect}
+          title={answer.isCorrect ? "Correct answer" : "Click to mark as correct"}
+          className="flex-shrink-0 rounded-xl flex items-center justify-center font-black transition-all duration-200 hover:scale-110"
           style={{
+            width: 44, height: 44,
             background: answer.isCorrect ? color : color + "15",
             color: answer.isCorrect ? "#fff" : color,
             boxShadow: answer.isCorrect ? `0 2px 8px ${color}40` : "none",
+            border: answer.isCorrect ? "none" : `2px dashed ${color}40`,
+            fontSize: "1rem",
           }}
         >
           {answer.isCorrect ? "✓" : label}
-        </div>
+        </button>
 
         {/* Text input */}
         <input
