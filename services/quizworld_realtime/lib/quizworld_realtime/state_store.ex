@@ -80,7 +80,7 @@ defmodule QuizworldRealtime.StateStore do
   defp key(pin), do: "quizworld:games:" <> pin
 
   defp decode_game(payload) when is_binary(payload) do
-    case :erlang.binary_to_term(payload) do
+    case :erlang.binary_to_term(payload, [:safe]) do
       {@version, %Game{} = game} -> {:ok, game}
       %Game{} = game -> {:ok, game}
       _ -> {:error, :not_found}
