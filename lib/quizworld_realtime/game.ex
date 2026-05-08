@@ -43,6 +43,7 @@ defmodule QuizworldRealtime.Game do
     current_question = current_question(game)
     current_question_id = if current_question, do: current_question["id"], else: nil
     current_answers = Map.get(game.answers, current_question_id, %{})
+
     players =
       game.players
       |> Map.values()
@@ -79,6 +80,7 @@ defmodule QuizworldRealtime.Game do
       |> Enum.map(fn {question, idx} ->
         question_answers = Map.get(game.answers, question["id"], %{})
         correct_answer = Enum.find(question["answers"] || [], &Map.get(&1, "is_correct", false))
+
         %{
           "index" => idx,
           "text" => question["text"],
@@ -90,6 +92,7 @@ defmodule QuizworldRealtime.Game do
             question_answers
             |> Enum.map(fn {pid, row} ->
               player = Map.get(game.players, pid)
+
               %{
                 "player_id" => pid,
                 "nickname" => if(player, do: player.nickname, else: "Unknown"),
@@ -129,7 +132,9 @@ defmodule QuizworldRealtime.Game do
       current_answers:
         current_answers
         |> Map.values()
-        |> Enum.map(&Map.take(&1, [:player_id, :answer_id, :response_time_ms, :is_correct, :points_awarded])),
+        |> Enum.map(
+          &Map.take(&1, [:player_id, :answer_id, :response_time_ms, :is_correct, :points_awarded])
+        ),
       question_history: question_history
     }
   end
@@ -168,22 +173,33 @@ defmodule QuizworldRealtime.Game do
           joined_at: DateTime.utc_now()
         }
 
-        {:ok,
-         touch(%{game | players: Map.put(game.players, new_player_id, player)}),
-         player_token,
-         new_player_id}
+        {:ok, touch(%{game | players: Map.put(game.players, new_player_id, player)}),
+         player_token, new_player_id}
     end
   end
 
   def start(%__MODULE__{} = game, host_token) do
     cond do
-      host_token != game.host_token -> {:error, :not_host}
-      game.status != "waiting" -> {:ok, game}
-      game.questions == [] -> {:error, :no_questions}
-      map_size(game.players) == 0 -> {:error, :no_players}
+      host_token != game.host_token ->
+        {:error, :not_host}
+
+      game.status != "waiting" ->
+        {:ok, game}
+
+      game.questions == [] ->
+        {:error, :no_questions}
+
+      map_size(game.players) == 0 ->
+        {:error, :no_players}
+
       true ->
         {:ok,
-         touch(%{game | status: "active", current_question_index: 0, question_started_at: DateTime.utc_now()})}
+         touch(%{
+           game
+           | status: "active",
+             current_question_index: 0,
+             question_started_at: DateTime.utc_now()
+         })}
     end
   end
 
@@ -204,9 +220,14 @@ defmodule QuizworldRealtime.Game do
       }
 
       next_answers =
-        Map.update(game.answers, question["id"], %{player_id => answer_row}, fn question_answers ->
-          Map.put(question_answers, player_id, answer_row)
-        end)
+        Map.update(
+          game.answers,
+          question["id"],
+          %{player_id => answer_row},
+          fn question_answers ->
+            Map.put(question_answers, player_id, answer_row)
+          end
+        )
 
       {:ok, touch(%{game | answers: next_answers})}
     end
@@ -217,6 +238,7 @@ defmodule QuizworldRealtime.Game do
          :ok <- ensure_status(game, "active"),
          {:ok, question} <- fetch_current_question(game) do
       total_time_ms = max(Map.get(question, "time_limit", 20), 1) * 1000
+
       correct_answer_id =
         question["answers"]
         |> Enum.find(fn answer -> Map.get(answer, "is_correct", false) end)
@@ -303,6 +325,10 @@ defmodule QuizworldRealtime.Game do
     %{game | cleanup_timer_ref: timer_ref}
   end
 
+  def for_persistence(%__MODULE__{} = game) do
+    %{game | question_timer_ref: nil, cleanup_timer_ref: nil}
+  end
+
   defp current_question(%__MODULE__{current_question_index: index, questions: questions})
        when index >= 0 do
     Enum.at(questions, index)
@@ -371,14 +397,17 @@ defmodule QuizworldRealtime.Game do
   end
 
   defp ensure_answer_belongs_to_question(question, answer_id) do
-    if Enum.any?(question["answers"], &(&1["id"] == answer_id)), do: :ok, else: {:error, :bad_answer}
+    if Enum.any?(question["answers"], &(&1["id"] == answer_id)),
+      do: :ok,
+      else: {:error, :bad_answer}
   end
 
   defp ensure_not_answered(game, question_id, player_id) do
     if get_in(game.answers, [question_id, player_id]), do: {:error, :already_answered}, else: :ok
   end
 
-  defp ensure_answer_window_open(%__MODULE__{question_started_at: nil}, _question), do: {:error, :answer_window_closed}
+  defp ensure_answer_window_open(%__MODULE__{question_started_at: nil}, _question),
+    do: {:error, :answer_window_closed}
 
   defp ensure_answer_window_open(%__MODULE__{question_started_at: started_at}, question) do
     deadline =
@@ -399,12 +428,20 @@ defmodule QuizworldRealtime.Game do
       answers =
         if question_type == "true_false" do
           [
-            %{"id" => fetch_string(question, "true_answer_id") || "true", "text" => "True",
-              "is_correct" => Map.get(question, "correct_answer") == "true" or
-                             Map.get(question, "correct_answer") == true},
-            %{"id" => fetch_string(question, "false_answer_id") || "false", "text" => "False",
-              "is_correct" => Map.get(question, "correct_answer") == "false" or
-                             Map.get(question, "correct_answer") == false}
+            %{
+              "id" => fetch_string(question, "true_answer_id") || "true",
+              "text" => "True",
+              "is_correct" =>
+                Map.get(question, "correct_answer") == "true" or
+                  Map.get(question, "correct_answer") == true
+            },
+            %{
+              "id" => fetch_string(question, "false_answer_id") || "false",
+              "text" => "False",
+              "is_correct" =>
+                Map.get(question, "correct_answer") == "false" or
+                  Map.get(question, "correct_answer") == false
+            }
           ]
         else
           question
@@ -477,6 +514,7 @@ defmodule QuizworldRealtime.Game do
   defp normalize_game_mode(_), do: "classic"
 
   defp normalize_category(nil), do: nil
+
   defp normalize_category(value) do
     trimmed = value |> to_string() |> String.trim()
     if trimmed == "", do: nil, else: trimmed

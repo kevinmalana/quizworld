@@ -10,17 +10,22 @@ defmodule QuizworldRealtime.GameServer do
   @finished_cleanup_ms :timer.minutes(15)
 
   def start_link(attrs) do
-    GenServer.start_link(__MODULE__, attrs, name: via(attrs["pin"]))
+    GenServer.start_link(__MODULE__, attrs, name: via(pin_for(attrs)))
   end
 
   def snapshot(pin), do: GenServer.call(via(pin), :snapshot)
   def host_token(pin), do: GenServer.call(via(pin), :host_token)
   def join_player(pin, player), do: GenServer.call(via(pin), {:join_player, player})
   def start_game(pin, host_token), do: GenServer.call(via(pin), {:start_game, host_token})
-  def reconnect_player(pin, player_id, player_token), do: GenServer.call(via(pin), {:reconnect_player, player_id, player_token})
+
+  def reconnect_player(pin, player_id, player_token),
+    do: GenServer.call(via(pin), {:reconnect_player, player_id, player_token})
 
   def submit_answer(pin, player_id, player_token, answer_id, response_time_ms) do
-    GenServer.call(via(pin), {:submit_answer, player_id, player_token, answer_id, response_time_ms})
+    GenServer.call(
+      via(pin),
+      {:submit_answer, player_id, player_token, answer_id, response_time_ms}
+    )
   end
 
   def reveal_current_question(pin, host_token) do
@@ -34,6 +39,16 @@ defmodule QuizworldRealtime.GameServer do
   def via(pin), do: {:via, Registry, {QuizworldRealtime.GameRegistry, pin}}
 
   @impl true
+  def init(%Game{} = game) do
+    restored_game =
+      game
+      |> schedule_question_timer()
+      |> schedule_cleanup_timer()
+
+    persist_snapshot(restored_game)
+    {:ok, restored_game}
+  end
+
   def init(attrs) do
     game =
       attrs
@@ -61,8 +76,15 @@ defmodule QuizworldRealtime.GameServer do
     reply_with_transition(Game.start(game, host_token), game)
   end
 
-  def handle_call({:submit_answer, player_id, player_token, answer_id, response_time_ms}, _from, game) do
-    reply_with_transition(Game.submit_answer(game, player_id, player_token, answer_id, response_time_ms), game)
+  def handle_call(
+        {:submit_answer, player_id, player_token, answer_id, response_time_ms},
+        _from,
+        game
+      ) do
+    reply_with_transition(
+      Game.submit_answer(game, player_id, player_token, answer_id, response_time_ms),
+      game
+    )
   end
 
   def handle_call({:reveal_current_question, host_token}, _from, game) do
@@ -107,7 +129,6 @@ defmodule QuizworldRealtime.GameServer do
   def terminate(_reason, game) do
     cancel_timer(game.question_timer_ref)
     cancel_timer(game.cleanup_timer_ref)
-    StateStore.delete_snapshot(game.pin)
     :ok
   end
 
@@ -145,6 +166,7 @@ defmodule QuizworldRealtime.GameServer do
   defp noreply_transition(next_game) do
     snapshot = persist_snapshot(next_game)
     sync_finished_game(next_game)
+
     Phoenix.PubSub.broadcast(
       QuizworldRealtime.PubSub,
       Games.topic(next_game.pin),
@@ -156,9 +178,12 @@ defmodule QuizworldRealtime.GameServer do
 
   defp persist_snapshot(game) do
     snapshot = Game.snapshot(game)
-    StateStore.persist_snapshot(snapshot)
+    StateStore.persist_game(game)
     snapshot
   end
+
+  defp pin_for(%Game{pin: pin}), do: pin
+  defp pin_for(attrs), do: attrs["pin"]
 
   defp prepare_next_game(next_game, current_game) do
     cancel_timer(Map.get(current_game, :question_timer_ref))

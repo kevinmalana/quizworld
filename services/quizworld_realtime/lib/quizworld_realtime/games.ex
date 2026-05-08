@@ -1,6 +1,7 @@
 defmodule QuizworldRealtime.Games do
   alias QuizworldRealtime.GameServer
   alias QuizworldRealtime.Pin
+  alias QuizworldRealtime.StateStore
 
   def create_session(attrs) do
     attrs
@@ -9,7 +10,7 @@ defmodule QuizworldRealtime.Games do
   end
 
   def snapshot(pin) do
-    case safe_call(fn -> GameServer.snapshot(pin) end) do
+    case call_or_restore(pin, fn -> GameServer.snapshot(pin) end) do
       {:error, reason} -> {:error, reason}
       snapshot -> {:ok, snapshot}
     end
@@ -24,7 +25,9 @@ defmodule QuizworldRealtime.Games do
   end
 
   def submit_answer(pin, player_id, player_token, answer_id, response_time_ms) do
-    transition(pin, fn -> GameServer.submit_answer(pin, player_id, player_token, answer_id, response_time_ms) end)
+    transition(pin, fn ->
+      GameServer.submit_answer(pin, player_id, player_token, answer_id, response_time_ms)
+    end)
   end
 
   def reveal_current_question(pin, host_token) do
@@ -40,7 +43,7 @@ defmodule QuizworldRealtime.Games do
   end
 
   defp transition(pin, callback) do
-    with result <- safe_call(callback) do
+    with result <- call_or_restore(pin, callback) do
       normalize_transition(pin, result)
     end
   end
@@ -115,6 +118,29 @@ defmodule QuizworldRealtime.Games do
     :exit, _ -> {:error, :not_found}
   end
 
+  defp call_or_restore(pin, callback) do
+    case safe_call(callback) do
+      {:error, :not_found} ->
+        with :ok <- restore_from_store(pin) do
+          safe_call(callback)
+        end
+
+      result ->
+        result
+    end
+  end
+
+  defp restore_from_store(pin) do
+    with {:ok, game} <- StateStore.fetch_game(pin) do
+      case DynamicSupervisor.start_child(QuizworldRealtime.GameSupervisor, {GameServer, game}) do
+        {:ok, _pid} -> :ok
+        {:error, {:already_started, _pid}} -> :ok
+        {:error, {:already_present, _pid}} -> :ok
+        _ -> {:error, :not_found}
+      end
+    end
+  end
+
   defp create_session_with_pin(_attrs, 0), do: {:error, :session_exists}
 
   defp create_session_with_pin(attrs, attempts_remaining) do
@@ -126,7 +152,8 @@ defmodule QuizworldRealtime.Games do
          ) do
       {:ok, _pid} ->
         with {:ok, snapshot} <- broadcast(pin),
-             host_token when is_binary(host_token) <- safe_call(fn -> GameServer.host_token(pin) end) do
+             host_token when is_binary(host_token) <-
+               safe_call(fn -> GameServer.host_token(pin) end) do
           {:ok, snapshot, host_token}
         else
           {:error, reason} -> {:error, reason}
