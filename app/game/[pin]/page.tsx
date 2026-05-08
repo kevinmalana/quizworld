@@ -362,7 +362,8 @@ export default function GamePage() {
           throw new Error("Host session is invalid.");
         }
 
-        await revealPhoenixSession(pin, hostSession.hostToken);
+        const response = await revealPhoenixSession(pin, hostSession.hostToken) as { session?: Record<string, unknown> };
+        if (response?.session) applySessionSnapshot(response.session);
       } else {
         const { error: revealError } = await supabase.rpc("reveal_current_question", {
           p_session_id: (session as { id?: string }).id,
@@ -371,6 +372,8 @@ export default function GamePage() {
         if (revealError) {
           throw revealError;
         }
+
+        await loadSession();
       }
 
       return true;
@@ -383,7 +386,7 @@ export default function GamePage() {
       setError("Could not score and reveal this round.");
       return false;
     }
-  }, [hostSession?.hostToken, isHost, pin, session]);
+  }, [applySessionSnapshot, hostSession?.hostToken, isHost, loadSession, pin, session]);
 
   useEffect(() => {
     loadSession();
@@ -495,7 +498,7 @@ export default function GamePage() {
       if (!phoenixChannelConnected) {
         void loadSession();
       }
-    }, 2500);
+    }, 5000);
 
     return () => {
       window.clearInterval(fallbackInterval);
@@ -556,8 +559,6 @@ export default function GamePage() {
         phaseTransitionLock.current = false;
         return;
       }
-
-      await loadSession();
     })();
   }, [
     currentAnswers.length,
@@ -696,7 +697,8 @@ export default function GamePage() {
           throw new Error("Host session is invalid.");
         }
 
-        await startPhoenixSession(pin, hostSession.hostToken);
+        const response = await startPhoenixSession(pin, hostSession.hostToken) as { session?: Record<string, unknown> };
+        if (response?.session) applySessionSnapshot(response.session);
       } else {
         const { error: startError } = await supabase.rpc("start_game_session", {
           p_session_id: (session as { id: string }).id,
@@ -705,9 +707,9 @@ export default function GamePage() {
         if (startError) {
           throw startError;
         }
-      }
 
-      await loadSession();
+        await loadSession();
+      }
     } catch (startError) {
       const msg = (startError as Error)?.message ?? "";
       console.error("Error starting game:", startError);
@@ -736,7 +738,8 @@ export default function GamePage() {
           throw new Error("Host session is invalid.");
         }
 
-        await advancePhoenixSession(pin, hostSession.hostToken);
+        const response = await advancePhoenixSession(pin, hostSession.hostToken) as { session?: Record<string, unknown> };
+        if (response?.session) applySessionSnapshot(response.session);
       } else {
         const { error: advanceError } = await supabase.rpc("advance_game_session", {
           p_session_id: (session as { id: string }).id,
@@ -745,9 +748,9 @@ export default function GamePage() {
         if (advanceError) {
           throw advanceError;
         }
-      }
 
-      await loadSession();
+        await loadSession();
+      }
     } catch (advanceError) {
       const msg = (advanceError as Error)?.message ?? "";
       console.error("Error advancing game:", advanceError);
@@ -786,12 +789,13 @@ export default function GamePage() {
     const responseTimeMs = Math.max(Date.now() - questionStart, 0);
     try {
       if (isPhoenixGameEngine) {
-        await answerPhoenixSession(pin, {
+        const response = await answerPhoenixSession(pin, {
           player_id: currentPlayer.id,
           player_token: playerSession.playerToken,
           answer_id: answer.id,
           response_time_ms: responseTimeMs,
-        });
+        }) as { session?: Record<string, unknown> };
+        if (response?.session) applySessionSnapshot(response.session);
       } else {
         const { error: answerError } = await supabase.rpc("submit_player_answer", {
           p_player_id: currentPlayer.id,
@@ -803,9 +807,10 @@ export default function GamePage() {
         if (answerError) {
           throw answerError;
         }
+
+        await loadSession();
       }
 
-      await loadSession();
       setSubmittingAnswer(false);
     } catch (answerError) {
       const msg = (answerError as { message?: string; code?: string })?.message ?? "";
@@ -1019,7 +1024,7 @@ export default function GamePage() {
         {isHost && (
           <div style={{ maxWidth: 680, margin: "0 auto 1rem", display: "flex", gap: "0.5rem", justifyContent: "center", flexWrap: "wrap" }}>
             <button
-              onClick={async () => { if (hostSession?.hostToken) { await revealPhoenixSession(pin, hostSession.hostToken); await loadSession(); } }}
+              onClick={() => { void revealCurrentQuestion(); }}
               className="btn btn-secondary btn-compact"
               style={{ fontSize: "0.8125rem" }}
             >
