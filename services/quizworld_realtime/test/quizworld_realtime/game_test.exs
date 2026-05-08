@@ -234,7 +234,9 @@ defmodule QuizworldRealtime.GameTest do
   test "reconnect_player fails for unknown player" do
     game = new_game()
 
-    assert {:error, :unknown_player} =
+    # ensure_player_token checks token validity first, so a fake token
+    # on an unknown player returns :invalid_player_token (not :unknown_player)
+    assert {:error, :invalid_player_token} =
              Game.reconnect_player(game, "player_nobody", "any_token")
   end
 

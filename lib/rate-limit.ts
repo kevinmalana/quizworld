@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 // Simple in-memory rate limiter (per-IP, sliding window)
 // For production, use Redis-backed rate limiting (e.g., @upstash/ratelimit)
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+const MAX_RATE_LIMIT_KEYS = 10_000;
 
 const RATE_LIMITS: Record<string, { maxRequests: number; windowMs: number }> = {
   "/api/ai-source-draft": { maxRequests: 10, windowMs: 60_000 }, // 10/min
@@ -29,6 +30,14 @@ export function checkRateLimit(request: NextRequest): NextResponse | null {
   const entry = rateLimitStore.get(key);
 
   if (!entry || now > entry.resetAt) {
+    if (rateLimitStore.size > MAX_RATE_LIMIT_KEYS) {
+      for (const [storedKey, storedEntry] of rateLimitStore) {
+        if (now > storedEntry.resetAt || rateLimitStore.size > MAX_RATE_LIMIT_KEYS) {
+          rateLimitStore.delete(storedKey);
+        }
+      }
+    }
+
     rateLimitStore.set(key, { count: 1, resetAt: now + limit.windowMs });
     return null;
   }

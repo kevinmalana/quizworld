@@ -1,12 +1,32 @@
 import { NextResponse } from "next/server";
+import { isIP } from "node:net";
 import {
   extractReadableTextFromHtml,
   extractTitleFromHtml,
 } from "@/lib/quiz-import";
 import { checkRateLimit } from "@/lib/rate-limit";
 
+const MAX_IMPORT_BYTES = 1_000_000;
+const PRIVATE_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
+
+function isPrivateHostname(hostname: string) {
+  const host = hostname.toLowerCase();
+  if (PRIVATE_HOSTS.has(host) || host.endsWith(".local")) return true;
+
+  const ipVersion = isIP(host);
+  if (ipVersion === 4) {
+    const [a, b] = host.split(".").map(Number);
+    return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
+  }
+
+  if (ipVersion === 6) {
+    return host === "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80");
+  }
+
+  return false;
+}
+
 export async function POST(request: Request) {
-  // Rate limiting
   const rateLimitResponse = checkRateLimit(request as any);
   if (rateLimitResponse) return rateLimitResponse;
 
@@ -31,6 +51,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Only http and https URLs are supported." }, { status: 400 });
     }
 
+    if (isPrivateHostname(parsedUrl.hostname)) {
+      return NextResponse.json({ error: "Private or local network URLs cannot be imported." }, { status: 400 });
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
 
@@ -50,8 +74,13 @@ export async function POST(request: Request) {
       );
     }
 
+    const contentLength = Number(response.headers.get("content-length") || 0);
+    if (contentLength > MAX_IMPORT_BYTES) {
+      return NextResponse.json({ error: "This page is too large to import." }, { status: 400 });
+    }
+
     const contentType = response.headers.get("content-type") ?? "";
-    const raw = await response.text();
+    const raw = (await response.text()).slice(0, MAX_IMPORT_BYTES);
     const isHtml = contentType.includes("text/html") || /<html/i.test(raw);
     const title = isHtml ? extractTitleFromHtml(raw) : parsedUrl.hostname;
     const extractedText = isHtml ? extractReadableTextFromHtml(raw) : raw.trim();

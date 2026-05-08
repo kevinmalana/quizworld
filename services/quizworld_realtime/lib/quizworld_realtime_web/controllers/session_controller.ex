@@ -15,6 +15,7 @@ defmodule QuizworldRealtimeWeb.SessionController do
           attrs = %{
             "host_id" => user_id,
             "quiz_id" => params["quiz_id"],
+            "category" => params["category"],
             "game_mode" => params["game_mode"],
             "questions" => params["questions"] || []
           }
