@@ -84,10 +84,13 @@ function HostPageContent() {
         return;
       }
 
-      setQuizzes(data ?? []);
+      const loadedQuizzes = data ?? [];
+      setQuizzes(loadedQuizzes);
       if (preSelectedQuiz) {
-        const quiz = data?.find((row) => row.id === preSelectedQuiz) ?? null;
+        const quiz = loadedQuizzes.find((row) => row.id === preSelectedQuiz) ?? null;
         setSelectedQuiz(quiz);
+      } else {
+        setSelectedQuiz((current: any) => current ?? loadedQuizzes[0] ?? null);
       }
     }
 
