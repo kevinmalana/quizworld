@@ -8,28 +8,52 @@ defmodule QuizworldRealtime.Presentations do
 
   require Logger
 
+  alias QuizworldRealtime.PresentationStore
+
   @supabase_rest "/rest/v1"
 
   def start_live(presentation_id, host_id) do
     with {:ok, snapshot} <- get_snapshot(presentation_id),
          true <- snapshot.creator_id == host_id || {:error, :not_host},
          {:ok, presenter_token} <- ensure_live_session(presentation_id) do
-      update_presentation(presentation_id, %{status: "live", current_slide_index: 0, finished_at: nil})
+      update_presentation(presentation_id, %{
+        status: "live",
+        current_slide_index: 0,
+        finished_at: nil
+      })
       |> case do
-        {:ok, updated} -> {:ok, updated, presenter_token}
-        error -> error
+        {:ok, updated} ->
+          PresentationStore.put_live_session(presentation_id, presenter_token)
+          PresentationStore.put_snapshot(updated)
+          {:ok, updated, presenter_token}
+
+        error ->
+          error
       end
     end
   end
 
   def join_by_code(join_code, participant_name) do
     with {:ok, presentation_id} <- find_live_presentation_by_code(join_code),
-         {:ok, participant_id, participant_token} <- upsert_participant(presentation_id, participant_name) do
-      {:ok, %{presentation_id: presentation_id, participant_id: participant_id, participant_token: participant_token}}
+         {:ok, participant_id, participant_token} <-
+           upsert_participant(presentation_id, participant_name) do
+      {:ok,
+       %{
+         presentation_id: presentation_id,
+         participant_id: participant_id,
+         participant_token: participant_token
+       }}
     end
   end
 
   def get_snapshot(presentation_id) do
+    case PresentationStore.fetch_snapshot(presentation_id) do
+      {:ok, snapshot} -> {:ok, snapshot}
+      {:error, _} -> get_snapshot_from_supabase(presentation_id)
+    end
+  end
+
+  defp get_snapshot_from_supabase(presentation_id) do
     with {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
       case Req.get(
@@ -43,17 +67,19 @@ defmodule QuizworldRealtime.Presentations do
           sorted = Enum.sort_by(slides, &(&1["order_index"] || 0))
           current_index = pres["current_slide_index"] || 0
 
-          {:ok,
-           %{
-             id: pres["id"],
-             creator_id: pres["creator_id"],
-             title: pres["title"],
-             status: pres["status"],
-             join_code: pres["join_code"],
-             current_slide_index: current_index,
-             slides: sorted,
-             total_slides: length(sorted)
-           }}
+          snapshot = %{
+            id: pres["id"],
+            creator_id: pres["creator_id"],
+            title: pres["title"],
+            status: pres["status"],
+            join_code: pres["join_code"],
+            current_slide_index: current_index,
+            slides: sorted,
+            total_slides: length(sorted)
+          }
+
+          if snapshot.status == "live", do: PresentationStore.put_snapshot(snapshot)
+          {:ok, snapshot}
 
         {:ok, %{status: 200, body: []}} ->
           {:error, :not_found}
@@ -103,12 +129,19 @@ defmodule QuizworldRealtime.Presentations do
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
       case Req.get(
              url: "#{base_url}#{@supabase_rest}/slide_responses",
-             params: %{slide_id: "eq.#{slide_id}", participant_id: "eq.#{participant_id}", select: "id"},
+             params: %{
+               slide_id: "eq.#{slide_id}",
+               participant_id: "eq.#{participant_id}",
+               select: "id"
+             },
              headers: headers(api_key),
              receive_timeout: 10_000
            ) do
-        {:ok, %{status: 200, body: [_ | _]}} -> get_slide_responses(slide_id)
-        _ -> insert_slide_response(base_url, api_key, slide_id, participant_id, payload)
+        {:ok, %{status: 200, body: [_ | _]}} ->
+          with {:ok, activity} <- refresh_activity(slide_id), do: {:ok, activity.responses}
+
+        _ ->
+          insert_slide_response(base_url, api_key, slide_id, participant_id, payload)
       end
     end
   end
@@ -127,10 +160,13 @@ defmodule QuizworldRealtime.Presentations do
            headers: headers(api_key),
            receive_timeout: 10_000
          ) do
-      {:ok, %{status: status}} when status in [200, 201] -> get_slide_responses(slide_id)
+      {:ok, %{status: status}} when status in [200, 201] ->
+        with {:ok, activity} <- refresh_activity(slide_id), do: {:ok, activity.responses}
+
       {:ok, %{status: status, body: resp_body}} ->
         Logger.warning("Supabase response insert failed #{status}: #{inspect(resp_body)}")
         {:error, :insert_failed}
+
       {:error, reason} ->
         Logger.warning("Supabase response insert error: #{inspect(reason)}")
         {:error, :insert_failed}
@@ -158,10 +194,13 @@ defmodule QuizworldRealtime.Presentations do
              headers: headers(api_key),
              receive_timeout: 10_000
            ) do
-        {:ok, %{status: status}} when status in [200, 201] -> get_qna_questions(slide_id)
+        {:ok, %{status: status}} when status in [200, 201] ->
+          with {:ok, activity} <- refresh_activity(slide_id), do: {:ok, activity.questions}
+
         {:ok, %{status: status, body: resp_body}} ->
           Logger.warning("Supabase QnA insert failed #{status}: #{inspect(resp_body)}")
           {:error, :insert_failed}
+
         {:error, reason} ->
           Logger.warning("Supabase QnA insert error: #{inspect(reason)}")
           {:error, :insert_failed}
@@ -192,13 +231,17 @@ defmodule QuizworldRealtime.Presentations do
               receive_timeout: 10_000
             )
 
-            get_qna_questions(q["slide_id"])
+            with {:ok, activity} <- refresh_activity(q["slide_id"]), do: {:ok, activity.questions}
           else
-            :existing -> get_qna_questions(q["slide_id"])
-            {:error, reason} -> {:error, reason}
+            :existing ->
+              with {:ok, activity} <- get_activity(q["slide_id"]), do: {:ok, activity.questions}
+
+            {:error, reason} ->
+              {:error, reason}
           end
 
-        _ -> {:error, :not_found}
+        _ ->
+          {:error, :not_found}
       end
     end
   end
@@ -210,11 +253,16 @@ defmodule QuizworldRealtime.Presentations do
            headers: headers(api_key),
            receive_timeout: 10_000
          ) do
-      {:ok, %{status: status}} when status in [200, 201] -> :new
-      {:ok, %{status: 409}} -> :existing
+      {:ok, %{status: status}} when status in [200, 201] ->
+        :new
+
+      {:ok, %{status: 409}} ->
+        :existing
+
       {:ok, %{status: status, body: body}} ->
         Logger.warning("Supabase QnA upvote insert failed #{status}: #{inspect(body)}")
         {:error, :insert_failed}
+
       {:error, reason} ->
         Logger.warning("Supabase QnA upvote insert error: #{inspect(reason)}")
         {:error, :insert_failed}
@@ -224,9 +272,8 @@ defmodule QuizworldRealtime.Presentations do
   def slide_activity(presentation_id, slide_id, auth_payload \\ %{}) do
     with :ok <- ensure_activity_access(presentation_id, auth_payload),
          :ok <- ensure_slide_belongs_to_presentation(presentation_id, slide_id),
-         {:ok, responses} <- get_slide_responses(slide_id),
-         {:ok, questions} <- get_qna_questions(slide_id) do
-      {:ok, %{responses: responses, questions: questions}}
+         {:ok, activity} <- get_activity(slide_id) do
+      {:ok, activity}
     end
   end
 
@@ -252,6 +299,7 @@ defmodule QuizworldRealtime.Presentations do
         receive_timeout: 10_000
       )
 
+      PresentationStore.delete_presentation(presentation_id)
       {:ok, :ended}
     end
   end
@@ -273,10 +321,17 @@ defmodule QuizworldRealtime.Presentations do
                  headers: headers(api_key),
                  receive_timeout: 10_000
                ) do
-            {:ok, %{status: status}} when status in [200, 204] -> {:ok, token}
+            {:ok, %{status: status}} when status in [200, 204] ->
+              PresentationStore.put_live_session(presentation_id, token)
+              {:ok, token}
+
             {:ok, %{status: status, body: body}} ->
-              Logger.warning("Supabase live session reactivate failed #{status}: #{inspect(body)}")
+              Logger.warning(
+                "Supabase live session reactivate failed #{status}: #{inspect(body)}"
+              )
+
               {:error, :update_failed}
+
             {:error, reason} ->
               Logger.warning("Supabase live session reactivate error: #{inspect(reason)}")
               {:error, :update_failed}
@@ -291,76 +346,131 @@ defmodule QuizworldRealtime.Presentations do
                  headers: headers(api_key),
                  receive_timeout: 10_000
                ) do
-            {:ok, %{status: status}} when status in [200, 201] -> {:ok, token}
+            {:ok, %{status: status}} when status in [200, 201] ->
+              PresentationStore.put_live_session(presentation_id, token)
+              {:ok, token}
+
             {:ok, %{status: status, body: body}} ->
               Logger.warning("Supabase live session insert failed #{status}: #{inspect(body)}")
               {:error, :insert_failed}
+
             {:error, reason} ->
               Logger.warning("Supabase live session insert error: #{inspect(reason)}")
               {:error, :insert_failed}
           end
 
-        _ -> {:error, :fetch_failed}
+        _ ->
+          {:error, :fetch_failed}
       end
     end
   end
 
   defp ensure_presenter_token(presentation_id, presenter_token) when is_binary(presenter_token) do
-    with {:ok, base_url} <- fetch_env(:supabase_url),
-         {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
-      case Req.get(
-             url: "#{base_url}#{@supabase_rest}/presentation_live_sessions",
-             params: %{presentation_id: "eq.#{presentation_id}", presenter_token: "eq.#{presenter_token}", status: "eq.live", select: "id"},
-             headers: headers(api_key),
-             receive_timeout: 10_000
-           ) do
-        {:ok, %{status: 200, body: [_ | _]}} -> :ok
-        _ -> {:error, :not_presenter}
+    if PresentationStore.presenter_token?(presentation_id, presenter_token) do
+      :ok
+    else
+      with {:ok, base_url} <- fetch_env(:supabase_url),
+           {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
+        case Req.get(
+               url: "#{base_url}#{@supabase_rest}/presentation_live_sessions",
+               params: %{
+                 presentation_id: "eq.#{presentation_id}",
+                 presenter_token: "eq.#{presenter_token}",
+                 status: "eq.live",
+                 select: "id"
+               },
+               headers: headers(api_key),
+               receive_timeout: 10_000
+             ) do
+          {:ok, %{status: 200, body: [_ | _]}} ->
+            PresentationStore.put_live_session(presentation_id, presenter_token)
+            :ok
+
+          _ ->
+            {:error, :not_presenter}
+        end
       end
     end
   end
 
   defp ensure_presenter_token(_presentation_id, _token), do: {:error, :not_presenter}
 
-  defp ensure_activity_access(presentation_id, %{"presenter_token" => token}) when is_binary(token) do
+  defp ensure_activity_access(presentation_id, %{"presenter_token" => token})
+       when is_binary(token) do
     ensure_presenter_token(presentation_id, token)
   end
 
-  defp ensure_activity_access(presentation_id, %{"participant_id" => participant_id, "participant_token" => participant_token}) do
+  defp ensure_activity_access(presentation_id, %{
+         "participant_id" => participant_id,
+         "participant_token" => participant_token
+       }) do
     ensure_participant_token(presentation_id, participant_id, participant_token)
   end
 
-  defp ensure_activity_access(_presentation_id, _payload), do: {:error, :invalid_participant_token}
+  defp ensure_activity_access(_presentation_id, _payload),
+    do: {:error, :invalid_participant_token}
 
   defp ensure_participant_token(presentation_id, participant_id, participant_token)
        when is_binary(participant_id) and is_binary(participant_token) do
-    with {:ok, base_url} <- fetch_env(:supabase_url),
-         {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
-      case Req.get(
-             url: "#{base_url}#{@supabase_rest}/presentation_participants",
-             params: %{id: "eq.#{participant_id}", presentation_id: "eq.#{presentation_id}", participant_token: "eq.#{participant_token}", select: "id"},
-             headers: headers(api_key),
-             receive_timeout: 10_000
-           ) do
-        {:ok, %{status: 200, body: [_ | _]}} -> :ok
-        _ -> {:error, :invalid_participant_token}
+    if PresentationStore.participant_token?(presentation_id, participant_id, participant_token) do
+      :ok
+    else
+      with {:ok, base_url} <- fetch_env(:supabase_url),
+           {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
+        case Req.get(
+               url: "#{base_url}#{@supabase_rest}/presentation_participants",
+               params: %{
+                 id: "eq.#{participant_id}",
+                 presentation_id: "eq.#{presentation_id}",
+                 participant_token: "eq.#{participant_token}",
+                 select: "id"
+               },
+               headers: headers(api_key),
+               receive_timeout: 10_000
+             ) do
+          {:ok, %{status: 200, body: [%{"participant_name" => name} | _]}} ->
+            PresentationStore.put_participant(
+              presentation_id,
+              participant_id,
+              participant_token,
+              name || "Anonymous"
+            )
+
+            :ok
+
+          {:ok, %{status: 200, body: [_ | _]}} ->
+            PresentationStore.put_participant(presentation_id, participant_id, participant_token)
+            :ok
+
+          _ ->
+            {:error, :invalid_participant_token}
+        end
       end
     end
   end
 
-  defp ensure_participant_token(_presentation_id, _participant_id, _participant_token), do: {:error, :invalid_participant_token}
+  defp ensure_participant_token(_presentation_id, _participant_id, _participant_token),
+    do: {:error, :invalid_participant_token}
 
   defp ensure_slide_belongs_to_presentation(presentation_id, slide_id) when is_binary(slide_id) do
-    with {:ok, base_url} <- fetch_env(:supabase_url),
-         {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
-      case Req.get(
-             url: "#{base_url}#{@supabase_rest}/slides",
-             params: %{id: "eq.#{slide_id}", presentation_id: "eq.#{presentation_id}", select: "id"},
-             headers: headers(api_key),
-             receive_timeout: 10_000
-           ) do
-        {:ok, %{status: 200, body: [_ | _]}} -> :ok
-        _ -> {:error, :bad_slide}
+    if PresentationStore.slide_belongs?(presentation_id, slide_id) do
+      :ok
+    else
+      with {:ok, base_url} <- fetch_env(:supabase_url),
+           {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
+        case Req.get(
+               url: "#{base_url}#{@supabase_rest}/slides",
+               params: %{
+                 id: "eq.#{slide_id}",
+                 presentation_id: "eq.#{presentation_id}",
+                 select: "id"
+               },
+               headers: headers(api_key),
+               receive_timeout: 10_000
+             ) do
+          {:ok, %{status: 200, body: [_ | _]}} -> :ok
+          _ -> {:error, :bad_slide}
+        end
       end
     end
   end
@@ -368,7 +478,8 @@ defmodule QuizworldRealtime.Presentations do
   defp ensure_slide_belongs_to_presentation(_presentation_id, _slide_id), do: {:error, :bad_slide}
 
   defp find_live_presentation_by_code(join_code) do
-    normalized = join_code |> to_string() |> String.trim() |> String.upcase() |> String.slice(0, 6)
+    normalized =
+      join_code |> to_string() |> String.trim() |> String.upcase() |> String.slice(0, 6)
 
     with {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
@@ -405,10 +516,20 @@ defmodule QuizworldRealtime.Presentations do
              headers: headers(api_key),
              receive_timeout: 10_000
            ) do
-        {:ok, %{status: status}} when status in [200, 201] -> {:ok, participant_id, participant_token}
+        {:ok, %{status: status}} when status in [200, 201] ->
+          PresentationStore.put_participant(
+            presentation_id,
+            participant_id,
+            participant_token,
+            safe_name
+          )
+
+          {:ok, participant_id, participant_token}
+
         {:ok, %{status: status, body: resp_body}} ->
           Logger.warning("Supabase participant insert failed #{status}: #{inspect(resp_body)}")
           {:error, :insert_failed}
+
         {:error, reason} ->
           Logger.warning("Supabase participant insert error: #{inspect(reason)}")
           {:error, :insert_failed}
@@ -416,7 +537,8 @@ defmodule QuizworldRealtime.Presentations do
     end
   end
 
-  defp update_slide_index(presentation_id, new_index), do: update_presentation(presentation_id, %{current_slide_index: new_index})
+  defp update_slide_index(presentation_id, new_index),
+    do: update_presentation(presentation_id, %{current_slide_index: new_index})
 
   defp update_presentation(presentation_id, patch) do
     with {:ok, base_url} <- fetch_env(:supabase_url),
@@ -428,11 +550,16 @@ defmodule QuizworldRealtime.Presentations do
              headers: headers(api_key),
              receive_timeout: 10_000
            ) do
-        {:ok, %{status: 200}} -> get_snapshot(presentation_id)
-        {:ok, %{status: 204}} -> get_snapshot(presentation_id)
+        {:ok, %{status: 200}} ->
+          cached_or_refresh_snapshot(presentation_id, patch)
+
+        {:ok, %{status: 204}} ->
+          cached_or_refresh_snapshot(presentation_id, patch)
+
         {:ok, %{status: status, body: body}} ->
           Logger.warning("Supabase presentation update failed #{status}: #{inspect(body)}")
           {:error, :update_failed}
+
         {:error, reason} ->
           Logger.warning("Supabase presentation update error: #{inspect(reason)}")
           {:error, :update_failed}
@@ -440,7 +567,7 @@ defmodule QuizworldRealtime.Presentations do
     end
   end
 
-  defp get_slide_responses(slide_id) do
+  defp get_slide_responses_from_supabase(slide_id) do
     with {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
       case Req.get(
@@ -455,7 +582,22 @@ defmodule QuizworldRealtime.Presentations do
     end
   end
 
-  defp get_qna_questions(slide_id) do
+  defp get_activity(slide_id) do
+    case PresentationStore.fetch_activity(slide_id) do
+      {:ok, activity} -> {:ok, activity}
+      {:error, _} -> refresh_activity(slide_id)
+    end
+  end
+
+  defp refresh_activity(slide_id) do
+    with {:ok, responses} <- get_slide_responses_from_supabase(slide_id),
+         {:ok, questions} <- get_qna_questions_from_supabase(slide_id) do
+      PresentationStore.put_activity(slide_id, responses, questions)
+      {:ok, %{responses: responses, questions: questions}}
+    end
+  end
+
+  defp get_qna_questions_from_supabase(slide_id) do
     with {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
       case Req.get(
@@ -467,6 +609,25 @@ defmodule QuizworldRealtime.Presentations do
         {:ok, %{status: 200, body: questions}} -> {:ok, questions}
         _ -> {:ok, []}
       end
+    end
+  end
+
+  defp refresh_snapshot(presentation_id) do
+    with {:ok, snapshot} <- get_snapshot_from_supabase(presentation_id) do
+      PresentationStore.put_snapshot(snapshot)
+      {:ok, snapshot}
+    end
+  end
+
+  defp cached_or_refresh_snapshot(presentation_id, patch) do
+    case PresentationStore.fetch_snapshot(presentation_id) do
+      {:ok, snapshot} ->
+        updated = Map.merge(snapshot, patch)
+        PresentationStore.put_snapshot(updated)
+        {:ok, updated}
+
+      {:error, _} ->
+        refresh_snapshot(presentation_id)
     end
   end
 
