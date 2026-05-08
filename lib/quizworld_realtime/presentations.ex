@@ -221,8 +221,9 @@ defmodule QuizworldRealtime.Presentations do
     end
   end
 
-  def slide_activity(presentation_id, slide_id) do
-    with :ok <- ensure_slide_belongs_to_presentation(presentation_id, slide_id),
+  def slide_activity(presentation_id, slide_id, auth_payload \\ %{}) do
+    with :ok <- ensure_activity_access(presentation_id, auth_payload),
+         :ok <- ensure_slide_belongs_to_presentation(presentation_id, slide_id),
          {:ok, responses} <- get_slide_responses(slide_id),
          {:ok, questions} <- get_qna_questions(slide_id) do
       {:ok, %{responses: responses, questions: questions}}
@@ -265,7 +266,21 @@ defmodule QuizworldRealtime.Presentations do
              receive_timeout: 10_000
            ) do
         {:ok, %{status: 200, body: [%{"presenter_token" => token} | _]}} when is_binary(token) ->
-          {:ok, token}
+          case Req.patch(
+                 url: "#{base_url}#{@supabase_rest}/presentation_live_sessions",
+                 params: %{presentation_id: "eq.#{presentation_id}"},
+                 json: %{status: "live", ended_at: nil},
+                 headers: headers(api_key),
+                 receive_timeout: 10_000
+               ) do
+            {:ok, %{status: status}} when status in [200, 204] -> {:ok, token}
+            {:ok, %{status: status, body: body}} ->
+              Logger.warning("Supabase live session reactivate failed #{status}: #{inspect(body)}")
+              {:error, :update_failed}
+            {:error, reason} ->
+              Logger.warning("Supabase live session reactivate error: #{inspect(reason)}")
+              {:error, :update_failed}
+          end
 
         {:ok, %{status: 200, body: []}} ->
           token = token()
@@ -306,6 +321,16 @@ defmodule QuizworldRealtime.Presentations do
   end
 
   defp ensure_presenter_token(_presentation_id, _token), do: {:error, :not_presenter}
+
+  defp ensure_activity_access(presentation_id, %{"presenter_token" => token}) when is_binary(token) do
+    ensure_presenter_token(presentation_id, token)
+  end
+
+  defp ensure_activity_access(presentation_id, %{"participant_id" => participant_id, "participant_token" => participant_token}) do
+    ensure_participant_token(presentation_id, participant_id, participant_token)
+  end
+
+  defp ensure_activity_access(_presentation_id, _payload), do: {:error, :invalid_participant_token}
 
   defp ensure_participant_token(presentation_id, participant_id, participant_token)
        when is_binary(participant_id) and is_binary(participant_token) do

@@ -47,8 +47,10 @@ defmodule QuizworldRealtimeWeb.PresentationController do
     end
   end
 
-  def activity(conn, %{"id" => presentation_id, "slide_id" => slide_id}) do
-    case Presentations.slide_activity(presentation_id, slide_id) do
+  def activity(conn, %{"id" => presentation_id, "slide_id" => slide_id} = params) do
+    auth_payload = Map.take(params, ["presenter_token", "participant_id", "participant_token"])
+
+    case Presentations.slide_activity(presentation_id, slide_id, auth_payload) do
       {:ok, activity} -> json(conn, activity)
       {:error, reason} -> conn |> put_status(status_for(reason)) |> json(%{error: format_error(reason)})
     end

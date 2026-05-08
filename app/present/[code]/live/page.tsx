@@ -155,7 +155,13 @@ export default function PresentationLive() {
       const slideId = slides[currentIndex]?.id;
       if (!slideId || slideId.startsWith("temp_")) return;
 
-      const activity = await fetchPhoenixSlideActivity(code, slideId);
+      if (!isHost && !participantSession) return;
+
+      const activity = await fetchPhoenixSlideActivity(code, slideId, {
+        presenterToken: isHost ? presenterToken : null,
+        participantId: participantSession?.participantId,
+        participantToken: participantSession?.participantToken,
+      });
       const responses = (activity.responses || []) as SlideResponse[];
       const qnas = (activity.questions || []) as QnaQuestion[];
       setAllResponses(responses);
@@ -165,7 +171,7 @@ export default function PresentationLive() {
       setSubmitted(alreadySubmitted);
     }
     loadResponses();
-  }, [currentIndex, slides, participantId]);
+  }, [currentIndex, slides, participantId, isHost, presenterToken, participantSession]);
 
   // Periodic fallback when websocket is unavailable.
   useEffect(() => {
@@ -178,8 +184,12 @@ export default function PresentationLive() {
         if (pres?.current_slide_index !== undefined) setCurrentIndex(pres.current_slide_index);
 
         const slideId = slides[currentIndex]?.id;
-        if (slideId && !slideId.startsWith("temp_")) {
-          const activity = await fetchPhoenixSlideActivity(code, slideId);
+        if (slideId && !slideId.startsWith("temp_") && (isHost || participantSession)) {
+          const activity = await fetchPhoenixSlideActivity(code, slideId, {
+            presenterToken: isHost ? presenterToken : null,
+            participantId: participantSession?.participantId,
+            participantToken: participantSession?.participantToken,
+          });
           setAllResponses((activity.responses || []) as SlideResponse[]);
           setQnaQuestions((activity.questions || []) as QnaQuestion[]);
         }
@@ -188,7 +198,7 @@ export default function PresentationLive() {
       }
     }, 2500);
     return () => window.clearInterval(timer);
-  }, [loading, channelJoined, code, slides, currentIndex]);
+  }, [loading, channelJoined, code, slides, currentIndex, isHost, presenterToken, participantSession]);
 
   // Submit response via channel
   const submitResponse = useCallback(async (data: Record<string, unknown>) => {

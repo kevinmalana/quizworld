@@ -81,8 +81,18 @@ export async function joinPhoenixPresentation(joinCode: string, participantName:
   };
 }
 
-export async function fetchPhoenixSlideActivity(presentationId: string, slideId: string) {
-  const response = await fetch(`${baseUrl()}/api/presentations/${encodeURIComponent(presentationId)}/slides/${encodeURIComponent(slideId)}/activity`, {
+export async function fetchPhoenixSlideActivity(
+  presentationId: string,
+  slideId: string,
+  auth?: { presenterToken?: string | null; participantId?: string | null; participantToken?: string | null }
+) {
+  const params = new URLSearchParams();
+  if (auth?.presenterToken) params.set("presenter_token", auth.presenterToken);
+  if (auth?.participantId) params.set("participant_id", auth.participantId);
+  if (auth?.participantToken) params.set("participant_token", auth.participantToken);
+  const query = params.toString();
+
+  const response = await fetch(`${baseUrl()}/api/presentations/${encodeURIComponent(presentationId)}/slides/${encodeURIComponent(slideId)}/activity${query ? `?${query}` : ""}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
     cache: "no-store",
