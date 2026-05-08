@@ -2,13 +2,15 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { joinPhoenixPresentation, writeParticipantSession } from "@/lib/presentation/client";
+import { setParticipantName } from "@/lib/presentation/types";
 
 function JoinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialCode = (searchParams.get("code") || "").toUpperCase().slice(0, 6);
   const [code, setCode] = useState(initialCode);
+  const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -16,11 +18,8 @@ function JoinForm() {
   useEffect(() => {
     if (initialCode.length === 6) {
       setCode(initialCode);
-      // If name is already saved, auto-join directly
       const savedName = localStorage.getItem("qw_present_name");
-      if (savedName) {
-        void handleJoin();
-      }
+      if (savedName) setName(savedName);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -34,25 +33,20 @@ function JoinForm() {
     setLoading(true);
     setError("");
 
-    const { data, error: fetchError } = await supabase
-      .from("presentations")
-      .select("id, status, title")
-      .eq("join_code", joinCode)
-      .single();
-
-    if (fetchError || !data) {
-      setError("Presentation not found. Check the code.");
+    try {
+      const participantName = name.trim() || "Anonymous";
+      const joined = await joinPhoenixPresentation(joinCode, participantName);
+      setParticipantName(participantName);
+      writeParticipantSession(joined.presentationId, {
+        participantId: joined.participantId,
+        participantToken: joined.participantToken,
+        participantName,
+      });
+      router.push(`/present/${joined.presentationId}/live`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not join presentation.");
       setLoading(false);
-      return;
     }
-
-    if (data.status === "draft") {
-      setError("This presentation hasn't started yet.");
-      setLoading(false);
-      return;
-    }
-
-    router.push(`/present/${data.id}/live`);
   };
 
   return (
@@ -76,10 +70,24 @@ function JoinForm() {
             textAlign: "center", letterSpacing: "0.2em", textTransform: "uppercase",
             border: "2px solid var(--line)", borderRadius: "var(--radius-xl)",
             background: "var(--surface)", color: "var(--ink)", outline: "none",
-            marginBottom: "1rem",
+            marginBottom: "0.75rem",
           }}
           onKeyDown={(e) => { if (e.key === "Enter") void handleJoin(); }}
           autoFocus
+        />
+
+        <input
+          value={name}
+          onChange={(e) => { setName(e.target.value); setError(""); }}
+          placeholder="Your name…"
+          maxLength={80}
+          style={{
+            width: "100%", padding: "0.75rem 1rem", fontSize: "1rem", fontWeight: 600,
+            textAlign: "center", border: "1.5px solid var(--line)", borderRadius: "var(--radius-xl)",
+            background: "var(--surface)", color: "var(--ink)", outline: "none",
+            marginBottom: "1rem",
+          }}
+          onKeyDown={(e) => { if (e.key === "Enter") void handleJoin(); }}
         />
 
         {error && (

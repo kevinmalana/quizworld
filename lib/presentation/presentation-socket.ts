@@ -3,6 +3,7 @@ import { getGameServiceSocketUrl } from "@/lib/game-engine/client";
 type PresentationMessage = [string | null, string | null, string, string, unknown];
 
 type PresentationCallbacks = {
+  onJoined?: () => void;
   onPresentationUpdate?: (presentation: unknown) => void;
   onSlideChanged?: (presentation: unknown) => void;
   onResponseNew?: (data: { slide_id: string; responses: unknown[] }) => void;
@@ -15,6 +16,9 @@ type PresentationCallbacks = {
 
 export function subscribeToPresentation(options: {
   presentationId: string;
+  presenterToken?: string | null;
+  participantId?: string | null;
+  participantToken?: string | null;
   callbacks: PresentationCallbacks;
 }) {
   const socketUrl = getGameServiceSocketUrl();
@@ -28,7 +32,9 @@ export function subscribeToPresentation(options: {
   let reconnectTimer: number | null = null;
   let reconnectAttempts = 0;
   let intentionalClose = false;
+  let joinRef: string | null = null;
   let socket: WebSocket;
+  const pendingReplies = new Map<string, (ok: boolean) => void>();
 
   const topic = `presentation:${options.presentationId}`;
 
@@ -37,11 +43,25 @@ export function subscribeToPresentation(options: {
     return String(ref);
   };
 
-  const push = (event: string, payload: unknown = {}) => {
-    if (socket.readyState === WebSocket.OPEN) {
-      const message: PresentationMessage = [null, nextRef(), topic, event, payload];
-      socket.send(JSON.stringify(message));
-    }
+  const sendMessage = (msgTopic: string, event: string, payload: unknown = {}, trackReply = false) => {
+    if (socket.readyState !== WebSocket.OPEN) return Promise.resolve(false);
+
+    const messageRef = nextRef();
+    const message: PresentationMessage = [null, messageRef, msgTopic, event, payload];
+    socket.send(JSON.stringify(message));
+
+    if (!trackReply) return Promise.resolve(true);
+
+    return new Promise<boolean>((resolve) => {
+      pendingReplies.set(messageRef, resolve);
+      window.setTimeout(() => {
+        if (pendingReplies.delete(messageRef)) resolve(false);
+      }, 8_000);
+    });
+  };
+
+  const push = (event: string, payload: unknown = {}, trackReply = false) => {
+    return sendMessage(topic, event, payload, trackReply);
   };
 
   const clearHeartbeat = () => {
@@ -56,10 +76,15 @@ export function subscribeToPresentation(options: {
 
     socket.addEventListener("open", () => {
       reconnectAttempts = 0;
-      push("phx_join", {});
+      joinRef = String(ref + 1);
+      void push("phx_join", {
+        presenter_token: options.presenterToken || undefined,
+        participant_id: options.participantId || undefined,
+        participant_token: options.participantToken || undefined,
+      });
 
       heartbeat = window.setInterval(() => {
-        push("phoenix", {});
+        void sendMessage("phoenix", "heartbeat", {});
       }, 30_000);
     });
 
@@ -72,7 +97,7 @@ export function subscribeToPresentation(options: {
         return;
       }
 
-      const [, , msgTopic, msgEvent, payload] = parsed;
+      const [, messageRef, msgTopic, msgEvent, payload] = parsed;
 
       if (msgTopic !== topic) {
         return;
@@ -80,11 +105,28 @@ export function subscribeToPresentation(options: {
 
       const p = payload as Record<string, unknown>;
 
-      if (msgEvent === "phx_reply" && p?.status === "ok") {
-        const response = p?.response as Record<string, unknown> | undefined;
-        if (response?.presentation) {
-          options.callbacks.onPresentationUpdate?.(response.presentation);
+      if (msgEvent === "phx_reply") {
+        const ok = p?.status === "ok";
+        if (messageRef && pendingReplies.has(messageRef)) {
+          pendingReplies.get(messageRef)?.(ok);
+          pendingReplies.delete(messageRef);
         }
+
+        if (ok) {
+          if (messageRef === joinRef) options.callbacks.onJoined?.();
+          const response = p?.response as Record<string, unknown> | undefined;
+          if (response?.presentation) {
+            options.callbacks.onPresentationUpdate?.(response.presentation);
+          }
+        } else {
+          const response = p?.response as { reason?: string } | undefined;
+          options.callbacks.onError?.(response?.reason || "Presentation action failed.");
+        }
+        return;
+      }
+
+      if (msgEvent === "presentation:update") {
+        options.callbacks.onPresentationUpdate?.(p?.presentation);
         return;
       }
 
@@ -150,16 +192,33 @@ export function subscribeToPresentation(options: {
   connect();
 
   return {
-    nextSlide: () => push("slide:next"),
-    prevSlide: () => push("slide:prev"),
-    gotoSlide: (index: number) => push("slide:goto", { index }),
-    submitResponse: (slideId: string, responseData: Record<string, unknown>, participantId: string, participantName: string) =>
-      push("response:submit", { slide_id: slideId, response_data: responseData, participant_id: participantId, participant_name: participantName }),
-    submitQna: (slideId: string, question: string, participantId: string, participantName: string) =>
-      push("qna:submit", { slide_id: slideId, question, participant_id: participantId, participant_name: participantName }),
+    nextSlide: () => push("slide:next", { presenter_token: options.presenterToken || undefined }, true),
+    prevSlide: () => push("slide:prev", { presenter_token: options.presenterToken || undefined }, true),
+    gotoSlide: (index: number) => push("slide:goto", { index, presenter_token: options.presenterToken || undefined }, true),
+    submitResponse: (slideId: string, responseData: Record<string, unknown>, participantName: string) =>
+      push("response:submit", {
+        slide_id: slideId,
+        response_data: responseData,
+        participant_id: options.participantId || undefined,
+        participant_token: options.participantToken || undefined,
+        participant_name: participantName,
+      }, true),
+    submitQna: (slideId: string, question: string, participantName: string) =>
+      push("qna:submit", {
+        slide_id: slideId,
+        question,
+        participant_id: options.participantId || undefined,
+        participant_token: options.participantToken || undefined,
+        participant_name: participantName,
+      }, true),
     upvoteQna: (questionId: string, slideId: string) =>
-      push("qna:upvote", { question_id: questionId, slide_id: slideId }),
-    endPresentation: () => push("presentation:end"),
+      push("qna:upvote", {
+        question_id: questionId,
+        slide_id: slideId,
+        participant_id: options.participantId || undefined,
+        participant_token: options.participantToken || undefined,
+      }, true),
+    endPresentation: () => push("presentation:end", { presenter_token: options.presenterToken || undefined }, true),
     disconnect: () => {
       intentionalClose = true;
       clearHeartbeat();
@@ -169,7 +228,7 @@ export function subscribeToPresentation(options: {
       }
       if (socket.readyState === WebSocket.OPEN) {
         try {
-          push("phx_leave", {});
+          void push("phx_leave", {});
         } catch {
           // Ignore cleanup errors
         }

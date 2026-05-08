@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import type { Slide, SlideType, SlideContent } from "@/lib/presentation/types";
+import { startPhoenixPresentation, writePresenterToken } from "@/lib/presentation/client";
 
 const SLIDE_TYPES: { type: SlideType; icon: string; label: string; desc: string }[] = [
   { type: "content", icon: "📝", label: "Content", desc: "Text, images, video" },
@@ -15,6 +16,27 @@ const SLIDE_TYPES: { type: SlideType; icon: string; label: string; desc: string 
   { type: "scale", icon: "📏", label: "Scale", desc: "Rate 1-10" },
   { type: "qna", icon: "❓", label: "Q&A", desc: "Audience questions" },
 ];
+
+function validateSlides(slides: Slide[]): string | null {
+  if (!slides.length) return "Add at least one slide.";
+
+  for (const [index, slide] of slides.entries()) {
+    const label = `Slide ${index + 1}`;
+    if (slide.slide_type === "poll" && (slide.content.options || []).filter((o) => o.text.trim()).length < 2) {
+      return `${label}: polls need at least two non-empty options.`;
+    }
+    if (slide.slide_type === "quiz") {
+      const answers = (slide.content.answers || []).filter((a) => a.text.trim());
+      if (answers.length < 2) return `${label}: quiz slides need at least two non-empty answers.`;
+      if (!answers.some((a) => a.is_correct)) return `${label}: choose a correct answer.`;
+    }
+    if (slide.slide_type === "scale" && Number(slide.content.min ?? 1) >= Number(slide.content.max ?? 10)) {
+      return `${label}: scale minimum must be less than maximum.`;
+    }
+  }
+
+  return null;
+}
 
 function defaultContent(type: SlideType): SlideContent {
   switch (type) {
@@ -41,6 +63,7 @@ export default function PresentationEditor() {
   const [saving, setSaving] = useState(false);
   const [showAddSlide, setShowAddSlide] = useState(false);
   const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   // Load presentation
   useEffect(() => {
@@ -95,35 +118,48 @@ export default function PresentationEditor() {
 
   // Save presentation
   const savePresentation = useCallback(async () => {
+    const validationError = validateSlides(slides);
+    if (validationError) {
+      setError(validationError);
+      return false;
+    }
+
     setSaving(true);
+    setError("");
     try {
-      // Update title
-      await supabase.from("presentations").update({ title }).eq("id", code);
+      const { error } = await supabase.rpc("save_presentation", {
+        p_presentation_id: code,
+        p_title: title,
+        p_slides: slides,
+      });
 
-      // Delete existing slides and re-insert
-      await supabase.from("slides").delete().eq("presentation_id", code);
-
-      for (let i = 0; i < slides.length; i++) {
-        const s = slides[i];
-        await supabase.from("slides").insert({
-          presentation_id: code,
-          slide_type: s.slide_type,
-          title: s.title,
-          content: s.content,
-          order_index: i,
-          settings: s.settings,
-        });
-      }
+      if (error) throw error;
+      setSaving(false);
+      return true;
     } catch (err) {
       console.error("Save error:", err);
+      setError(err instanceof Error ? err.message : "Save failed.");
+      setSaving(false);
+      return false;
     }
-    setSaving(false);
   }, [code, title, slides]);
 
   // Start presenting
   const startPresenting = useCallback(async () => {
-    await savePresentation();
-    await supabase.from("presentations").update({ status: "live" }).eq("id", code);
+    const saved = await savePresentation();
+    if (!saved) return;
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      router.push("/login");
+      return;
+    }
+
+    const live = await startPhoenixPresentation(code, session.access_token);
+    writePresenterToken(code, live.presenter_token);
     router.push(`/present/${code}/live`);
   }, [code, savePresentation, router]);
 
@@ -144,6 +180,7 @@ export default function PresentationEditor() {
           placeholder="Presentation title…"
           style={{ flex: 1, fontWeight: 700, fontSize: "0.875rem", padding: "0.35rem 0.65rem", border: "1.5px solid var(--line)", borderRadius: "var(--radius-lg)", background: "var(--surface)", color: "var(--ink)", outline: "none" }}
         />
+        {error && <span style={{ color: "var(--primary)", fontSize: "0.75rem", fontWeight: 700 }}>{error}</span>}
         {joinCode && (
           <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--accent)", padding: "0.25rem 0.5rem", borderRadius: "999px", background: "var(--accent-light)" }}>
             Code: {joinCode}

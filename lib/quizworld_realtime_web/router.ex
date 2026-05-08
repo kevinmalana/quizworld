@@ -30,5 +30,10 @@ defmodule QuizworldRealtimeWeb.Router do
     post "/sessions/:pin/reveal", SessionController, :reveal
     post "/sessions/:pin/advance", SessionController, :advance
     post "/sessions/:pin/answer", SessionController, :answer
+
+    get "/presentations/:id", PresentationController, :show
+    get "/presentations/:id/slides/:slide_id/activity", PresentationController, :activity
+    post "/presentations/:id/start", PresentationController, :start
+    post "/presentations/join", PresentationController, :join
   end
 end

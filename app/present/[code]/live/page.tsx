@@ -5,8 +5,15 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import type { Slide, SlideResponse, QnaQuestion } from "@/lib/presentation/types";
-import { getParticipantId, getParticipantName, setParticipantName } from "@/lib/presentation/types";
+import { getParticipantName } from "@/lib/presentation/types";
 import { subscribeToPresentation } from "@/lib/presentation/presentation-socket";
+import {
+  fetchPhoenixPresentation,
+  fetchPhoenixSlideActivity,
+  readParticipantSession,
+  readPresenterToken,
+  type PresentationParticipantSession,
+} from "@/lib/presentation/client";
 
 export default function PresentationLive() {
   const params = useParams();
@@ -20,10 +27,13 @@ export default function PresentationLive() {
   const [isHost, setIsHost] = useState(false);
   const [loading, setLoading] = useState(true);
   const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [presenterToken, setPresenterToken] = useState<string | null>(null);
+  const [participantSession, setParticipantSession] = useState<PresentationParticipantSession | null>(null);
+  const [channelJoined, setChannelJoined] = useState(false);
+  const [channelError, setChannelError] = useState<string | null>(null);
 
   // Audience state
   const [name, setName] = useState("");
-  const [nameSet, setNameSet] = useState(false);
   const [response, setResponse] = useState("");
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [scaleValue, setScaleValue] = useState(5);
@@ -32,7 +42,7 @@ export default function PresentationLive() {
   const [qnaQuestions, setQnaQuestions] = useState<QnaQuestion[]>([]);
   const [newQnaQuestion, setNewQnaQuestion] = useState("");
 
-  const participantId = getParticipantId();
+  const participantId = participantSession?.participantId || "";
   const channelRef = useRef<ReturnType<typeof subscribeToPresentation> | null>(null);
 
   // Load initial presentation state
@@ -51,15 +61,19 @@ export default function PresentationLive() {
 
       setTitle(pres.title);
       setJoinCode(pres.join_code);
-      setIsHost(user?.id === pres.creator_id);
+      const host = user?.id === pres.creator_id;
+      setIsHost(host);
+      const storedPresenterToken = readPresenterToken(code);
+      const storedParticipantSession = readParticipantSession(code);
+      setPresenterToken(storedPresenterToken);
+      setParticipantSession(storedParticipantSession);
       setCurrentIndex(pres.current_slide_index || 0);
       const sorted = (pres.slides || []).sort((a: Slide, b: Slide) => a.order_index - b.order_index);
       setSlides(sorted);
 
-      const savedName = getParticipantName();
-      if (savedName !== "Anonymous") {
+      const savedName = storedParticipantSession?.participantName || getParticipantName();
+      if (host || storedParticipantSession || savedName !== "Anonymous") {
         setName(savedName);
-        setNameSet(true);
       }
 
       setLoading(false);
@@ -73,7 +87,14 @@ export default function PresentationLive() {
 
     const channel = subscribeToPresentation({
       presentationId: code,
+      presenterToken: isHost ? presenterToken : null,
+      participantId: participantSession?.participantId,
+      participantToken: participantSession?.participantToken,
       callbacks: {
+        onJoined: () => {
+          setChannelJoined(true);
+          setChannelError(null);
+        },
         onPresentationUpdate: (pres: any) => {
           if (pres?.slides) {
             const sorted = [...(pres.slides || [])].sort((a: Slide, b: Slide) => a.order_index - b.order_index);
@@ -108,13 +129,14 @@ export default function PresentationLive() {
           setQnaQuestions((data.questions || []) as QnaQuestion[]);
         },
         onPresentationEnded: () => {
-          if (isHost) {
-            router.push(`/present/${code}/report`);
-          } else {
-            router.push("/present");
-          }
+          router.push("/present");
         },
-        onError: (msg) => console.error("Presentation channel error:", msg),
+        onError: (msg) => {
+          console.error("Presentation channel error:", msg);
+          setChannelJoined(false);
+          setChannelError(msg);
+        },
+        onClose: () => setChannelJoined(false),
       },
     });
 
@@ -123,7 +145,7 @@ export default function PresentationLive() {
     return () => {
       channel.disconnect();
     };
-  }, [loading, code, isHost, router]);
+  }, [loading, code, isHost, presenterToken, participantSession?.participantId, participantSession?.participantToken, router]);
 
   // Load responses for current slide (initial + fallback)
   useEffect(() => {
@@ -133,75 +155,87 @@ export default function PresentationLive() {
       const slideId = slides[currentIndex]?.id;
       if (!slideId || slideId.startsWith("temp_")) return;
 
-      const { data: responses } = await supabase
-        .from("slide_responses")
-        .select("*")
-        .eq("slide_id", slideId)
-        .order("created_at", { ascending: false });
-      setAllResponses((responses || []) as SlideResponse[]);
+      const activity = await fetchPhoenixSlideActivity(code, slideId);
+      const responses = (activity.responses || []) as SlideResponse[];
+      const qnas = (activity.questions || []) as QnaQuestion[];
+      setAllResponses(responses);
+      setQnaQuestions(qnas);
 
-      if (slides[currentIndex]?.slide_type === "qna") {
-        const { data: qnas } = await supabase
-          .from("qna_questions")
-          .select("*")
-          .eq("slide_id", slideId)
-          .order("upvotes", { ascending: false });
-        setQnaQuestions((qnas || []) as QnaQuestion[]);
-      }
-
-      const alreadySubmitted = (responses || []).some((r: SlideResponse) => r.participant_id === participantId);
+      const alreadySubmitted = responses.some((r: SlideResponse) => r.participant_id === participantId);
       setSubmitted(alreadySubmitted);
     }
     loadResponses();
   }, [currentIndex, slides, participantId]);
 
+  // Periodic fallback when websocket is unavailable.
+  useEffect(() => {
+    if (loading || channelJoined) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const latest = await fetchPhoenixPresentation(code) as { presentation?: any };
+        const pres = latest.presentation;
+        if (pres?.slides) setSlides([...(pres.slides || [])].sort((a: Slide, b: Slide) => a.order_index - b.order_index));
+        if (pres?.current_slide_index !== undefined) setCurrentIndex(pres.current_slide_index);
+
+        const slideId = slides[currentIndex]?.id;
+        if (slideId && !slideId.startsWith("temp_")) {
+          const activity = await fetchPhoenixSlideActivity(code, slideId);
+          setAllResponses((activity.responses || []) as SlideResponse[]);
+          setQnaQuestions((activity.questions || []) as QnaQuestion[]);
+        }
+      } catch {
+        // Keep current screen stable; explicit channelError is already shown.
+      }
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [loading, channelJoined, code, slides, currentIndex]);
+
   // Submit response via channel
-  const submitResponse = useCallback((data: Record<string, unknown>) => {
-    if (!slides[currentIndex] || submitted || !channelRef.current) return;
+  const submitResponse = useCallback(async (data: Record<string, unknown>) => {
+    if (!slides[currentIndex] || submitted || !channelRef.current || !participantSession) return;
     const slideId = slides[currentIndex].id;
-    channelRef.current.submitResponse(slideId, data, participantId, name || "Anonymous");
-    setSubmitted(true);
-  }, [currentIndex, slides, participantId, name, submitted]);
+    const ok = await channelRef.current.submitResponse(slideId, data, name || participantSession.participantName || "Anonymous");
+    if (ok) setSubmitted(true);
+  }, [currentIndex, slides, name, submitted, participantSession]);
 
   // Submit Q&A via channel
-  const submitQnaQuestion = useCallback(() => {
-    if (!newQnaQuestion.trim() || !slides[currentIndex] || !channelRef.current) return;
-    channelRef.current.submitQna(slides[currentIndex].id, newQnaQuestion.trim(), participantId, name || "Anonymous");
-    setNewQnaQuestion("");
-  }, [currentIndex, slides, participantId, name, newQnaQuestion]);
+  const submitQnaQuestion = useCallback(async () => {
+    if (!newQnaQuestion.trim() || !slides[currentIndex] || !channelRef.current || !participantSession) return;
+    const ok = await channelRef.current.submitQna(slides[currentIndex].id, newQnaQuestion.trim(), name || participantSession.participantName || "Anonymous");
+    if (ok) setNewQnaQuestion("");
+  }, [currentIndex, slides, name, newQnaQuestion, participantSession]);
 
   // Upvote via channel
   const upvoteQna = useCallback((qnaId: string) => {
-    if (!slides[currentIndex] || !channelRef.current) return;
-    channelRef.current.upvoteQna(qnaId, slides[currentIndex].id);
-  }, [currentIndex, slides]);
+    if (!slides[currentIndex] || !channelRef.current || !participantSession) return;
+    void channelRef.current.upvoteQna(qnaId, slides[currentIndex].id);
+  }, [currentIndex, slides, participantSession]);
 
   if (loading) {
     return <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>Loading...</div>;
   }
 
-  // Name entry screen for audience
-  if (!nameSet && !isHost) {
+  if (isHost && !presenterToken) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-        <div className="card" style={{ padding: "2rem", maxWidth: 400, width: "100%", textAlign: "center" }}>
+      <div className="container" style={{ paddingTop: "4rem", maxWidth: 520, textAlign: "center" }}>
+        <div className="card" style={{ padding: "2rem" }}>
           <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎤</div>
-          <h1 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.5rem" }}>{title}</h1>
-          <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>Enter your name to join</p>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your name…"
-            style={{ width: "100%", padding: "0.75rem 1rem", fontSize: "1rem", border: "1.5px solid var(--line)", borderRadius: "var(--radius-xl)", outline: "none", marginBottom: "1rem" }}
-            onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) { setParticipantName(name.trim()); setNameSet(true); } }}
-            autoFocus
-          />
-          <button
-            onClick={() => { setParticipantName(name.trim() || "Anonymous"); setNameSet(true); }}
-            disabled={!name.trim()}
-            className="btn btn-primary btn-lg"
-            style={{ width: "100%" }}
-          >Join Presentation</button>
+          <h1 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.75rem" }}>Start from the editor</h1>
+          <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>Presenter controls require a live presenter token. Start this deck from the editor.</p>
+          <button className="btn btn-primary btn-lg" onClick={() => router.push(`/present/${code}/edit`)}>Open Editor</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isHost && !participantSession) {
+    return (
+      <div className="container" style={{ paddingTop: "4rem", maxWidth: 520, textAlign: "center" }}>
+        <div className="card" style={{ padding: "2rem" }}>
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🙋</div>
+          <h1 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.75rem" }}>Join through the presentation code</h1>
+          <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>Audience responses need a participant session so your answers and upvotes are valid.</p>
+          <button className="btn btn-primary btn-lg" onClick={() => router.push(joinCode ? `/present/join?code=${joinCode}` : "/present/join")}>Join Presentation</button>
         </div>
       </div>
     );
@@ -256,32 +290,24 @@ export default function PresentationLive() {
             </div>
           )}
           <div style={{ flex: 1 }} />
-          <button onClick={async () => {
-            if (channelRef.current) { channelRef.current.prevSlide(); }
-            else {
-              const newIdx = Math.max(0, currentIndex - 1);
-              await supabase.from("presentations").update({current_slide_index: newIdx}).eq("id", code);
-              setCurrentIndex(newIdx); setSubmitted(false); setResponse(""); setSelectedOption(null);
-            }
-          }} disabled={currentIndex === 0}
+          <button onClick={() => {
+            if (channelJoined && channelRef.current) void channelRef.current.prevSlide();
+          }} disabled={currentIndex === 0 || !channelJoined}
             style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-full)", border: "1px solid var(--line)", background: "var(--surface)", cursor: "pointer" }}>← Prev</button>
-          <button onClick={async () => {
-            if (channelRef.current) { channelRef.current.nextSlide(); }
-            else {
-              const newIdx = Math.min(slides.length - 1, currentIndex + 1);
-              await supabase.from("presentations").update({current_slide_index: newIdx}).eq("id", code);
-              setCurrentIndex(newIdx); setSubmitted(false); setResponse(""); setSelectedOption(null);
-            }
-          }} disabled={currentIndex === slides.length - 1}
+          <button onClick={() => {
+            if (channelJoined && channelRef.current) void channelRef.current.nextSlide();
+          }} disabled={currentIndex === slides.length - 1 || !channelJoined}
             style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-full)", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>Next →</button>
-          <button onClick={async () => {
-            if (channelRef.current) { channelRef.current.endPresentation(); }
-            else {
-              await supabase.from("presentations").update({status:"finished", finished_at: new Date().toISOString()}).eq("id", code);
-              router.push(`/present/${code}/report`);
-            }
-          }}
+          <button onClick={() => {
+            if (channelJoined && channelRef.current) void channelRef.current.endPresentation();
+          }} disabled={!channelJoined}
             style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-full)", border: "1px solid var(--primary)", background: "transparent", color: "var(--primary)", cursor: "pointer" }}>End</button>
+        </div>
+      )}
+
+      {channelError && (
+        <div style={{ padding: "0.5rem 1rem", background: "#fff7ed", color: "#9a3412", fontSize: "0.8rem", fontWeight: 700, textAlign: "center" }}>
+          {channelError} {channelJoined ? "" : "Using read-only fallback until realtime reconnects."}
         </div>
       )}
 
