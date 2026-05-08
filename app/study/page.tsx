@@ -339,7 +339,7 @@ export default function StudyListPage() {
           .from("profiles")
           .select("*")
           .eq("id", user.id)
-          .single(),
+          .maybeSingle(),
       ]);
 
       if (ignore) return;
