@@ -192,42 +192,23 @@ export default function StudyPage() {
     const sessionXp = result.correct * xpPerCorrect + completionBonus + perfectBonus;
     // ──────────────────────────────────────────────────────────────────────────
 
-    // Call update_study_streak always (a session with 0 XP still counts for streak).
-    // Call increment_xp only when there's XP to award.
-    const [progressError, sessionError, streakResult, xpResult] = await Promise.all([
-      supabase.from("study_progress").upsert(
-        {
-          user_id: user.id,
-          quiz_id: quiz.id,
-          questions_studied: result.total,
-          correct: result.correct,
-          mastery,
-          last_studied: now,
-        },
-        { onConflict: "user_id,quiz_id" }
-      ),
-      supabase.from("study_sessions").insert({
+    const { error: progressError } = await supabase.from("study_progress").upsert(
+      {
         user_id: user.id,
         quiz_id: quiz.id,
-        xp_earned: sessionXp,
+        questions_studied: result.total,
         correct: result.correct,
-        total: result.total,
-        study_mode: mode,
-        duration_secs: null,
-        created_at: now,
-      }),
-      supabase.rpc("update_study_streak", { user_uuid: user.id }),
-      sessionXp > 0
-        ? supabase.rpc("increment_xp", { user_uuid: user.id, xp_amount: sessionXp })
-        : Promise.resolve({ error: null }),
-    ]);
+        mastery,
+        last_studied: now,
+      },
+      { onConflict: "user_id,quiz_id" }
+    );
 
-    if (progressError || sessionError) {
-      console.error("Error saving study progress:", progressError ?? sessionError);
+    if (progressError) {
+      console.error("Error saving study progress:", progressError);
       setSaveMessage("Could not save progress this time.");
     } else {
-      const xpLabel = sessionXp > 0 ? ` +${sessionXp} XP earned` : "";
-      setSaveMessage(`Progress saved.${xpLabel}`);
+      setSaveMessage("Progress saved.");
     }
     setSaving(false);
   };

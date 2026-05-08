@@ -327,21 +327,17 @@ export default function StudyListPage() {
         return;
       }
 
-      const [progressResult, sessionsResult, profileResult] = await Promise.all([
+      const [progressResult, profileResult] = await Promise.all([
         supabase
           .from("study_progress")
           .select("quiz_id, questions_studied, correct, mastery, last_studied")
           .eq("user_id", user.id)
           .order("last_studied", { ascending: false }),
-        supabase
-          .from("study_sessions")
-          .select("id, xp_earned, correct, total, study_mode, duration_secs, created_at")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(30),
+        // Select the full profile row so Study Hall still loads if optional XP/streak
+        // columns have not been deployed to the live Supabase schema yet.
         supabase
           .from("profiles")
-          .select("total_xp, study_streak, longest_streak")
+          .select("*")
           .eq("id", user.id)
           .single(),
       ]);
@@ -354,11 +350,7 @@ export default function StudyListPage() {
         setProgress(progressResult.data ?? []);
       }
 
-      if (sessionsResult.error) {
-        console.error("Error loading study sessions:", sessionsResult.error);
-      } else {
-        setSessions(sessionsResult.data ?? []);
-      }
+      setSessions([]);
 
       if (profileResult.data) {
         setProfile(profileResult.data as any);
