@@ -11,7 +11,7 @@ defmodule QuizworldRealtimeWeb.Endpoint do
     at: "/",
     from: :quizworld_realtime,
     gzip: false,
-    only: ~w(css)
+    only: ~w(css game.css)
 
   socket "/live", Phoenix.LiveView.Socket,
     websocket: [connect_info: [session: @session_options]]
