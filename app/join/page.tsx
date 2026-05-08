@@ -247,6 +247,20 @@ function JoinForm() {
             </div>
           </div>
 
+          {error && (
+            <div style={{ 
+              color: "var(--primary)", 
+              background: "var(--primary-light)", 
+              padding: "0.75rem", 
+              borderRadius: "var(--radius-lg)",
+              marginBottom: "1rem",
+              fontWeight: 600,
+              fontSize: "0.875rem"
+            }}>
+              {error}
+            </div>
+          )}
+
           <button
             onClick={handleJoinSubmit}
             disabled={joining}
