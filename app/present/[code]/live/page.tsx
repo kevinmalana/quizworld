@@ -31,6 +31,9 @@ export default function PresentationLive() {
   const [participantSession, setParticipantSession] = useState<PresentationParticipantSession | null>(null);
   const [channelJoined, setChannelJoined] = useState(false);
   const [channelError, setChannelError] = useState<string | null>(null);
+  const [showJoinOverlay, setShowJoinOverlay] = useState(false);
+  const [resultsHidden, setResultsHidden] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Audience state
   const [name, setName] = useState("");
@@ -44,6 +47,16 @@ export default function PresentationLive() {
 
   const participantId = participantSession?.participantId || "";
   const channelRef = useRef<ReturnType<typeof subscribeToPresentation> | null>(null);
+
+  const toggleFullscreen = useCallback(() => {
+    if (typeof document === "undefined") return;
+
+    if (!document.fullscreenElement) {
+      void document.documentElement.requestFullscreen?.();
+    } else {
+      void document.exitFullscreen?.();
+    }
+  }, []);
 
   // Load initial presentation state
   useEffect(() => {
@@ -146,6 +159,63 @@ export default function PresentationLive() {
       channel.disconnect();
     };
   }, [loading, code, isHost, presenterToken, participantSession?.participantId, participantSession?.participantToken, router]);
+
+  useEffect(() => {
+    if (!isHost || !joinCode) return;
+    setShowJoinOverlay(true);
+  }, [isHost, joinCode]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    onFullscreenChange();
+
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isHost) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+
+      if (event.key === "ArrowRight" || event.key === "PageDown") {
+        event.preventDefault();
+        if (channelJoined && channelRef.current && currentIndex < slides.length - 1) void channelRef.current.nextSlide();
+      }
+
+      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+        event.preventDefault();
+        if (channelJoined && channelRef.current && currentIndex > 0) void channelRef.current.prevSlide();
+      }
+
+      if (event.key.toLowerCase() === "i") {
+        event.preventDefault();
+        setShowJoinOverlay((v) => !v);
+      }
+
+      if (event.key.toLowerCase() === "h") {
+        event.preventDefault();
+        setResultsHidden((v) => !v);
+      }
+
+      if (event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        toggleFullscreen();
+      }
+
+      if (event.key === "Escape") {
+        setShowJoinOverlay(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isHost, channelJoined, currentIndex, slides.length, toggleFullscreen]);
 
   // Load responses for current slide (initial + fallback)
   useEffect(() => {
@@ -277,41 +347,48 @@ export default function PresentationLive() {
   const scaleValues = allResponses.map(r => Number(r.response_data?.value) || 0);
   const scaleAvg = scaleValues.length > 0 ? Math.round(scaleValues.reduce((s, v) => s + v, 0) / scaleValues.length * 10) / 10 : 0;
 
+  const joinUrl = joinCode ? `https://www.quizworld.xyz/present/join?code=${joinCode}` : "";
+  const responseCount = allResponses.length;
+  const shouldShowResults = !isHost || !resultsHidden;
+
+  const dockButtonStyle = { padding: "0.7rem 0.95rem", fontSize: "0.82rem", fontWeight: 800, borderRadius: "999px", border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.1)", color: "#fff", cursor: "pointer", boxShadow: "0 12px 30px rgba(15,23,42,0.12)" };
+  const dockPrimaryButtonStyle = { ...dockButtonStyle, border: "none", background: "linear-gradient(135deg, var(--accent), #a78bfa)" };
+
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      {/* Host controls */}
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: isHost ? "radial-gradient(circle at top left, #f5f3ff 0, #ffffff 36%, #f8fafc 100%)" : undefined }}>
+      {/* Presenter status rail */}
       {isHost && (
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 1rem", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>{currentIndex + 1}/{slides.length}</span>
+        <div style={{ position: "fixed", top: 14, left: 14, right: 14, zIndex: 20, display: "flex", alignItems: "center", gap: "0.75rem", pointerEvents: "none" }}>
+          <div style={{ pointerEvents: "auto", display: "flex", alignItems: "center", gap: "0.55rem", padding: "0.55rem 0.8rem", borderRadius: "999px", background: "rgba(15,23,42,0.78)", color: "#fff", backdropFilter: "blur(14px)", boxShadow: "0 18px 50px rgba(15,23,42,0.18)" }}>
+            <span style={{ width: 9, height: 9, borderRadius: "999px", background: channelJoined ? "#22c55e" : "#f97316", boxShadow: channelJoined ? "0 0 0 4px rgba(34,197,94,0.18)" : "0 0 0 4px rgba(249,115,22,0.18)" }} />
+            <span style={{ fontSize: "0.76rem", fontWeight: 900 }}>{currentIndex + 1}/{slides.length}</span>
+            <span style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.75)", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
+          </div>
           {joinCode && (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent("https://www.quizworld.xyz/present/join?code=" + joinCode)}`}
-                alt="Scan to join"
-                width={150}
-                height={150}
-                style={{ borderRadius: 10, border: "2px solid var(--line)", width: 150, height: 150 }}
-              />
-              <div style={{ lineHeight: 1.3 }}>
-                <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--muted)" }}>Scan to join</div>
-                <div style={{ fontSize: "0.65rem", fontWeight: 600, color: "var(--muted)" }}>quizworld.xyz/present/join</div>
-                <div style={{ fontSize: "1.5rem", fontWeight: 900, letterSpacing: "0.2em", color: "var(--accent)" }}>{joinCode}</div>
-              </div>
-            </div>
+            <button onClick={() => setShowJoinOverlay(true)} style={{ pointerEvents: "auto", padding: "0.55rem 0.85rem", borderRadius: "999px", border: "1px solid rgba(124,58,237,0.18)", background: "rgba(255,255,255,0.92)", color: "var(--accent)", fontSize: "0.78rem", fontWeight: 900, cursor: "pointer", boxShadow: "0 14px 40px rgba(15,23,42,0.12)" }}>Join: {joinCode}</button>
           )}
           <div style={{ flex: 1 }} />
-          <button onClick={() => {
-            if (channelJoined && channelRef.current) void channelRef.current.prevSlide();
-          }} disabled={currentIndex === 0 || !channelJoined}
-            style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-full)", border: "1px solid var(--line)", background: "var(--surface)", cursor: "pointer" }}>← Prev</button>
-          <button onClick={() => {
-            if (channelJoined && channelRef.current) void channelRef.current.nextSlide();
-          }} disabled={currentIndex === slides.length - 1 || !channelJoined}
-            style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-full)", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>Next →</button>
-          <button onClick={() => {
-            if (channelJoined && channelRef.current) void channelRef.current.endPresentation();
-          }} disabled={!channelJoined}
-            style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-full)", border: "1px solid var(--primary)", background: "transparent", color: "var(--primary)", cursor: "pointer" }}>End</button>
+          <div style={{ pointerEvents: "auto", padding: "0.55rem 0.75rem", borderRadius: "999px", background: resultsHidden ? "rgba(225,29,72,0.1)" : "rgba(5,150,105,0.1)", color: resultsHidden ? "var(--primary)" : "var(--success)", fontSize: "0.76rem", fontWeight: 900 }}>
+            {resultsHidden ? "Results hidden" : "Results visible"} · {responseCount} responses
+          </div>
+        </div>
+      )}
+
+      {isHost && showJoinOverlay && joinCode && (
+        <div onClick={() => setShowJoinOverlay(false)} style={{ position: "fixed", inset: 0, zIndex: 50, display: "grid", placeItems: "center", padding: "2rem", background: "rgba(15,23,42,0.72)", backdropFilter: "blur(12px)" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(760px, 100%)", borderRadius: 36, padding: "2rem", background: "#fff", boxShadow: "0 30px 90px rgba(15,23,42,0.34)", textAlign: "center" }}>
+            <div style={{ fontSize: "0.78rem", fontWeight: 900, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "0.75rem" }}>Audience join</div>
+            <div style={{ fontSize: "clamp(2.4rem, 8vw, 5rem)", fontWeight: 950, letterSpacing: "0.18em", color: "var(--accent)", lineHeight: 1, marginBottom: "1rem" }}>{joinCode}</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "2rem", flexWrap: "wrap" }}>
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(joinUrl)}`} alt="Scan to join" width={260} height={260} style={{ width: 260, height: 260, borderRadius: 24, border: "1px solid var(--line)", boxShadow: "0 14px 40px rgba(15,23,42,0.1)" }} />
+              <div style={{ maxWidth: 360, textAlign: "left" }}>
+                <div style={{ fontSize: "1.6rem", fontWeight: 950, marginBottom: "0.5rem" }}>Scan or enter the code</div>
+                <div style={{ fontSize: "1rem", color: "var(--muted)", fontWeight: 700, marginBottom: "1rem" }}>quizworld.xyz/present/join</div>
+                <button onClick={() => { void navigator.clipboard?.writeText(joinUrl); }} className="btn btn-primary btn-lg">Copy invite link</button>
+                <div style={{ marginTop: "1rem", fontSize: "0.78rem", color: "var(--muted)", fontWeight: 700 }}>Shortcut: press I to show/hide this overlay</div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -322,8 +399,8 @@ export default function PresentationLive() {
       )}
 
       {/* Slide content */}
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-        <div style={{ maxWidth: 720, width: "100%", textAlign: "center" }}>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: isHost ? "5.5rem 2rem 7rem" : "2rem" }}>
+        <div style={{ maxWidth: isHost ? 980 : 720, width: "100%", textAlign: "center" }}>
 
           {currentSlide.slide_type === "content" && (
             <div className="card" style={{ padding: "3rem", textAlign: "left" }}>
@@ -335,13 +412,13 @@ export default function PresentationLive() {
           {currentSlide.slide_type === "word_cloud" && (
             <div>
               <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "1.5rem" }}>{currentSlide.content?.prompt || "What comes to mind?"}</h2>
-              {sortedWords.length > 0 ? (
-                <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.5rem", marginBottom: "2rem" }}>
+              {shouldShowResults && sortedWords.length > 0 ? (
+                <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.65rem", marginBottom: "2rem" }}>
                   {sortedWords.map(([word, count]) => (
-                    <span key={word} style={{ padding: "0.5rem 1rem", borderRadius: "999px", background: "var(--accent-light)", color: "var(--accent)", fontSize: `${Math.min(1 + count * 0.3, 2.5)}rem`, fontWeight: 700 }}>{word} ({count})</span>
+                    <span key={word} style={{ padding: "0.55rem 1.1rem", borderRadius: "999px", background: "linear-gradient(135deg, var(--accent-light), #fdf4ff)", color: "var(--accent)", fontSize: `${Math.min(1 + count * 0.3, 2.8)}rem`, fontWeight: 900, boxShadow: "0 10px 30px rgba(124,58,237,0.1)" }}>{word}</span>
                   ))}
                 </div>
-              ) : <p style={{ color: "var(--muted)", fontSize: "1.125rem" }}>Waiting for responses…</p>}
+              ) : <p style={{ color: "var(--muted)", fontSize: "1.125rem", fontWeight: 700 }}>{resultsHidden && isHost ? `Responses hidden · ${responseCount} received` : "Waiting for responses…"}</p>}
               {!submitted && !isHost && (
                 <div style={{ display: "flex", gap: "0.5rem", maxWidth: 400, margin: "0 auto" }}>
                   <input value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Type a word…"
@@ -357,16 +434,17 @@ export default function PresentationLive() {
           {currentSlide.slide_type === "open_text" && (
             <div>
               <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "1.5rem" }}>{currentSlide.content?.question || "What do you think?"}</h2>
-              {allResponses.length > 0 && (
-                <div style={{ display: "grid", gap: "0.5rem", marginBottom: "2rem", maxHeight: 300, overflowY: "auto" }}>
+              {shouldShowResults && allResponses.length > 0 && (
+                <div style={{ display: "grid", gap: "0.65rem", marginBottom: "2rem", maxHeight: 360, overflowY: "auto" }}>
                   {allResponses.map((r, i) => (
-                    <div key={i} className="card" style={{ padding: "0.75rem 1rem", textAlign: "left" }}>
-                      <span style={{ fontWeight: 600 }}>{r.response_data?.text as string}</span>
+                    <div key={i} className="card" style={{ padding: "0.95rem 1.15rem", textAlign: "left", border: "1px solid rgba(124,58,237,0.14)", boxShadow: "0 10px 28px rgba(15,23,42,0.06)" }}>
+                      <span style={{ fontWeight: 750 }}>{r.response_data?.text as string}</span>
                       <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginLeft: "0.5rem" }}>— {r.participant_name}</span>
                     </div>
                   ))}
                 </div>
               )}
+              {isHost && resultsHidden && <p style={{ color: "var(--muted)", fontSize: "1.125rem", fontWeight: 700, marginBottom: "2rem" }}>Responses hidden · {responseCount} received</p>}
               {!submitted && !isHost && (
                 <div style={{ display: "flex", gap: "0.5rem", maxWidth: 500, margin: "0 auto" }}>
                   <input value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Type your response…"
@@ -391,10 +469,10 @@ export default function PresentationLive() {
                     <button key={opt.id} onClick={() => { if (!submitted && !isHost) { setSelectedOption(opt.id); submitResponse({ option_id: opt.id }); } }}
                       disabled={submitted || isHost}
                       style={{ padding: "1rem", borderRadius: "var(--radius-xl)", border: selectedOption === opt.id ? "2px solid var(--accent)" : "1.5px solid var(--line)", background: selectedOption === opt.id ? "var(--accent-light)" : "var(--surface)", cursor: submitted || isHost ? "default" : "pointer", textAlign: "left", position: "relative", overflow: "hidden" }}>
-                      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, background: "var(--accent-light)", transition: "width 0.5s", opacity: 0.3 }} />
-                      <div style={{ position: "relative", display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ fontWeight: 700 }}>{opt.text}</span>
-                        <span style={{ fontWeight: 700, color: "var(--accent)" }}>{pct}% ({count})</span>
+                      {shouldShowResults && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, background: "linear-gradient(90deg, var(--accent-light), #ddd6fe)", transition: "width 0.6s cubic-bezier(.2,.8,.2,1)", opacity: 0.75 }} />}
+                      <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
+                        <span style={{ fontWeight: 850, fontSize: isHost ? "1.05rem" : undefined }}>{opt.text}</span>
+                        <span style={{ fontWeight: 900, color: "var(--accent)", minWidth: 86, textAlign: "right" }}>{shouldShowResults ? `${pct}% (${count})` : "Hidden"}</span>
                       </div>
                     </button>
                   );
@@ -435,15 +513,15 @@ export default function PresentationLive() {
               <div style={{ fontSize: "2rem", fontWeight: 900, color: "var(--accent)" }}>{scaleValue}</div>
               {!submitted && !isHost && <button onClick={() => submitResponse({ value: scaleValue })} className="btn btn-primary" style={{ marginTop: "1rem" }}>Submit</button>}
               {submitted && <p style={{ color: "var(--success)", fontWeight: 700, marginTop: "1rem" }}>✅ Submitted!</p>}
-              {scaleValues.length > 0 && <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginTop: "0.5rem" }}>Average: {scaleAvg} ({scaleValues.length} responses)</p>}
+              {scaleValues.length > 0 && <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginTop: "0.5rem", fontWeight: 700 }}>{shouldShowResults ? `Average: ${scaleAvg} (${scaleValues.length} responses)` : `Responses hidden · ${scaleValues.length} received`}</p>}
             </div>
           )}
 
           {currentSlide.slide_type === "qna" && (
             <div>
               <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "1.5rem" }}>{currentSlide.title || "Q&A"}</h2>
-              {qnaQuestions.length > 0 && (
-                <div style={{ display: "grid", gap: "0.5rem", marginBottom: "2rem", maxHeight: 300, overflowY: "auto" }}>
+              {shouldShowResults && qnaQuestions.length > 0 && (
+                <div style={{ display: "grid", gap: "0.65rem", marginBottom: "2rem", maxHeight: 360, overflowY: "auto" }}>
                   {qnaQuestions.map((q) => (
                     <div key={q.id} className="card" style={{ padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem", textAlign: "left" }}>
                       <button onClick={() => upvoteQna(q.id)}
@@ -468,6 +546,17 @@ export default function PresentationLive() {
           )}
         </div>
       </div>
+
+      {isHost && (
+        <div style={{ position: "fixed", left: "50%", bottom: 18, transform: "translateX(-50%)", zIndex: 30, display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.55rem", borderRadius: 999, background: "rgba(15,23,42,0.86)", backdropFilter: "blur(18px)", boxShadow: "0 24px 70px rgba(15,23,42,0.28)", maxWidth: "calc(100vw - 1.5rem)", overflowX: "auto" }}>
+          <button onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.prevSlide(); }} disabled={currentIndex === 0 || !channelJoined} style={{ ...dockButtonStyle, opacity: currentIndex === 0 || !channelJoined ? 0.45 : 1 }}>← Prev</button>
+          <button onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.nextSlide(); }} disabled={currentIndex === slides.length - 1 || !channelJoined} style={{ ...dockPrimaryButtonStyle, opacity: currentIndex === slides.length - 1 || !channelJoined ? 0.45 : 1 }}>Next →</button>
+          <button onClick={() => setShowJoinOverlay(true)} style={dockButtonStyle}>Join</button>
+          <button onClick={() => setResultsHidden((v) => !v)} style={dockButtonStyle}>{resultsHidden ? "Reveal" : "Hide"}</button>
+          <button onClick={toggleFullscreen} style={dockButtonStyle}>{isFullscreen ? "Exit" : "Fullscreen"}</button>
+          <button onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.endPresentation(); }} disabled={!channelJoined} style={{ ...dockButtonStyle, color: "#fecdd3", opacity: !channelJoined ? 0.45 : 1 }}>End</button>
+        </div>
+      )}
 
       {!isHost && <div style={{ textAlign: "center", padding: "0.5rem", fontSize: "0.75rem", color: "var(--muted)" }}>{currentIndex + 1} / {slides.length}</div>}
     </div>
