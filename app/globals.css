@@ -883,3 +883,52 @@ body.qw-present-live-route header {
 body.qw-present-live-route main {
   padding-top: 0 !important;
 }
+
+/* Shared status and metrics */
+.status-panel-container,
+.status-loading-panel {
+  padding-top: 4rem;
+  text-align: center;
+}
+
+.status-panel-card {
+  padding: 3rem;
+  margin: 0 auto;
+}
+
+.status-panel-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.status-panel-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+}
+
+.status-panel-message {
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.metric-card {
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  background: linear-gradient(180deg, var(--surface), var(--bg-subtle));
+}
+
+.metric-card-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.65rem;
+}
+
+.metric-card-value {
+  font-size: 2rem;
+  font-weight: 900;
+}

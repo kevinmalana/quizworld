@@ -19,6 +19,8 @@ import {
 } from "@/lib/quiz-drafts";
 import { PageHero } from "@/components/page-hero";
 import { SectionCard } from "@/components/section-card";
+import { LoadingPanel, StatusPanel } from "@/components/shared/status-panel";
+import { MetricCard } from "@/components/shared/metric-card";
 
 type QuizRow = {
   id: string;
@@ -30,35 +32,6 @@ type QuizRow = {
   archived_at: string | null;
   questions?: { count: number }[];
 };
-
-function MetricCard({
-  label,
-  value,
-  tone = "var(--accent)",
-}: {
-  label: string;
-  value: string | number;
-  tone?: string;
-}) {
-  return (
-    <div
-      className="card"
-      style={{
-        padding: "1.25rem",
-        border: "1px solid var(--line)",
-        boxShadow: "var(--shadow-sm)",
-        background: "linear-gradient(180deg, var(--surface), var(--bg-subtle))",
-      }}
-    >
-      <div style={{ fontSize: "0.75rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "0.65rem" }}>
-        {label}
-      </div>
-      <div className="font-display" style={{ fontSize: "2rem", fontWeight: 900, color: tone }}>
-        {value}
-      </div>
-    </div>
-  );
-}
 
 function DashboardPageContent() {
   const router = useRouter();
@@ -153,26 +126,17 @@ function DashboardPageContent() {
     };
   }, [user]);
 
-  if (authLoading || loading) {
-    return <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>Loading...</div>;
-  }
+  if (authLoading || loading) return <LoadingPanel />;
 
   if (!user) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
-        <div className="card" style={{ padding: "3rem", maxWidth: 420, margin: "0 auto" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔐</div>
-          <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "1rem" }}>
-            Sign In Required
-          </h2>
-          <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
-            Sign in to manage the quizzes attached to your account.
-          </p>
-          <Link href="/login" className="btn btn-primary">
-            Sign In
-          </Link>
-        </div>
-      </div>
+      <StatusPanel
+        icon="🔐"
+        title="Sign In Required"
+        message="Sign in to manage the quizzes attached to your account."
+        actionHref="/login"
+        actionLabel="Sign In"
+      />
     );
   }
 
