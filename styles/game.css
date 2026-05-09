@@ -27,3 +27,41 @@
     gap: 1rem !important;
   }
 }
+
+.game-state-container {
+  padding-top: 4rem;
+  padding-bottom: 5rem;
+}
+
+.game-state-card {
+  padding: 2rem;
+  text-align: center;
+}
+
+.game-state-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.game-state-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.game-state-message {
+  color: var(--muted);
+}
+
+.game-state-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+
+.game-loading-panel {
+  padding-top: 4rem;
+  text-align: center;
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { GameErrorPanel, GameLoadingPanel, GameStatePanel } from "@/components/game/game-state-panel";
 import { QrCode } from "@/components/shared/qr-code";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
@@ -42,6 +43,12 @@ import {
   type GameStatus,
   type QuestionHistoryEntry,
 } from "@/lib/game/session-normalizers";
+import { useGameAudio } from "@/lib/game/use-game-audio";
+import {
+  calculatePlayerAchievements,
+  countCorrectAnswersByPlayer,
+  sortLeaderboard,
+} from "@/lib/game/game-analytics";
 
 export default function GamePage() {
   const params = useParams();
@@ -79,24 +86,7 @@ export default function GamePage() {
   // AI Summary
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
-  // Feature 12: Sound
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const getAudioCtx = useCallback(() => {
-    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    return audioCtxRef.current;
-  }, []);
-  const playTone = useCallback((freq: number, duration: number, type: OscillatorType = 'sine', vol = 0.15) => {
-    try {
-      const ctx = getAudioCtx(); const osc = ctx.createOscillator(); const gain = ctx.createGain();
-      osc.type = type; osc.frequency.value = freq; gain.gain.value = vol;
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-      osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + duration);
-    } catch {}
-  }, [getAudioCtx]);
-  const playCorrect = useCallback(() => { playTone(880, 0.15); setTimeout(() => playTone(1100, 0.2), 150); }, [playTone]);
-  const playWrong = useCallback(() => { playTone(200, 0.3, 'sawtooth', 0.1); }, [playTone]);
-  const playTick = useCallback(() => { playTone(600, 0.08, 'sine', 0.08); }, [playTone]);
-  const playFanfare = useCallback(() => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.3, 'sine', 0.12), i * 150)); }, [playTone]);
+  const { playCorrect, playWrong, playTick, playFanfare } = useGameAudio();
   const isHost = isPhoenixGameEngine
     ? !!user?.id && !!hostSession && hostSession.hostId === user.id
     : !!user?.id && session?.host_id === user.id;
@@ -106,33 +96,21 @@ export default function GamePage() {
 
   if (liveGameEngineMisconfigured) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem", maxWidth: 520 }}>
-        <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚙️</div>
-          <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: "0.75rem" }}>
-            Live Game Service Not Configured
-          </h1>
-          <p style={{ color: "var(--muted)" }}>
-            Phoenix is selected as the live engine, but `NEXT_PUBLIC_GAME_SERVICE_URL` is missing.
-          </p>
-        </div>
-      </div>
+      <GameStatePanel
+        icon="⚙️"
+        title="Live Game Service Not Configured"
+        message="Phoenix is selected as the live engine, but NEXT_PUBLIC_GAME_SERVICE_URL is missing."
+      />
     );
   }
 
   if (legacySupabaseGameEngine) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem", maxWidth: 520 }}>
-        <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🛑</div>
-          <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: "0.75rem" }}>
-            Legacy Supabase Live Games Disabled
-          </h1>
-          <p style={{ color: "var(--muted)" }}>
-            Production live sessions now require the Phoenix realtime service.
-          </p>
-        </div>
-      </div>
+      <GameStatePanel
+        icon="🛑"
+        title="Legacy Supabase Live Games Disabled"
+        message="Production live sessions now require the Phoenix realtime service."
+      />
     );
   }
 
@@ -525,30 +503,16 @@ export default function GamePage() {
   const currentIndex = ((session?.current_question_index as number) ?? 0);
 
   // Feature 1: Correct count per player from history + current answers
-  const playerCorrectCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const qh of questionHistory) {
-      for (const r of (qh.responses ?? [])) {
-        if (r.is_correct) counts[r.player_id] = (counts[r.player_id] || 0) + 1;
-      }
-    }
-    // Also count current reveal answers
-    if (gameStatus === "reveal") {
-      for (const ans of currentAnswers) {
-        if (ans.is_correct) counts[ans.player_id] = (counts[ans.player_id] || 0) + 1;
-      }
-    }
-    return counts;
-  }, [questionHistory, currentAnswers, gameStatus]);
+  const playerCorrectCounts = useMemo(
+    () => countCorrectAnswersByPlayer(questionHistory, currentAnswers, gameStatus === "reveal"),
+    [questionHistory, currentAnswers, gameStatus]
+  );
 
   // Feature 10: Question breakdown
   const correctCountThisQ = currentAnswers.filter(a => a.is_correct).length;
   const totalAnsweredThisQ = currentAnswers.length;
 
-  const leaderboard = useMemo(
-    () => [...players].sort((left, right) => (right.score ?? 0) - (left.score ?? 0)),
-    [players]
-  );
+  const leaderboard = useMemo(() => sortLeaderboard(players), [players]);
 
   // Feature 13: Send reaction
   const sendReaction = useCallback((emoji: string) => {
@@ -559,26 +523,17 @@ export default function GamePage() {
   }, []);
 
   // Calculate achievements from game data
-  const playerAchievements = useMemo(() => {
-    const result: Record<string, { emoji: string; label: string }[]> = {};
-    for (const player of players) {
-      const badges: { emoji: string; label: string }[] = [];
-      const correctCount = playerCorrectCounts[player.id] ?? 0;
-      const streak = playerStreaks[player.id] ?? 0;
-      if (correctCount >= 3 && totalQuestions > 0 && correctCount === totalQuestions) badges.push({ emoji: "🧠", label: "Perfect Score" });
-      if (streak >= 3) badges.push({ emoji: "🔥", label: `On Fire (${streak})` });
-      if (streak >= 5) badges.push({ emoji: "⚡", label: "Unstoppable" });
-      const bestTime = questionHistory.reduce((best, qh) => {
-        const resp = qh.responses?.find(r => r.player_id === player.id);
-        return resp ? Math.min(best, resp.response_time_ms) : best;
-      }, Infinity);
-      if (bestTime < 3000 && bestTime < Infinity) badges.push({ emoji: "⚡", label: "Speed Demon" });
-      const rank = leaderboard.findIndex(p => p.id === player.id);
-      if (rank === 0 && players.length >= 2) badges.push({ emoji: "🏆", label: "Champion" });
-      result[player.id] = badges;
-    }
-    return result;
-  }, [players, playerCorrectCounts, playerStreaks, questionHistory, leaderboard, totalQuestions]);
+  const playerAchievements = useMemo(
+    () => calculatePlayerAchievements({
+      players,
+      playerCorrectCounts,
+      playerStreaks,
+      questionHistory,
+      leaderboard,
+      totalQuestions,
+    }),
+    [players, playerCorrectCounts, playerStreaks, questionHistory, leaderboard, totalQuestions]
+  );
 
   // AI post-game summary
   const generateAiSummary = useCallback(async () => {
@@ -777,30 +732,9 @@ export default function GamePage() {
     }
   };
 
-  if (loading) {
-    return <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>Loading game...</div>;
-  }
+  if (loading) return <GameLoadingPanel />;
 
-  if (error) {
-    return (
-      <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
-        <div className="card" style={{ padding: "3rem", maxWidth: 480, margin: "0 auto" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>😕</div>
-          <p style={{ color: "var(--primary)", fontWeight: 700, marginBottom: "1.5rem" }}>
-            {error}
-          </p>
-          <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href={`/join?pin=${pin}`} className="btn btn-primary">
-              Try Another PIN
-            </Link>
-            <Link href="/" className="btn btn-secondary">
-              Back to Home
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (error) return <GameErrorPanel error={error} pin={pin} />;
 
   if (gameStatus === "waiting") {
     const joinUrl = gameJoinUrl(pin);
