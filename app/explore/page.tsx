@@ -8,7 +8,8 @@ import { useAuth } from "@/components/supabase-provider";
 import { PageHero } from "@/components/page-hero";
 import { SectionCard } from "@/components/section-card";
 
-import { CATEGORY_COLORS, CATEGORY_EMOJIS, type Quiz } from "@/lib/store";
+import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/store";
+import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/explore-quiz-card";
 
 const CATEGORY_LIST = ["All", ...Object.keys(CATEGORY_COLORS)];
 
@@ -33,129 +34,6 @@ function getTimeBasedAccent() {
   if (hour < 12) return "linear-gradient(135deg, #f59e0b 0%, #2563eb 100%)";
   if (hour < 17) return "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)";
   return "linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)";
-}
-
-type QuizWithCreator = Quiz & { creator_name?: string };
-
-function ShareButton({ quizId, quizTitle }: { quizId: string; quizTitle: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleShare(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    const url = `${window.location.origin}/study/${quizId}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback for browsers without clipboard API
-      const textarea = document.createElement("textarea");
-      textarea.value = url;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  }
-
-  return (
-    <button
-      onClick={handleShare}
-      title={`Share "${quizTitle}"`}
-      style={{
-        background: copied ? "var(--success-light)" : "var(--bg)",
-        border: `1px solid ${copied ? "var(--success)" : "var(--line)"}`,
-        borderRadius: "var(--radius-lg)",
-        color: copied ? "var(--success)" : "var(--muted)",
-        cursor: "pointer",
-        padding: "0.6rem 0.75rem",
-        fontSize: "0.875rem",
-        fontWeight: 700,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "0.3rem",
-        transition: "all 0.15s ease",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {copied ? "✓ Copied" : "Share"}
-    </button>
-  );
-}
-
-function QuizCard({ q }: { q: QuizWithCreator }) {
-  const creatorLabel = q.creator_name
-    ? `by ${q.creator_name.length > 32 ? q.creator_name.slice(0, 32) + "…" : q.creator_name}`
-    : null;
-
-  return (
-    <div
-      className="card card-hover"
-      style={{ display: "flex", flexDirection: "column", padding: "1.5rem", background: "linear-gradient(180deg, var(--surface), var(--bg-subtle))", border: "1px solid var(--line)" }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: "16px",
-            background: `${q.color}15`,
-            display: "grid",
-            placeItems: "center",
-            fontSize: "2rem",
-          }}
-        >
-          {q.emoji || CATEGORY_EMOJIS[q.category] || "📌"}
-        </div>
-        <span
-          className="tag"
-          style={{
-            background: "var(--bg-subtle)",
-            color: "var(--muted)",
-            fontSize: "0.75rem",
-          }}
-        >
-          {q.category}
-        </span>
-      </div>
-
-      <h3
-        className="font-display"
-        style={{ fontSize: "1.125rem", fontWeight: 800, color: "var(--ink)", marginBottom: creatorLabel ? "0.25rem" : "0.5rem", lineHeight: 1.3 }}
-      >
-        {q.title}
-      </h3>
-      {creatorLabel && (
-        <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.5rem", fontStyle: "italic" }}>
-          {creatorLabel}
-        </p>
-      )}
-      <div style={{ display: "flex", gap: "1rem", fontSize: "0.8125rem", color: "var(--muted)", marginBottom: "1.5rem" }}>
-        <span>{q.questions?.length || 0} Qs</span>
-        <span>▶ {q.plays.toLocaleString()} plays</span>
-      </div>
-
-      <div style={{ marginTop: "auto", display: "flex", gap: "0.5rem" }}>
-        <Link
-          href={`/host?quiz=${q.id}`}
-          className="btn btn-primary btn-compact"
-          style={{ flex: 1 }}
-        >
-          Host
-        </Link>
-        <Link
-          href={`/study/${q.id}`}
-          className="btn btn-secondary btn-compact"
-        >
-          Study
-        </Link>
-        <ShareButton quizId={q.id} quizTitle={q.title} />
-      </div>
-    </div>
-  );
 }
 
 function ExplorePageContent() {
@@ -635,7 +513,7 @@ function ExplorePageContent() {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
                   {trending.slice(0, 6).map((q) => (
-                    <QuizCard key={q.id} q={q} />
+                    <ExploreQuizCard key={q.id} quiz={q} />
                   ))}
                 </div>
               </div>
@@ -648,7 +526,7 @@ function ExplorePageContent() {
             >
               <div className="grid-3">
                 {filtered.map((q) => (
-                  <QuizCard key={q.id} q={q} />
+                  <ExploreQuizCard key={q.id} quiz={q} />
                 ))}
               </div>
             </SectionCard>
