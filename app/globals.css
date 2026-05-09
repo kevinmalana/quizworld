@@ -874,3 +874,12 @@ button { font-family: inherit; }
 
 .builder-dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
 .builder-dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* Presentation live mode should feel like a stage, not the app shell. */
+body.qw-present-live-route header {
+  display: none !important;
+}
+
+body.qw-present-live-route main {
+  padding-top: 0 !important;
+}

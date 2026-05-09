@@ -58,6 +58,12 @@ export default function PresentationLive() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.classList.add("qw-present-live-route");
+    return () => document.body.classList.remove("qw-present-live-route");
+  }, []);
+
   // Load initial presentation state
   useEffect(() => {
     async function load() {
