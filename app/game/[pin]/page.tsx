@@ -128,6 +128,7 @@ export default function GamePage() {
   const [playerSessionReady, setPlayerSessionReady] = useState(false);
   const [phoenixChannelConnected, setPhoenixChannelConnected] = useState(false);
   const phaseTransitionLock = useRef(false);
+  const revealRequestLock = useRef(false);
   // Feature 5: Ready-up
   const [readyPlayers, setReadyPlayers] = useState<Set<string>>(new Set());
   const [amReady, setAmReady] = useState(false);
@@ -355,6 +356,10 @@ export default function GamePage() {
 
   const revealCurrentQuestion = useCallback(async () => {
     if (!isHost || !session) return false;
+    if (gameStatus !== "active") return true;
+    if (revealRequestLock.current) return true;
+
+    revealRequestLock.current = true;
 
     try {
       if (isPhoenixGameEngine) {
@@ -385,8 +390,10 @@ export default function GamePage() {
       console.error("Error revealing question:", revealError);
       setError("Could not score and reveal this round.");
       return false;
+    } finally {
+      revealRequestLock.current = false;
     }
-  }, [applySessionSnapshot, hostSession?.hostToken, isHost, loadSession, pin, session]);
+  }, [applySessionSnapshot, gameStatus, hostSession?.hostToken, isHost, loadSession, pin, session]);
 
   useEffect(() => {
     loadSession();
