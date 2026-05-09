@@ -48,7 +48,6 @@ But the runtime contract is now tighter and safer than the first Phoenix cut.
 - `lib/game-engine/client.ts`
 - `lib/host-session.ts`
 - `lib/player-session.ts`
-- `app/phoenix-preview/page.tsx`
 
 ### Tests
 

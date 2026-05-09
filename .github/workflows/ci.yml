@@ -26,6 +26,19 @@ jobs:
       
       - name: Build
         run: npm run build
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.17'
+          otp-version: '27'
+
+      - name: Run Phoenix tests
+        working-directory: services/quizworld_realtime
+        run: |
+          mix deps.get
+          MIX_ENV=test mix compile --warnings-as-errors
+          MIX_ENV=test mix test
       
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
