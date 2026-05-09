@@ -50,8 +50,8 @@ function JoinForm() {
   };
 
   return (
-    <div style={{ minHeight: "calc(100vh - 72px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-      <div className="card" style={{ padding: "2rem", maxWidth: 400, width: "100%", textAlign: "center" }}>
+    <div className="present-join-screen" style={{ minHeight: "calc(100vh - 72px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+      <div className="card present-join-card" style={{ padding: "2rem", maxWidth: 400, width: "100%", textAlign: "center" }}>
         <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎤</div>
         <h1 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.5rem" }}>
           Join Presentation

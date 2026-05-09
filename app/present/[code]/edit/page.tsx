@@ -170,9 +170,9 @@ export default function PresentationEditor() {
   const activeSlide = slides[activeIndex];
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div className="present-editor-shell" style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       {/* Top bar */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
+      <div className="present-editor-topbar" style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
         <button onClick={() => router.push("/present")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.125rem", padding: "0.5rem" }}>←</button>
         <input
           value={title}
@@ -190,9 +190,9 @@ export default function PresentationEditor() {
         <button onClick={startPresenting} style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 700, borderRadius: "var(--radius-full)", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>🎤 Present</button>
       </div>
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      <div className="present-editor-layout" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Slide list */}
-        <div style={{ width: 200, borderRight: "1px solid var(--line)", overflowY: "auto", padding: "0.5rem", background: "var(--bg)" }}>
+        <div className="present-slide-list" style={{ width: 200, borderRight: "1px solid var(--line)", overflowY: "auto", padding: "0.5rem", background: "var(--bg)" }}>
           {slides.map((slide, i) => (
             <div
               key={slide.id}
@@ -217,10 +217,10 @@ export default function PresentationEditor() {
         </div>
 
         {/* Slide editor */}
-        <div style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
+        <div className="present-slide-editor" style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
           {activeSlide && (
-            <div className="card" style={{ padding: "1.5rem", maxWidth: 640, margin: "0 auto" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+            <div className="card present-slide-card" style={{ padding: "1.5rem", maxWidth: 640, margin: "0 auto" }}>
+              <div className="present-slide-title-row" style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
                 <span style={{ fontSize: "1.5rem" }}>{SLIDE_TYPES.find(s => s.type === activeSlide.slide_type)?.icon}</span>
                 <input
                   value={activeSlide.title}
@@ -379,7 +379,7 @@ export default function PresentationEditor() {
 
       {/* Add slide modal */}
       {showAddSlide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center present-add-slide-backdrop" style={{ background: "rgba(0,0,0,0.5)" }}>
           <div className="card" style={{ padding: "1.5rem", maxWidth: 480, width: "100%", margin: "0 1rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
               <h2 style={{ fontWeight: 800 }}>Add Slide</h2>

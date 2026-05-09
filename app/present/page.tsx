@@ -63,8 +63,8 @@ export default function PresentPage() {
   }
 
   return (
-    <div style={{ minHeight: "calc(100vh - 72px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-      <div style={{ textAlign: "center", marginBottom: "3rem" }}>
+    <div className="present-home-screen" style={{ minHeight: "calc(100vh - 72px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+      <div className="present-home-hero" style={{ textAlign: "center", marginBottom: "3rem" }}>
         <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🎤</div>
         <h1 className="font-display" style={{ fontSize: "2.5rem", fontWeight: 900, marginBottom: "0.75rem" }}>
           QuizWorld Present
@@ -75,7 +75,7 @@ export default function PresentPage() {
         </p>
       </div>
 
-      <div className="card" style={{ padding: "2rem", maxWidth: 480, width: "100%", marginBottom: "2rem" }}>
+      <div className="card present-create-card" style={{ padding: "2rem", maxWidth: 480, width: "100%", marginBottom: "2rem" }}>
         <h2 style={{ fontWeight: 800, marginBottom: "1rem" }}>Start a new presentation</h2>
         <input
           value={title}
@@ -108,7 +108,7 @@ export default function PresentPage() {
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", maxWidth: 680, width: "100%" }}>
+      <div className="present-feature-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", maxWidth: 680, width: "100%" }}>
         {[
           { icon: "☁️", title: "Word Cloud", desc: "Visualize collective thinking" },
           { icon: "💬", title: "Open Text", desc: "Collect written responses" },
