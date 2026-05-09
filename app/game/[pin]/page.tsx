@@ -2,7 +2,18 @@
 
 import Link from "next/link";
 import { GameErrorPanel, GameLoadingPanel, GameStatePanel } from "@/components/game/game-state-panel";
-import { QrCode } from "@/components/shared/qr-code";
+import {
+  ActiveHostDashboard,
+  AnswerRevealList,
+  GameFinishedPanel,
+  GameNotice,
+  GameProgressBar,
+  LeaderboardList,
+  PlayerAnswerGrid,
+  QuestionMedia,
+  SpectatorPanel,
+  WaitingLobbyPanel,
+} from "@/components/game/live-game-panels";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
@@ -740,133 +751,32 @@ export default function GamePage() {
     const joinUrl = gameJoinUrl(pin);
     const readyCount = readyPlayers.size;
     return (
-      <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
-        {notice && (
-          <div className="card" style={{ padding: "0.9rem 1rem", maxWidth: 640, margin: "0 auto 1rem", color: "var(--primary)", background: "var(--primary-light)" }}>
-            {notice}
-          </div>
-        )}
-        <div className="card" style={{ padding: "3rem", maxWidth: 640, margin: "0 auto" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎮</div>
-          <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.5rem" }}>
-            Waiting for host...
-          </h1>
-          {/* PIN + QR side by side, stacked on mobile */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1.5rem", marginBottom: "2rem", flexWrap: "wrap", flexDirection: "row" }} className="lobby-pin-qr">
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "0.5rem" }}>Game PIN</div>
-              <div style={{ fontSize: "2.5rem", fontWeight: 900, letterSpacing: "0.2em", color: "var(--accent)", fontFamily: "var(--font-display)" }}>{pin}</div>
-            </div>
-            <div style={{ width: 1, height: 60, background: "var(--line)" }} />
-            <div style={{ textAlign: "center" }}>
-              <QrCode
-                value={joinUrl}
-                size={120}
-                label="Scan to join"
-                className="qr-code qr-code-sm"
-              />
-              <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--muted)", marginTop: "0.35rem" }}>Scan to join</div>
-            </div>
-          </div>
-
-          {players.length > 0 && (
-            <>
-              {/* Feature 5: Ready count for host */}
-              {isHost && readyCount > 0 && (
-                <p style={{ fontSize: "0.875rem", color: "var(--success)", fontWeight: 700, marginBottom: "0.75rem" }}>
-                  ✅ {readyCount}/{players.length} players ready
-                </p>
-              )}
-              <div
-                style={{
-                  display: "grid",
-                  gap: "0.5rem",
-                  marginBottom: "1.5rem",
-                  maxWidth: 400,
-                  marginLeft: "auto",
-                  marginRight: "auto",
-                }}
-              >
-                {players.map((player) => (
-                  <div
-                    key={player.id}
-                    style={{
-                      padding: "0.75rem 1rem",
-                      borderRadius: "var(--radius-lg)",
-                      background: readyPlayers.has(player.id) ? "var(--accent-light)" : "var(--bg)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      fontWeight: 700,
-                      border: readyPlayers.has(player.id) ? "2px solid var(--accent)" : "2px solid transparent",
-                    }}
-                  >
-                    <span>{player.avatar || "🎮"}</span>
-                    <span style={{ flex: 1, textAlign: "left" }}>{player.nickname}</span>
-                    {readyPlayers.has(player.id) && <span style={{ color: "var(--success)" }}>✅ Ready</span>}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* Feature 5: Ready button for players */}
-          {!isHost && currentPlayer && !amReady && (
-            <button
-              onClick={() => { setAmReady(true); setReadyPlayers(prev => new Set(prev).add(playerSession?.playerId ?? '')); }}
-              className="btn btn-primary"
-              style={{ width: "100%", marginBottom: "0.75rem" }}
-            >
-              Ready ✅
-            </button>
-          )}
-          {!isHost && currentPlayer && amReady && (
-            <div style={{ padding: "0.75rem", background: "var(--accent-light)", borderRadius: "var(--radius-lg)", marginBottom: "0.75rem", fontWeight: 700, color: "var(--success)" }}>
-              ✅ You're ready!
-            </div>
-          )}
-
-          {isHost && (
-            <button
-              onClick={() => void startGame()}
-              disabled={players.length === 0}
-              className="btn btn-primary btn-lg"
-              style={{ width: "100%" }}
-            >
-              {players.length === 0 ? "Waiting for players..." : "Start Game 🚀"}
-            </button>
-          )}
-
-          {!isHost && !currentPlayer && playerSessionReady && (
-            <Link href={`/join?pin=${pin}`} className="btn btn-secondary">
-              Join this game
-            </Link>
-          )}
-        </div>
-      </div>
+      <WaitingLobbyPanel
+        pin={pin}
+        joinUrl={joinUrl}
+        notice={notice}
+        players={players}
+        readyPlayers={readyPlayers}
+        readyCount={readyCount}
+        isHost={isHost}
+        currentPlayer={currentPlayer}
+        playerSessionReady={playerSessionReady}
+        amReady={amReady}
+        onReady={() => {
+          setAmReady(true);
+          setReadyPlayers((prev) => new Set(prev).add(playerSession?.playerId ?? ""));
+        }}
+        onStart={() => void startGame()}
+      />
     );
   }
 
+
   if (gameStatus === "active" && currentQuestion) {
-    const progressPct = totalQuestions > 0 ? ((currentIndex + 1) / totalQuestions) * 100 : 0;
     return (
       <div className="container" style={{ paddingTop: "3rem", paddingBottom: "5rem" }}>
-        {notice && (
-          <div className="card" style={{ padding: "0.9rem 1rem", maxWidth: 720, margin: "0 auto 1rem", color: "var(--primary)", background: "var(--primary-light)" }}>
-            {notice}
-          </div>
-        )}
-
-        {/* Feature 2: Progress bar */}
-        <div style={{ maxWidth: 720, margin: "0 auto 1rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)", marginBottom: "0.35rem" }}>
-            <span>Question {currentIndex + 1} of {totalQuestions}</span>
-            <span>{Math.round(progressPct)}%</span>
-          </div>
-          <div style={{ height: 8, borderRadius: 4, background: "var(--line)", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${progressPct}%`, background: "var(--accent)", borderRadius: 4, transition: "width 0.4s" }} />
-          </div>
-        </div>
+        <GameNotice notice={notice} />
+        <GameProgressBar currentIndex={currentIndex} totalQuestions={totalQuestions} />
 
         <div className="card" style={{ padding: "2rem", maxWidth: 720, margin: "0 auto 2rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
@@ -880,23 +790,7 @@ export default function GamePage() {
           <h2 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800 }}>
             {currentQuestion.text}
           </h2>
-          {(currentQuestion as any).image_url && (
-            <img
-              src={(currentQuestion as any).image_url}
-              alt=""
-              style={{ width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 16, marginTop: "1rem" }}
-            />
-          )}
-          {(currentQuestion as any).video_url && extractYouTubeId((currentQuestion as any).video_url) && (
-            <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, marginTop: "1rem", borderRadius: 16, overflow: "hidden" }}>
-              <iframe
-                src={`https://www.youtube.com/embed/${extractYouTubeId((currentQuestion as any).video_url)}`}
-                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          )}
+          <QuestionMedia question={currentQuestion} />
         </div>
 
         {/* Feature 9: Host controls */}
@@ -913,119 +807,32 @@ export default function GamePage() {
         )}
 
         {isHost ? (
-          <div className="card" style={{ padding: "1.25rem", maxWidth: 680, margin: "0 auto" }}>
-            {/* Live Host Dashboard */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem", marginBottom: "0.75rem" }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "1.5rem", fontWeight: 900, color: "var(--accent)" }}>{currentAnswers.length}/{players.length}</div>
-                <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Answered</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "1.5rem", fontWeight: 900, color: currentAnswers.length > 0 && currentAnswers.filter(a => a.is_correct).length / currentAnswers.length >= 0.7 ? "var(--success)" : "var(--primary)" }}>
-                  {currentAnswers.length > 0 ? Math.round(currentAnswers.filter(a => a.is_correct).length / currentAnswers.length * 100) : 0}%
-                </div>
-                <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Accuracy</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "1.5rem", fontWeight: 900, color: timeLeft <= 5 ? "var(--primary)" : "var(--ink)" }}>{timeLeft}s</div>
-                <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Time Left</div>
-              </div>
-            </div>
-            {/* Answer distribution mini bars */}
-            {currentAnswers.length > 0 && currentQuestion?.answers && (
-              <div style={{ display: "grid", gridTemplateColumns: `repeat(${currentQuestion.answers.length}, 1fr)`, gap: "0.375rem" }}>
-                {currentQuestion.answers.map((a, i) => {
-                  const count = currentAnswers.filter(r => r.answer_id === a.id).length;
-                  const pct = Math.round(count / currentAnswers.length * 100);
-                  return (
-                    <div key={a.id} style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "0.75rem", fontWeight: 800, color: a.is_correct ? "var(--accent)" : "var(--muted)" }}>{String.fromCharCode(65 + i)}</div>
-                      <div style={{ height: 40, borderRadius: 4, background: "var(--line)", overflow: "hidden", position: "relative" }}>
-                        <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${pct}%`, borderRadius: 4, background: a.is_correct ? "var(--accent)" : "var(--muted)", transition: "height 0.3s" }} />
-                      </div>
-                      <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--muted)" }}>{pct}%</div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <ActiveHostDashboard
+            currentAnswers={currentAnswers}
+            players={players}
+            currentQuestion={currentQuestion}
+            timeLeft={timeLeft}
+          />
         ) : !playerSessionReady || !currentPlayer ? (
-          <div className="card" style={{ padding: "1.5rem", maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
-            <p style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Spectator view</p>
-            <p style={{ color: "var(--muted)", marginBottom: "1rem" }}>
-              The game is already in progress. You can only join before a game starts.
-              <br />
-              Watch along or join the next session.
-            </p>
-            <Link href="/" className="btn btn-secondary">
-              Back to Home
-            </Link>
-          </div>
+          <SpectatorPanel />
         ) : (
-          <div style={{ display: "grid", gap: "1rem", maxWidth: 680, margin: "0 auto" }}>
-            {currentQuestion.answers?.map((answer, index) => (
-              <button
-                key={answer.id}
-                onClick={() => void submitAnswer(answer)}
-                disabled={selectedAnswer !== null || submittingAnswer || timeLeft <= 0}
-                style={{
-                  padding: "1.5rem",
-                  borderRadius: "var(--radius-xl)",
-                  border: "3px solid var(--line)",
-                  background: selectedAnswer === answer.id ? "var(--accent)" : "var(--surface)",
-                  color: selectedAnswer === answer.id ? "#fff" : "var(--ink)",
-                  fontSize: "1.125rem",
-                  fontWeight: 700,
-                  cursor: selectedAnswer !== null ? "default" : "pointer",
-                  textAlign: "left",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "1rem",
-                }}
-              >
-                <span
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: "50%",
-                    background: selectedAnswer === answer.id ? "#fff" : "var(--bg)",
-                    color: selectedAnswer === answer.id ? "var(--accent)" : "var(--muted)",
-                    display: "grid",
-                    placeItems: "center",
-                    fontWeight: 900,
-                    flexShrink: 0,
-                  }}
-                >
-                  {String.fromCharCode(65 + index)}
-                </span>
-                {(answer as any).image_url && (
-                  <img src={(answer as any).image_url} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
-                )}
-                {answer.text}
-              </button>
-            ))}
-          </div>
+          <PlayerAnswerGrid
+            currentQuestion={currentQuestion}
+            selectedAnswer={selectedAnswer}
+            submittingAnswer={submittingAnswer}
+            timeLeft={timeLeft}
+            onSubmit={(answer) => void submitAnswer(answer)}
+          />
         )}
       </div>
     );
   }
 
   if (gameStatus === "reveal" && currentQuestion) {
-    const progressPct = totalQuestions > 0 ? ((currentIndex + 1) / totalQuestions) * 100 : 0;
     return (
       <div className="container" style={{ paddingTop: "3rem", paddingBottom: "5rem" }}>
-        {notice && (
-          <div className="card" style={{ padding: "0.9rem 1rem", maxWidth: 720, margin: "0 auto 1rem", color: "var(--primary)", background: "var(--primary-light)" }}>
-            {notice}
-          </div>
-        )}
-        {/* Feature 2: Progress bar */}
-        <div style={{ maxWidth: 720, margin: "0 auto 1rem" }}>
-          <div style={{ height: 8, borderRadius: 4, background: "var(--line)", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${progressPct}%`, background: "var(--accent)", borderRadius: 4 }} />
-          </div>
-        </div>
+        <GameNotice notice={notice} />
+        <GameProgressBar currentIndex={currentIndex} totalQuestions={totalQuestions} compact />
         <div className="card" style={{ padding: "2rem", maxWidth: 720, margin: "0 auto 2rem" }}>
           <h2 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: "0.5rem" }}>
             Answer Reveal
@@ -1035,23 +842,7 @@ export default function GamePage() {
           <div style={{ padding: "0.5rem 0.75rem", borderRadius: "var(--radius-lg)", background: "var(--bg)", marginBottom: "1rem", fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)" }}>
             {correctCountThisQ}/{totalAnsweredThisQ} correct ({totalAnsweredThisQ > 0 ? Math.round((correctCountThisQ / totalAnsweredThisQ) * 100) : 0}%)
           </div>
-          {(currentQuestion as any).image_url && (
-            <img
-              src={(currentQuestion as any).image_url}
-              alt=""
-              style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 16, marginBottom: "1rem" }}
-            />
-          )}
-          {(currentQuestion as any).video_url && extractYouTubeId((currentQuestion as any).video_url) && (
-            <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, marginBottom: "1rem", borderRadius: 16, overflow: "hidden" }}>
-              <iframe
-                src={`https://www.youtube.com/embed/${extractYouTubeId((currentQuestion as any).video_url)}`}
-                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          )}
+          <QuestionMedia question={currentQuestion} maxHeight={200} margin="0" />
 
           {!isHost && ownAnswer && (
             <div
@@ -1069,64 +860,15 @@ export default function GamePage() {
             </div>
           )}
 
-          <div style={{ display: "grid", gap: "0.75rem", marginBottom: "1.5rem" }}>
-            {answerCounts.map((answer, index) => (
-              <div
-                key={answer.id}
-                style={{
-                  padding: "1rem 1.25rem",
-                  borderRadius: "var(--radius-lg)",
-                  border: answer.is_correct ? "2px solid var(--accent)" : "1px solid var(--line)",
-                  background: answer.is_correct ? "var(--accent-light)" : "var(--surface)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "1rem",
-                }}
-              >
-                <span style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  {answer.is_correct ? "✅" : String.fromCharCode(65 + index) + "."} {answer.text}
-                  {(answer as any).image_url && (
-                    <img src={(answer as any).image_url} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />
-                  )}
-                </span>
-                <span style={{ color: "var(--muted)", fontWeight: 700 }}>
-                  {answer.count} vote{answer.count !== 1 ? "s" : ""}
-                </span>
-              </div>
-            ))}
-          </div>
+          <AnswerRevealList answerCounts={answerCounts} />
 
-          <div>
-            <h3 style={{ fontWeight: 800, marginBottom: "1rem" }}>Leaderboard</h3>
-            <div style={{ display: "grid", gap: "0.75rem" }}>
-              {leaderboard.map((player, index) => (
-                <div
-                  key={player.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "0.9rem 1rem",
-                    borderRadius: "var(--radius-lg)",
-                    background: "var(--bg)",
-                  }}
-                >
-                  <span style={{ fontWeight: 700 }}>
-                    {index + 1}. {player.avatar || "🎮"} {player.nickname}
-                    {(playerStreaks[player.id] ?? 0) >= 2 && <span style={{ marginLeft: "0.5rem" }}>🔥{playerStreaks[player.id]}</span>}
-                    {/* Achievement badges */}
-                    {(playerAchievements[player.id] ?? []).map((badge, bi) => (
-                      <span key={bi} style={{ marginLeft: "0.375rem", fontSize: "0.75rem" }} title={badge.label}>{badge.emoji}</span>
-                    ))}
-                  </span>
-                  <span style={{ color: "var(--muted)", fontWeight: 700 }}>
-                    {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <LeaderboardList
+            leaderboard={leaderboard}
+            playerStreaks={playerStreaks}
+            playerAchievements={playerAchievements}
+            playerCorrectCounts={playerCorrectCounts}
+            totalQuestions={totalQuestions}
+          />
         </div>
 
         {isHost && (
@@ -1144,117 +886,19 @@ export default function GamePage() {
   }
 
   return (
-    <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem", textAlign: "center" }}>
-      {notice && (
-        <div className="card" style={{ padding: "0.9rem 1rem", maxWidth: 640, margin: "0 auto 1rem", color: "var(--primary)", background: "var(--primary-light)" }}>
-          {notice}
-        </div>
-      )}
-      <div className="card" style={{ padding: "3rem", maxWidth: 640, margin: "0 auto" }}>
-        <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🏆</div>
-        <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "1rem" }}>
-          Game Finished
-        </h1>
-        <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
-          Final leaderboard for PIN {pin}
-        </p>
-
-        {/* Feature 11: Podium */}
-        {leaderboard.length >= 1 && (
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", gap: "1rem", marginBottom: "2rem" }}>
-            {leaderboard.slice(0, 3).map((player, i) => {
-              const medals = ["🥇", "🥈", "🥉"];
-              const heights = [140, 110, 90];
-              const order = [1, 0, 2]; // display order: 2nd, 1st, 3rd
-              const idx = order[i] ?? i;
-              const p = leaderboard[idx];
-              if (!p) return null;
-              return (
-                <div key={p.id} style={{ textAlign: "center", animation: i === 1 ? "pulse 1.5s infinite" : "none" }}>
-                  <div style={{ fontSize: "2rem" }}>{medals[idx]}</div>
-                  <div style={{ fontSize: "1.5rem" }}>{p.avatar || "🎮"}</div>
-                  <div style={{ fontWeight: 800, fontSize: "0.875rem" }}>{p.nickname}</div>
-                  <div style={{ height: heights[idx], width: 80, background: i === 1 ? "var(--accent)" : "var(--line)", borderRadius: "8px 8px 0 0", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0.5rem", marginTop: "0.5rem" }}>
-                    <span style={{ fontWeight: 900, color: i === 1 ? "#fff" : "var(--ink)", fontSize: "0.875rem" }}>{(p.score ?? 0).toLocaleString()}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div style={{ display: "grid", gap: "0.75rem", marginBottom: "2rem" }}>
-          {leaderboard.map((player, index) => (
-            <div
-              key={player.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "1rem 1.25rem",
-                borderRadius: "var(--radius-lg)",
-                background: index === 0 ? "var(--accent-light)" : "var(--bg)",
-                border: index === 0 ? "2px solid var(--accent)" : "1px solid var(--line)",
-              }}
-            >
-              <span style={{ fontWeight: 700 }}>
-                {index < 3 ? ["🥇","🥈","🥉"][index] : (index+1)+"."} {player.avatar || "🎮"} {player.nickname}
-                {/* Achievement badges */}
-                {(playerAchievements[player.id] ?? []).map((badge, bi) => (
-                  <span key={bi} style={{ marginLeft: "0.375rem", fontSize: "0.875rem" }} title={badge.label}>{badge.emoji}</span>
-                ))}
-              </span>
-              <span style={{ fontWeight: 700 }}>
-                {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* AI Post-Game Summary */}
-        {isHost && (
-          <div style={{ marginBottom: "1.5rem", textAlign: "left" }}>
-            {!aiSummary && !aiSummaryLoading && (
-              <button
-                onClick={() => void generateAiSummary()}
-                className="btn btn-secondary"
-                style={{ width: "100%", padding: "0.75rem" }}
-              >
-                🧠 Get AI Insights
-              </button>
-            )}
-            {aiSummaryLoading && (
-              <div style={{ padding: "1rem", borderRadius: "var(--radius-lg)", background: "var(--bg)", textAlign: "center", color: "var(--muted)", fontWeight: 600 }}>
-                🧠 Analyzing game data...
-              </div>
-            )}
-            {aiSummary && (
-              <div style={{ padding: "1rem 1.25rem", borderRadius: "var(--radius-lg)", background: "var(--accent-light)", border: "1px solid var(--accent)" }}>
-                <div style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--accent)", marginBottom: "0.5rem" }}>🧠 AI Insights</div>
-                <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--ink)", whiteSpace: "pre-wrap" }}>{aiSummary}</div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
-          {/* Feature 4: Play Again */}
-          {isHost && (session as any)?.quiz_id && (
-            <Link href={`/host?quiz=${(session as any).quiz_id}`} className="btn btn-primary">
-              Play Again 🔄
-            </Link>
-          )}
-          {isHost && (
-            <Link href={`/report/${pin}`} className="btn btn-secondary">
-              View Report 📊
-            </Link>
-          )}
-          <Link href="/" className="btn btn-secondary">
-            Back to Home
-          </Link>
-        </div>
-      </div>
-    </div>
+    <GameFinishedPanel
+      notice={notice}
+      pin={pin}
+      leaderboard={leaderboard}
+      isHost={isHost}
+      session={session}
+      playerAchievements={playerAchievements}
+      playerCorrectCounts={playerCorrectCounts}
+      totalQuestions={totalQuestions}
+      aiSummary={aiSummary}
+      aiSummaryLoading={aiSummaryLoading}
+      onGenerateAiSummary={() => void generateAiSummary()}
+    />
   );
 }
 

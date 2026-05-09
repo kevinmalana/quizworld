@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import {
   type GameResultRow,
-  getBestHostedScore,
   getHostedGameCount,
   getRecentHostedResults,
   getTotalHostedPlayers,
@@ -21,17 +20,16 @@ import { PageHero } from "@/components/page-hero";
 import { SectionCard } from "@/components/section-card";
 import { LoadingPanel, StatusPanel } from "@/components/shared/status-panel";
 import { MetricCard } from "@/components/shared/metric-card";
-
-type QuizRow = {
-  id: string;
-  title: string;
-  emoji: string | null;
-  color: string | null;
-  plays: number | null;
-  is_public: boolean;
-  archived_at: string | null;
-  questions?: { count: number }[];
-};
+import {
+  ArchivedQuizCard,
+  DashboardMetricGrid,
+  DashboardNotice,
+  DraftCard,
+  PublishedQuizCard,
+  RecentGameCard,
+  VersionCard,
+  type DashboardQuizRow as QuizRow,
+} from "@/components/dashboard/dashboard-cards";
 
 function DashboardPageContent() {
   const router = useRouter();
@@ -322,47 +320,15 @@ function DashboardPageContent() {
           </div>
         )}
 
-        {actionNotice && (
-          <div
-            className="card"
-            style={{
-              padding: "1rem 1.25rem",
-              marginBottom: "1.5rem",
-              border: "1px solid var(--line)",
-              background: "var(--success-light)",
-            }}
-          >
-            <strong style={{ color: "var(--success)" }}>{actionNotice}</strong>
-          </div>
-        )}
+        <DashboardNotice message={actionNotice} tone="success" />
+        <DashboardNotice message={actionError} tone="primary" />
 
-        {actionError && (
-          <div
-            className="card"
-            style={{
-              padding: "1rem 1.25rem",
-              marginBottom: "1.5rem",
-              border: "1px solid var(--line)",
-              background: "var(--primary-light)",
-            }}
-          >
-            <strong style={{ color: "var(--primary)" }}>{actionError}</strong>
-          </div>
-        )}
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: "1rem",
-            marginBottom: "2rem",
-          }}
-        >
+        <DashboardMetricGrid>
           <MetricCard label="Active Quizzes" value={activeQuizzes.length} />
           <MetricCard label="Hosted Games" value={hostedGames} tone="var(--secondary)" />
           <MetricCard label="Players Reached" value={hostedPlayers} tone="var(--success)" />
           <MetricCard label="Quiz Plays" value={totalQuizPlays} tone="var(--primary)" />
-        </div>
+        </DashboardMetricGrid>
 
         {drafts.length > 0 && (
           <SectionCard
@@ -377,35 +343,7 @@ function DashboardPageContent() {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
               {drafts.map((draft) => (
-                <div key={draft.id} className="card" style={{ padding: "1.5rem", border: "1px solid var(--line)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-                    <div style={{ width: 48, height: 48, borderRadius: 12, background: `${draft.color ?? "var(--accent)"}15`, display: "grid", placeItems: "center", fontSize: "1.5rem" }}>
-                      {draft.emoji || "📝"}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {draft.title || "Untitled Draft"}
-                      </div>
-                      <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
-                        {draft.source_type.replace("-", " ")} • {new Date(draft.updated_at).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <Link href={`/create?draft=${draft.id}`} className="btn btn-primary btn-compact" style={{ flex: 1 }}>
-                      Continue
-                    </Link>
-                    {draft.quiz_id ? (
-                      <Link href={`/host?quiz=${draft.quiz_id}`} className="btn btn-secondary btn-compact" style={{ flex: 1 }}>
-                        Host Live
-                      </Link>
-                    ) : (
-                      <div className="btn btn-secondary btn-compact" style={{ flex: 1, opacity: 0.45, pointerEvents: "none" }}>
-                        Unpublished
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <DraftCard key={draft.id} draft={draft} />
               ))}
             </div>
           </SectionCard>
@@ -419,50 +357,12 @@ function DashboardPageContent() {
             >
               <div style={{ display: "grid", gap: "0.75rem" }}>
                 {versions.map((version) => (
-                  <div
+                  <VersionCard
                     key={version.id}
-                    className="card"
-                    style={{
-                      padding: "1rem 1.1rem",
-                      border: "1px solid var(--line)",
-                      boxShadow: "var(--shadow-sm)",
-                      background: "linear-gradient(180deg, var(--surface), var(--bg-subtle))",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: "1rem",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <div>
-                        <div className="font-display" style={{ fontSize: "1rem", fontWeight: 800, color: "var(--ink)" }}>
-                          {version.title} <span style={{ color: "var(--accent)" }}>v{version.version_number}</span>
-                        </div>
-                        <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
-                          {version.category} • {new Date(version.created_at).toLocaleString()}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                        <button
-                          onClick={() => void restoreVersionToDraft(version)}
-                          disabled={actioningVersionId === version.id}
-                          className="btn btn-primary btn-compact"
-                        >
-                          {actioningVersionId === version.id ? "Restoring..." : "Restore As Draft"}
-                        </button>
-                        <Link href={`/create?version=${version.id}`} className="btn btn-secondary btn-compact">
-                          Open Snapshot
-                        </Link>
-                        <Link href={`/create?quiz=${version.quiz_id}`} className="btn btn-primary btn-compact">
-                          Edit Current
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
+                    version={version}
+                    actioningVersionId={actioningVersionId}
+                    onRestore={(selectedVersion) => void restoreVersionToDraft(selectedVersion)}
+                  />
                 ))}
               </div>
             </SectionCard>
@@ -484,64 +384,13 @@ function DashboardPageContent() {
           >
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
               {activeQuizzes.map((q) => (
-                <div key={q.id} className="card card-hover" style={{ padding: "1.5rem", border: "1px solid var(--line)", background: "linear-gradient(180deg, var(--surface), var(--bg-subtle))" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-                    <div style={{ width: 52, height: 52, borderRadius: 16, background: `${q.color}15`, display: "grid", placeItems: "center", fontSize: "1.5rem" }}>
-                      {q.emoji || "📝"}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, color: "var(--ink)" }}>{q.title}</div>
-                      <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
-                        {q.questions?.[0]?.count ?? 0} questions · {(q.plays ?? 0).toLocaleString()} plays
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        padding: "0.45rem 0.75rem",
-                        borderRadius: "999px",
-                        background: q.is_public ? "var(--success-light)" : "var(--warning-light)",
-                        color: q.is_public ? "var(--success)" : "var(--warning)",
-                        fontSize: "0.75rem",
-                        fontWeight: 800,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {q.is_public ? "Public" : "Private"}
-                    </div>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                    <Link href={`/host?quiz=${q.id}`} className="btn btn-primary btn-compact" style={{ flex: 1 }}>
-                      Host
-                    </Link>
-                    <Link href={`/create?quiz=${q.id}`} className="btn btn-secondary btn-compact" style={{ flex: 1 }}>
-                      Edit
-                    </Link>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.5rem" }}>
-                    <Link href={`/create?quiz=${q.id}&duplicate=1`} className="btn btn-secondary btn-compact" style={{ flex: 1 }}>
-                      Duplicate
-                    </Link>
-                    <Link href={`/study/${q.id}`} className="btn btn-secondary btn-compact" style={{ flex: 1 }}>
-                      Study
-                    </Link>
-                    <button
-                      onClick={() => void updateVisibility(q.id, !q.is_public)}
-                      disabled={actioningQuizId === q.id}
-                      className="btn btn-secondary btn-compact" style={{ flex: 1 }}
-                    >
-                      {actioningQuizId === q.id ? "..." : q.is_public ? "Make Private" : "Make Public"}
-                    </button>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
-                    <button
-                      onClick={() => void updateArchiveState(q.id, true)}
-                      disabled={actioningQuizId === q.id}
-                      className="btn btn-secondary btn-compact" style={{ flex: 1 }}
-                    >
-                      {actioningQuizId === q.id ? "..." : "Archive"}
-                    </button>
-                  </div>
-                </div>
+                <PublishedQuizCard
+                  key={q.id}
+                  quiz={q}
+                  actioningQuizId={actioningQuizId}
+                  onArchive={(quizId, archived) => void updateArchiveState(quizId, archived)}
+                  onVisibility={(quizId, isPublic) => void updateVisibility(quizId, isPublic)}
+                />
               ))}
             </div>
           </SectionCard>
@@ -555,31 +404,12 @@ function DashboardPageContent() {
             >
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
                 {archivedQuizzes.map((q) => (
-                  <div key={q.id} className="card" style={{ padding: "1.5rem", border: "1px dashed var(--line-strong)", background: "var(--surface)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-                      <div style={{ width: 52, height: 52, borderRadius: 16, background: `${q.color}12`, display: "grid", placeItems: "center", fontSize: "1.5rem", opacity: 0.7 }}>
-                        {q.emoji || "📝"}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 800, color: "var(--ink)" }}>{q.title}</div>
-                        <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
-                          Archived {q.archived_at ? new Date(q.archived_at).toLocaleString() : ""}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem" }}>
-                      <Link href={`/create?quiz=${q.id}&duplicate=1`} className="btn btn-secondary btn-compact">
-                        Duplicate
-                      </Link>
-                      <button
-                        onClick={() => void updateArchiveState(q.id, false)}
-                        disabled={actioningQuizId === q.id}
-                        className="btn btn-primary btn-compact"
-                      >
-                        {actioningQuizId === q.id ? "..." : "Restore"}
-                      </button>
-                    </div>
-                  </div>
+                  <ArchivedQuizCard
+                    key={q.id}
+                    quiz={q}
+                    actioningQuizId={actioningQuizId}
+                    onArchive={(quizId, archived) => void updateArchiveState(quizId, archived)}
+                  />
                 ))}
               </div>
             </SectionCard>
@@ -594,33 +424,7 @@ function DashboardPageContent() {
             >
             <div style={{ display: "grid", gap: "0.75rem" }}>
               {recentGames.map((game) => (
-                <div
-                  key={game.id}
-                  className="card"
-                  style={{
-                    padding: "1rem 1.25rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "1rem",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700 }}>PIN {game.pin}</div>
-                    <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
-                      {game.player_count ?? 0} players •{" "}
-                      {new Date(game.finished_at).toLocaleString()}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <span style={{ color: "var(--muted)", fontWeight: 700, fontSize: "0.875rem" }}>
-                      {getBestHostedScore([game]).toLocaleString()} top
-                    </span>
-                    <Link href={`/report/${game.pin}`} className="btn btn-secondary btn-compact">
-                      📊 Report
-                    </Link>
-                  </div>
-                </div>
+                <RecentGameCard key={game.id} game={game} />
               ))}
             </div>
             </SectionCard>
