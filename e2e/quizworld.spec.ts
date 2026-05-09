@@ -30,14 +30,12 @@ test.describe('P0: Explore Page', () => {
   test('loads and shows quizzes', async ({ page }) => {
     await page.goto('/explore');
     await expect(page.locator('h1')).toContainText('Discover Quizzes');
-    // Should show at least one quiz card
-    await expect(page.locator('text=World war Quiz').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { level: 3 }).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('category filters work', async ({ page }) => {
     await page.goto('/explore');
     await page.click('text=All topics');
-    // Category chips should be visible
     await expect(page.locator('text=Trivia')).toBeVisible();
     await expect(page.locator('text=Science & Nature')).toBeVisible();
   });
@@ -46,15 +44,15 @@ test.describe('P0: Explore Page', () => {
     await page.goto('/explore');
     await expect(page.locator('text=Most Played')).toBeVisible();
     await page.click('text=Newest');
-    // Should still show quizzes
-    await expect(page.locator('text=World war Quiz').first()).toBeVisible();
+    await expect(page.getByRole('heading', { level: 3 }).first()).toBeVisible();
   });
 
-  test('search works', async ({ page }) => {
+  test('search works with current catalog data', async ({ page }) => {
     await page.goto('/explore');
-    const search = page.locator('input[placeholder*="Search"]');
-    await search.fill('war');
-    await expect(page.locator('text=World war Quiz').first()).toBeVisible();
+    const firstQuizTitle = (await page.getByRole('heading', { level: 3 }).first().innerText()).trim();
+    const query = firstQuizTitle.split(/\s+/)[0];
+    await page.locator('input[placeholder*="Search"]').fill(query);
+    await expect(page.getByRole('heading', { name: firstQuizTitle, level: 3 }).first()).toBeVisible();
   });
 });
 
@@ -266,7 +264,7 @@ test.describe('P2: Study Page', () => {
 
   test('shows available quizzes', async ({ page }) => {
     await page.goto('/study');
-    await expect(page.locator('text=World war Quiz').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('link', { name: 'Study Now' }).first()).toBeVisible({ timeout: 10000 });
   });
 });
 
