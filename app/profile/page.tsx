@@ -198,7 +198,7 @@ export default function ProfilePage() {
             <span style={{ fontWeight: 600 }}>Study Progress</span>
           </Link>
           <Link href="/host" style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1rem", borderRadius: "var(--radius-lg)", textDecoration: "none", color: "var(--ink)" }}>
-            <span style={{ fontSize: "1.5rem" }}>🎤</span>
+            <span style={{ fontSize: "1.5rem" }}>🕹️</span>
             <span style={{ fontWeight: 600 }}>Host a Game</span>
           </Link>
         </div>

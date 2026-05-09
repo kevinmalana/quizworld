@@ -109,7 +109,7 @@ export function Navigation() {
               <Link href="/study" className="mobile-link">📖 Study</Link>
               <Link href="/present" className="mobile-link">🎤 Present</Link>
               <Link href="/create" className="mobile-link">✨ Create</Link>
-              <Link href="/host" className="mobile-link">🎤 Host</Link>
+              <Link href="/host" className="mobile-link">🕹️ Host</Link>
               {user ? (
                 <>
                   <Link href="/dashboard" className="mobile-link">📚 Dashboard</Link>

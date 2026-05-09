@@ -243,7 +243,7 @@ function HostPageContent() {
   return (
     <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem" }}>
       <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.5rem" }}>
-        🎮 Host a Game
+        🕹️ Host a Game
       </h1>
       <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
         Pick a quiz and launch the live lobby.
