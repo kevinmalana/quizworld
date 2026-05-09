@@ -1,0 +1,29 @@
+/* Game animation and QR primitives */
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-200px); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.qr-code {
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  box-shadow: 0 14px 40px rgba(15,23,42,0.1);
+}
+
+.qr-code-sm {
+  border-radius: 10px;
+  border-width: 1.5px;
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 480px) {
+  .lobby-pin-qr {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+}

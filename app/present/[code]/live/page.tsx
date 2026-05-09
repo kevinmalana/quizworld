@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { QrCode } from "@/components/shared/qr-code";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
@@ -14,6 +15,7 @@ import {
   readPresenterToken,
   type PresentationParticipantSession,
 } from "@/lib/presentation/client";
+import { DISPLAY_SITE_HOST, presentationJoinUrl } from "@/lib/config/public";
 
 export default function PresentationLive() {
   const params = useParams();
@@ -353,7 +355,7 @@ export default function PresentationLive() {
   const scaleValues = allResponses.map(r => Number(r.response_data?.value) || 0);
   const scaleAvg = scaleValues.length > 0 ? Math.round(scaleValues.reduce((s, v) => s + v, 0) / scaleValues.length * 10) / 10 : 0;
 
-  const joinUrl = joinCode ? `https://www.quizworld.xyz/present/join?code=${joinCode}` : "";
+  const joinUrl = joinCode ? presentationJoinUrl(joinCode) : "";
   const responseCount = allResponses.length;
   const shouldShowResults = !isHost || !resultsHidden;
 
@@ -386,10 +388,10 @@ export default function PresentationLive() {
             <div style={{ fontSize: "0.78rem", fontWeight: 900, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "0.75rem" }}>Audience join</div>
             <div style={{ fontSize: "clamp(2.4rem, 8vw, 5rem)", fontWeight: 950, letterSpacing: "0.18em", color: "var(--accent)", lineHeight: 1, marginBottom: "1rem" }}>{joinCode}</div>
             <div className="present-join-overlay-body" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "2rem", flexWrap: "wrap" }}>
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(joinUrl)}`} alt="Scan to join" width={260} height={260} style={{ width: 260, height: 260, borderRadius: 24, border: "1px solid var(--line)", boxShadow: "0 14px 40px rgba(15,23,42,0.1)" }} />
+              <QrCode value={joinUrl} size={260} label="Scan to join" className="qr-code" />
               <div style={{ maxWidth: 360, textAlign: "left" }}>
                 <div style={{ fontSize: "1.6rem", fontWeight: 950, marginBottom: "0.5rem" }}>Scan or enter the code</div>
-                <div style={{ fontSize: "1rem", color: "var(--muted)", fontWeight: 700, marginBottom: "1rem" }}>quizworld.xyz/present/join</div>
+                <div style={{ fontSize: "1rem", color: "var(--muted)", fontWeight: 700, marginBottom: "1rem" }}>{DISPLAY_SITE_HOST}/present/join</div>
                 <button onClick={() => { void navigator.clipboard?.writeText(joinUrl); }} className="btn btn-primary btn-lg">Copy invite link</button>
                 <div style={{ marginTop: "1rem", fontSize: "0.78rem", color: "var(--muted)", fontWeight: 700 }}>Shortcut: press I to show/hide this overlay</div>
               </div>

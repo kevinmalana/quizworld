@@ -1,18 +1,7 @@
 "use client";
 
-// Feature 11+12+13: CSS animations
-if (typeof document !== 'undefined' && !document.getElementById('qw-game-animations')) {
-  const style = document.createElement('style');
-  style.id = 'qw-game-animations';
-  style.textContent = `
-    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-200px); } }
-    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-    @media (max-width: 480px) { .lobby-pin-qr { flex-direction: column !important; gap: 1rem !important; } }
-  `;
-  document.head.appendChild(style);
-}
-
 import Link from "next/link";
+import { QrCode } from "@/components/shared/qr-code";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
@@ -41,59 +30,18 @@ import {
   readHostSession,
   type StoredHostSession,
 } from "@/lib/host-session";
-
-type GameStatus = "waiting" | "active" | "reveal" | "finished";
-
-function extractYouTubeId(url: string): string | null {
-  if (!url) return null;
-  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  return match ? match[1] : null;
-}
-
-function sortQuestions(quiz: unknown) {
-  const q = quiz as { questions?: { order_index?: number }[] } | null;
-  if (!q?.questions) return quiz;
-
-  return {
-    ...(q as object),
-    questions: [...q.questions].sort(
-      (left, right) => (left.order_index ?? 0) - (right.order_index ?? 0)
-    ),
-  };
-}
-
-function getTimeLeft(question: { time_limit?: number } | null, startedAt: string | null) {
-  if (!question) return 0;
-
-  const total = question.time_limit ?? 20;
-  if (!startedAt) return 0;
-
-  const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
-  return Math.max(total - elapsed, 0);
-}
-
-function normalizePhoenixSession(rawSession: Record<string, unknown>) {
-  const quizQuestions =
-    (rawSession?.quiz as { questions?: { order_index?: number }[] })?.questions ?? [];
-  const questions = [...quizQuestions].sort(
-    (left, right) => (left.order_index ?? 0) - (right.order_index ?? 0)
-  );
-  const currentQuestion =
-    (rawSession?.current_question as object) ??
-    questions[(rawSession?.current_question_index as number) ?? 0] ??
-    null;
-
-  return {
-    ...rawSession,
-    quiz: {
-      ...((rawSession?.quiz as object) ?? {}),
-      questions,
-    },
-    current_question: currentQuestion,
-    current_answers: (rawSession?.current_answers as unknown[]) ?? [],
-    question_history: (rawSession?.question_history as unknown[]) ?? [],
-  };
-}
+import { gameJoinUrl } from "@/lib/config/public";
+import { extractYouTubeId } from "@/lib/media/youtube";
+import {
+  getTimeLeft,
+  normalizePhoenixSession,
+  sortQuizQuestions,
+  type CurrentAnswer,
+  type GamePlayer,
+  type GameQuestion,
+  type GameStatus,
+  type QuestionHistoryEntry,
+} from "@/lib/game/session-normalizers";
 
 export default function GamePage() {
   const params = useParams();
@@ -101,22 +49,11 @@ export default function GamePage() {
   const pin = params.pin as string;
 
   const [session, setSession] = useState<Record<string, unknown> | null>(null);
-  const [players, setPlayers] = useState<
-    { id: string; nickname: string; avatar?: string; score?: number }[]
-  >([]);
-  const [currentAnswers, setCurrentAnswers] = useState<
-    { player_id: string; answer_id: string; is_correct?: boolean; points_awarded?: number }[]
-  >([]);
-  const [questionHistory, setQuestionHistory] = useState<
-    { index: number; text: string; correct_answer_text?: string; responses?: { player_id: string; nickname: string; avatar?: string; is_correct: boolean; points_awarded: number; response_time_ms: number }[] }[]
-  >([]);
+  const [players, setPlayers] = useState<GamePlayer[]>([]);
+  const [currentAnswers, setCurrentAnswers] = useState<CurrentAnswer[]>([]);
+  const [questionHistory, setQuestionHistory] = useState<QuestionHistoryEntry[]>([]);
   const [gameStatus, setGameStatus] = useState<GameStatus>("waiting");
-  const [currentQuestion, setCurrentQuestion] = useState<{
-    id: string;
-    text: string;
-    time_limit?: number;
-    answers?: { id: string; text: string; is_correct?: boolean }[];
-  } | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<GameQuestion | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
@@ -230,7 +167,7 @@ export default function GamePage() {
           ? normalizePhoenixSession(rawSession)
           : {
               ...rawSession,
-              quiz: sortQuestions((rawSession as { quiz?: unknown }).quiz),
+              quiz: sortQuizQuestions((rawSession as { quiz?: unknown }).quiz),
             }
       ) as Record<string, unknown>;
       const nextPlayers = (normalizedSession.players as typeof players) ?? [];
@@ -293,7 +230,7 @@ export default function GamePage() {
 
     const normalizedSession = {
       ...gameSession,
-      quiz: sortQuestions(gameSession.quiz),
+      quiz: sortQuizQuestions(gameSession.quiz),
     };
 
     const { data: playerList, error: playerError } = await supabase
@@ -866,7 +803,7 @@ export default function GamePage() {
   }
 
   if (gameStatus === "waiting") {
-    const joinUrl = `https://www.quizworld.xyz/join?pin=${pin}`;
+    const joinUrl = gameJoinUrl(pin);
     const readyCount = readyPlayers.size;
     return (
       <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
@@ -888,10 +825,11 @@ export default function GamePage() {
             </div>
             <div style={{ width: 1, height: 60, background: "var(--line)" }} />
             <div style={{ textAlign: "center" }}>
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(joinUrl)}`}
-                alt="Scan to join"
-                style={{ borderRadius: 10, border: "1.5px solid var(--line)", boxShadow: "var(--shadow-sm)" }}
+              <QrCode
+                value={joinUrl}
+                size={120}
+                label="Scan to join"
+                className="qr-code qr-code-sm"
               />
               <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--muted)", marginTop: "0.35rem" }}>Scan to join</div>
             </div>

@@ -1,0 +1,214 @@
+/* Present mobile ergonomics */
+@media (max-width: 640px) {
+  .present-home-screen,
+  .present-join-screen {
+    justify-content: flex-start !important;
+    padding: 1rem !important;
+    padding-top: 1.25rem !important;
+    min-height: calc(100vh - 64px) !important;
+  }
+
+  .present-home-hero {
+    margin-bottom: 1.25rem !important;
+  }
+
+  .present-home-hero h1 {
+    font-size: 2rem !important;
+  }
+
+  .present-home-hero p {
+    font-size: 0.98rem !important;
+  }
+
+  .present-create-card,
+  .present-join-card {
+    padding: 1.25rem !important;
+    border-radius: var(--radius-2xl) !important;
+  }
+
+  .present-feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.65rem !important;
+  }
+
+  .present-feature-grid .card {
+    padding: 0.9rem !important;
+  }
+
+  .present-join-card input,
+  .present-create-card input {
+    min-height: 52px !important;
+  }
+
+  .present-editor-topbar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 20 !important;
+    flex-wrap: wrap !important;
+    gap: 0.45rem !important;
+    padding: 0.65rem !important;
+  }
+
+  .present-editor-topbar input {
+    order: 2 !important;
+    flex-basis: 100% !important;
+    min-width: 0 !important;
+    min-height: 44px !important;
+  }
+
+  .present-editor-topbar button {
+    min-height: 40px !important;
+  }
+
+  .present-editor-layout {
+    flex-direction: column !important;
+    overflow: visible !important;
+  }
+
+  .present-slide-list {
+    width: 100% !important;
+    display: flex !important;
+    gap: 0.5rem !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--line) !important;
+    padding: 0.65rem !important;
+    position: sticky !important;
+    top: 106px !important;
+    z-index: 15 !important;
+  }
+
+  .present-slide-list > div,
+  .present-slide-list > button {
+    flex: 0 0 145px !important;
+    min-height: 58px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .present-slide-editor {
+    padding: 0.9rem !important;
+    overflow: visible !important;
+  }
+
+  .present-slide-card {
+    padding: 1rem !important;
+    max-width: none !important;
+  }
+
+  .present-slide-title-row {
+    align-items: stretch !important;
+  }
+
+  .present-slide-title-row input {
+    min-width: 0 !important;
+    min-height: 44px !important;
+  }
+
+  .present-slide-card input,
+  .present-slide-card textarea,
+  .present-slide-card button {
+    min-height: 44px !important;
+  }
+
+  .present-add-slide-backdrop {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .present-add-slide-backdrop > .card {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    border-radius: 24px 24px 0 0 !important;
+    max-height: 86vh !important;
+    overflow-y: auto !important;
+  }
+
+  .present-live-status-rail {
+    top: 8px !important;
+    left: 8px !important;
+    right: 8px !important;
+    gap: 0.4rem !important;
+    flex-wrap: wrap !important;
+  }
+
+  .present-live-status-rail > * {
+    max-width: 100% !important;
+  }
+
+  .present-live-stage {
+    align-items: flex-start !important;
+    padding: 5.75rem 0.85rem 7.25rem !important;
+  }
+
+  .present-live-content h2 {
+    font-size: clamp(1.35rem, 7vw, 2rem) !important;
+    line-height: 1.12 !important;
+  }
+
+  .present-live-content .card {
+    padding: 1.25rem !important;
+    border-radius: 22px !important;
+  }
+
+  .present-response-row {
+    flex-direction: column !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .present-response-row input,
+  .present-response-row button {
+    width: 100% !important;
+    min-height: 50px !important;
+  }
+
+  .present-join-overlay {
+    padding: 0.75rem !important;
+    align-items: end !important;
+  }
+
+  .present-join-overlay-card {
+    border-radius: 28px !important;
+    padding: 1.25rem !important;
+    max-height: 92vh !important;
+    overflow-y: auto !important;
+  }
+
+  .present-join-overlay-body {
+    gap: 1rem !important;
+  }
+
+  .present-join-overlay-body img {
+    width: min(58vw, 220px) !important;
+    height: min(58vw, 220px) !important;
+  }
+
+  .present-join-overlay-body > div {
+    text-align: center !important;
+  }
+
+  .present-host-dock {
+    left: 8px !important;
+    right: 8px !important;
+    bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+    transform: none !important;
+    max-width: none !important;
+    border-radius: 24px !important;
+    justify-content: flex-start !important;
+    padding: 0.45rem !important;
+    scrollbar-width: none !important;
+  }
+
+  .present-host-dock::-webkit-scrollbar {
+    display: none;
+  }
+
+  .present-host-dock button {
+    flex: 0 0 auto !important;
+    min-height: 44px !important;
+    padding: 0.65rem 0.8rem !important;
+    white-space: nowrap !important;
+  }
+}
