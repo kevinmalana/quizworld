@@ -1,6 +1,6 @@
 # Architecture
 
-## v10 System Map
+## Current System Map
 
 ```text
 Next.js UI
@@ -79,3 +79,21 @@ Generated questions are reviewed in the frontend first, then loaded into the nor
 2. Move live host/join/game flows to Phoenix.
 3. Keep study/dashboard/profile in Next.js + Supabase.
 4. Add Redis only where shared session durability or fan-out pressure justifies it.
+
+
+## Current Frontend Component Structure
+
+Routes should remain thin containers. UI should live in component folders:
+
+- `/create` uses `components/builder/BuilderWorkspace.tsx`, `CreateSourceModals.tsx`, `PublishLoginPrompt.tsx`, and existing question editor components.
+- `/game/[pin]` uses `components/game/live-game-panels.tsx` plus helpers in `lib/game/`.
+- `/study` uses `components/study/study-dashboard.tsx` and `study-quiz-card.tsx`.
+- `/study/[id]` uses `components/study/study-session-panels.tsx` and `lib/study/types.ts`.
+- `/dashboard` uses `components/dashboard/dashboard-cards.tsx` and shared metric/status primitives.
+- `/explore` uses `components/explore/explore-quiz-card.tsx` and `components/shared/share-study-link-button.tsx`.
+
+Route-specific CSS is split into `styles/builder.css`, `styles/game.css`, `styles/present.css`, and `styles/study.css`. Avoid reintroducing runtime style injection or large inline style blocks.
+
+## Current Verification Contract
+
+Use `npm run check` as the local release gate. It runs TypeScript, Next.js production build, Phoenix compile with warnings-as-errors, and Phoenix tests. Use `BASE_URL=https://www.quizworld.xyz npx playwright test --project=chromium` for production regression after deploy.

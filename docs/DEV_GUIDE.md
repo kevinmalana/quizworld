@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Use this guide when changing the `v9` repo across the Next.js frontend and the Phoenix game service.
+Use this guide when changing the current repo across the Next.js frontend and the Phoenix game service.
 
 ## Frontend Setup
 
@@ -10,6 +10,7 @@ Use this guide when changing the `v9` repo across the Next.js frontend and the P
 npm install
 npm run dev
 npm run build
+npm run check
 ```
 
 Frontend env:
@@ -66,3 +67,13 @@ The frontend should not recreate those responsibilities.
 - Do not reintroduce client-authoritative scoring.
 - Treat Redis as an optional support layer for single-node development, not the source of truth for authored quiz content.
 - Keep Supabase write-back at the game-result summary layer, not live-round mutation.
+
+
+## Component Cleanup Rules
+
+- Keep `app/**/page.tsx` files as orchestration/container code.
+- Put reusable UI in `components/<feature>/`.
+- Put route-specific styles in `styles/<feature>.css`, imported from `app/layout.tsx`.
+- Do not duplicate share buttons, QR generation, dashboard cards, or study/game panels. Use existing shared components.
+- Do not recreate Phoenix responsibilities in the browser: session IDs, PINs, scoring authority, reveal/advance authority, and result sync stay server-side.
+- Prefer small extraction commits with full checks over broad rewrites.

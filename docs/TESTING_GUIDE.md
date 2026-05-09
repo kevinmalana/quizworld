@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Use this guide for the `v12` split-runtime smoke test.
+Use this guide for the current split-runtime smoke/regression test.
 
 ## Frontend Checks
 
-- `npm run build` passes
+- `npm run check` passes
 - frontend env vars are set
 - Supabase auth and quiz content load normally
 - builder draft autosave works when signed in
@@ -41,6 +41,13 @@ Use this guide for the `v12` split-runtime smoke test.
 6. Submit answers and verify reveal/scoring happens from the service.
 7. Confirm the study/dashboard/profile flows still work through Supabase.
 
-## Constraint
+## Current Baseline
 
-This workspace can verify the Next.js build, but it cannot compile or run Phoenix locally without installing Elixir tooling.
+Latest 2026-05-09 checks passed:
+
+- `npm run check`
+- Phoenix tests: `29/29`
+- Production Playwright: `39/39` via `BASE_URL=https://www.quizworld.xyz npx playwright test --project=chromium`
+- Phoenix health: `redis:true`
+
+For high-risk game changes, also run an authenticated host + second-browser/mobile player smoke test through finish/leaderboard.

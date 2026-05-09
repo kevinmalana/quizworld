@@ -1,10 +1,10 @@
-# OpenClaw Handoff For QuizWorld v9
+# OpenClaw Handoff For QuizWorld
 
 ## Package Intent
 
-This repository is no longer a single Vercel-only deployable if you want the full `v9` architecture.
+This repository is the current production QuizWorld source. For the fastest up-to-date map, read `docs/CURRENT_AGENT_HANDOFF.md` first.
 
-`v9` has two runtime targets:
+QuizWorld has two runtime targets:
 
 - Next.js frontend on Vercel
 - Phoenix realtime service on a separate host such as Fly.io, Render, or Railway
@@ -45,9 +45,17 @@ Phoenix env:
 
 ## Documentation Order
 
-1. [START_HERE.md](./START_HERE.md)
-2. [V9_RELEASE.md](./V9_RELEASE.md)
-3. [HANDBOOK.md](./HANDBOOK.md)
-4. [ARCHITECTURE.md](./ARCHITECTURE.md)
-5. [V9_OPERATOR_HANDOFF.md](./V9_OPERATOR_HANDOFF.md)
-6. [OPENCLAW_MESSAGE.md](./OPENCLAW_MESSAGE.md)
+1. [CURRENT_AGENT_HANDOFF.md](./CURRENT_AGENT_HANDOFF.md)
+2. [START_HERE.md](./START_HERE.md)
+3. [ARCHITECTURE.md](./ARCHITECTURE.md)
+4. [DEV_GUIDE.md](./DEV_GUIDE.md)
+5. [TESTING_GUIDE.md](./TESTING_GUIDE.md)
+6. [HANDBOOK.md](./HANDBOOK.md)
+7. [V9_RELEASE.md](./V9_RELEASE.md) — historical context
+8. [V9_OPERATOR_HANDOFF.md](./V9_OPERATOR_HANDOFF.md)
+9. [OPENCLAW_MESSAGE.md](./OPENCLAW_MESSAGE.md)
+
+
+## Current OpenClaw Deploy Notes
+
+Normal GitHub auth may be stale. In this workspace, the reliable path is token URL push using `/root/.openclaw/secrets/gh_token.txt`, then Vercel deploy using `/root/.openclaw/secrets/deployment.env`. See `docs/CURRENT_AGENT_HANDOFF.md` for exact commands and verification.
