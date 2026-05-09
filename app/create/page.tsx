@@ -4,11 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
-import {
-  uid,
-  CATEGORY_COLORS,
-  CATEGORY_EMOJIS,
-} from "@/lib/store";
+import { uid } from "@/lib/store";
 import {
   questionsFromDraftRows,
   questionsFromPublishedQuiz,
@@ -23,106 +19,27 @@ import {
   extractReadableTextFromHtml,
   parseImportedQuestions,
 } from "@/lib/quiz-import";
-import {
-  aiDraftToQuestions,
-  type AIQuizDraft,
-} from "@/lib/quiz-ai";
+import { aiDraftToQuestions } from "@/lib/quiz-ai";
 import { SourcePicker, type SourceType } from "@/components/builder/SourcePicker";
 import { BuilderToolbar } from "@/components/builder/BuilderToolbar";
 import { QuestionSidebar } from "@/components/builder/QuestionSidebar";
-import { QuestionCard, type QuestionData, type QuestionType } from "@/components/builder/QuestionCard";
+import { QuestionCard, type QuestionData } from "@/components/builder/QuestionCard";
 import { Confetti } from "@/components/builder/Confetti";
 import { LivePreview } from "@/components/builder/LivePreview";
-import type { AnswerData } from "@/components/builder/AnswerEditor";
+import {
+  aiDraftToQuestionData,
+  isQuestionComplete,
+  legacyToQuestionData,
+  makeBlankQuestion,
+  makeTrueFalseQuestion,
+  questionsToPublishPayload,
+} from "@/lib/builder/question-factory";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
 type PageStep = "source" | "builder";
 type DraftSyncState = "idle" | "dirty" | "saving" | "saved" | "error";
 type AIQuestionCount = 3 | 5 | 8 | 10;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function makeBlankQuestion(): QuestionData {
-  return {
-    id: uid(),
-    text: "",
-    type: "multiple_choice",
-    timeLimit: 20,
-    points: 1000,
-    answers: [
-      { id: uid(), text: "", isCorrect: true },
-      { id: uid(), text: "", isCorrect: false },
-      { id: uid(), text: "", isCorrect: false },
-      { id: uid(), text: "", isCorrect: false },
-    ],
-  };
-}
-
-function makeTrueFalse(): QuestionData {
-  return {
-    id: uid(),
-    text: "",
-    type: "true_false",
-    timeLimit: 10,
-    points: 500,
-    answers: [
-      { id: uid(), text: "True", isCorrect: true },
-      { id: uid(), text: "False", isCorrect: false },
-    ],
-  };
-}
-
-function isQuestionComplete(q: QuestionData): boolean {
-  if (!q.text.trim()) return false;
-  const filled = q.answers.filter((a) => a.text.trim());
-  if (filled.length < 2) return false;
-  if (q.type !== "poll" && q.answers.filter((a) => a.isCorrect && a.text.trim()).length !== 1) return false;
-  return true;
-}
-
-function questionsToPublishPayload(questions: QuestionData[]) {
-  return questions.map((q) => ({
-    text: q.text,
-    image_url: q.imageUrl || "",
-    video_url: q.videoUrl || "",
-    time_limit: q.timeLimit,
-    points: q.points,
-    answers: q.answers.map((a) => ({ text: a.text, image_url: a.imageUrl || "", is_correct: a.isCorrect })),
-  }));
-}
-
-// Convert legacy Question type to QuestionData
-function legacyToQuestionData(q: any): QuestionData {
-  return {
-    id: q.id || uid(),
-    text: q.text || "",
-    type: "multiple_choice",
-    timeLimit: q.timeLimit || q.time_limit || 20,
-    points: q.points || 1000,
-    answers: (q.answers || []).map((a: any) => ({
-      id: a.id || uid(),
-      text: a.text || "",
-      isCorrect: a.isCorrect ?? a.is_correct ?? false,
-    })),
-  };
-}
-
-// Convert AI draft to QuestionData[]
-function aiDraftToQuestionData(draft: AIQuizDraft): QuestionData[] {
-  return draft.questions.map((q) => ({
-    id: uid(),
-    text: q.text,
-    type: "multiple_choice" as QuestionType,
-    timeLimit: q.time_limit,
-    points: q.points,
-    answers: q.answers.map((a) => ({
-      id: uid(),
-      text: a.text,
-      isCorrect: a.is_correct,
-    })),
-  }));
-}
 
 const CREATE_DRAFT_KEY = "qw_create_draft_v9";
 
@@ -240,7 +157,7 @@ function CreatePageContent() {
   }, [questions.length]);
 
   const addTrueFalse = useCallback(() => {
-    const q = makeTrueFalse();
+    const q = makeTrueFalseQuestion();
     setQuestions((prev) => [...prev, q]);
     setActiveIndex(questions.length);
   }, [questions.length]);
