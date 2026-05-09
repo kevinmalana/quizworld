@@ -1,0 +1,62 @@
+.study-centered-state {
+  padding-top: 4rem;
+  text-align: center;
+}
+
+.study-muted { color: var(--muted); }
+
+.study-result-shell {
+  padding-top: 4rem;
+  text-align: center;
+  max-width: 500px;
+}
+
+.study-result-card { padding: 3rem; }
+.study-result-emoji { font-size: 4rem; margin-bottom: 1rem; }
+.study-result-title { font-size: 2rem; font-weight: 800; margin-bottom: 1rem; }
+.study-result-score { font-size: 3rem; font-weight: 900; margin-bottom: 1rem; }
+.study-result-copy { margin-bottom: 0.5rem; }
+.study-save-message { margin-bottom: 2rem; font-size: 0.875rem; }
+.study-action-row { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+.study-xp-pill { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 999px; background: #f5f3ff; margin-bottom: 0.5rem; font-weight: 800; color: #8b5cf6; }
+.study-perfect-copy { font-size: 0.85rem; color: var(--success); font-weight: 700; margin-bottom: 0.75rem; }
+
+.study-mode-shell { padding-top: 4rem; padding-bottom: 5rem; }
+.study-link-button { background: none; border: none; cursor: pointer; color: var(--muted); display: flex; align-items: center; gap: 0.5rem; }
+.study-mode-shell .study-link-button { margin-bottom: 2rem; }
+.study-mode-title { font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; }
+.study-mode-count { margin-bottom: 3rem; }
+.study-mode-grid { display: grid; gap: 1rem; max-width: 520px; }
+.study-mode-card { padding: 2rem; text-align: left; cursor: pointer; border: 2px solid var(--line); }
+.study-mode-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.study-mode-card-title { font-weight: 700; font-size: 1.25rem; }
+
+.study-play-shell { padding-top: 2rem; padding-bottom: 5rem; }
+.study-play-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+.study-play-header__right { display: flex; gap: 1rem; align-items: center; }
+.study-correct-count { font-weight: 700; color: var(--success); font-size: 0.9rem; }
+.study-wrong-count { font-weight: 700; color: #ef4444; font-size: 0.9rem; }
+.study-progress-count { font-weight: 700; }
+.study-timer-wrap { text-align: center; margin-bottom: 1.5rem; }
+.study-timer { display: inline-grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; color: #fff; font-weight: 900; font-size: 1.75rem; }
+.study-answer-feedback { margin-top: 0.75rem; font-size: 1rem; font-weight: 800; }
+.study-question-card { padding: 2rem; max-width: 680px; margin: 0 auto 2rem; text-align: center; }
+.study-question-card h2 { font-size: 1.5rem; font-weight: 700; }
+.study-answer-grid { display: grid; gap: 1rem; max-width: 680px; margin: 0 auto; }
+.study-answer-button { padding: 1.25rem; border-radius: var(--radius-xl); border: 2px solid var(--line); font-size: 1.05rem; font-weight: 700; text-align: left; display: flex; align-items: center; gap: 1rem; }
+.study-answer-letter { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; flex-shrink: 0; }
+
+.study-flashcard-perspective { perspective: 1000px; width: 100%; max-width: 560px; margin: 0 auto; }
+.study-flashcard { transition: transform 0.6s; transform-style: preserve-3d; cursor: pointer; min-height: 320px; position: relative; }
+.study-flashcard-face { position: absolute; width: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.study-flashcard-face--back { transform: rotateY(180deg); }
+.study-flashcard-card { padding: 2rem; background: var(--surface); border: 2px solid var(--line); }
+.study-flashcard-card--front { text-align: center; }
+.study-flashcard-count { font-size: 0.875rem; margin-bottom: 1rem; }
+.study-question-image { max-width: 100%; max-height: 200px; object-fit: cover; border-radius: 16px; margin-bottom: 1rem; }
+.study-flashcard-question { font-size: 1.5rem; font-weight: 700; color: var(--ink); }
+.study-flashcard-hint { margin-top: 2rem; font-size: 0.875rem; }
+.study-flashcard-answer-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem; text-align: center; }
+.study-flash-score { text-align: center; margin-top: 1.5rem; }
+.study-score-row { display: inline-flex; gap: 0.75rem; align-items: center; }
+.study-score-divider { color: var(--line-strong); font-weight: 700; }

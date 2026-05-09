@@ -5,27 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { uid } from "@/lib/store";
-import {
-  questionsFromDraftRows,
-  questionsFromPublishedQuiz,
-  questionsFromVersionSnapshot,
-  type QuizDraftAnswerRow,
-  type QuizDraftQuestionRow,
-  type QuizDraftRow,
-  type PublishedQuizRow,
-  type QuizVersionRow,
-} from "@/lib/quiz-drafts";
-import {
-  extractReadableTextFromHtml,
-  parseImportedQuestions,
-} from "@/lib/quiz-import";
-import { aiDraftToQuestions } from "@/lib/quiz-ai";
+import { parseImportedQuestions } from "@/lib/quiz-import";
 import { SourcePicker, type SourceType } from "@/components/builder/SourcePicker";
-import { BuilderToolbar } from "@/components/builder/BuilderToolbar";
-import { QuestionSidebar } from "@/components/builder/QuestionSidebar";
-import { QuestionCard, type QuestionData } from "@/components/builder/QuestionCard";
-import { Confetti } from "@/components/builder/Confetti";
-import { LivePreview } from "@/components/builder/LivePreview";
+import { type QuestionData } from "@/components/builder/QuestionCard";
+import { BuilderWorkspace, type DraftSyncState } from "@/components/builder/BuilderWorkspace";
+import { CreateSourceModals, type AIQuestionCount } from "@/components/builder/CreateSourceModals";
+import { PublishLoginPrompt } from "@/components/builder/PublishLoginPrompt";
 import {
   aiDraftToQuestionData,
   isQuestionComplete,
@@ -38,9 +23,6 @@ import {
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
 type PageStep = "source" | "builder";
-type DraftSyncState = "idle" | "dirty" | "saving" | "saved" | "error";
-type AIQuestionCount = 3 | 5 | 8 | 10;
-
 const CREATE_DRAFT_KEY = "qw_create_draft_v9";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -48,7 +30,7 @@ const CREATE_DRAFT_KEY = "qw_create_draft_v9";
 function CreatePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
 
   // ── Core state ──
   const [step, setStep] = useState<PageStep>("source");
@@ -125,7 +107,6 @@ function CreatePageContent() {
   }, [searchParams]);
 
   // ── Derived ──
-  const activeQuestion = questions[activeIndex] || null;
   const readyCount = questions.filter(isQuestionComplete).length;
   const canPublish = quizTitle.trim().length > 0 && readyCount > 0;
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -420,39 +401,18 @@ function CreatePageContent() {
       console.error("Publish error:", err);
       setDraftState("error");
     }
-  }, [user, canPublish, quizTitle, quizCategory, quizEmoji, isPublic, questions, editingQuizId, remoteDraftId, router, step]);
+  }, [user, canPublish, quizTitle, quizCategory, quizEmoji, isPublic, questions, editingQuizId, remoteDraftId, router]);
 
   // ── Login Prompt Modal ──
   if (showLoginPrompt) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
-        <div className="card" style={{ padding: "2.5rem", maxWidth: 420, margin: "0 1rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔐</div>
-          <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.75rem" }}>
-            Sign in to publish
-          </h2>
-          <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
-            Your quiz is saved and will be waiting for you after sign in.
-          </p>
-          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
-            <button
-              onClick={() => {
-                sessionStorage.setItem("qw_post_login_redirect", "/create");
-                router.push("/login");
-              }}
-              className="btn btn-primary"
-            >
-              Sign In / Sign Up
-            </button>
-            <button
-              onClick={() => setShowLoginPrompt(false)}
-              className="btn btn-secondary"
-            >
-              Keep Editing
-            </button>
-          </div>
-        </div>
-      </div>
+      <PublishLoginPrompt
+        onSignIn={() => {
+          sessionStorage.setItem("qw_post_login_redirect", "/create");
+          router.push("/login");
+        }}
+        onKeepEditing={() => setShowLoginPrompt(false)}
+      />
     );
   }
 
@@ -461,285 +421,59 @@ function CreatePageContent() {
     return (
       <div>
         <SourcePicker onSelect={handleSourceSelect} />
-
-        {/* Inline source inputs */}
-        {sourceType === "ai-topic" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
-            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-lg text-[var(--ink)]">💡 AI Topic Generator</h2>
-                <button onClick={() => setSourceType("manual")} style={{ width: 36, height: 36, borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", cursor: "pointer", border: "none", background: "transparent", transition: "background 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>✕</button>
-              </div>
-              <textarea
-                value={aiTopic}
-                onChange={(e) => setAiTopic(e.target.value)}
-                placeholder="Describe your topic… e.g. 'The solar system and its planets'"
-                rows={2}
-                style={{ border: "1.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)", padding: "0.75rem", borderRadius: "var(--radius-xl)", fontSize: "0.875rem", fontWeight: 500, width: "100%", outline: "none", resize: "none", fontFamily: "inherit" }}
-                autoFocus
-              />
-              {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                  <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)", marginRight: "0.25rem" }}>Q:</span>
-                  {[3, 5, 8, 10].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setAiCount(n as AIQuestionCount)}
-                      className="btn btn-compact"
-                      style={{ background: aiCount === n ? "var(--accent)" : "var(--surface)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "1px solid var(--accent)" : "1px solid var(--line)", padding: "0.375rem 0.625rem", fontSize: "0.8125rem" }}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={handleAiGenerate}
-                  disabled={aiLoading || aiTopic.trim().length < 5}
-                  className="btn btn-primary btn-compact"
-                  style={{ flexShrink: 0 }}
-                >
-                  {aiLoading ? "Generating…" : "Generate ✨"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {sourceType === "paste" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
-            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-lg text-[var(--ink)]">📋 Paste Questions</h2>
-                <button onClick={() => setSourceType("manual")} style={{ width: 36, height: 36, borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", cursor: "pointer", border: "none", background: "transparent", transition: "background 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>✕</button>
-              </div>
-              <textarea
-                value={pasteText}
-                onChange={(e) => setPasteText(e.target.value)}
-                placeholder={"Question 1: What is the capital of France?\n* Paris\n- London\n- Berlin\n- Rome"}
-                rows={6}
-                style={{ border: "1.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)", padding: "0.75rem", borderRadius: "var(--radius-xl)", fontSize: "0.8125rem", fontWeight: 500, fontFamily: "monospace", width: "100%", outline: "none", resize: "none" }}
-                autoFocus
-              />
-              {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
-              <div className="flex justify-end">
-                <button onClick={handlePasteImport} className="btn btn-primary btn-compact">Import →</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {sourceType === "ai-url" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
-            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-lg text-[var(--ink)]">🔗 AI from URL</h2>
-                <button onClick={() => setSourceType("manual")} style={{ width: 36, height: 36, borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", cursor: "pointer", border: "none", background: "transparent", transition: "background 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>✕</button>
-              </div>
-              <input
-                value={aiUrl}
-                onChange={(e) => setAiUrl(e.target.value)}
-                placeholder="https://en.wikipedia.org/wiki/..."
-                style={{ border: "1.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)", padding: "0.75rem", borderRadius: "var(--radius-xl)", fontSize: "0.875rem", fontWeight: 500, width: "100%", outline: "none", fontFamily: "inherit" }}
-                autoFocus
-              />
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                  <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)", marginRight: "0.25rem" }}>Q:</span>
-                  {[3, 5, 8, 10].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setAiCount(n as AIQuestionCount)}
-                      className="btn btn-compact"
-                      style={{ background: aiCount === n ? "var(--accent)" : "var(--surface)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "1px solid var(--accent)" : "1px solid var(--line)", padding: "0.375rem 0.75rem", fontSize: "0.8125rem" }}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <button onClick={handleUrlFetch} disabled={aiLoading || !aiUrl.trim()} className="btn btn-primary btn-compact" style={{ flexShrink: 0 }}>
-                  {aiLoading ? "Fetching…" : "Fetch & Generate ✨"}
-                </button>
-              </div>
-              {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
-            </div>
-          </div>
-        )}
-
-        {sourceType === "ai-document" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
-            <div className="card-elevated" style={{ width: "100%", maxWidth: "32rem", margin: "0 1rem", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-lg text-[var(--ink)]">📄 AI from Document</h2>
-                <button onClick={() => setSourceType("manual")} style={{ width: 36, height: 36, borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", cursor: "pointer", border: "none", background: "transparent", transition: "background 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>✕</button>
-              </div>
-              <p className="text-sm text-[var(--muted)]">Paste your document text below and AI will generate quiz questions from it.</p>
-              <textarea
-                value={aiTopic}
-                onChange={(e) => setAiTopic(e.target.value)}
-                placeholder="Paste document content here…"
-                rows={6}
-                className="w-full rounded-xl p-3 text-sm font-medium text-[var(--ink)] outline-none resize-none"
-                style={{ border: "1.5px solid var(--line)", background: "var(--surface)" }}
-                autoFocus
-              />
-              {aiError && <p className="text-sm font-semibold text-red-500">{aiError}</p>}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                  <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)", marginRight: "0.25rem" }}>Q:</span>
-                  {[3, 5, 8, 10].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setAiCount(n as AIQuestionCount)}
-                      className="btn btn-compact"
-                      style={{ background: aiCount === n ? "var(--accent)" : "var(--surface)", color: aiCount === n ? "#fff" : "var(--ink)", border: aiCount === n ? "1px solid var(--accent)" : "1px solid var(--line)", padding: "0.375rem 0.75rem", fontSize: "0.8125rem" }}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <button onClick={handleAiGenerate} disabled={aiLoading || aiTopic.trim().length < 20} className="btn btn-primary btn-compact" style={{ flexShrink: 0 }}>
-                  {aiLoading ? "Generating…" : "Generate ✨"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <CreateSourceModals
+          sourceType={sourceType}
+          aiTopic={aiTopic}
+          aiUrl={aiUrl}
+          pasteText={pasteText}
+          aiCount={aiCount}
+          aiLoading={aiLoading}
+          aiError={aiError}
+          onClose={() => setSourceType("manual")}
+          onAiTopicChange={setAiTopic}
+          onAiUrlChange={setAiUrl}
+          onPasteTextChange={setPasteText}
+          onAiCountChange={setAiCount}
+          onAiGenerate={() => void handleAiGenerate()}
+          onPasteImport={handlePasteImport}
+          onUrlFetch={() => void handleUrlFetch()}
+        />
       </div>
     );
   }
 
   // Builder step
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col">
-      {showConfetti && <Confetti />}
-      {/* Toolbar */}
-      <BuilderToolbar
-        title={quizTitle}
-        category={quizCategory}
-        emoji={quizEmoji}
-        isPublic={isPublic}
-        questionCount={questions.length}
-        readyCount={readyCount}
-        draftState={draftState}
-        canPublish={canPublish}
-        onTitleChange={(v) => { setQuizTitle(v); setDraftState("dirty"); }}
-        onCategoryChange={(v) => { setQuizCategory(v); setDraftState("dirty"); }}
-        onEmojiChange={(v) => { setQuizEmoji(v); setDraftState("dirty"); }}
-        onPublicChange={(v) => { setIsPublic(v); setDraftState("dirty"); }}
-        onSaveDraft={() => void saveDraftToSupabase("manual")}
-        onPreview={() => setShowPreview(!showPreview)}
-        onPublish={handlePublish}
-        onBack={() => setStep("source")}
-        isEditing={Boolean(editingQuizId)}
-        isSignedIn={Boolean(user)}
-      />
-
-      {/* Main content: sidebar + editor */}
-      <div className="flex-1 flex">
-        {/* Left sidebar — hidden on mobile, visible on desktop */}
-        <div
-          className="card sidebar-desktop"
-          style={{ width: 260, flexShrink: 0, borderRadius: 0, borderRight: "1px solid var(--line)", borderLeft: "none", borderTop: "none", borderBottom: "none", flexDirection: "column" }}
-        >
-          <QuestionSidebar
-            questions={questions}
-            activeIndex={activeIndex}
-            onSelect={setActiveIndex}
-            onReorder={reorderQuestions}
-            onAdd={addQuestion}
-            onDelete={deleteQuestion}
-            onDuplicate={duplicateQuestion}
-          />
-        </div>
-        {/* Mobile sidebar toggle */}
-        <div className="md:hidden fixed bottom-4 left-4 z-40">
-          <button
-            onClick={addQuestion}
-            className="btn btn-primary"
-            style={{ width: "3rem", height: "3rem", borderRadius: "50%", padding: 0 }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Main editor */}
-        <div className="flex-1 overflow-y-auto" style={{ padding: "1rem 1.5rem", background: "var(--bg)" }}>
-          {/* Live Preview Modal (#3) */}
-          {showPreview && activeQuestion && (
-            <LivePreview
-              question={activeQuestion}
-              index={activeIndex}
-              total={questions.length}
-              onClose={() => setShowPreview(false)}
-            />
-          )}
-          {activeQuestion ? (
-            /* Question editor */
-            <div className="max-w-3xl mx-auto" style={{ padding: "0.5rem 0" }}>
-              <QuestionCard
-                question={activeQuestion}
-                index={activeIndex}
-                total={questions.length}
-                onChange={(q) => updateQuestion(activeIndex, q)}
-                onDelete={() => deleteQuestion(activeIndex)}
-                onDuplicate={() => duplicateQuestion(activeIndex)}
-              />
-
-              {/* Navigation */}
-              <div className="flex items-center justify-between mt-3">
-                <button
-                  onClick={() => setActiveIndex((i) => Math.max(i - 1, 0))}
-                  disabled={activeIndex === 0}
-                  className="btn btn-secondary btn-sm disabled:opacity-40"
-                >
-                  ← Previous
-                </button>
-                <span className="text-xs font-bold text-[var(--muted)]">
-                  {activeIndex + 1} / {questions.length}
-                </span>
-                <button
-                  onClick={() => {
-                    if (activeIndex < questions.length - 1) {
-                      setActiveIndex(activeIndex + 1);
-                    } else {
-                      addQuestion();
-                    }
-                  }}
-                  className="btn btn-primary btn-sm"
-                >
-                  {activeIndex < questions.length - 1 ? "Next →" : "+ Add Question"}
-                </button>
-              </div>
-
-              {/* Quick add buttons */}
-              <div className="flex items-center gap-2 mt-2 justify-center">
-                <button
-                  onClick={addQuestion}
-                  className="btn btn-sm btn-ghost"
-                  style={{ border: "1px solid var(--line)" }}
-                >
-                  + Multiple Choice
-                </button>
-                <button
-                  onClick={addTrueFalse}
-                  className="btn btn-sm btn-ghost"
-                  style={{ border: "1px solid var(--line)" }}
-                >
-                  + True/False
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-[var(--muted)]">Add a question to get started</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <BuilderWorkspace
+      title={quizTitle}
+      category={quizCategory}
+      emoji={quizEmoji}
+      isPublic={isPublic}
+      questions={questions}
+      activeIndex={activeIndex}
+      readyCount={readyCount}
+      draftState={draftState}
+      canPublish={canPublish}
+      showPreview={showPreview}
+      showConfetti={showConfetti}
+      isEditing={Boolean(editingQuizId)}
+      isSignedIn={Boolean(user)}
+      onTitleChange={(value) => { setQuizTitle(value); setDraftState("dirty"); }}
+      onCategoryChange={(value) => { setQuizCategory(value); setDraftState("dirty"); }}
+      onEmojiChange={(value) => { setQuizEmoji(value); setDraftState("dirty"); }}
+      onPublicChange={(value) => { setIsPublic(value); setDraftState("dirty"); }}
+      onSaveDraft={() => void saveDraftToSupabase("manual")}
+      onPreview={() => setShowPreview((value) => !value)}
+      onPublish={() => void handlePublish()}
+      onBack={() => setStep("source")}
+      onSelectQuestion={setActiveIndex}
+      onReorderQuestions={reorderQuestions}
+      onAddQuestion={addQuestion}
+      onAddTrueFalse={addTrueFalse}
+      onUpdateQuestion={updateQuestion}
+      onDeleteQuestion={deleteQuestion}
+      onDuplicateQuestion={duplicateQuestion}
+    />
   );
 }
 

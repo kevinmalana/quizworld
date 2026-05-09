@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "../styles/game.css";
 import "../styles/present.css";
+import "../styles/builder.css";
+import "../styles/study.css";
 import { Navigation } from "@/components/navigation";
 import { AuthProvider } from "@/components/supabase-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
