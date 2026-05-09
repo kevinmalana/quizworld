@@ -32,7 +32,7 @@ cp .env.example .env.local
 #
 # 5. Run dev server
 npm run dev          # Next.js on http://localhost:3000
-cd lib/quizworld_realtime && mix phx.server  # Phoenix on http://localhost:4000
+cd services/quizworld_realtime && mix phx.server  # Phoenix realtime service
 ```
 
 ### Environment Variables (.env.local)

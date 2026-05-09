@@ -359,41 +359,38 @@ export default function PresentationLive() {
   const responseCount = allResponses.length;
   const shouldShowResults = !isHost || !resultsHidden;
 
-  const dockButtonStyle = { padding: "0.7rem 0.95rem", fontSize: "0.82rem", fontWeight: 800, borderRadius: "999px", border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.1)", color: "#fff", cursor: "pointer", boxShadow: "0 12px 30px rgba(15,23,42,0.12)" };
-  const dockPrimaryButtonStyle = { ...dockButtonStyle, border: "none", background: "linear-gradient(135deg, var(--accent), #a78bfa)" };
-
   return (
     <div className="present-live-shell" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: isHost ? "radial-gradient(circle at top left, #f5f3ff 0, #ffffff 36%, #f8fafc 100%)" : undefined }}>
       {/* Presenter status rail */}
       {isHost && (
-        <div className="present-live-status-rail" style={{ position: "fixed", top: 14, left: 14, right: 14, zIndex: 20, display: "flex", alignItems: "center", gap: "0.75rem", pointerEvents: "none" }}>
-          <div style={{ pointerEvents: "auto", display: "flex", alignItems: "center", gap: "0.55rem", padding: "0.55rem 0.8rem", borderRadius: "999px", background: "rgba(15,23,42,0.78)", color: "#fff", backdropFilter: "blur(14px)", boxShadow: "0 18px 50px rgba(15,23,42,0.18)" }}>
-            <span style={{ width: 9, height: 9, borderRadius: "999px", background: channelJoined ? "#22c55e" : "#f97316", boxShadow: channelJoined ? "0 0 0 4px rgba(34,197,94,0.18)" : "0 0 0 4px rgba(249,115,22,0.18)" }} />
-            <span style={{ fontSize: "0.76rem", fontWeight: 900 }}>{currentIndex + 1}/{slides.length}</span>
-            <span style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.75)", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
+        <div className="present-live-status-rail">
+          <div className="present-live-status-pill">
+            <span className={channelJoined ? "present-live-status-dot is-connected" : "present-live-status-dot"} />
+            <span className="present-live-status-count">{currentIndex + 1}/{slides.length}</span>
+            <span className="present-live-status-title">{title}</span>
           </div>
           {joinCode && (
-            <button onClick={() => setShowJoinOverlay(true)} style={{ pointerEvents: "auto", padding: "0.55rem 0.85rem", borderRadius: "999px", border: "1px solid rgba(124,58,237,0.18)", background: "rgba(255,255,255,0.92)", color: "var(--accent)", fontSize: "0.78rem", fontWeight: 900, cursor: "pointer", boxShadow: "0 14px 40px rgba(15,23,42,0.12)" }}>Join: {joinCode}</button>
+            <button className="present-live-join-chip" onClick={() => setShowJoinOverlay(true)}>Join: {joinCode}</button>
           )}
-          <div style={{ flex: 1 }} />
-          <div style={{ pointerEvents: "auto", padding: "0.55rem 0.75rem", borderRadius: "999px", background: resultsHidden ? "rgba(225,29,72,0.1)" : "rgba(5,150,105,0.1)", color: resultsHidden ? "var(--primary)" : "var(--success)", fontSize: "0.76rem", fontWeight: 900 }}>
+          <div className="present-live-status-spacer" />
+          <div className={resultsHidden ? "present-live-results-chip is-hidden" : "present-live-results-chip"}>
             {resultsHidden ? "Results hidden" : "Results visible"} · {responseCount} responses
           </div>
         </div>
       )}
 
       {isHost && showJoinOverlay && joinCode && (
-        <div className="present-join-overlay" onClick={() => setShowJoinOverlay(false)} style={{ position: "fixed", inset: 0, zIndex: 50, display: "grid", placeItems: "center", padding: "2rem", background: "rgba(15,23,42,0.72)", backdropFilter: "blur(12px)" }}>
-          <div className="present-join-overlay-card" onClick={(e) => e.stopPropagation()} style={{ width: "min(760px, 100%)", borderRadius: 36, padding: "2rem", background: "#fff", boxShadow: "0 30px 90px rgba(15,23,42,0.34)", textAlign: "center" }}>
-            <div style={{ fontSize: "0.78rem", fontWeight: 900, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "0.75rem" }}>Audience join</div>
-            <div style={{ fontSize: "clamp(2.4rem, 8vw, 5rem)", fontWeight: 950, letterSpacing: "0.18em", color: "var(--accent)", lineHeight: 1, marginBottom: "1rem" }}>{joinCode}</div>
-            <div className="present-join-overlay-body" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "2rem", flexWrap: "wrap" }}>
+        <div className="present-join-overlay" onClick={() => setShowJoinOverlay(false)}>
+          <div className="present-join-overlay-card" onClick={(e) => e.stopPropagation()}>
+            <div className="present-join-overlay-label">Audience join</div>
+            <div className="present-join-overlay-code">{joinCode}</div>
+            <div className="present-join-overlay-body">
               <QrCode value={joinUrl} size={260} label="Scan to join" className="qr-code" />
-              <div style={{ maxWidth: 360, textAlign: "left" }}>
-                <div style={{ fontSize: "1.6rem", fontWeight: 950, marginBottom: "0.5rem" }}>Scan or enter the code</div>
-                <div style={{ fontSize: "1rem", color: "var(--muted)", fontWeight: 700, marginBottom: "1rem" }}>{DISPLAY_SITE_HOST}/present/join</div>
+              <div className="present-join-overlay-copy">
+                <div className="present-join-overlay-title">Scan or enter the code</div>
+                <div className="present-join-overlay-url">{DISPLAY_SITE_HOST}/present/join</div>
                 <button onClick={() => { void navigator.clipboard?.writeText(joinUrl); }} className="btn btn-primary btn-lg">Copy invite link</button>
-                <div style={{ marginTop: "1rem", fontSize: "0.78rem", color: "var(--muted)", fontWeight: 700 }}>Shortcut: press I to show/hide this overlay</div>
+                <div className="present-join-overlay-hint">Shortcut: press I to show/hide this overlay</div>
               </div>
             </div>
           </div>
@@ -556,13 +553,13 @@ export default function PresentationLive() {
       </div>
 
       {isHost && (
-        <div className="present-host-dock" style={{ position: "fixed", left: "50%", bottom: 18, transform: "translateX(-50%)", zIndex: 30, display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.55rem", borderRadius: 999, background: "rgba(15,23,42,0.86)", backdropFilter: "blur(18px)", boxShadow: "0 24px 70px rgba(15,23,42,0.28)", maxWidth: "calc(100vw - 1.5rem)", overflowX: "auto" }}>
-          <button onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.prevSlide(); }} disabled={currentIndex === 0 || !channelJoined} style={{ ...dockButtonStyle, opacity: currentIndex === 0 || !channelJoined ? 0.45 : 1 }}>← Prev</button>
-          <button onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.nextSlide(); }} disabled={currentIndex === slides.length - 1 || !channelJoined} style={{ ...dockPrimaryButtonStyle, opacity: currentIndex === slides.length - 1 || !channelJoined ? 0.45 : 1 }}>Next →</button>
-          <button onClick={() => setShowJoinOverlay(true)} style={dockButtonStyle}>Join</button>
-          <button onClick={() => setResultsHidden((v) => !v)} style={dockButtonStyle}>{resultsHidden ? "Reveal" : "Hide"}</button>
-          <button onClick={toggleFullscreen} style={dockButtonStyle}>{isFullscreen ? "Exit" : "Fullscreen"}</button>
-          <button onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.endPresentation(); }} disabled={!channelJoined} style={{ ...dockButtonStyle, color: "#fecdd3", opacity: !channelJoined ? 0.45 : 1 }}>End</button>
+        <div className="present-host-dock">
+          <button className="present-dock-button" onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.prevSlide(); }} disabled={currentIndex === 0 || !channelJoined}>← Prev</button>
+          <button className="present-dock-button is-primary" onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.nextSlide(); }} disabled={currentIndex === slides.length - 1 || !channelJoined}>Next →</button>
+          <button className="present-dock-button" onClick={() => setShowJoinOverlay(true)}>Join</button>
+          <button className="present-dock-button" onClick={() => setResultsHidden((v) => !v)}>{resultsHidden ? "Reveal" : "Hide"}</button>
+          <button className="present-dock-button" onClick={toggleFullscreen}>{isFullscreen ? "Exit" : "Fullscreen"}</button>
+          <button className="present-dock-button is-danger" onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.endPresentation(); }} disabled={!channelJoined}>End</button>
         </div>
       )}
 
