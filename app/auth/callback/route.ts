@@ -26,12 +26,16 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      return response;
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      console.error("Auth callback error:", error.message, error.status);
+      return NextResponse.redirect(
+        `${origin}/login#error=${encodeURIComponent(error.message)}`
+      );
     }
+
+    return response;
   }
 
-  // If no code or error, redirect to login
   return NextResponse.redirect(`${origin}/login`);
 }
