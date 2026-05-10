@@ -1544,3 +1544,25 @@ body.qw-present-live-route main {
   height: 1px;
   background: var(--line);
 }
+
+/* Nav notification dot */
+.nav-profile-btn {
+  position: relative;
+}
+
+.nav-notification-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 1.5px solid #fff;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.8; }
+}

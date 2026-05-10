@@ -257,3 +257,9 @@
 .explore-quiz-action-host {
   flex: 1;
 }
+
+.explore-quiz-creator-handle {
+  color: var(--faint);
+  font-weight: 500;
+  font-size: 0.75rem;
+}

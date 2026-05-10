@@ -5,11 +5,13 @@ import { ShareStudyLinkButton } from "@/components/shared/share-study-link-butto
 export type QuizWithCreator = Quiz & {
   creator_name?: string;
   creator_display_name?: string;
+  creator_username?: string;
   creator_avatar?: string;
 };
 
 export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
   const displayName = quiz.creator_display_name || quiz.creator_name || null;
+  const username = quiz.creator_username || null;
   const avatar = quiz.creator_avatar || "👤";
 
   return (
@@ -26,7 +28,8 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
       <div className="explore-quiz-creator">
         <span className="explore-quiz-creator-avatar">{avatar}</span>
         <span className="explore-quiz-creator-name">
-          {displayName ? (displayName.length > 24 ? displayName.slice(0, 24) + "…" : displayName) : "Anonymous"}
+          {displayName || "Anonymous"}
+          {username && <span className="explore-quiz-creator-handle"> @{username}</span>}
         </span>
       </div>
 

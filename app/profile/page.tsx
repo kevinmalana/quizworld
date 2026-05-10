@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/components/supabase-provider";
 import { supabase } from "@/lib/supabase/client";
 import {
@@ -30,9 +30,12 @@ export default function ProfilePage() {
   const [tab, setTab] = useState<Tab>("overview");
   const [stats, setStats] = useState<ProfileStats>({ quizCount: 0, totalPlays: 0, studiedCount: 0, hostedGames: 0, playersReached: 0, bestHostedScore: 0 });
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
+  const [originalUsername, setOriginalUsername] = useState("");
   const [avatar, setAvatar] = useState("👤");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [passwordMsg, setPasswordMsg] = useState("");
 
@@ -45,7 +48,7 @@ export default function ProfilePage() {
         supabase.from("quizzes").select("plays").eq("creator_id", userId).is("archived_at", null),
         supabase.from("study_progress").select("quiz_id").eq("user_id", userId),
         supabase.from("game_results").select("id, pin, quiz_id, host_id, player_count, finished_at, results").eq("host_id", userId),
-        supabase.from("profiles").select("display_name, avatar").eq("id", userId).single(),
+        supabase.from("profiles").select("display_name, username, avatar").eq("id", userId).single(),
       ]);
       if (ignore) return;
       const hostedResults = (resResult.data as GameResultRow[] | null) ?? [];
@@ -59,6 +62,8 @@ export default function ProfilePage() {
       });
       if (profileResult.data) {
         setDisplayName(profileResult.data.display_name || "");
+        setUsername(profileResult.data.username || "");
+        setOriginalUsername(profileResult.data.username || "");
         setAvatar(profileResult.data.avatar || "👤");
       }
       setLoading(false);
@@ -71,11 +76,54 @@ export default function ProfilePage() {
     if (!user) return;
     setSaving(true);
     setSaveMsg("");
-    const { error } = await supabase
-      .from("profiles")
-      .update({ display_name: displayName.trim() || null, avatar, updated_at: new Date().toISOString() })
-      .eq("id", user.id);
-    setSaveMsg(error ? "Failed to save." : "Saved!");
+    setSaveError("");
+
+    // Validate username
+    const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+    if (cleanUsername.length < 3) {
+      setSaveError("Username must be at least 3 characters (letters, numbers, underscore).");
+      setSaving(false);
+      return;
+    }
+    if (cleanUsername.length > 20) {
+      setSaveError("Username must be 20 characters or less.");
+      setSaving(false);
+      return;
+    }
+
+    // Check username uniqueness if changed
+    if (cleanUsername !== originalUsername) {
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", cleanUsername)
+        .neq("id", user.id)
+        .maybeSingle();
+      if (existing) {
+        setSaveError("That username is already taken. Choose another.");
+        setSaving(false);
+        return;
+      }
+    }
+
+    const updates: Record<string, unknown> = {
+      display_name: displayName.trim() || null,
+      username: cleanUsername,
+      avatar,
+      updated_at: new Date().toISOString(),
+    };
+    if (cleanUsername !== originalUsername) {
+      updates.username_changed_at = new Date().toISOString();
+    }
+
+    const { error } = await supabase.from("profiles").update(updates).eq("id", user.id);
+    if (error) {
+      setSaveError(error.message.includes("unique") ? "That username is already taken." : "Failed to save.");
+    } else {
+      setSaveMsg("Saved!");
+      setOriginalUsername(cleanUsername);
+      setUsername(cleanUsername);
+    }
     setSaving(false);
   }
 
@@ -116,8 +164,8 @@ export default function ProfilePage() {
             <div className="profile-hero-badge">✦</div>
           </div>
           <div className="profile-hero-info">
-            <h1 className="font-display profile-hero-name">{displayName || user.email?.split("@")[0] || "Player"}</h1>
-            <p className="profile-hero-email">{user.email}</p>
+            <h1 className="font-display profile-hero-name">{displayName || "Player"}</h1>
+            <p className="profile-hero-username">@{username || "not set"}</p>
             <div className="profile-hero-stats">
               <span className="profile-hero-stat">{stats.quizCount} quizzes</span>
               <span className="profile-hero-divider">·</span>
@@ -147,15 +195,27 @@ export default function ProfilePage() {
         {/* Overview Tab */}
         {tab === "overview" && (
           <div className="profile-overview">
-            <div className="profile-stats-grid">
-              {statItems.map(s => (
-                <div key={s.label} className="card profile-stat-card">
-                  <div className="profile-stat-icon" style={{ color: s.color }}>{s.icon}</div>
-                  <div className="profile-stat-value" style={{ color: s.color }}>{s.value}</div>
-                  <div className="profile-stat-label">{s.label}</div>
+            {stats.quizCount > 0 || stats.totalPlays > 0 ? (
+              <div className="profile-stats-grid">
+                {statItems.map(s => (
+                  <div key={s.label} className="card profile-stat-card">
+                    <div className="profile-stat-icon" style={{ color: s.color }}>{s.icon}</div>
+                    <div className="profile-stat-value" style={{ color: s.color }}>{s.value}</div>
+                    <div className="profile-stat-label">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="card" style={{ padding: "2rem", textAlign: "center", marginBottom: "2rem" }}>
+                <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🚀</div>
+                <h3 style={{ fontWeight: 800, marginBottom: "0.5rem" }}>Get Started</h3>
+                <p className="text-muted" style={{ marginBottom: "1rem" }}>Create your first quiz or explore what others have made.</p>
+                <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center" }}>
+                  <Link href="/create" className="btn btn-primary">Create Quiz</Link>
+                  <Link href="/explore" className="btn btn-secondary">Explore</Link>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
 
             <div className="profile-quick-links">
               <h3 className="profile-section-title">Quick Actions</h3>
@@ -201,7 +261,7 @@ export default function ProfilePage() {
                 <div className="profile-edit-avatar-preview">{avatar}</div>
                 <div>
                   <div className="profile-edit-name-preview">{displayName || "Your Name"}</div>
-                  <div className="profile-edit-email-preview">{user.email}</div>
+                  <div className="profile-edit-email-preview">@{username || "username"}</div>
                 </div>
               </div>
 
@@ -219,6 +279,21 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="profile-field">
+                  <label className="profile-field-label">Username</label>
+                  <div className="profile-username-input-wrap">
+                    <span className="profile-username-prefix">@</span>
+                    <input
+                      value={username}
+                      onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+                      placeholder="yourname"
+                      className="profile-field-input profile-username-input"
+                      maxLength={20}
+                    />
+                  </div>
+                  <p className="profile-field-hint">Unique handle for your profile. Letters, numbers, underscore only.</p>
+                </div>
+
+                <div className="profile-field">
                   <label className="profile-field-label">Avatar</label>
                   <div className="profile-avatar-grid">
                     {AVATARS.map(a => (
@@ -231,11 +306,8 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {saveMsg && (
-                  <div className={saveMsg === "Saved!" ? "profile-msg profile-msg--success" : "profile-msg profile-msg--error"}>
-                    {saveMsg}
-                  </div>
-                )}
+                {saveError && <div className="profile-msg profile-msg--error">{saveError}</div>}
+                {saveMsg && <div className="profile-msg profile-msg--success">{saveMsg}</div>}
 
                 <button onClick={handleSaveProfile} disabled={saving} className="btn btn-primary btn-full profile-save-btn">
                   {saving ? "Saving..." : "Save Changes"}
