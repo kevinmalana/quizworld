@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
+import { HostIcon } from "@/components/shared/host-icon";
 import { createPhoenixSession } from "@/lib/game-engine/client";
 import {
   isPhoenixGameEngine,
@@ -212,7 +213,7 @@ function HostPageContent() {
 
   return (
     <div className="container host-shell">
-      <h1 className="font-display host-title">🏁 Host a Game</h1>
+      <h1 className="font-display host-title"><HostIcon size={28} /> Host a Game</h1>
       <p className="host-subtitle">Pick a quiz and launch the live lobby.</p>
 
       <div className="host-section">

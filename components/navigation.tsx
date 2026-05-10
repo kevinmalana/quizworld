@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { HostIcon } from "@/components/shared/host-icon";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/supabase-provider";
 import { supabase } from "@/lib/supabase/client";
@@ -128,7 +129,7 @@ export function Navigation() {
               <Link href="/study" className="mobile-link">📖 Study</Link>
               <Link href="/present" className="mobile-link">🎤 Present</Link>
               <Link href="/create" className="mobile-link">✨ Create</Link>
-              <Link href="/host" className="mobile-link">🏁 Host</Link>
+              <Link href="/host" className="mobile-link"><span style={{display:"inline-flex",alignItems:"center",gap:"0.4rem"}}><HostIcon size={16} /> Host</span></Link>
               {user ? (
                 <>
                   <Link href="/profile" className="mobile-link">👤 Profile{needsProfile && " ⚠️"}</Link>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CATEGORY_EMOJIS, type Quiz } from "@/lib/store";
 import { ShareStudyLinkButton } from "@/components/shared/share-study-link-button";
+import { HostIcon } from "@/components/shared/host-icon";
 
 export type QuizWithCreator = Quiz & {
   creator_name?: string;
@@ -46,7 +47,7 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
 
       <div className="explore-quiz-actions">
         <Link href={`/host?quiz=${quiz.id}`} className="btn btn-primary btn-compact explore-quiz-action-host">
-          🏁 Host
+          <HostIcon size={14} /> Host
         </Link>
         <Link href={`/study/${quiz.id}`} className="btn btn-secondary btn-compact">
           📖 Study

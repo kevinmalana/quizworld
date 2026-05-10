@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/supabase-provider";
 import { supabase } from "@/lib/supabase/client";
+import { HostIcon } from "@/components/shared/host-icon";
 import {
   type GameResultRow,
   getBestHostedScore,
@@ -234,7 +235,7 @@ export default function ProfilePage() {
                   </div>
                 </Link>
                 <Link href="/host" className="card profile-link-card">
-                  <span className="profile-link-icon">🏁</span>
+                  <span className="profile-link-icon"><HostIcon size={20} /></span>
                   <div>
                     <div className="profile-link-title">Host a Game</div>
                     <div className="profile-link-desc">Start a live quiz session</div>
