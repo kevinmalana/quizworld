@@ -5,7 +5,6 @@ import { Suspense, useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
-import { PageHero } from "@/components/page-hero";
 import { SectionCard } from "@/components/section-card";
 
 import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/store";
@@ -22,20 +21,6 @@ const SORT_OPTIONS: { value: SortMode; label: string; icon: string }[] = [
   { value: "za", label: "Z → A", icon: "🔤" },
 ];
 
-function getTimeOfDayLabel() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-}
-
-function getTimeBasedAccent() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "linear-gradient(135deg, #f59e0b 0%, #2563eb 100%)";
-  if (hour < 17) return "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)";
-  return "linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)";
-}
-
 function ExplorePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,8 +34,6 @@ function ExplorePageContent() {
   const [sortMode, setSortMode] = useState<SortMode>("popular");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [quickPlayLoading, setQuickPlayLoading] = useState(false);
-  const [quickPlayError, setQuickPlayError] = useState<string | null>(null);
 
   useEffect(() => {
     if (categoryParam && CATEGORY_LIST.includes(categoryParam)) {
@@ -104,94 +87,6 @@ function ExplorePageContent() {
     fetchQuizzes();
   }, []);
 
-  async function handleQuickPlay() {
-    if (!user) {
-      sessionStorage.setItem("qw_post_login_redirect", "/host");
-      router.push("/login");
-      return;
-    }
-
-    if (quizzes.length === 0) {
-      setQuickPlayError("No public quizzes available to play right now.");
-      return;
-    }
-
-    setQuickPlayLoading(true);
-    setQuickPlayError(null);
-
-    try {
-      const weights = quizzes.map((q) => Math.max(1, Math.floor(Math.log(q.plays + 1) * 2)));
-      const totalWeight = weights.reduce((a, b) => a + b, 0);
-      let r = Math.floor(Math.random() * totalWeight);
-      let quizIndex = 0;
-      for (let i = 0; i < weights.length; i++) {
-        r -= weights[i];
-        if (r < 0) { quizIndex = i; break; }
-      }
-      const randomQuiz = quizzes[quizIndex];
-
-      const { data: fullQuiz, error: quizError } = await supabase
-        .from("quizzes")
-        .select("*, questions(*, answers(*))")
-        .eq("id", randomQuiz.id)
-        .single();
-
-      if (quizError || !fullQuiz) {
-        throw quizError ?? new Error("Could not load the selected quiz.");
-      }
-
-      const {
-        data: { session: authSession },
-      } = await supabase.auth.getSession();
-
-      if (!authSession?.access_token) {
-        throw new Error("Sign in again before hosting a game.");
-      }
-
-      const { createPhoenixSession } = await import("@/lib/game-engine/client");
-
-      const questions = [...(fullQuiz.questions ?? [])].sort(
-        (l, r) => (l.order_index ?? 0) - (r.order_index ?? 0)
-      );
-
-      const response = await createPhoenixSession(
-        {
-          quiz_id: fullQuiz.id,
-          game_mode: "classic",
-          questions: questions.map((q: any) => ({
-            id: q.id,
-            text: q.text,
-            time_limit: q.time_limit ?? 20,
-            points: q.points ?? 1000,
-            order_index: q.order_index ?? 0,
-            answers: (q.answers ?? []).map((a: any) => ({
-              id: a.id,
-              text: a.text,
-              is_correct: a.is_correct ?? false,
-            })),
-          })),
-        },
-        authSession.access_token
-      );
-
-      if (!response?.host_token || !response?.session?.pin) {
-        throw new Error("Failed to create the game session.");
-      }
-
-      const { writeHostSession } = await import("@/lib/host-session");
-      writeHostSession(response.session.pin, {
-        hostId: user.id,
-        hostToken: response.host_token,
-      });
-
-      router.push(`/game/${response.session.pin}`);
-    } catch (err) {
-      console.error("Quick Play error:", err);
-      setQuickPlayError(err instanceof Error ? err.message : "Something went wrong. Try again.");
-      setQuickPlayLoading(false);
-    }
-  }
-
   const hasActiveFilter = activeCategory !== "All" || search.trim().length > 0;
 
   const filtered = useMemo(() => {
@@ -234,41 +129,31 @@ function ExplorePageContent() {
   return (
     <div className="explore-page">
       <div className="mesh-gradient">
-        <div className="mesh-blob mesh-blob-1 mesh-blob-dim" />
+        <div className="mesh-blob mesh-blob-1" />
+        <div className="mesh-blob mesh-blob-2" />
       </div>
 
       <div className="container explore-container">
-        <PageHero
-          eyebrow={getTimeOfDayLabel()}
-          title="Discover Quizzes"
-          description="Search public quiz sets, jump into host mode, or study a topic at your own pace."
-          accent={getTimeBasedAccent()}
-          actions={
-            <div className="explore-hero-actions">
-              <button
-                onClick={() => void handleQuickPlay()}
-                disabled={quickPlayLoading || loading}
-                className="btn btn-primary explore-quick-play"
-              >
-                <span className="explore-quick-play-icon">⚡</span>
-                <span>{quickPlayLoading ? "Finding Quiz..." : "Quick Play"}</span>
-              </button>
-              <Link href="/create" className="btn btn-primary btn-create">
-                Create Quiz
-              </Link>
-              <Link href="/join" className="btn btn-secondary btn-join">
-                Join Game
-              </Link>
-            </div>
-          }
-        />
-
-        {quickPlayError && (
-          <div className="card explore-error-banner">
-            {quickPlayError}
-            <button onClick={() => setQuickPlayError(null)} className="explore-error-close">✕</button>
+        {/* Hero section matching homepage style */}
+        <section className="home-hero animate-pop-in">
+          <div className="tag tag-success mb-md">
+            <span className="home-tag-dot" />
+            Live Multiplayer
           </div>
-        )}
+
+          <h1 className="font-display home-hero-title">
+            Discover Quizzes
+          </h1>
+
+          <p className="home-hero-desc">
+            Search public quiz sets, jump into host mode, or study a topic at your own pace.
+          </p>
+
+          <div className="home-hero-actions">
+            <Link href="/create" className="btn btn-primary btn-lg">Create a Quiz</Link>
+            <Link href="/host" className="btn btn-secondary btn-lg">Host a Game</Link>
+          </div>
+        </section>
 
         <SectionCard
           title="Search And Filter"
