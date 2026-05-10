@@ -234,7 +234,7 @@ function ExplorePageContent() {
   return (
     <div className="explore-page">
       <div className="mesh-gradient">
-        <div className="mesh-blob mesh-blob-1" style={{ opacity: 0.5 }} />
+        <div className="mesh-blob mesh-blob-1 mesh-blob-dim" />
       </div>
 
       <div className="container explore-container">
@@ -274,7 +274,7 @@ function ExplorePageContent() {
           title="Search And Filter"
           description="Use category chips and keyword search to narrow the public catalog."
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div className="explore-filter-col">
             <div className="explore-search-row">
               <input
                 type="text"
@@ -318,14 +318,14 @@ function ExplorePageContent() {
         {loading ? (
           <div className="explore-status-panel explore-status-panel--loading">
             <div className="explore-status-icon">📡</div>
-            <p style={{ fontWeight: 600 }}>Loading quizzes...</p>
+            <p className="font-600">Loading quizzes...</p>
           </div>
         ) : fetchError ? (
           <div className="explore-status-panel">
             <div className="explore-status-icon">⚠️</div>
             <h3 className="font-display explore-status-title">Could not load quizzes</h3>
             <p className="explore-status-text">{fetchError}</p>
-            <button onClick={() => window.location.reload()} className="btn btn-primary" style={{ marginTop: "1.25rem" }}>
+            <button onClick={() => window.location.reload()} className="btn btn-primary mt-sm">
               Retry
             </button>
           </div>
@@ -340,8 +340,7 @@ function ExplorePageContent() {
               {(search.trim().length > 0 || activeCategory !== "All") && (
                 <button
                   onClick={() => { setSearch(""); setActiveCategory("All"); }}
-                  className="btn btn-secondary"
-                  style={{ marginTop: "1.25rem" }}
+                  className="btn btn-secondary mt-sm"
                 >
                   Clear filters
                 </button>
@@ -352,7 +351,7 @@ function ExplorePageContent() {
               <div className="explore-status-icon">📝</div>
               <h3 className="font-display explore-status-title">No public quizzes yet</h3>
               <p className="explore-status-text">Be the first to create and share a quiz!</p>
-              <Link href="/create" className="btn btn-primary" style={{ marginTop: "1.25rem", display: "inline-flex" }}>
+              <Link href="/create" className="btn btn-primary mt-sm inline-flex">
                 Create Quiz
               </Link>
             </div>
@@ -395,7 +394,7 @@ export default function ExplorePage() {
   return (
     <Suspense fallback={<div className="container explore-status-panel explore-status-panel--loading">
       <div className="explore-status-icon">📡</div>
-      <p style={{ color: "var(--muted)" }}>Loading...</p>
+      <p className="text-muted">Loading...</p>
     </div>}>
       <ExplorePageContent />
     </Suspense>

@@ -199,14 +199,13 @@ function JoinForm() {
             placeholder="Nickname"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
-            className="input-pin"
-            style={{ marginBottom: "1.5rem", textAlign: "center", fontSize: "1.25rem" }}
+            className="input-pin join-nickname-input"
             maxLength={20}
           />
 
-          <div style={{ marginBottom: "1.5rem" }}>
+          <div className="mb-md">
             <p className="join-pin-label">Pick Your Avatar</p>
-            <div className="join-pin-grid" style={{ maxWidth: 280 }}>
+            <div className="join-pin-grid">
               {AVATARS.map((a) => (
                 <button
                   key={a}
@@ -218,7 +217,7 @@ function JoinForm() {
           </div>
 
           {error && (
-            <div style={{ color: "var(--primary)", background: "var(--primary-light)", padding: "0.75rem", borderRadius: "var(--radius-lg)", marginBottom: "1rem", fontWeight: 600, fontSize: "0.875rem" }}>
+            <div className="error-message">
               {error}
             </div>
           )}
@@ -238,7 +237,7 @@ function JoinForm() {
         <h2 className="font-display join-title">Join a Game</h2>
         <p className="join-subtitle">Enter the 6-character PIN</p>
 
-        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center", marginBottom: "1.5rem" }}>
+        <div className="join-pin-row">
           {digits.map((d, i) => (
             <input
               key={i}
@@ -249,15 +248,14 @@ function JoinForm() {
               value={d}
               onChange={(e) => handleDigitChange(i, e.target.value)}
               onKeyDown={(e) => handleDigitKeyDown(i, e)}
-              className="input-pin"
+              className="input-pin join-digit-input"
               aria-label={`PIN character ${i + 1}`}
-              style={{ width: 48, height: 56, padding: 0, textAlign: "center", fontSize: "1.5rem", lineHeight: "56px", fontWeight: 800, letterSpacing: 0, textTransform: "uppercase" }}
             />
           ))}
         </div>
 
         {error && (
-          <div style={{ color: "var(--primary)", background: "var(--primary-light)", padding: "0.75rem", borderRadius: "var(--radius-lg)", marginBottom: "1rem", fontWeight: 600, fontSize: "0.875rem" }}>
+          <div className="error-message">
             {error}
           </div>
         )}

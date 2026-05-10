@@ -1434,3 +1434,68 @@ body.qw-present-live-route main {
   cursor: pointer;
   font-weight: 700;
 }
+
+/* Shared utility classes */
+.error-message {
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 0.75rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.btn-full { width: 100%; }
+.mt-sm { margin-top: 1.25rem; }
+.mb-sm { margin-bottom: 1rem; }
+.mb-md { margin-bottom: 1.5rem; }
+.mb-lg { margin-bottom: 2rem; }
+.mt-lg { margin-top: 3rem; }
+
+.text-muted { color: var(--muted); }
+.text-center { text-align: center; }
+.font-700 { font-weight: 700; }
+.font-600 { font-weight: 600; }
+
+.loading-panel {
+  padding-top: 4rem;
+  text-align: center;
+}
+
+.inline { display: inline; }
+.anim-delay-1 { animation-delay: 0.1s; }
+
+.join-nickname-input {
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-size: 1.25rem;
+}
+
+.join-pin-row {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.join-digit-input {
+  width: 48px;
+  height: 56px;
+  padding: 0;
+  text-align: center;
+  font-size: 1.5rem;
+  line-height: 56px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.explore-filter-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mesh-blob-dim { opacity: 0.5; }
+.inline-flex { display: inline-flex; }

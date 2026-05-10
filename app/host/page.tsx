@@ -202,10 +202,9 @@ function HostPageContent() {
           <p className="join-subtitle">Hosting is authenticated so only the real host can control the live game.</p>
           <button
             onClick={() => { sessionStorage.setItem("qw_post_login_redirect", "/host"); router.push("/login"); }}
-            className="btn btn-primary btn-lg"
-            style={{ width: "100%", marginBottom: "0.75rem" }}
+            className="btn btn-primary btn-lg btn-full mb-sm"
           >Sign In</button>
-          <Link href="/explore" className="btn btn-secondary" style={{ width: "100%" }}>Browse Quizzes</Link>
+          <Link href="/explore" className="btn btn-secondary btn-full">Browse Quizzes</Link>
         </div>
       </div>
     );
@@ -244,7 +243,7 @@ function HostPageContent() {
       </div>
 
       {error && (
-        <div style={{ color: "var(--primary)", background: "var(--primary-light)", padding: "0.75rem", borderRadius: "var(--radius-lg)", marginBottom: "1rem" }}>
+        <div className="error-message">
           {error}
         </div>
       )}

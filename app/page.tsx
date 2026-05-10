@@ -92,14 +92,14 @@ export default function HomePage() {
         <div className="container">
           <div className="home-hero-grid">
             <div className="animate-pop-in">
-              <div className="tag tag-success" style={{ marginBottom: "1.5rem" }}>
+              <div className="tag tag-success mb-md">
                 <span className="home-tag-dot" />
                 Live Multiplayer
               </div>
 
               <h1 className="font-display home-hero-title">
                 Learning that feels like{" "}
-                <span className="text-gradient" style={{ display: "inline" }}>game night</span>
+                <span className="text-gradient inline">game night</span>
               </h1>
 
               <p className="home-hero-desc">
@@ -113,7 +113,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="animate-slide-up" style={{ animationDelay: "0.1s" }}>
+            <div className="animate-slide-up anim-delay-1">
               <div className="card-elevated home-join-card">
                 <div className="home-join-icon">🎮</div>
                 <h2 className="font-display home-join-title">Ready to play?</h2>
@@ -122,13 +122,12 @@ export default function HomePage() {
                   <input
                     type="text"
                     placeholder="Game PIN"
-                    className="input-pin"
+                    className="input-pin mb-sm"
                     value={pin}
                     onChange={(e) => setPin(e.target.value.toUpperCase())}
                     maxLength={8}
-                    style={{ marginBottom: "1rem" }}
                   />
-                  <button type="submit" className="btn btn-accent btn-lg" style={{ width: "100%" }}>Enter Game</button>
+                  <button type="submit" className="btn btn-accent btn-lg btn-full">Enter Game</button>
                 </form>
                 <p className="home-join-hint">No account needed</p>
                 <Link href="/present/join" className="home-join-present">🎤 Join a Presentation</Link>

@@ -67,12 +67,12 @@ export default function LoginPage() {
           />
 
           {error && (
-            <div style={{ color: "var(--primary)", background: "var(--primary-light)", padding: "0.75rem", borderRadius: "var(--radius-lg)", marginBottom: "1rem", fontSize: "0.875rem" }}>
+            <div className="error-message">
               {error}
             </div>
           )}
 
-          <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: "100%" }}>
+          <button type="submit" disabled={loading} className="btn btn-primary btn-full">
             {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
           </button>
         </form>

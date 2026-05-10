@@ -63,7 +63,7 @@ function StatCard({ label, value, color = "var(--accent)" }: { label: string; va
   return (
     <div className="report-stat-card">
       <div className="report-stat-label">{label}</div>
-      <div className="font-display report-stat-value" style={{ color }}>{value}</div>
+      <div className="font-display report-stat-value" style={{"--val-color": color} as React.CSSProperties}>{value}</div>
     </div>
   );
 }
@@ -101,7 +101,7 @@ function AccuracyBar({ pct }: { pct: number }) {
   return (
     <div className="report-accuracy-bar">
       <div className="report-accuracy-track">
-        <div className="report-accuracy-fill" style={{ width: `${pct}%`, background: color }} />
+        <div className="report-accuracy-fill" style={{"--fill-width": `${pct}%`, "--fill-color": color} as React.CSSProperties} />
       </div>
       <span className="report-accuracy-label">{pct}%</span>
     </div>
@@ -251,8 +251,8 @@ export default function ReportPage() {
                       <div className="report-podium-name">{p.nickname}</div>
                       <div className="report-podium-score">{p.score.toLocaleString()} pts</div>
                       {acc && <div className="report-podium-accuracy">{acc.correct}/{acc.total} correct</div>}
-                      <div className="report-podium-bar" style={{ height: heights[idx], background: idx === 0 ? "var(--accent)" : "var(--line)" }}>
-                        <span className="report-podium-bar-value" style={{ color: idx === 0 ? "#fff" : "var(--ink)" }}>{p.score.toLocaleString()}</span>
+                      <div className={idx === 0 ? "report-podium-bar is-gold" : "report-podium-bar"} style={{"--bar-height": `${heights[idx]}px`} as React.CSSProperties}>
+                        <span className={idx === 0 ? "report-podium-bar-value is-gold" : "report-podium-bar-value"}>{p.score.toLocaleString()}</span>
                       </div>
                     </div>
                   );
@@ -270,8 +270,8 @@ export default function ReportPage() {
                   const bg = d === "easy" ? "var(--success-light)" : d === "hard" ? "var(--primary-light)" : "rgba(245,158,11,0.1)";
                   const color = d === "easy" ? "var(--success)" : d === "hard" ? "var(--primary)" : "#f59e0b";
                   return (
-                    <div key={d} className="report-difficulty-item" style={{ background: bg }}>
-                      <div className="report-difficulty-count" style={{ color }}>{count}</div>
+                    <div key={d} className="report-difficulty-item" style={{"--diff-bg": bg} as React.CSSProperties}>
+                      <div className="report-difficulty-count" style={{"--diff-color": color} as React.CSSProperties}>{count}</div>
                       <div className="report-difficulty-label">{d}</div>
                     </div>
                   );
@@ -286,7 +286,7 @@ export default function ReportPage() {
         <>
           {!hasBreakdown ? (
             <div className="card report-empty-card">
-              <p style={{ color: "var(--muted)" }}>Detailed question data is not available for this game. Play a new game to see per-question analytics.</p>
+              <p className="text-muted">Detailed question data is not available for this game. Play a new game to see per-question analytics.</p>
             </div>
           ) : (
             <div className="report-question-list">
@@ -295,7 +295,7 @@ export default function ReportPage() {
                   <div className="report-question-header">
                     <div className="report-question-text">
                       <div className="report-question-index">Q{i + 1}</div>
-                      <div style={{ fontWeight: 700 }}>{q.text}</div>
+                      <div className="font-700">{q.text}</div>
                     </div>
                     <div className="report-question-badges">
                       <QualityScore q={q} />
@@ -316,7 +316,7 @@ export default function ReportPage() {
                         <span className="report-answer-text">{d.text}</span>
                         <span className="report-answer-pct">{d.percentage}%</span>
                         <div className="report-answer-bar">
-                          <div className="report-answer-bar-fill" style={{ width: `${d.percentage}%`, background: d.is_correct ? "var(--accent)" : "var(--muted)" }} />
+                          <div className={d.is_correct ? "report-answer-bar-fill is-correct" : "report-answer-bar-fill"} style={{"--fill-width": `${d.percentage}%`} as React.CSSProperties} />
                         </div>
                       </div>
                     ))}

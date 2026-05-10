@@ -332,7 +332,7 @@ function DashboardPageContent() {
         )}
 
         {versions.length > 0 && (
-          <div className={drafts.length > 0 ? "dashboard-section-gap" : undefined} style={{ marginBottom: "2rem" }}>
+          <div className={drafts.length > 0 ? "dashboard-section-gap mb-lg" : "mb-lg"}>
             <SectionCard
               title="Recent Versions"
               description="Each republish writes a version snapshot. Use these entries to reopen an earlier snapshot in the builder."
@@ -355,7 +355,7 @@ function DashboardPageContent() {
           <div className="card dashboard-empty-card">
             <div className="dashboard-empty-icon">📭</div>
             <h3 className="dashboard-empty-title">No quizzes yet</h3>
-            <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>Create your first quiz to get started</p>
+            <p className="text-muted mb-md">Create your first quiz to get started</p>
             <Link href="/create" className="btn btn-primary">Create Quiz</Link>
           </div>
         ) : (
@@ -398,7 +398,7 @@ function DashboardPageContent() {
         )}
 
         {recentGames.length > 0 && (
-          <div style={{ marginTop: "3rem" }}>
+          <div className="mt-lg">
             <SectionCard
               title="Recent Hosted Games"
               description="Quick visibility into room size and top scores from your latest live sessions."
@@ -418,7 +418,7 @@ function DashboardPageContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>Loading...</div>}>
+    <Suspense fallback={<div className="container loading-panel">Loading...</div>}>
       <DashboardPageContent />
     </Suspense>
   );

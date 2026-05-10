@@ -132,7 +132,7 @@ export default function StudyListPage() {
           <div className="study-status-icon">⚠️</div>
           <h3 className="font-display study-empty-title">Could not load study sets</h3>
           <p className="study-empty-text">{quizError}</p>
-          <button onClick={() => window.location.reload()} className="btn btn-primary" style={{ marginTop: "1.25rem" }}>
+          <button onClick={() => window.location.reload()} className="btn btn-primary mt-sm">
             Retry
           </button>
         </div>
@@ -210,7 +210,7 @@ export default function StudyListPage() {
               <>
                 <h3 className="font-display study-empty-title">All caught up!</h3>
                 <p className="study-empty-text">You've studied everything available. Create a quiz to add more.</p>
-                <Link href="/create" className="btn btn-primary" style={{ marginTop: "1.25rem", display: "inline-flex" }}>
+                <Link href="/create" className="btn btn-primary mt-sm inline-flex">
                   Create Quiz
                 </Link>
               </>

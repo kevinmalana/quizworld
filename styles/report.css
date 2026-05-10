@@ -76,6 +76,7 @@
 .report-stat-value {
   font-size: 1.75rem;
   font-weight: 900;
+  color: var(--val-color, var(--accent));
 }
 
 /* Stats grid */
@@ -134,17 +135,28 @@
 
 .report-podium-bar {
   width: 70px;
+  height: var(--bar-height, 80px);
   border-radius: 8px 8px 0 0;
   margin-top: 0.5rem;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   padding: 0.4rem;
+  background: var(--line);
+}
+
+.report-podium-bar.is-gold {
+  background: var(--accent);
 }
 
 .report-podium-bar-value {
   font-weight: 900;
   font-size: 0.75rem;
+  color: var(--ink);
+}
+
+.report-podium-bar-value.is-gold {
+  color: #fff;
 }
 
 /* Difficulty section */
@@ -169,11 +181,13 @@
   padding: 0.75rem;
   border-radius: var(--radius-lg);
   text-align: center;
+  background: var(--diff-bg, var(--bg-subtle));
 }
 
 .report-difficulty-count {
   font-size: 1.5rem;
   font-weight: 900;
+  color: var(--diff-color, var(--ink));
 }
 
 .report-difficulty-label {
@@ -241,6 +255,8 @@
   height: 100%;
   border-radius: 4px;
   transition: width 0.5s;
+  width: var(--fill-width, 0%);
+  background: var(--fill-color, var(--muted));
 }
 
 .report-accuracy-label {
@@ -350,6 +366,12 @@
 .report-answer-bar-fill {
   height: 100%;
   border-radius: 3px;
+  width: var(--fill-width, 0%);
+  background: var(--muted);
+}
+
+.report-answer-bar-fill.is-correct {
+  background: var(--accent);
 }
 
 .report-correct-label {
