@@ -41,9 +41,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ minHeight: "calc(100vh - 72px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-      <div className="card" style={{ padding: "2rem", width: "100%", maxWidth: 400 }}>
-        <h1 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, textAlign: "center", marginBottom: "2rem" }}>
+    <div className="login-shell">
+      <div className="card login-card">
+        <h1 className="font-display login-title">
           {isSignUp ? "Create Account" : "Welcome Back"}
         </h1>
 
@@ -53,8 +53,7 @@ export default function LoginPage() {
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="input"
-            style={{ width: "100%", marginBottom: "1rem" }}
+            className="input login-input"
             required
           />
           <input
@@ -62,8 +61,7 @@ export default function LoginPage() {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="input"
-            style={{ width: "100%", marginBottom: "1rem" }}
+            className="input login-input"
             required
             minLength={6}
           />
@@ -79,9 +77,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p style={{ textAlign: "center", marginTop: "1.5rem", color: "var(--muted)", fontSize: "0.875rem" }}>
+        <p className="login-toggle">
           {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button onClick={() => setIsSignUp(!isSignUp)} style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>
+          <button onClick={() => setIsSignUp(!isSignUp)} className="login-toggle-btn">
             {isSignUp ? "Sign In" : "Sign Up"}
           </button>
         </p>
