@@ -58,24 +58,28 @@ function ExplorePageContent() {
         setFetchError("Could not load the quiz catalog. Please try again in a moment.");
       } else if (data && data.length > 0) {
         const creatorIds = [...new Set(data.map((q: any) => q.creator_id).filter(Boolean))];
-        let creatorMap: Record<string, string> = {};
+        let creatorMap: Record<string, { name: string; avatar: string }> = {};
 
         if (creatorIds.length > 0) {
           const { data: profiles } = await supabase
             .from("profiles")
-            .select("id, username")
+            .select("id, username, display_name, avatar")
             .in("id", creatorIds);
           if (profiles) {
-            creatorMap = profiles.reduce((acc: Record<string, string>, p: any) => {
-              if (p.username) acc[p.id] = p.username;
-              return acc;
-            }, {});
+            for (const p of profiles) {
+              creatorMap[p.id] = {
+                name: p.display_name || p.username || "",
+                avatar: p.avatar || "👤",
+              };
+            }
           }
         }
 
         const quizzesWithCreator = data.map((q: any) => ({
           ...q,
-          creator_name: creatorMap[q.creator_id] ?? undefined,
+          creator_name: creatorMap[q.creator_id]?.name ?? undefined,
+          creator_display_name: creatorMap[q.creator_id]?.name ?? undefined,
+          creator_avatar: creatorMap[q.creator_id]?.avatar ?? undefined,
         }));
         setQuizzes(quizzesWithCreator as QuizWithCreator[]);
       } else {

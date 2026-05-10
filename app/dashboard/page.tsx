@@ -44,6 +44,7 @@ function DashboardPageContent() {
   const [actioningVersionId, setActioningVersionId] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState("");
   const [actionError, setActionError] = useState("");
+  const [showNameBanner, setShowNameBanner] = useState(false);
   const createdQuizId = searchParams.get("created");
   const updatedQuizId = searchParams.get("updated");
   const updatedVersion = searchParams.get("version");
@@ -64,6 +65,7 @@ function DashboardPageContent() {
         { data: draftRows, error: draftError },
         { data: versionRows, error: versionError },
         { data: resultRows, error: resultError },
+        { data: profileData },
       ] =
         await Promise.all([
           supabase
@@ -87,6 +89,11 @@ function DashboardPageContent() {
             .eq("host_id", userId)
             .order("finished_at", { ascending: false })
             .limit(20),
+          supabase
+            .from("profiles")
+            .select("display_name")
+            .eq("id", userId)
+            .single(),
         ]);
 
       if (ignore) return;
@@ -115,6 +122,7 @@ function DashboardPageContent() {
       } else {
         setGameResults((resultRows as GameResultRow[]) ?? []);
       }
+      setShowNameBanner(!profileData?.display_name);
       setLoading(false);
     }
 
@@ -306,6 +314,16 @@ function DashboardPageContent() {
 
         <DashboardNotice message={actionNotice} tone="success" />
         <DashboardNotice message={actionError} tone="primary" />
+
+        {showNameBanner && (
+          <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.5rem", border: "1px solid var(--accent)", background: "var(--accent-light)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+            <div>
+              <strong style={{ color: "var(--accent)" }}>Set your display name</strong>
+              <p className="text-muted" style={{ fontSize: "0.8125rem", margin: 0 }}>Choose a display name so other players don't see your email.</p>
+            </div>
+            <Link href="/profile" className="btn btn-primary btn-compact">Set Name</Link>
+          </div>
+        )}
 
         <DashboardMetricGrid>
           <MetricCard label="Active Quizzes" value={activeQuizzes.length} />
