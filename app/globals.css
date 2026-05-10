@@ -1072,3 +1072,86 @@ body.qw-present-live-route main {
   gap: 1rem;
   margin-bottom: 1rem;
 }
+
+/* Profile page */
+.profile-shell {
+  min-height: calc(100vh - 72px);
+  padding-bottom: 5rem;
+}
+
+.profile-container {
+  padding-top: 3rem;
+}
+
+.profile-header-card {
+  padding: 2rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.profile-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: var(--accent-light);
+  margin: 0 auto 1rem;
+  display: grid;
+  place-items: center;
+  font-size: 3rem;
+}
+
+.profile-name {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+}
+
+.profile-email {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.profile-stat-card {
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.profile-stat-value {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--accent);
+}
+
+.profile-stat-label {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.profile-links-card {
+  padding: 1rem;
+}
+
+.profile-link-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.profile-link-icon {
+  font-size: 1.5rem;
+}
+
+.profile-link-label {
+  font-weight: 600;
+}
