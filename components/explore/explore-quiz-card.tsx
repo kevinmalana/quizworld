@@ -9,13 +9,13 @@ export type QuizWithCreator = Quiz & {
 };
 
 export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
-  const displayName = quiz.creator_display_name || quiz.creator_name;
+  const displayName = quiz.creator_display_name || quiz.creator_name || null;
   const avatar = quiz.creator_avatar || "👤";
 
   return (
     <div className="card card-hover explore-quiz-card">
       <div className="explore-quiz-card-header">
-        <div className="explore-quiz-emoji" style={{ background: `${quiz.color}15` }}>
+        <div className="explore-quiz-emoji" style={{ background: `${quiz.color || "#7c3aed"}15` }}>
           {quiz.emoji || CATEGORY_EMOJIS[quiz.category] || "📌"}
         </div>
         <span className="tag explore-quiz-category">{quiz.category}</span>
@@ -23,24 +23,30 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
 
       <h3 className="font-display explore-quiz-title">{quiz.title}</h3>
 
-      {displayName && (
-        <div className="explore-quiz-creator">
-          <span className="explore-quiz-creator-avatar">{avatar}</span>
-          <span className="explore-quiz-creator-name">{displayName.length > 24 ? displayName.slice(0, 24) + "…" : displayName}</span>
-        </div>
-      )}
+      <div className="explore-quiz-creator">
+        <span className="explore-quiz-creator-avatar">{avatar}</span>
+        <span className="explore-quiz-creator-name">
+          {displayName ? (displayName.length > 24 ? displayName.slice(0, 24) + "…" : displayName) : "Anonymous"}
+        </span>
+      </div>
 
       <div className="explore-quiz-meta">
-        <span>{quiz.questions?.length || 0} Qs</span>
-        <span>▶ {quiz.plays.toLocaleString()} plays</span>
+        <span className="explore-quiz-meta-item">
+          <span className="explore-quiz-meta-icon">📝</span>
+          {quiz.questions?.length || 0} questions
+        </span>
+        <span className="explore-quiz-meta-item">
+          <span className="explore-quiz-meta-icon">▶️</span>
+          {quiz.plays.toLocaleString()} plays
+        </span>
       </div>
 
       <div className="explore-quiz-actions">
-        <Link href={`/host?quiz=${quiz.id}`} className="btn btn-primary btn-compact" style={{ flex: 1 }}>
-          Host
+        <Link href={`/host?quiz=${quiz.id}`} className="btn btn-primary btn-compact explore-quiz-action-host">
+          🏁 Host
         </Link>
         <Link href={`/study/${quiz.id}`} className="btn btn-secondary btn-compact">
-          Study
+          📖 Study
         </Link>
         <ShareStudyLinkButton quizId={quiz.id} quizTitle={quiz.title} />
       </div>

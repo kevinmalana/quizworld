@@ -5,6 +5,7 @@ import "../styles/present.css";
 import "../styles/explore.css";
 import "../styles/report.css";
 import "../styles/home.css";
+import "../styles/profile.css";
 import "../styles/builder.css";
 import "../styles/study.css";
 import { Navigation } from "@/components/navigation";
