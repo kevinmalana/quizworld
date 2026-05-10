@@ -320,63 +320,29 @@ function ExplorePageContent() {
               gap: "1rem",
             }}
           >
-            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+            <div className="explore-search-row">
               <input
                 type="text"
                 placeholder="Search topics or keywords..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="input-pin"
-                style={{
-                  flex: 1,
-                  minWidth: 240,
-                  textTransform: "none",
-                  letterSpacing: "normal",
-                  textAlign: "left",
-                  fontSize: "1rem",
-                  padding: "0.875rem 1rem",
-                  border: "1px solid var(--line)",
-                  background: "var(--bg)",
-                }}
+                className="input-pin explore-search-input"
               />
 
-              {/* Sort selector */}
-              <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginRight: "0.25rem" }}>Sort:</span>
+              <div className="explore-sort-row">
+                <span className="explore-sort-label">Sort:</span>
                 {SORT_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => setSortMode(opt.value)}
                     title={opt.label}
-                    className="btn btn-pill"
-                    style={{
-                      background: sortMode === opt.value ? "linear-gradient(135deg, var(--accent), var(--secondary))" : "var(--surface)",
-                      color: sortMode === opt.value ? "#fff" : "var(--muted)",
-                      border: sortMode === opt.value ? "1px solid transparent" : "1px solid var(--line)",
-                      alignItems: "center",
-                      gap: "0.3rem",
-                    }}
+                    className={sortMode === opt.value ? "btn btn-pill explore-sort-btn is-active" : "btn btn-pill explore-sort-btn"}
                   >
-                    <span style={{ fontSize: "0.9rem" }}>{opt.icon}</span>
+                    <span className="explore-sort-icon">{opt.icon}</span>
                     <span>{opt.label}</span>
                   </button>
                 ))}
-              </div>
-
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  padding: "0.75rem 1rem",
-                  borderRadius: "999px",
-                  background: "var(--accent-light)",
-                  color: "var(--accent)",
-                  fontWeight: 800,
-                  fontSize: "0.875rem",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {filtered.length} results
+                <span className="explore-results-badge">{filtered.length} results</span>
               </div>
             </div>
 
