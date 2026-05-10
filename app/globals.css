@@ -1609,3 +1609,25 @@ body.qw-present-live-route main {
 .nav-icon-btn:hover::before {
   opacity: 1;
 }
+
+/* Dashboard name banner */
+.dashboard-name-banner {
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--accent);
+  background: var(--accent-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-name-banner-title {
+  color: var(--accent);
+}
+
+.dashboard-name-banner-desc {
+  font-size: 0.8125rem;
+  margin: 0;
+}

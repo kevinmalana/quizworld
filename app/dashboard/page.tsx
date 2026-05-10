@@ -16,7 +16,6 @@ import {
   type QuizDraftRow,
   type QuizVersionRow,
 } from "@/lib/quiz-drafts";
-import { PageHero } from "@/components/page-hero";
 import { SectionCard } from "@/components/section-card";
 import { LoadingPanel, StatusPanel } from "@/components/shared/status-panel";
 import { MetricCard } from "@/components/shared/metric-card";
@@ -280,23 +279,21 @@ function DashboardPageContent() {
 
   return (
     <div className="dashboard-shell">
+      {/* Hero matching profile page style */}
+      <div className="profile-hero">
+        <div className="container profile-hero-content">
+          <div className="profile-hero-info">
+            <h1 className="font-display profile-hero-name">My Library</h1>
+            <p className="profile-hero-email">Manage saved drafts, published quizzes, and hosted game performance from one place.</p>
+          </div>
+          <div className="profile-hero-actions">
+            <Link href="/create" className="btn btn-primary btn-compact">New Quiz</Link>
+            <Link href="/explore" className="btn btn-secondary btn-compact">Browse Quizzes</Link>
+          </div>
+        </div>
+      </div>
+
       <div className="container dashboard-container">
-        <PageHero
-          eyebrow="Creator Dashboard"
-          title="My Library"
-          description="Manage saved drafts, published quizzes, and hosted game performance from one place."
-          accent="linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)"
-          actions={
-            <>
-              <Link href="/create" className="btn btn-primary btn-create">
-                New Quiz
-              </Link>
-              <Link href="/explore" className="btn btn-secondary btn-join">
-                Browse Public Quizzes
-              </Link>
-            </>
-          }
-        />
 
         {createdQuizId && (
           <div className="card dashboard-notice dashboard-notice--created">
@@ -316,10 +313,10 @@ function DashboardPageContent() {
         <DashboardNotice message={actionError} tone="primary" />
 
         {showNameBanner && (
-          <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.5rem", border: "1px solid var(--accent)", background: "var(--accent-light)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+          <div className="card dashboard-name-banner">
             <div>
-              <strong style={{ color: "var(--accent)" }}>Set your display name</strong>
-              <p className="text-muted" style={{ fontSize: "0.8125rem", margin: 0 }}>Choose a display name so other players don't see your email.</p>
+              <strong className="dashboard-name-banner-title">Set your display name</strong>
+              <p className="text-muted dashboard-name-banner-desc">Choose a display name so other players don't see your email.</p>
             </div>
             <Link href="/profile" className="btn btn-primary btn-compact">Set Name</Link>
           </div>
