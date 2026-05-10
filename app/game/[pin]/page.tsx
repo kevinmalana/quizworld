@@ -774,20 +774,20 @@ export default function GamePage() {
 
   if (gameStatus === "active" && currentQuestion) {
     return (
-      <div className="container" style={{ paddingTop: "3rem", paddingBottom: "5rem" }}>
+      <div className="container game-container">
         <GameNotice notice={notice} />
         <GameProgressBar currentIndex={currentIndex} totalQuestions={totalQuestions} />
 
-        <div className="card" style={{ padding: "2rem", maxWidth: 720, margin: "0 auto 2rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-            <span style={{ color: "var(--muted)", fontWeight: 700 }}>
+        <div className="card game-question-card">
+          <div className="game-question-header">
+            <span className="game-question-label">
               {currentQuestionIndexLabel(session)}
             </span>
-            <span style={{ fontWeight: 900, fontSize: "1.5rem", color: timeLeft <= 5 ? "var(--primary)" : "var(--ink)" }}>
+            <span className={timeLeft <= 5 ? "game-timer is-critical" : "game-timer is-normal"}>
               {timeLeft}s
             </span>
           </div>
-          <h2 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800 }}>
+          <h2 className="font-display game-question-title">
             {currentQuestion.text}
           </h2>
           <QuestionMedia question={currentQuestion} />
@@ -795,11 +795,10 @@ export default function GamePage() {
 
         {/* Feature 9: Host controls */}
         {isHost && (
-          <div style={{ maxWidth: 680, margin: "0 auto 1rem", display: "flex", gap: "0.5rem", justifyContent: "center", flexWrap: "wrap" }}>
+          <div className="game-host-controls">
             <button
               onClick={() => { void revealCurrentQuestion(); }}
-              className="btn btn-secondary btn-compact"
-              style={{ fontSize: "0.8125rem" }}
+              className="btn btn-secondary btn-compact game-skip-btn"
             >
               ⏭ Skip Question
             </button>
@@ -830,33 +829,28 @@ export default function GamePage() {
 
   if (gameStatus === "reveal" && currentQuestion) {
     return (
-      <div className="container" style={{ paddingTop: "3rem", paddingBottom: "5rem" }}>
+      <div className="container game-container">
         <GameNotice notice={notice} />
         <GameProgressBar currentIndex={currentIndex} totalQuestions={totalQuestions} compact />
-        <div className="card" style={{ padding: "2rem", maxWidth: 720, margin: "0 auto 2rem" }}>
-          <h2 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: "0.5rem" }}>
+        <div className="card game-question-card">
+          <h2 className="font-display game-question-title">
             Answer Reveal
           </h2>
-          <p style={{ color: "var(--muted)", marginBottom: "0.75rem" }}>{currentQuestion.text}</p>
+          <p className="game-question-text">{currentQuestion.text}</p>
           {/* Feature 10: Question breakdown */}
-          <div style={{ padding: "0.5rem 0.75rem", borderRadius: "var(--radius-lg)", background: "var(--bg)", marginBottom: "1rem", fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)" }}>
+          <div className="game-stats-bar">
             {correctCountThisQ}/{totalAnsweredThisQ} correct ({totalAnsweredThisQ > 0 ? Math.round((correctCountThisQ / totalAnsweredThisQ) * 100) : 0}%)
           </div>
           <QuestionMedia question={currentQuestion} maxHeight={200} margin="0" />
 
           {!isHost && ownAnswer && (
             <div
-              style={{
-                padding: "1rem",
-                borderRadius: "var(--radius-lg)",
-                background: ownAnswer.is_correct ? "var(--accent-light)" : "var(--primary-light)",
-                marginBottom: "1rem",
-              }}
+              className={ownAnswer.is_correct ? "game-own-answer is-correct" : "game-own-answer is-incorrect"}
             >
               <strong>{ownAnswer.is_correct ? "✅ Correct" : "❌ Incorrect"}</strong>{" "}
               You earned {ownAnswer.points_awarded ?? 0} points.
-              {(() => { const myRt = currentAnswers.find(a => a.player_id === playerSession?.playerId) as any; return myRt?.response_time_ms ? <span style={{ marginLeft: "0.5rem", fontSize: "0.875rem" }}>Answered in {(myRt.response_time_ms / 1000).toFixed(1)}s ⚡</span> : null; })()}
-              {(playerStreaks[playerSession?.playerId ?? ''] ?? 0) >= 2 && <div style={{ marginTop: "0.5rem", fontSize: "1.125rem" }}>🔥 {playerStreaks[playerSession?.playerId ?? '']} in a row!</div>}
+              {(() => { const myRt = currentAnswers.find(a => a.player_id === playerSession?.playerId) as any; return myRt?.response_time_ms ? <span className="game-response-time">Answered in {(myRt.response_time_ms / 1000).toFixed(1)}s ⚡</span> : null; })()}
+              {(playerStreaks[playerSession?.playerId ?? ''] ?? 0) >= 2 && <div className="game-streak">🔥 {playerStreaks[playerSession?.playerId ?? '']} in a row!</div>}
             </div>
           )}
 
@@ -872,7 +866,7 @@ export default function GamePage() {
         </div>
 
         {isHost && (
-          <div style={{ textAlign: "center" }}>
+          <div className="game-next-area">
             <button onClick={() => void goToNextQuestion()} className="btn btn-primary btn-lg">
               {((session?.current_question_index as number) ?? 0) >=
               (((session?.quiz as { questions?: unknown[] })?.questions?.length ?? 1) - 1)

@@ -65,3 +65,102 @@
   padding-top: 4rem;
   text-align: center;
 }
+
+/* Game page */
+.game-container {
+  padding-top: 3rem;
+  padding-bottom: 5rem;
+}
+
+.game-question-card {
+  padding: 2rem;
+  max-width: 720px;
+  margin: 0 auto 2rem;
+}
+
+.game-question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.game-question-label {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.game-timer {
+  font-weight: 900;
+  font-size: 1.5rem;
+}
+
+.game-timer.is-critical {
+  color: var(--primary);
+}
+
+.game-timer.is-normal {
+  color: var(--ink);
+}
+
+.game-question-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+}
+
+.game-question-text {
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
+
+.game-stats-bar {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  margin-bottom: 1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.game-own-answer {
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 1rem;
+}
+
+.game-own-answer.is-correct {
+  background: var(--accent-light);
+}
+
+.game-own-answer.is-incorrect {
+  background: var(--primary-light);
+}
+
+.game-response-time {
+  margin-left: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.game-streak {
+  margin-top: 0.5rem;
+  font-size: 1.125rem;
+}
+
+.game-host-controls {
+  max-width: 680px;
+  margin: 0 auto 1rem;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.game-skip-btn {
+  font-size: 0.8125rem;
+}
+
+.game-next-area {
+  text-align: center;
+}
