@@ -12,6 +12,7 @@ export function Navigation() {
   const { user, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -22,6 +23,13 @@ export function Navigation() {
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!user) { setIsAdmin(false); return; }
+    supabase.from("profiles").select("is_admin").eq("id", user.id).single().then(({ data }) => {
+      setIsAdmin(data?.is_admin ?? false);
+    });
+  }, [user]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -74,6 +82,11 @@ export function Navigation() {
                   <Link href="/dashboard" className="nav-icon-btn" title="Dashboard">
                     <span>📚</span>
                   </Link>
+                  {isAdmin && (
+                    <Link href="/admin" className="nav-icon-btn" title="Admin">
+                      <span>⚙️</span>
+                    </Link>
+                  )}
                   <button onClick={handleSignOut} className="nav-icon-btn" title="Sign Out" style={{ background: "none", border: "none", cursor: "pointer" }}>
                     <span>🚪</span>
                   </button>
@@ -113,6 +126,7 @@ export function Navigation() {
               {user ? (
                 <>
                   <Link href="/dashboard" className="mobile-link">📚 Dashboard</Link>
+                  {isAdmin && <Link href="/admin" className="mobile-link">⚙️ Admin</Link>}
                   <button onClick={handleSignOut} className="mobile-link" style={{ width: "100%", textAlign: "left" }}>🚪 Sign Out</button>
                 </>
               ) : (
