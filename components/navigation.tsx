@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { HostIcon } from "@/components/shared/host-icon";
+import { SignOutIcon } from "@/components/shared/signout-icon";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/supabase-provider";
 import { supabase } from "@/lib/supabase/client";
@@ -95,7 +96,7 @@ export function Navigation() {
                     </Link>
                   )}
                   <button onClick={handleSignOut} className="nav-icon-btn" title="Sign Out" style={{ background: "none", border: "none", cursor: "pointer" }}>
-                    <span>🚪</span>
+                    <SignOutIcon size={18} />
                   </button>
                 </>
               ) : (
@@ -135,7 +136,7 @@ export function Navigation() {
                   <Link href="/profile" className="mobile-link">👤 Profile{needsProfile && " ⚠️"}</Link>
                   <Link href="/dashboard" className="mobile-link">📚 Dashboard</Link>
                   {isAdmin && <Link href="/admin" className="mobile-link">⚙️ Admin</Link>}
-                  <button onClick={handleSignOut} className="mobile-link" style={{ width: "100%", textAlign: "left" }}>🚪 Sign Out</button>
+                  <button onClick={handleSignOut} className="mobile-link" style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: "0.4rem" }}><SignOutIcon size={16} /> Sign Out</button>
                 </>
               ) : (
                 <Link href="/login" className="mobile-link">🔑 Sign In</Link>
