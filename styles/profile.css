@@ -35,12 +35,18 @@
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.15);
   backdrop-filter: blur(10px);
   display: grid;
   place-items: center;
   font-size: 2.5rem;
-  border: 3px solid rgba(255,255,255,0.3);
+  border: 3px solid rgba(255,255,255,0.25);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.profile-hero-avatar-wrap:hover .profile-hero-avatar {
+  transform: scale(1.05);
+  border-color: rgba(255,255,255,0.5);
 }
 
 .profile-hero-badge {
@@ -244,11 +250,12 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: var(--accent-light);
+  background: var(--bg-subtle);
   display: grid;
   place-items: center;
   font-size: 2rem;
   flex-shrink: 0;
+  border: 1.5px solid var(--line);
 }
 
 .profile-edit-name-preview {
@@ -329,8 +336,8 @@
 
 .profile-avatar-btn.is-selected {
   border-color: var(--accent);
-  background: var(--accent-light);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  background: var(--bg-subtle);
+  box-shadow: 0 0 0 2px var(--accent);
   transform: scale(1.1);
 }
 

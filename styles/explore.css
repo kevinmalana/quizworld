@@ -211,13 +211,13 @@
 }
 
 .explore-quiz-creator-avatar {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 0.875rem;
-  background: var(--accent-light);
+  font-size: 1rem;
+  background: var(--bg-subtle);
   flex-shrink: 0;
   border: 1.5px solid var(--line);
 }
