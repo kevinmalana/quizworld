@@ -271,8 +271,8 @@ function DashboardPageContent() {
   }
 
   return (
-    <div style={{ minHeight: "calc(100vh - 72px)", background: "var(--bg)", paddingBottom: "5rem" }}>
-      <div className="container" style={{ paddingTop: "3rem" }}>
+    <div className="dashboard-shell">
+      <div className="container dashboard-container">
         <PageHero
           eyebrow="Creator Dashboard"
           title="My Library"
@@ -280,10 +280,10 @@ function DashboardPageContent() {
           accent="linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)"
           actions={
             <>
-              <Link href="/create" className="btn btn-primary" style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.22)" }}>
+              <Link href="/create" className="btn btn-primary btn-create">
                 New Quiz
               </Link>
-              <Link href="/explore" className="btn btn-secondary" style={{ background: "rgba(255,255,255,0.12)", color: "#fff", borderColor: "rgba(255,255,255,0.24)" }}>
+              <Link href="/explore" className="btn btn-secondary btn-join">
                 Browse Public Quizzes
               </Link>
             </>
@@ -291,29 +291,13 @@ function DashboardPageContent() {
         />
 
         {createdQuizId && (
-          <div
-            className="card"
-            style={{
-              padding: "1rem 1.25rem",
-              marginBottom: "1.5rem",
-              border: "1px solid var(--line)",
-              background: "var(--accent-light)",
-            }}
-          >
+          <div className="card dashboard-notice dashboard-notice--created">
             <strong>Quiz published.</strong> It is now part of your dashboard library.
           </div>
         )}
 
         {updatedQuizId && (
-          <div
-            className="card"
-            style={{
-              padding: "1rem 1.25rem",
-              marginBottom: "1.5rem",
-              border: "1px solid var(--line)",
-              background: "var(--secondary-light)",
-            }}
-          >
+          <div className="card dashboard-notice dashboard-notice--updated">
             <strong>Quiz republished.</strong>
             {" "}
             {updatedVersion ? `Version ${updatedVersion} is now live.` : "A new version is now live."}
@@ -335,13 +319,11 @@ function DashboardPageContent() {
             title="Saved Drafts"
             description="Continue editing drafts saved to your account or jump back into live hosting for already published work."
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1rem" }}>
-              <Link href="/create" className="btn btn-secondary">
-                New Draft
-              </Link>
+            <div className="dashboard-draft-header">
+              <Link href="/create" className="btn btn-secondary">New Draft</Link>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+            <div className="dashboard-card-grid">
               {drafts.map((draft) => (
                 <DraftCard key={draft.id} draft={draft} />
               ))}
@@ -350,12 +332,12 @@ function DashboardPageContent() {
         )}
 
         {versions.length > 0 && (
-          <div style={{ marginTop: drafts.length > 0 ? "1.5rem" : 0, marginBottom: "2rem" }}>
+          <div className={drafts.length > 0 ? "dashboard-section-gap" : undefined} style={{ marginBottom: "2rem" }}>
             <SectionCard
               title="Recent Versions"
               description="Each republish writes a version snapshot. Use these entries to reopen an earlier snapshot in the builder."
             >
-              <div style={{ display: "grid", gap: "0.75rem" }}>
+              <div className="dashboard-version-grid">
                 {versions.map((version) => (
                   <VersionCard
                     key={version.id}
@@ -369,11 +351,10 @@ function DashboardPageContent() {
           </div>
         )}
 
-        {/* Quizzes Grid */}
         {activeQuizzes.length === 0 ? (
-          <div className="card" style={{ padding: "3rem", textAlign: "center", border: "2px dashed var(--line)" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📭</div>
-            <h3 style={{ fontWeight: 700, marginBottom: "0.5rem" }}>No quizzes yet</h3>
+          <div className="card dashboard-empty-card">
+            <div className="dashboard-empty-icon">📭</div>
+            <h3 className="dashboard-empty-title">No quizzes yet</h3>
             <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>Create your first quiz to get started</p>
             <Link href="/create" className="btn btn-primary">Create Quiz</Link>
           </div>
@@ -382,7 +363,7 @@ function DashboardPageContent() {
             title="Published Quizzes"
             description="Jump between host, edit, and study flows without leaving the same dashboard surface."
           >
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+            <div className="dashboard-card-grid">
               {activeQuizzes.map((q) => (
                 <PublishedQuizCard
                   key={q.id}
@@ -397,12 +378,12 @@ function DashboardPageContent() {
         )}
 
         {archivedQuizzes.length > 0 && (
-          <div style={{ marginTop: "1.5rem" }}>
+          <div className="dashboard-section-gap">
             <SectionCard
               title="Archived Quizzes"
               description="Archived quizzes are hidden from discovery and hosting lists until restored."
             >
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+              <div className="dashboard-card-grid">
                 {archivedQuizzes.map((q) => (
                   <ArchivedQuizCard
                     key={q.id}
@@ -422,7 +403,7 @@ function DashboardPageContent() {
               title="Recent Hosted Games"
               description="Quick visibility into room size and top scores from your latest live sessions."
             >
-            <div style={{ display: "grid", gap: "0.75rem" }}>
+            <div className="dashboard-version-grid">
               {recentGames.map((game) => (
                 <RecentGameCard key={game.id} game={game} />
               ))}

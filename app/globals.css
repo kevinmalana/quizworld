@@ -1008,3 +1008,67 @@ body.qw-present-live-route main {
     min-width: 200px;
   }
 }
+
+/* Dashboard page */
+.dashboard-shell {
+  min-height: calc(100vh - 72px);
+  background: var(--bg);
+  padding-bottom: 5rem;
+}
+
+.dashboard-container {
+  padding-top: 3rem;
+}
+
+.dashboard-notice {
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--line);
+}
+
+.dashboard-notice--created {
+  background: var(--accent-light);
+}
+
+.dashboard-notice--updated {
+  background: var(--secondary-light);
+}
+
+.dashboard-section-gap {
+  margin-top: 1.5rem;
+}
+
+.dashboard-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.dashboard-version-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.dashboard-empty-card {
+  padding: 3rem;
+  text-align: center;
+  border: 2px dashed var(--line);
+}
+
+.dashboard-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard-empty-title {
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-draft-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
