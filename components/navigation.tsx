@@ -83,19 +83,19 @@ export function Navigation() {
             {!loading && (
               user ? (
                 <>
-                  <Link href="/profile" className="nav-icon-btn nav-profile-btn" title="Profile">
+                  <Link href="/profile" className="nav-icon-btn nav-profile-btn" data-tooltip="Profile">
                     <span>👤</span>
                     {needsProfile && <span className="nav-notification-dot" />}
                   </Link>
-                  <Link href="/dashboard" className="nav-icon-btn" title="Dashboard">
+                  <Link href="/dashboard" className="nav-icon-btn" data-tooltip="Dashboard">
                     <span>📚</span>
                   </Link>
                   {isAdmin && (
-                    <Link href="/admin" className="nav-icon-btn" title="Admin">
+                    <Link href="/admin" className="nav-icon-btn" data-tooltip="Admin">
                       <span>⚙️</span>
                     </Link>
                   )}
-                  <button onClick={handleSignOut} className="nav-icon-btn" title="Sign Out" style={{ background: "none", border: "none", cursor: "pointer" }}>
+                  <button onClick={handleSignOut} className="nav-icon-btn" data-tooltip="Sign Out" style={{ background: "none", border: "none", cursor: "pointer" }}>
                     <SignOutIcon size={18} />
                   </button>
                 </>
