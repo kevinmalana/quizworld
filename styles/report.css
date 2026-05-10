@@ -1,0 +1,447 @@
+/* Report page */
+.report-shell {
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+  max-width: 800px;
+}
+
+.report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.report-header-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.report-header-meta {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.report-header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Tabs */
+.report-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.5rem;
+}
+
+.report-tab {
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border: none;
+  cursor: pointer;
+  text-transform: capitalize;
+  background: transparent;
+  color: var(--muted);
+}
+
+.report-tab.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Stat cards */
+.report-stat-card {
+  padding: 1rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--surface), var(--bg-subtle));
+  text-align: center;
+}
+
+.report-stat-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.report-stat-value {
+  font-size: 1.75rem;
+  font-weight: 900;
+}
+
+/* Stats grid */
+.report-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Podium */
+.report-podium {
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.report-podium-title {
+  font-weight: 800;
+  margin-bottom: 1rem;
+}
+
+.report-podium-row {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.report-podium-player {
+  text-align: center;
+}
+
+.report-podium-medal {
+  font-size: 1.5rem;
+}
+
+.report-podium-avatar {
+  font-size: 2rem;
+}
+
+.report-podium-name {
+  font-weight: 800;
+  font-size: 0.875rem;
+}
+
+.report-podium-score {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.report-podium-accuracy {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.report-podium-bar {
+  width: 70px;
+  border-radius: 8px 8px 0 0;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0.4rem;
+}
+
+.report-podium-bar-value {
+  font-weight: 900;
+  font-size: 0.75rem;
+}
+
+/* Difficulty section */
+.report-difficulty-card {
+  padding: 1.5rem;
+}
+
+.report-difficulty-title {
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.report-difficulty-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.report-difficulty-item {
+  flex: 1;
+  min-width: 100px;
+  padding: 0.75rem;
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.report-difficulty-count {
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.report-difficulty-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--muted);
+}
+
+/* Difficulty badge */
+.report-difficulty-badge {
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  text-transform: capitalize;
+}
+
+.report-difficulty-badge--easy {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.report-difficulty-badge--medium {
+  background: rgba(245,158,11,0.1);
+  color: #f59e0b;
+}
+
+.report-difficulty-badge--hard {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+/* Quality score */
+.report-quality {
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+
+.report-quality--good { color: var(--success); }
+.report-quality--ok { color: #f59e0b; }
+.report-quality--bad { color: var(--primary); }
+.report-quality--insufficient {
+  font-size: 0.6rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* Accuracy bar */
+.report-accuracy-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.report-accuracy-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.report-accuracy-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s;
+}
+
+.report-accuracy-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 35px;
+  text-align: right;
+}
+
+/* Question cards */
+.report-question-card {
+  padding: 1.25rem;
+}
+
+.report-question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.report-question-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.report-question-index {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.report-question-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.report-question-stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Answer distribution */
+.report-answer-grid {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.report-answer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  border: 1px solid transparent;
+}
+
+.report-answer-row.is-correct {
+  background: var(--accent-light);
+  border-color: var(--accent);
+}
+
+.report-answer-letter {
+  font-weight: 800;
+  font-size: 0.75rem;
+  width: 20px;
+  color: var(--muted);
+}
+
+.report-answer-row.is-correct .report-answer-letter {
+  color: var(--accent);
+}
+
+.report-answer-text {
+  flex: 1;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.report-answer-pct {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 30px;
+  text-align: right;
+}
+
+.report-answer-bar {
+  width: 60px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.report-answer-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.report-correct-label {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--success);
+  font-weight: 700;
+}
+
+/* Player cards */
+.report-player-card {
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.report-player-rank {
+  font-weight: 900;
+  font-size: 1.125rem;
+  width: 28px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.report-player-rank.is-top {
+  color: var(--accent);
+}
+
+.report-player-avatar {
+  font-size: 1.5rem;
+}
+
+.report-player-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.report-player-name {
+  font-weight: 700;
+}
+
+.report-player-accuracy {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.report-player-score {
+  font-weight: 900;
+  font-size: 1.125rem;
+  color: var(--accent);
+}
+
+/* Empty states */
+.report-empty-card {
+  padding: 2rem;
+  text-align: center;
+}
+
+.report-question-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.report-player-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+/* Status */
+.report-status {
+  padding-top: 4rem;
+  text-align: center;
+}
+
+.report-error-card {
+  padding: 3rem;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.report-error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.report-error-title {
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.report-error-text {
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}

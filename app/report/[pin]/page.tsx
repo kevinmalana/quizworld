@@ -61,29 +61,23 @@ type GameResult = {
 
 function StatCard({ label, value, color = "var(--accent)" }: { label: string; value: string | number; color?: string }) {
   return (
-    <div style={{ padding: "1rem", borderRadius: "var(--radius-xl)", border: "1px solid var(--line)", background: "linear-gradient(180deg, var(--surface), var(--bg-subtle))", textAlign: "center" }}>
-      <div style={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "0.5rem" }}>{label}</div>
-      <div className="font-display" style={{ fontSize: "1.75rem", fontWeight: 900, color }}>{value}</div>
+    <div className="report-stat-card">
+      <div className="report-stat-label">{label}</div>
+      <div className="font-display report-stat-value" style={{ color }}>{value}</div>
     </div>
   );
 }
 
 function DifficultyBadge({ difficulty }: { difficulty: string }) {
-  const colors: Record<string, { bg: string; text: string }> = {
-    easy: { bg: "var(--success-light)", text: "var(--success)" },
-    medium: { bg: "rgba(245,158,11,0.1)", text: "#f59e0b" },
-    hard: { bg: "var(--primary-light)", text: "var(--primary)" },
-  };
-  const c = colors[difficulty] || colors.medium;
-  return (
-    <span style={{ fontSize: "0.6rem", fontWeight: 800, padding: "0.15rem 0.5rem", borderRadius: 999, background: c.bg, color: c.text, textTransform: "capitalize" }}>
-      {difficulty === "easy" ? "🟢" : difficulty === "hard" ? "🔴" : "🟡"} {difficulty}
-    </span>
-  );
+  const cls = difficulty === "easy" ? "report-difficulty-badge report-difficulty-badge--easy"
+    : difficulty === "hard" ? "report-difficulty-badge report-difficulty-badge--hard"
+    : "report-difficulty-badge report-difficulty-badge--medium";
+  const icon = difficulty === "easy" ? "🟢" : difficulty === "hard" ? "🔴" : "🟡";
+  return <span className={cls}>{icon} {difficulty}</span>;
 }
 
 function QualityScore({ q }: { q: QuestionBreakdown }) {
-  if (q.total_responses < 3) return <span style={{ fontSize: "0.6rem", color: "var(--muted)", fontWeight: 700 }}>Need 3+ players</span>;
+  if (q.total_responses < 3) return <span className="report-quality--insufficient">Need 3+ players</span>;
   const accuracy = q.accuracy_pct;
   const avgTimeSec = q.avg_response_time_ms / 1000;
   const timeLimit = q.time_limit;
@@ -96,22 +90,20 @@ function QualityScore({ q }: { q: QuestionBreakdown }) {
   const spread = Math.max(...q.distribution.map(d => d.percentage)) - Math.min(...q.distribution.map(d => d.percentage));
   if (spread < 60) score += 10;
   score = Math.max(0, Math.min(100, score));
-  const color = score >= 75 ? "var(--success)" : score >= 50 ? "#f59e0b" : "var(--primary)";
+  const cls = score >= 75 ? "report-quality report-quality--good" : score >= 50 ? "report-quality report-quality--ok" : "report-quality report-quality--bad";
   const label = score >= 75 ? "Great" : score >= 50 ? "OK" : "Needs work";
-  return (
-    <span style={{ fontSize: "0.6rem", fontWeight: 800, color }} title={`Quality: ${score}/100`}>
-      {score >= 75 ? "✅" : score >= 50 ? "⚠️" : "❌"} {label}
-    </span>
-  );
+  const icon = score >= 75 ? "✅" : score >= 50 ? "⚠️" : "❌";
+  return <span className={cls} title={`Quality: ${score}/100`}>{icon} {label}</span>;
 }
 
 function AccuracyBar({ pct }: { pct: number }) {
+  const color = pct >= 80 ? "var(--success)" : pct >= 50 ? "#f59e0b" : "var(--primary)";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-      <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--line)", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, borderRadius: 4, background: pct >= 80 ? "var(--success)" : pct >= 50 ? "#f59e0b" : "var(--primary)", transition: "width 0.5s" }} />
+    <div className="report-accuracy-bar">
+      <div className="report-accuracy-track">
+        <div className="report-accuracy-fill" style={{ width: `${pct}%`, background: color }} />
       </div>
-      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)", minWidth: 35, textAlign: "right" }}>{pct}%</span>
+      <span className="report-accuracy-label">{pct}%</span>
     </div>
   );
 }
@@ -145,16 +137,16 @@ export default function ReportPage() {
   }, [pin]);
 
   if (loading) {
-    return <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>Loading report...</div>;
+    return <div className="container report-status">Loading report...</div>;
   }
 
   if (error || !result) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
-        <div className="card" style={{ padding: "3rem", maxWidth: 480, margin: "0 auto" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📊</div>
-          <h2 style={{ fontWeight: 800, marginBottom: "0.75rem" }}>Report Not Found</h2>
-          <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>{error || "This game report may not have detailed data saved."}</p>
+      <div className="container report-status">
+        <div className="card report-error-card">
+          <div className="report-error-icon">📊</div>
+          <h2 className="report-error-title">Report Not Found</h2>
+          <p className="report-error-text">{error || "This game report may not have detailed data saved."}</p>
           <Link href="/dashboard" className="btn btn-primary">Back to Dashboard</Link>
         </div>
       </div>
@@ -174,7 +166,6 @@ export default function ReportPage() {
     ? Math.round(breakdown.reduce((s, q) => s + q.avg_response_time_ms, 0) / breakdown.length / 1000 * 10) / 10
     : 0;
 
-  // Per-player accuracy from breakdown
   const playerAccuracy: Record<string, { correct: number; total: number }> = {};
   if (hasBreakdown) {
     for (const q of breakdown) {
@@ -186,7 +177,6 @@ export default function ReportPage() {
     }
   }
 
-  // CSV export
   function exportCSV() {
     if (!hasBreakdown) return;
     const rows = [["Player", "Question", "Answer", "Correct", "Points", "Response Time (ms)"]];
@@ -208,14 +198,13 @@ export default function ReportPage() {
   const finishedDate = new Date(result.finished_at).toLocaleString();
 
   return (
-    <div className="container" style={{ paddingTop: "2rem", paddingBottom: "4rem", maxWidth: 800 }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "0.75rem" }}>
+    <div className="container report-shell">
+      <div className="report-header">
         <div>
-          <h1 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800 }}>📊 Game Report</h1>
-          <p style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>PIN: {pin} · {finishedDate}</p>
+          <h1 className="font-display report-header-title">📊 Game Report</h1>
+          <p className="report-header-meta">PIN: {pin} · {finishedDate}</p>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div className="report-header-actions">
           {hasBreakdown && (
             <button onClick={exportCSV} className="btn btn-secondary btn-compact">📥 Export CSV</button>
           )}
@@ -223,26 +212,19 @@ export default function ReportPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: "0.25rem", marginBottom: "1.5rem", borderBottom: "1px solid var(--line)", paddingBottom: "0.5rem" }}>
+      <div className="report-tabs">
         {(["overview", "questions", "players"] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            style={{
-              padding: "0.5rem 1rem", fontSize: "0.8125rem", fontWeight: 700, borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
-              border: "none", cursor: "pointer", textTransform: "capitalize",
-              background: activeTab === tab ? "var(--accent)" : "transparent",
-              color: activeTab === tab ? "#fff" : "var(--muted)",
-            }}
+            className={activeTab === tab ? "report-tab is-active" : "report-tab"}
           >{tab === "overview" ? "📈 Overview" : tab === "questions" ? "❓ By Question" : "👥 Players"}</button>
         ))}
       </div>
 
-      {/* Overview Tab */}
       {activeTab === "overview" && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "0.75rem", marginBottom: "1.5rem" }}>
+          <div className="report-stats-grid">
             <StatCard label="Players" value={players.length} />
             <StatCard label="Questions" value={totalQuestions} />
             <StatCard label="Avg Score" value={avgScore.toLocaleString()} color="var(--accent)" />
@@ -250,11 +232,10 @@ export default function ReportPage() {
             {hasBreakdown && <StatCard label="Avg Response" value={`${avgResponseTime}s`} color="var(--secondary)" />}
           </div>
 
-          {/* Top 3 Podium */}
           {sortedPlayers.length >= 1 && (
-            <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
-              <h3 style={{ fontWeight: 800, marginBottom: "1rem" }}>🏆 Top Players</h3>
-              <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", gap: "1.5rem", flexWrap: "wrap" }}>
+            <div className="card report-podium">
+              <h3 className="report-podium-title">🏆 Top Players</h3>
+              <div className="report-podium-row">
                 {sortedPlayers.slice(0, 3).map((player, i) => {
                   const medals = ["🥇", "🥈", "🥉"];
                   const heights = [120, 95, 75];
@@ -264,14 +245,14 @@ export default function ReportPage() {
                   if (!p) return null;
                   const acc = playerAccuracy[p.id];
                   return (
-                    <div key={p.id} style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "1.5rem" }}>{medals[idx]}</div>
-                      <div style={{ fontSize: "2rem" }}>{p.avatar || "🎮"}</div>
-                      <div style={{ fontWeight: 800, fontSize: "0.875rem" }}>{p.nickname}</div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{p.score.toLocaleString()} pts</div>
-                      {acc && <div style={{ fontSize: "0.7rem", color: "var(--muted)" }}>{acc.correct}/{acc.total} correct</div>}
-                      <div style={{ height: heights[idx], width: 70, background: idx === 0 ? "var(--accent)" : "var(--line)", borderRadius: "8px 8px 0 0", marginTop: "0.5rem", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0.4rem" }}>
-                        <span style={{ fontWeight: 900, color: idx === 0 ? "#fff" : "var(--ink)", fontSize: "0.75rem" }}>{p.score.toLocaleString()}</span>
+                    <div key={p.id} className="report-podium-player">
+                      <div className="report-podium-medal">{medals[idx]}</div>
+                      <div className="report-podium-avatar">{p.avatar || "🎮"}</div>
+                      <div className="report-podium-name">{p.nickname}</div>
+                      <div className="report-podium-score">{p.score.toLocaleString()} pts</div>
+                      {acc && <div className="report-podium-accuracy">{acc.correct}/{acc.total} correct</div>}
+                      <div className="report-podium-bar" style={{ height: heights[idx], background: idx === 0 ? "var(--accent)" : "var(--line)" }}>
+                        <span className="report-podium-bar-value" style={{ color: idx === 0 ? "#fff" : "var(--ink)" }}>{p.score.toLocaleString()}</span>
                       </div>
                     </div>
                   );
@@ -280,17 +261,18 @@ export default function ReportPage() {
             </div>
           )}
 
-          {/* Difficulty distribution */}
           {hasBreakdown && (
-            <div className="card" style={{ padding: "1.5rem" }}>
-              <h3 style={{ fontWeight: 800, marginBottom: "0.75rem" }}>Question Difficulty</h3>
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                {["easy", "medium", "hard"].map(d => {
+            <div className="card report-difficulty-card">
+              <h3 className="report-difficulty-title">Question Difficulty</h3>
+              <div className="report-difficulty-row">
+                {(["easy", "medium", "hard"] as const).map(d => {
                   const count = breakdown.filter(q => q.difficulty === d).length;
+                  const bg = d === "easy" ? "var(--success-light)" : d === "hard" ? "var(--primary-light)" : "rgba(245,158,11,0.1)";
+                  const color = d === "easy" ? "var(--success)" : d === "hard" ? "var(--primary)" : "#f59e0b";
                   return (
-                    <div key={d} style={{ flex: 1, minWidth: 100, padding: "0.75rem", borderRadius: "var(--radius-lg)", background: d === "easy" ? "var(--success-light)" : d === "hard" ? "var(--primary-light)" : "rgba(245,158,11,0.1)", textAlign: "center" }}>
-                      <div style={{ fontSize: "1.5rem", fontWeight: 900, color: d === "easy" ? "var(--success)" : d === "hard" ? "var(--primary)" : "#f59e0b" }}>{count}</div>
-                      <div style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "capitalize", color: "var(--muted)" }}>{d}</div>
+                    <div key={d} className="report-difficulty-item" style={{ background: bg }}>
+                      <div className="report-difficulty-count" style={{ color }}>{count}</div>
+                      <div className="report-difficulty-label">{d}</div>
                     </div>
                   );
                 })}
@@ -300,53 +282,48 @@ export default function ReportPage() {
         </>
       )}
 
-      {/* Questions Tab */}
       {activeTab === "questions" && (
         <>
           {!hasBreakdown ? (
-            <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
+            <div className="card report-empty-card">
               <p style={{ color: "var(--muted)" }}>Detailed question data is not available for this game. Play a new game to see per-question analytics.</p>
             </div>
           ) : (
-            <div style={{ display: "grid", gap: "1rem" }}>
+            <div className="report-question-list">
               {breakdown.map((q, i) => (
-                <div key={q.question_id} className="card" style={{ padding: "1.25rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                      <div style={{ fontSize: "0.65rem", fontWeight: 800, color: "var(--muted)", marginBottom: "0.25rem" }}>Q{i + 1}</div>
+                <div key={q.question_id} className="card report-question-card">
+                  <div className="report-question-header">
+                    <div className="report-question-text">
+                      <div className="report-question-index">Q{i + 1}</div>
                       <div style={{ fontWeight: 700 }}>{q.text}</div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <div className="report-question-badges">
                       <QualityScore q={q} />
                       <DifficultyBadge difficulty={q.difficulty} />
                     </div>
                   </div>
 
-                  {/* Stats row */}
-                  <div style={{ display: "flex", gap: "1rem", marginBottom: "0.75rem", flexWrap: "wrap", fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>
+                  <div className="report-question-stats">
                     <span>✅ {q.correct_count}/{q.total_responses} correct</span>
                     <span>⏱ Avg {Math.round(q.avg_response_time_ms / 1000 * 10) / 10}s</span>
                     <span>⭐ {q.points} pts</span>
                   </div>
 
-                  {/* Answer distribution */}
-                  <div style={{ display: "grid", gap: "0.375rem" }}>
+                  <div className="report-answer-grid">
                     {q.distribution.map((d, di) => (
-                      <div key={d.answer_id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.4rem 0.6rem", borderRadius: "var(--radius-md)", background: d.is_correct ? "var(--accent-light)" : "var(--bg)", border: d.is_correct ? "1px solid var(--accent)" : "1px solid transparent" }}>
-                        <span style={{ fontWeight: 800, fontSize: "0.75rem", color: d.is_correct ? "var(--accent)" : "var(--muted)", width: 20 }}>{String.fromCharCode(65 + di)}</span>
-                        <span style={{ flex: 1, fontSize: "0.8125rem", fontWeight: 600 }}>{d.text}</span>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)", minWidth: 30, textAlign: "right" }}>{d.percentage}%</span>
-                        <div style={{ width: 60, height: 6, borderRadius: 3, background: "var(--line)", overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${d.percentage}%`, borderRadius: 3, background: d.is_correct ? "var(--accent)" : "var(--muted)" }} />
+                      <div key={d.answer_id} className={d.is_correct ? "report-answer-row is-correct" : "report-answer-row"}>
+                        <span className="report-answer-letter">{String.fromCharCode(65 + di)}</span>
+                        <span className="report-answer-text">{d.text}</span>
+                        <span className="report-answer-pct">{d.percentage}%</span>
+                        <div className="report-answer-bar">
+                          <div className="report-answer-bar-fill" style={{ width: `${d.percentage}%`, background: d.is_correct ? "var(--accent)" : "var(--muted)" }} />
                         </div>
                       </div>
                     ))}
                   </div>
 
                   {q.correct_answer_text && (
-                    <div style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--success)", fontWeight: 700 }}>
-                      ✅ Correct: {q.correct_answer_text}
-                    </div>
+                    <div className="report-correct-label">✅ Correct: {q.correct_answer_text}</div>
                   )}
                 </div>
               ))}
@@ -355,22 +332,21 @@ export default function ReportPage() {
         </>
       )}
 
-      {/* Players Tab */}
       {activeTab === "players" && (
-        <div style={{ display: "grid", gap: "0.75rem" }}>
+        <div className="report-player-list">
           {sortedPlayers.map((player, i) => {
             const acc = playerAccuracy[player.id];
             return (
-              <div key={player.id} className="card" style={{ padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <span style={{ fontWeight: 900, fontSize: "1.125rem", color: i < 3 ? "var(--accent)" : "var(--muted)", width: 28, textAlign: "center" }}>
+              <div key={player.id} className="card report-player-card">
+                <span className={i < 3 ? "report-player-rank is-top" : "report-player-rank"}>
                   {i < 3 ? ["🥇", "🥈", "🥉"][i] : `#${i + 1}`}
                 </span>
-                <span style={{ fontSize: "1.5rem" }}>{player.avatar || "🎮"}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700 }}>{player.nickname}</div>
-                  {acc && <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{acc.correct}/{acc.total} correct ({Math.round(acc.correct / acc.total * 100)}%)</div>}
+                <span className="report-player-avatar">{player.avatar || "🎮"}</span>
+                <div className="report-player-info">
+                  <div className="report-player-name">{player.nickname}</div>
+                  {acc && <div className="report-player-accuracy">{acc.correct}/{acc.total} correct ({Math.round(acc.correct / acc.total * 100)}%)</div>}
                 </div>
-                <span style={{ fontWeight: 900, fontSize: "1.125rem", color: "var(--accent)" }}>{player.score.toLocaleString()} pts</span>
+                <span className="report-player-score">{player.score.toLocaleString()} pts</span>
               </div>
             );
           })}
