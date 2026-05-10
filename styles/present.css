@@ -720,3 +720,372 @@
   color: var(--muted);
   margin-bottom: 1.5rem;
 }
+
+/* Presentation editor */
+.present-editor-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.present-editor-loading {
+  padding-top: 4rem;
+  text-align: center;
+}
+
+.present-editor-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.present-editor-back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.125rem;
+  padding: 0.5rem;
+}
+
+.present-editor-title-input {
+  flex: 1;
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.35rem 0.65rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+}
+
+.present-editor-error {
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.present-editor-join-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent);
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-light);
+}
+
+.present-editor-save-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.present-editor-present-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.present-editor-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Slide list panel */
+.present-slide-list-panel {
+  width: 200px;
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  padding: 0.5rem;
+  background: var(--bg);
+}
+
+.present-slide-thumb {
+  padding: 0.5rem;
+  margin-bottom: 0.375rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.present-slide-thumb.is-active {
+  border: 2px solid var(--accent);
+  background: var(--accent-light);
+}
+
+.present-slide-thumb-index {
+  color: var(--muted);
+  margin-bottom: 0.125rem;
+}
+
+.present-slide-add-btn {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: var(--radius-lg);
+  border: 1.5px dashed var(--line);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Slide editor panel */
+.present-slide-editor-panel {
+  flex: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.present-slide-editor-card {
+  padding: 1.5rem;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.present-slide-editor-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.present-slide-editor-icon {
+  font-size: 1.5rem;
+}
+
+.present-slide-editor-title-input {
+  flex: 1;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.35rem 0.65rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+}
+
+.present-slide-editor-delete {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  color: var(--primary);
+}
+
+.present-editor-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 500;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.present-editor-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 0.375rem;
+}
+
+.present-editor-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.present-editor-option-row,
+.present-editor-answer-row {
+  display: flex;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+  align-items: center;
+}
+
+.present-editor-option-input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.8125rem;
+  outline: none;
+}
+
+.present-editor-remove-btn {
+  padding: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--primary);
+}
+
+.present-editor-correct-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-lg);
+  border: none;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 0.875rem;
+  background: var(--line);
+  color: var(--muted);
+}
+
+.present-editor-correct-btn.is-correct {
+  background: var(--accent);
+  color: #fff;
+}
+
+.present-editor-add-item-btn {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: var(--radius-lg);
+  border: 1.5px dashed var(--line);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.present-editor-scale-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.present-editor-scale-pair {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.present-editor-scale-field {
+  flex: 1;
+}
+
+.present-editor-number {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-lg);
+  outline: none;
+}
+
+.present-editor-qna-placeholder {
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted);
+}
+
+.present-editor-qna-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.present-editor-qna-title {
+  font-weight: 600;
+}
+
+.present-editor-qna-hint {
+  font-size: 0.8125rem;
+}
+
+/* Add slide modal */
+.present-add-slide-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+}
+
+.present-add-slide-card {
+  padding: 1.5rem;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 1rem;
+}
+
+.present-add-slide-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.present-add-slide-title {
+  font-weight: 800;
+}
+
+.present-add-slide-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.125rem;
+}
+
+.present-add-slide-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.present-add-slide-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+}
+
+.present-add-slide-icon {
+  font-size: 1.25rem;
+}
+
+.present-add-slide-label {
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.present-add-slide-desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
