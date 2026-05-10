@@ -74,7 +74,6 @@ function ExplorePageContent() {
         console.error("Error fetching quizzes:", error);
         setFetchError("Could not load the quiz catalog. Please try again in a moment.");
       } else if (data && data.length > 0) {
-        // Fetch creator names from profiles in parallel
         const creatorIds = [...new Set(data.map((q: any) => q.creator_id).filter(Boolean))];
         let creatorMap: Record<string, string> = {};
 
@@ -105,7 +104,6 @@ function ExplorePageContent() {
     fetchQuizzes();
   }, []);
 
-  // ── Quick Play ─────────────────────────────────────────────────────────────
   async function handleQuickPlay() {
     if (!user) {
       sessionStorage.setItem("qw_post_login_redirect", "/host");
@@ -122,7 +120,6 @@ function ExplorePageContent() {
     setQuickPlayError(null);
 
     try {
-      // Pick a random quiz weighted toward more-played ones
       const weights = quizzes.map((q) => Math.max(1, Math.floor(Math.log(q.plays + 1) * 2)));
       const totalWeight = weights.reduce((a, b) => a + b, 0);
       let r = Math.floor(Math.random() * totalWeight);
@@ -133,7 +130,6 @@ function ExplorePageContent() {
       }
       const randomQuiz = quizzes[quizIndex];
 
-      // Load full quiz with questions via Supabase
       const { data: fullQuiz, error: quizError } = await supabase
         .from("quizzes")
         .select("*, questions(*, answers(*))")
@@ -152,7 +148,6 @@ function ExplorePageContent() {
         throw new Error("Sign in again before hosting a game.");
       }
 
-      // Use the Phoenix game engine client (same as host/page.tsx)
       const { createPhoenixSession } = await import("@/lib/game-engine/client");
 
       const questions = [...(fullQuiz.questions ?? [])].sort(
@@ -209,11 +204,9 @@ function ExplorePageContent() {
       return matchCat && matchSearch;
     });
 
-    // Sort filtered results
     if (sortMode === "popular") {
       result = [...result].sort((a, b) => b.plays - a.plays);
     } else if (sortMode === "newest") {
-      // Supabase returns created_at; local store type uses createdAt
       result = [...result].sort((a, b) => {
         const aTime = (a as any).created_at ?? a.createdAt ?? 0;
         const bTime = (b as any).created_at ?? b.createdAt ?? 0;
@@ -228,7 +221,6 @@ function ExplorePageContent() {
     return result;
   }, [quizzes, search, activeCategory, sortMode]);
 
-  // Trending: top 6 by plays, unfiltered by search/category
   const trending = useMemo(() => {
     return [...quizzes]
       .sort((a, b) => b.plays - a.plays)
@@ -240,86 +232,49 @@ function ExplorePageContent() {
     : `All ${filtered.length} public quiz${filtered.length !== 1 ? "zes" : ""}`;
 
   return (
-    <div className="explore-page" style={{ position: "relative", zIndex: 10, paddingBottom: "5rem" }}>
-      {/* Background Decor */}
+    <div className="explore-page">
       <div className="mesh-gradient">
         <div className="mesh-blob mesh-blob-1" style={{ opacity: 0.5 }} />
       </div>
 
-      <div className="container" style={{ paddingTop: "3rem" }}>
+      <div className="container explore-container">
         <PageHero
           eyebrow={getTimeOfDayLabel()}
           title="Discover Quizzes"
           description="Search public quiz sets, jump into host mode, or study a topic at your own pace."
           accent={getTimeBasedAccent()}
           actions={
-            <>
+            <div className="explore-hero-actions">
               <button
                 onClick={() => void handleQuickPlay()}
                 disabled={quickPlayLoading || loading}
-                className="btn btn-primary"
-                style={{
-                  background: quickPlayLoading
-                    ? "rgba(255,255,255,0.5)"
-                    : "linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)",
-                  border: "1px solid rgba(255,255,255,0.22)",
-                  boxShadow: "0 4px 14px rgba(124,58,237,0.35)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.4rem",
-                  cursor: quickPlayLoading || loading ? "not-allowed" : "pointer",
-                }}
+                className="btn btn-primary explore-quick-play"
               >
-                <span style={{ fontSize: "1.1rem" }}>⚡</span>
+                <span className="explore-quick-play-icon">⚡</span>
                 <span>{quickPlayLoading ? "Finding Quiz..." : "Quick Play"}</span>
               </button>
-              <Link href="/create" className="btn btn-primary" style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.22)" }}>
+              <Link href="/create" className="btn btn-primary btn-create">
                 Create Quiz
               </Link>
-              <Link href="/join" className="btn btn-secondary" style={{ background: "rgba(255,255,255,0.12)", color: "#fff", borderColor: "rgba(255,255,255,0.24)" }}>
+              <Link href="/join" className="btn btn-secondary btn-join">
                 Join Game
               </Link>
-            </>
+            </div>
           }
         />
 
-        {/* ── Quick Play error ── */}
         {quickPlayError && (
-          <div
-            className="card"
-            style={{
-              padding: "0.875rem 1.1rem",
-              marginBottom: "1rem",
-              border: "1px solid var(--line)",
-              background: "var(--primary-light)",
-              color: "var(--primary)",
-              fontWeight: 600,
-              fontSize: "0.9rem",
-              borderRadius: "var(--radius-xl)",
-            }}
-          >
+          <div className="card explore-error-banner">
             {quickPlayError}
-            <button
-              onClick={() => setQuickPlayError(null)}
-              style={{ float: "right", background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontWeight: 800, padding: "0 0.25rem" }}
-            >
-              ✕
-            </button>
+            <button onClick={() => setQuickPlayError(null)} className="explore-error-close">✕</button>
           </div>
         )}
 
-        {/* ── Search & Filter ── */}
         <SectionCard
           title="Search And Filter"
           description="Use category chips and keyword search to narrow the public catalog."
         >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "1rem",
-            }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div className="explore-search-row">
               <input
                 type="text"
@@ -346,30 +301,12 @@ function ExplorePageContent() {
               </div>
             </div>
 
-            <div
-              className="hide-scrollbar"
-              style={{
-                display: "flex",
-                gap: "0.375rem",
-                overflowX: "auto",
-                paddingBottom: "0.5rem",
-                flexWrap: "nowrap",
-              }}
-            >
+            <div className="hide-scrollbar explore-chip-row">
               {CATEGORY_LIST.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
-                  className="btn btn-chip"
-                  style={{
-                    flexShrink: 0,
-                    background: activeCategory === cat ? "var(--accent)" : "var(--surface)",
-                    color: activeCategory === cat ? "#fff" : "var(--muted)",
-                    border: activeCategory === cat ? "1px solid var(--accent)" : "1px solid var(--line)",
-                    transition: "all 0.15s ease",
-                    padding: "0.45rem 0.75rem",
-                    fontSize: "0.8125rem",
-                  }}
+                  className={activeCategory === cat ? "btn btn-chip explore-chip is-active" : "btn btn-chip explore-chip"}
                 >
                   {cat === "All" ? "All topics" : `${CATEGORY_EMOJIS[cat] || "📌"} ${cat}`}
                 </button>
@@ -378,57 +315,26 @@ function ExplorePageContent() {
           </div>
         </SectionCard>
 
-        {/* ── Results ── */}
         {loading ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "5rem 0",
-              color: "var(--muted)",
-            }}
-          >
-            <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>📡</div>
+          <div className="explore-status-panel explore-status-panel--loading">
+            <div className="explore-status-icon">📡</div>
             <p style={{ fontWeight: 600 }}>Loading quizzes...</p>
           </div>
         ) : fetchError ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "4rem 2rem",
-              background: "var(--surface)",
-              borderRadius: "var(--radius-xl)",
-              border: "1px dashed var(--line-strong)",
-            }}
-          >
-            <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⚠️</div>
-            <h3 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>
-              Could not load quizzes
-            </h3>
-            <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>{fetchError}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="btn btn-primary"
-              style={{ marginTop: "1.25rem" }}
-            >
+          <div className="explore-status-panel">
+            <div className="explore-status-icon">⚠️</div>
+            <h3 className="font-display explore-status-title">Could not load quizzes</h3>
+            <p className="explore-status-text">{fetchError}</p>
+            <button onClick={() => window.location.reload()} className="btn btn-primary" style={{ marginTop: "1.25rem" }}>
               Retry
             </button>
           </div>
         ) : filtered.length === 0 ? (
           hasActiveFilter ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "4rem 2rem",
-                background: "var(--surface)",
-                borderRadius: "var(--radius-xl)",
-                border: "1px dashed var(--line-strong)",
-              }}
-            >
-              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔍</div>
-              <h3 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>
-                No quizzes match your search
-              </h3>
-              <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
+            <div className="explore-status-panel">
+              <div className="explore-status-icon">🔍</div>
+              <h3 className="font-display explore-status-title">No quizzes match your search</h3>
+              <p className="explore-status-text">
                 Try different keywords or remove the{activeCategory !== "All" ? " category filter" : " search"}.
               </p>
               {(search.trim().length > 0 || activeCategory !== "All") && (
@@ -442,22 +348,10 @@ function ExplorePageContent() {
               )}
             </div>
           ) : (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "4rem 2rem",
-                background: "var(--surface)",
-                borderRadius: "var(--radius-xl)",
-                border: "1px dashed var(--line-strong)",
-              }}
-            >
-              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>📝</div>
-              <h3 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>
-                No public quizzes yet
-              </h3>
-              <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
-                Be the first to create and share a quiz!
-              </p>
+            <div className="explore-status-panel">
+              <div className="explore-status-icon">📝</div>
+              <h3 className="font-display explore-status-title">No public quizzes yet</h3>
+              <p className="explore-status-text">Be the first to create and share a quiz!</p>
               <Link href="/create" className="btn btn-primary" style={{ marginTop: "1.25rem", display: "inline-flex" }}>
                 Create Quiz
               </Link>
@@ -465,19 +359,14 @@ function ExplorePageContent() {
           )
         ) : (
           <>
-            {/* ── Trending Section (shown when no filter/search is active) ── */}
             {!hasActiveFilter && trending.length >= 3 && (
-              <div style={{ marginBottom: "2.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem" }}>
-                  <span style={{ fontSize: "1.5rem" }}>🔥</span>
-                  <h2 className="font-display" style={{ fontSize: "1.375rem", fontWeight: 900, color: "var(--ink)" }}>
-                    Trending Now
-                  </h2>
-                  <span style={{ fontSize: "0.8rem", color: "var(--muted)", fontWeight: 600 }}>
-                    Most played this week
-                  </span>
+              <div className="explore-trending">
+                <div className="explore-trending-header">
+                  <span className="explore-trending-icon">🔥</span>
+                  <h2 className="font-display explore-trending-title">Trending Now</h2>
+                  <span className="explore-trending-subtitle">Most played this week</span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+                <div className="explore-trending-grid">
                   {trending.slice(0, 6).map((q) => (
                     <ExploreQuizCard key={q.id} quiz={q} />
                   ))}
@@ -485,7 +374,6 @@ function ExplorePageContent() {
               </div>
             )}
 
-            {/* ── Full Catalog ── */}
             <SectionCard
               title={hasActiveFilter ? "Search Results" : "All Quizzes"}
               description={catalogDescription}
@@ -505,8 +393,8 @@ function ExplorePageContent() {
 
 export default function ExplorePage() {
   return (
-    <Suspense fallback={<div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
-      <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>📡</div>
+    <Suspense fallback={<div className="container explore-status-panel explore-status-panel--loading">
+      <div className="explore-status-icon">📡</div>
       <p style={{ color: "var(--muted)" }}>Loading...</p>
     </div>}>
       <ExplorePageContent />

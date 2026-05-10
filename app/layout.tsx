@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "../styles/game.css";
 import "../styles/present.css";
+import "../styles/explore.css";
 import "../styles/builder.css";
 import "../styles/study.css";
 import { Navigation } from "@/components/navigation";
