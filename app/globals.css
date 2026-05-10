@@ -1499,3 +1499,48 @@ body.qw-present-live-route main {
 
 .mesh-blob-dim { opacity: 0.5; }
 .inline-flex { display: inline-flex; }
+
+/* Google sign-in button */
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-google:hover {
+  background: var(--bg-subtle);
+  border-color: var(--line-strong);
+}
+
+.btn-google:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Divider between Google and email */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.25rem 0;
+  color: var(--faint);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
