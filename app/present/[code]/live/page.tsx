@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { QrCode } from "@/components/shared/qr-code";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
@@ -15,7 +14,9 @@ import {
   readPresenterToken,
   type PresentationParticipantSession,
 } from "@/lib/presentation/client";
-import { DISPLAY_SITE_HOST, presentationJoinUrl } from "@/lib/config/public";
+import { presentationJoinUrl } from "@/lib/config/public";
+import { HostDock, JoinOverlay, LiveStatusRail } from "@/components/present/live/live-status-panels";
+import { LiveSlideStage } from "@/components/present/live/live-slide-stage";
 
 export default function PresentationLive() {
   const params = useParams();
@@ -300,16 +301,16 @@ export default function PresentationLive() {
   }, [currentIndex, slides, participantSession]);
 
   if (loading) {
-    return <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>Loading...</div>;
+    return <div className="container present-live-guard">Loading...</div>;
   }
 
   if (isHost && !presenterToken) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", maxWidth: 520, textAlign: "center" }}>
-        <div className="card" style={{ padding: "2rem" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎤</div>
-          <h1 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.75rem" }}>Start from the editor</h1>
-          <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>Presenter controls require a live presenter token. Start this deck from the editor.</p>
+      <div className="container present-live-guard present-live-guard--narrow">
+        <div className="card present-live-guard-card">
+          <div className="present-live-guard-icon">🎤</div>
+          <h1 className="font-display present-live-guard-title">Start from the editor</h1>
+          <p className="present-live-guard-copy">Presenter controls require a live presenter token. Start this deck from the editor.</p>
           <button className="btn btn-primary btn-lg" onClick={() => router.push(`/present/${code}/edit`)}>Open Editor</button>
         </div>
       </div>
@@ -318,11 +319,11 @@ export default function PresentationLive() {
 
   if (!isHost && !participantSession) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", maxWidth: 520, textAlign: "center" }}>
-        <div className="card" style={{ padding: "2rem" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🙋</div>
-          <h1 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.75rem" }}>Join through the presentation code</h1>
-          <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>Audience responses need a participant session so your answers and upvotes are valid.</p>
+      <div className="container present-live-guard present-live-guard--narrow">
+        <div className="card present-live-guard-card">
+          <div className="present-live-guard-icon">🙋</div>
+          <h1 className="font-display present-live-guard-title">Join through the presentation code</h1>
+          <p className="present-live-guard-copy">Audience responses need a participant session so your answers and upvotes are valid.</p>
           <button className="btn btn-primary btn-lg" onClick={() => router.push(joinCode ? `/present/join?code=${joinCode}` : "/present/join")}>Join Presentation</button>
         </div>
       </div>
@@ -331,7 +332,7 @@ export default function PresentationLive() {
 
   const currentSlide = slides[currentIndex];
   if (!currentSlide) {
-    return <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>No slides</div>;
+    return <div className="container present-live-guard">No slides</div>;
   }
 
   // Word cloud data
@@ -357,213 +358,74 @@ export default function PresentationLive() {
 
   const joinUrl = joinCode ? presentationJoinUrl(joinCode) : "";
   const responseCount = allResponses.length;
-  const shouldShowResults = !isHost || !resultsHidden;
 
   return (
-    <div className="present-live-shell" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: isHost ? "radial-gradient(circle at top left, #f5f3ff 0, #ffffff 36%, #f8fafc 100%)" : undefined }}>
-      {/* Presenter status rail */}
+    <div className={isHost ? "present-live-shell is-host" : "present-live-shell"}>
       {isHost && (
-        <div className="present-live-status-rail">
-          <div className="present-live-status-pill">
-            <span className={channelJoined ? "present-live-status-dot is-connected" : "present-live-status-dot"} />
-            <span className="present-live-status-count">{currentIndex + 1}/{slides.length}</span>
-            <span className="present-live-status-title">{title}</span>
-          </div>
-          {joinCode && (
-            <button className="present-live-join-chip" onClick={() => setShowJoinOverlay(true)}>Join: {joinCode}</button>
-          )}
-          <div className="present-live-status-spacer" />
-          <div className={resultsHidden ? "present-live-results-chip is-hidden" : "present-live-results-chip"}>
-            {resultsHidden ? "Results hidden" : "Results visible"} · {responseCount} responses
-          </div>
-        </div>
+        <LiveStatusRail
+          channelJoined={channelJoined}
+          currentIndex={currentIndex}
+          slideCount={slides.length}
+          title={title}
+          joinCode={joinCode}
+          resultsHidden={resultsHidden}
+          responseCount={responseCount}
+          onShowJoin={() => setShowJoinOverlay(true)}
+        />
       )}
 
       {isHost && showJoinOverlay && joinCode && (
-        <div className="present-join-overlay" onClick={() => setShowJoinOverlay(false)}>
-          <div className="present-join-overlay-card" onClick={(e) => e.stopPropagation()}>
-            <div className="present-join-overlay-label">Audience join</div>
-            <div className="present-join-overlay-code">{joinCode}</div>
-            <div className="present-join-overlay-body">
-              <QrCode value={joinUrl} size={260} label="Scan to join" className="qr-code" />
-              <div className="present-join-overlay-copy">
-                <div className="present-join-overlay-title">Scan or enter the code</div>
-                <div className="present-join-overlay-url">{DISPLAY_SITE_HOST}/present/join</div>
-                <button onClick={() => { void navigator.clipboard?.writeText(joinUrl); }} className="btn btn-primary btn-lg">Copy invite link</button>
-                <div className="present-join-overlay-hint">Shortcut: press I to show/hide this overlay</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <JoinOverlay joinCode={joinCode} joinUrl={joinUrl} onClose={() => setShowJoinOverlay(false)} />
       )}
 
       {channelError && (
-        <div style={{ padding: "0.5rem 1rem", background: "#fff7ed", color: "#9a3412", fontSize: "0.8rem", fontWeight: 700, textAlign: "center" }}>
+        <div className="present-channel-error">
           {channelError} {channelJoined ? "" : "Using read-only fallback until realtime reconnects."}
         </div>
       )}
 
-      {/* Slide content */}
-      <div className="present-live-stage" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: isHost ? "5.5rem 2rem 7rem" : "2rem" }}>
-        <div className="present-live-content" style={{ maxWidth: isHost ? 980 : 720, width: "100%", textAlign: "center" }}>
-
-          {currentSlide.slide_type === "content" && (
-            <div className="card" style={{ padding: "3rem", textAlign: "left" }}>
-              <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "1rem" }}>{currentSlide.title}</h2>
-              <div style={{ fontSize: "1.125rem", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{currentSlide.content?.text || ""}</div>
-            </div>
-          )}
-
-          {currentSlide.slide_type === "word_cloud" && (
-            <div>
-              <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "1.5rem" }}>{currentSlide.content?.prompt || "What comes to mind?"}</h2>
-              {shouldShowResults && sortedWords.length > 0 ? (
-                <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.65rem", marginBottom: "2rem" }}>
-                  {sortedWords.map(([word, count]) => (
-                    <span key={word} style={{ padding: "0.55rem 1.1rem", borderRadius: "999px", background: "linear-gradient(135deg, var(--accent-light), #fdf4ff)", color: "var(--accent)", fontSize: `${Math.min(1 + count * 0.3, 2.8)}rem`, fontWeight: 900, boxShadow: "0 10px 30px rgba(124,58,237,0.1)" }}>{word}</span>
-                  ))}
-                </div>
-              ) : <p style={{ color: "var(--muted)", fontSize: "1.125rem", fontWeight: 700 }}>{resultsHidden && isHost ? `Responses hidden · ${responseCount} received` : "Waiting for responses…"}</p>}
-              {!submitted && !isHost && (
-                <div className="present-response-row" style={{ display: "flex", gap: "0.5rem", maxWidth: 400, margin: "0 auto" }}>
-                  <input value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Type a word…"
-                    style={{ flex: 1, padding: "0.75rem", border: "1.5px solid var(--line)", borderRadius: "var(--radius-xl)", outline: "none" }}
-                    onKeyDown={(e) => { if (e.key === "Enter" && response.trim()) submitResponse({ words: response.trim() }); }} />
-                  <button onClick={() => { if (response.trim()) submitResponse({ words: response.trim() }); }} className="btn btn-primary">Submit</button>
-                </div>
-              )}
-              {submitted && <p style={{ color: "var(--success)", fontWeight: 700, marginTop: "1rem" }}>✅ Submitted!</p>}
-            </div>
-          )}
-
-          {currentSlide.slide_type === "open_text" && (
-            <div>
-              <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "1.5rem" }}>{currentSlide.content?.question || "What do you think?"}</h2>
-              {shouldShowResults && allResponses.length > 0 && (
-                <div style={{ display: "grid", gap: "0.65rem", marginBottom: "2rem", maxHeight: 360, overflowY: "auto" }}>
-                  {allResponses.map((r, i) => (
-                    <div key={i} className="card" style={{ padding: "0.95rem 1.15rem", textAlign: "left", border: "1px solid rgba(124,58,237,0.14)", boxShadow: "0 10px 28px rgba(15,23,42,0.06)" }}>
-                      <span style={{ fontWeight: 750 }}>{r.response_data?.text as string}</span>
-                      <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginLeft: "0.5rem" }}>— {r.participant_name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {isHost && resultsHidden && <p style={{ color: "var(--muted)", fontSize: "1.125rem", fontWeight: 700, marginBottom: "2rem" }}>Responses hidden · {responseCount} received</p>}
-              {!submitted && !isHost && (
-                <div className="present-response-row" style={{ display: "flex", gap: "0.5rem", maxWidth: 500, margin: "0 auto" }}>
-                  <input value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Type your response…"
-                    style={{ flex: 1, padding: "0.75rem", border: "1.5px solid var(--line)", borderRadius: "var(--radius-xl)", outline: "none" }}
-                    onKeyDown={(e) => { if (e.key === "Enter" && response.trim()) submitResponse({ text: response.trim() }); }} />
-                  <button onClick={() => { if (response.trim()) submitResponse({ text: response.trim() }); }} className="btn btn-primary">Submit</button>
-                </div>
-              )}
-              {submitted && <p style={{ color: "var(--success)", fontWeight: 700, marginTop: "1rem" }}>✅ Submitted!</p>}
-            </div>
-          )}
-
-          {currentSlide.slide_type === "poll" && (
-            <div>
-              <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "1.5rem" }}>{currentSlide.title || "Vote"}</h2>
-              <div style={{ display: "grid", gap: "0.75rem", maxWidth: 400, margin: "0 auto" }}>
-                {(currentSlide.content?.options || []).map((opt) => {
-                  const count = pollCounts[opt.id] || 0;
-                  const total = Object.values(pollCounts).reduce((s, c) => s + c, 0);
-                  const pct = total > 0 ? Math.round(count / total * 100) : 0;
-                  return (
-                    <button key={opt.id} onClick={() => { if (!submitted && !isHost) { setSelectedOption(opt.id); submitResponse({ option_id: opt.id }); } }}
-                      disabled={submitted || isHost}
-                      style={{ padding: "1rem", borderRadius: "var(--radius-xl)", border: selectedOption === opt.id ? "2px solid var(--accent)" : "1.5px solid var(--line)", background: selectedOption === opt.id ? "var(--accent-light)" : "var(--surface)", cursor: submitted || isHost ? "default" : "pointer", textAlign: "left", position: "relative", overflow: "hidden" }}>
-                      {shouldShowResults && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, background: "linear-gradient(90deg, var(--accent-light), #ddd6fe)", transition: "width 0.6s cubic-bezier(.2,.8,.2,1)", opacity: 0.75 }} />}
-                      <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
-                        <span style={{ fontWeight: 850, fontSize: isHost ? "1.05rem" : undefined }}>{opt.text}</span>
-                        <span style={{ fontWeight: 900, color: "var(--accent)", minWidth: 86, textAlign: "right" }}>{shouldShowResults ? `${pct}% (${count})` : "Hidden"}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {currentSlide.slide_type === "quiz" && (
-            <div>
-              <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "1.5rem" }}>{currentSlide.title || "Quiz"}</h2>
-              <div style={{ display: "grid", gap: "0.75rem", maxWidth: 500, margin: "0 auto" }}>
-                {(currentSlide.content?.answers || []).map((ans, i) => (
-                  <button key={ans.id} onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id, is_correct: ans.is_correct }); }}
-                    disabled={submitted || isHost}
-                    style={{ padding: "1rem", borderRadius: "var(--radius-xl)", border: "1.5px solid var(--line)", background: submitted && ans.is_correct ? "var(--accent-light)" : "var(--surface)", cursor: submitted || isHost ? "default" : "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <span style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--line)", display: "grid", placeItems: "center", fontWeight: 800 }}>{String.fromCharCode(65 + i)}</span>
-                    <span style={{ fontWeight: 700 }}>{ans.text}</span>
-                    {submitted && ans.is_correct && <span style={{ marginLeft: "auto", color: "var(--success)", fontWeight: 700 }}>✅</span>}
-                  </button>
-                ))}
-              </div>
-              {submitted && <p style={{ color: "var(--success)", fontWeight: 700, marginTop: "1rem" }}>✅ Answered!</p>}
-              <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: "0.5rem" }}>{allResponses.length} responses</p>
-            </div>
-          )}
-
-          {currentSlide.slide_type === "scale" && (
-            <div>
-              <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "1.5rem" }}>{currentSlide.title || "Rate"}</h2>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>
-                <span>{currentSlide.content?.min_label || currentSlide.content?.min || 1}</span>
-                <span>{currentSlide.content?.max_label || currentSlide.content?.max || 10}</span>
-              </div>
-              <input type="range" min={currentSlide.content?.min ?? 1} max={currentSlide.content?.max ?? 10} value={scaleValue}
-                onChange={(e) => setScaleValue(Number(e.target.value))} disabled={submitted || isHost}
-                style={{ width: "100%", marginBottom: "1rem" }} />
-              <div style={{ fontSize: "2rem", fontWeight: 900, color: "var(--accent)" }}>{scaleValue}</div>
-              {!submitted && !isHost && <button onClick={() => submitResponse({ value: scaleValue })} className="btn btn-primary" style={{ marginTop: "1rem" }}>Submit</button>}
-              {submitted && <p style={{ color: "var(--success)", fontWeight: 700, marginTop: "1rem" }}>✅ Submitted!</p>}
-              {scaleValues.length > 0 && <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginTop: "0.5rem", fontWeight: 700 }}>{shouldShowResults ? `Average: ${scaleAvg} (${scaleValues.length} responses)` : `Responses hidden · ${scaleValues.length} received`}</p>}
-            </div>
-          )}
-
-          {currentSlide.slide_type === "qna" && (
-            <div>
-              <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "1.5rem" }}>{currentSlide.title || "Q&A"}</h2>
-              {shouldShowResults && qnaQuestions.length > 0 && (
-                <div style={{ display: "grid", gap: "0.65rem", marginBottom: "2rem", maxHeight: 360, overflowY: "auto" }}>
-                  {qnaQuestions.map((q) => (
-                    <div key={q.id} className="card" style={{ padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem", textAlign: "left" }}>
-                      <button onClick={() => upvoteQna(q.id)}
-                        style={{ padding: "0.25rem 0.5rem", borderRadius: "var(--radius-lg)", border: "1px solid var(--line)", background: "var(--surface)", cursor: "pointer", fontWeight: 700, fontSize: "0.875rem" }}>▲ {q.upvotes}</button>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600 }}>{q.question}</div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{q.participant_name}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {!isHost && (
-                <div className="present-response-row" style={{ display: "flex", gap: "0.5rem", maxWidth: 500, margin: "0 auto" }}>
-                  <input value={newQnaQuestion} onChange={(e) => setNewQnaQuestion(e.target.value)} placeholder="Ask a question…"
-                    style={{ flex: 1, padding: "0.75rem", border: "1.5px solid var(--line)", borderRadius: "var(--radius-xl)", outline: "none" }}
-                    onKeyDown={(e) => { if (e.key === "Enter" && newQnaQuestion.trim()) submitQnaQuestion(); }} />
-                  <button onClick={submitQnaQuestion} className="btn btn-primary">Ask</button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <LiveSlideStage
+        currentSlide={currentSlide}
+        isHost={isHost}
+        resultsHidden={resultsHidden}
+        responseCount={responseCount}
+        allResponses={allResponses}
+        qnaQuestions={qnaQuestions}
+        sortedWords={sortedWords}
+        pollCounts={pollCounts}
+        scaleValues={scaleValues}
+        scaleAvg={scaleAvg}
+        response={response}
+        selectedOption={selectedOption}
+        scaleValue={scaleValue}
+        submitted={submitted}
+        newQnaQuestion={newQnaQuestion}
+        setResponse={setResponse}
+        setScaleValue={setScaleValue}
+        setSelectedOption={setSelectedOption}
+        setNewQnaQuestion={setNewQnaQuestion}
+        submitResponse={submitResponse}
+        submitQnaQuestion={submitQnaQuestion}
+        upvoteQna={upvoteQna}
+      />
 
       {isHost && (
-        <div className="present-host-dock">
-          <button className="present-dock-button" onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.prevSlide(); }} disabled={currentIndex === 0 || !channelJoined}>← Prev</button>
-          <button className="present-dock-button is-primary" onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.nextSlide(); }} disabled={currentIndex === slides.length - 1 || !channelJoined}>Next →</button>
-          <button className="present-dock-button" onClick={() => setShowJoinOverlay(true)}>Join</button>
-          <button className="present-dock-button" onClick={() => setResultsHidden((v) => !v)}>{resultsHidden ? "Reveal" : "Hide"}</button>
-          <button className="present-dock-button" onClick={toggleFullscreen}>{isFullscreen ? "Exit" : "Fullscreen"}</button>
-          <button className="present-dock-button is-danger" onClick={() => { if (channelJoined && channelRef.current) void channelRef.current.endPresentation(); }} disabled={!channelJoined}>End</button>
-        </div>
+        <HostDock
+          channelJoined={channelJoined}
+          currentIndex={currentIndex}
+          slideCount={slides.length}
+          resultsHidden={resultsHidden}
+          isFullscreen={isFullscreen}
+          onPrev={() => { if (channelJoined && channelRef.current) void channelRef.current.prevSlide(); }}
+          onNext={() => { if (channelJoined && channelRef.current) void channelRef.current.nextSlide(); }}
+          onJoin={() => setShowJoinOverlay(true)}
+          onToggleResults={() => setResultsHidden((v) => !v)}
+          onToggleFullscreen={toggleFullscreen}
+          onEnd={() => { if (channelJoined && channelRef.current) void channelRef.current.endPresentation(); }}
+        />
       )}
 
-      {!isHost && <div style={{ textAlign: "center", padding: "0.5rem", fontSize: "0.75rem", color: "var(--muted)" }}>{currentIndex + 1} / {slides.length}</div>}
+      {!isHost && <div className="present-audience-progress">{currentIndex + 1} / {slides.length}</div>}
     </div>
   );
 }

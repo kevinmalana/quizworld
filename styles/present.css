@@ -397,3 +397,326 @@
 
 .present-dock-button.is-danger { color: #fecdd3; }
 .present-dock-button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Presentation live slide UI */
+.present-live-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.present-live-shell.is-host {
+  background: radial-gradient(circle at top left, #f5f3ff 0, #ffffff 36%, #f8fafc 100%);
+}
+
+.present-channel-error {
+  padding: 0.5rem 1rem;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.present-live-stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.present-live-stage.is-host {
+  padding: 5.5rem 2rem 7rem;
+}
+
+.present-live-content {
+  max-width: 720px;
+  width: 100%;
+  text-align: center;
+}
+
+.present-live-content.is-host {
+  max-width: 980px;
+}
+
+.present-slide-card {
+  padding: 3rem;
+}
+
+.present-slide-card--content {
+  text-align: left;
+}
+
+.present-slide-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+}
+
+.present-slide-title.is-centered {
+  margin-bottom: 1.5rem;
+}
+
+.present-content-text {
+  font-size: 1.125rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.present-word-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-bottom: 2rem;
+}
+
+.present-word-chip {
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent-light), #fdf4ff);
+  color: var(--accent);
+  font-weight: 900;
+  box-shadow: 0 10px 30px rgba(124,58,237,0.1);
+}
+
+.present-waiting-text {
+  color: var(--muted);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.present-waiting-text.with-space {
+  margin-bottom: 2rem;
+}
+
+.present-response-row {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 auto;
+}
+
+.present-response-row--word { max-width: 400px; }
+.present-response-row--open { max-width: 500px; }
+
+.present-response-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-xl);
+  outline: none;
+}
+
+.present-submitted-text {
+  color: var(--success);
+  font-weight: 700;
+  margin-top: 1rem;
+}
+
+.present-response-list,
+.present-qna-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 2rem;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.present-open-response {
+  padding: 0.95rem 1.15rem;
+  text-align: left;
+  border: 1px solid rgba(124,58,237,0.14);
+  box-shadow: 0 10px 28px rgba(15,23,42,0.06);
+}
+
+.present-open-response-text { font-weight: 750; }
+
+.present-response-author {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-left: 0.5rem;
+}
+
+.present-option-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 auto;
+}
+
+.present-option-list--poll { max-width: 400px; }
+.present-option-list--quiz { max-width: 500px; }
+
+.present-poll-option,
+.present-quiz-option {
+  padding: 1rem;
+  border-radius: var(--radius-xl);
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+}
+
+.present-poll-option {
+  position: relative;
+  overflow: hidden;
+}
+
+.present-poll-option.is-selected {
+  border: 2px solid var(--accent);
+  background: var(--accent-light);
+}
+
+.present-poll-option:disabled,
+.present-quiz-option:disabled {
+  cursor: default;
+}
+
+.present-poll-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, var(--accent-light), #ddd6fe);
+  transition: width 0.6s cubic-bezier(.2,.8,.2,1);
+  opacity: 0.75;
+}
+
+.present-poll-option-content {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.present-poll-label {
+  font-weight: 850;
+}
+
+.present-poll-label.is-host {
+  font-size: 1.05rem;
+}
+
+.present-poll-result {
+  font-weight: 900;
+  color: var(--accent);
+  min-width: 86px;
+  text-align: right;
+}
+
+.present-quiz-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.present-quiz-option.is-correct {
+  background: var(--accent-light);
+}
+
+.present-answer-letter {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--line);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.present-answer-text { font-weight: 700; }
+.present-correct-mark { margin-left: auto; color: var(--success); font-weight: 700; }
+
+.present-response-count {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.present-scale-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.present-scale-input {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.present-scale-value {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--accent);
+}
+
+.present-scale-submit { margin-top: 1rem; }
+
+.present-scale-summary {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  font-weight: 700;
+}
+
+.present-qna-item {
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.present-qna-upvote {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.present-qna-body { flex: 1; }
+.present-qna-question { font-weight: 600; }
+.present-qna-author { font-size: 0.75rem; color: var(--muted); }
+
+.present-audience-progress {
+  text-align: center;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.present-live-guard {
+  padding-top: 4rem;
+  text-align: center;
+}
+
+.present-live-guard--narrow {
+  max-width: 520px;
+}
+
+.present-live-guard-card {
+  padding: 2rem;
+}
+
+.present-live-guard-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.present-live-guard-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.present-live-guard-copy {
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
