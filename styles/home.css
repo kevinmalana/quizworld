@@ -1,0 +1,262 @@
+/* Homepage */
+.home-root {
+  position: relative;
+}
+
+/* Hero */
+.home-hero {
+  padding: 5rem 0 4rem;
+  position: relative;
+}
+
+.home-hero-grid {
+  display: grid;
+  gap: 3rem;
+  align-items: center;
+}
+
+@media (min-width: 960px) {
+  .home-hero-grid {
+    grid-template-columns: 1.1fr 420px;
+    gap: 4rem;
+  }
+}
+
+.home-hero-title {
+  font-size: clamp(2.5rem, 5vw, 3.75rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  margin-bottom: 1.5rem;
+}
+
+.home-hero-desc {
+  font-size: 1.125rem;
+  color: var(--ink-secondary);
+  line-height: 1.7;
+  max-width: 520px;
+  margin-bottom: 2rem;
+}
+
+.home-hero-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 3rem;
+}
+
+/* Join card */
+.home-join-card {
+  padding: 2.5rem 2rem;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(124,58,237,0.04), rgba(37,99,235,0.04));
+  border: 1px solid var(--line);
+}
+
+.home-join-icon {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+}
+
+.home-join-title {
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: 0.25rem;
+}
+
+.home-join-subtitle {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
+
+.home-join-hint {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--faint);
+  font-weight: 600;
+}
+
+.home-join-present {
+  display: block;
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* Category dot */
+.home-category-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+/* Sections */
+.home-section {
+  position: relative;
+  z-index: 10;
+}
+
+.home-section-surface {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.home-section-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.home-section-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.home-section-desc {
+  color: var(--muted);
+  margin-top: 0.5rem;
+}
+
+/* Category cards */
+.home-category-card {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.home-category-emoji {
+  font-size: 2.5rem;
+}
+
+.home-category-name {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--ink);
+}
+
+.home-category-desc {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+/* How it works cards */
+.home-step-card {
+  padding: 2rem 1.5rem;
+  position: relative;
+}
+
+.home-step-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.home-step-icon {
+  font-size: 2rem;
+  margin: 0.75rem 0;
+}
+
+.home-step-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+.home-step-desc {
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* CTA Banner */
+.home-cta {
+  padding: 0 0 5rem;
+  position: relative;
+  z-index: 10;
+}
+
+.home-cta-card {
+  background: linear-gradient(135deg, var(--accent), #6d28d9, #4f46e5);
+  border-radius: var(--radius-2xl);
+  padding: 3.5rem 2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-cta-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.08;
+  background-image: radial-gradient(circle, #fff 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.home-cta-content {
+  position: relative;
+  z-index: 1;
+}
+
+.home-cta-title {
+  font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.75rem;
+}
+
+.home-cta-desc {
+  color: rgba(255,255,255,0.8);
+  font-size: 1.0625rem;
+  margin-bottom: 2rem;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.home-cta-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.home-cta-btn-primary {
+  background: #fff;
+  color: var(--accent);
+  font-weight: 800;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.home-cta-btn-secondary {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1.5px solid rgba(255,255,255,0.3);
+}
+
+/* Tag */
+.home-tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  display: inline-block;
+  margin-right: 6px;
+}

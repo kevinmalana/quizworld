@@ -37,15 +37,11 @@ function JoinForm() {
 
   if (liveGameEngineMisconfigured) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem", maxWidth: 520 }}>
-        <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚙️</div>
-          <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.75rem" }}>
-            Live Game Service Not Configured
-          </h2>
-          <p style={{ color: "var(--muted)" }}>
-            Phoenix is selected as the live engine, but `NEXT_PUBLIC_GAME_SERVICE_URL` is missing.
-          </p>
+      <div className="container game-status-panel">
+        <div className="card game-status-card">
+          <div className="game-status-icon">⚙️</div>
+          <h2 className="font-display game-status-title">Live Game Service Not Configured</h2>
+          <p className="game-status-text">Phoenix is selected as the live engine, but `NEXT_PUBLIC_GAME_SERVICE_URL` is missing.</p>
         </div>
       </div>
     );
@@ -53,15 +49,11 @@ function JoinForm() {
 
   if (legacySupabaseGameEngine) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem", maxWidth: 520 }}>
-        <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🛑</div>
-          <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.75rem" }}>
-            Legacy Supabase Live Games Disabled
-          </h2>
-          <p style={{ color: "var(--muted)" }}>
-            Production live sessions now require the Phoenix realtime service.
-          </p>
+      <div className="container game-status-panel">
+        <div className="card game-status-card">
+          <div className="game-status-icon">🛑</div>
+          <h2 className="font-display game-status-title">Legacy Supabase Live Games Disabled</h2>
+          <p className="game-status-text">Production live sessions now require the Phoenix realtime service.</p>
         </div>
       </div>
     );
@@ -174,9 +166,7 @@ function JoinForm() {
           return;
         }
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
       }
 
       setError("Could not join this game right now. Please try again.");
@@ -185,8 +175,7 @@ function JoinForm() {
       setError(
         error?.message === "Game is not accepting new players."
           ? "This game is no longer accepting new players."
-          : error?.message === "Nickname is required." ||
-              error?.message === "Nickname is required."
+          : error?.message === "Nickname is required."
             ? "Enter a nickname."
             : error?.message === "That nickname is already taken in this game."
               ? "That nickname is already taken. Choose a different one."
@@ -199,15 +188,11 @@ function JoinForm() {
 
   if (step === "nickname") {
     return (
-      <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem", maxWidth: 480 }}>
-        <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🙋</div>
-          <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.5rem" }}>
-            Enter Your Nickname
-          </h2>
-          <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
-            Game PIN: <strong>{pin}</strong>
-          </p>
+      <div className="container join-shell">
+        <div className="card join-card">
+          <div className="join-icon">🙋</div>
+          <h2 className="font-display join-title">Enter Your Nickname</h2>
+          <p className="join-subtitle">Game PIN: <strong>{pin}</strong></p>
 
           <input
             type="text"
@@ -219,54 +204,26 @@ function JoinForm() {
             maxLength={20}
           />
 
-          {/* Avatar picker */}
           <div style={{ marginBottom: "1.5rem" }}>
-            <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--muted)", marginBottom: "0.75rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-              Pick Your Avatar
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.5rem", maxWidth: 280, margin: "0 auto" }}>
+            <p className="join-pin-label">Pick Your Avatar</p>
+            <div className="join-pin-grid" style={{ maxWidth: 280 }}>
               {AVATARS.map((a) => (
                 <button
                   key={a}
                   onClick={() => setAvatar(a)}
-                  style={{
-                    fontSize: "1.5rem",
-                    padding: "0.5rem",
-                    borderRadius: 12,
-                    border: avatar === a ? "2px solid var(--accent)" : "2px solid transparent",
-                    background: avatar === a ? "var(--accent-light)" : "var(--bg)",
-                    cursor: "pointer",
-                    transition: "all 0.15s",
-                    transform: avatar === a ? "scale(1.1)" : "scale(1)",
-                    boxShadow: avatar === a ? "0 0 0 3px var(--accent-light)" : "none",
-                  }}
-                >
-                  {a}
-                </button>
+                  className={avatar === a ? "nickname-avatar-btn is-selected" : "nickname-avatar-btn"}
+                >{a}</button>
               ))}
             </div>
           </div>
 
           {error && (
-            <div style={{ 
-              color: "var(--primary)", 
-              background: "var(--primary-light)", 
-              padding: "0.75rem", 
-              borderRadius: "var(--radius-lg)",
-              marginBottom: "1rem",
-              fontWeight: 600,
-              fontSize: "0.875rem"
-            }}>
+            <div style={{ color: "var(--primary)", background: "var(--primary-light)", padding: "0.75rem", borderRadius: "var(--radius-lg)", marginBottom: "1rem", fontWeight: 600, fontSize: "0.875rem" }}>
               {error}
             </div>
           )}
 
-          <button
-            onClick={handleJoinSubmit}
-            disabled={joining}
-            className="btn btn-primary btn-lg"
-            style={{ width: "100%" }}
-          >
+          <button onClick={handleJoinSubmit} disabled={joining} className="btn btn-primary btn-lg join-submit-btn">
             {joining ? "Joining..." : `Join as ${nickname.trim() || "Player"} 🎮`}
           </button>
         </div>
@@ -275,15 +232,11 @@ function JoinForm() {
   }
 
   return (
-    <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem", maxWidth: 480 }}>
-      <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
-        <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎮</div>
-        <h2 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.5rem" }}>
-          Join a Game
-        </h2>
-        <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
-          Enter the 6-character PIN
-        </p>
+    <div className="container join-shell">
+      <div className="card join-card">
+        <div className="join-icon">🎮</div>
+        <h2 className="font-display join-title">Join a Game</h2>
+        <p className="join-subtitle">Enter the 6-character PIN</p>
 
         <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center", marginBottom: "1.5rem" }}>
           {digits.map((d, i) => (
@@ -298,41 +251,18 @@ function JoinForm() {
               onKeyDown={(e) => handleDigitKeyDown(i, e)}
               className="input-pin"
               aria-label={`PIN character ${i + 1}`}
-              style={{ 
-                width: 48, 
-                height: 56,
-                padding: 0,
-                textAlign: "center", 
-                fontSize: "1.5rem", 
-                lineHeight: "56px",
-                fontWeight: 800,
-                letterSpacing: 0,
-                textTransform: "uppercase"
-              }}
+              style={{ width: 48, height: 56, padding: 0, textAlign: "center", fontSize: "1.5rem", lineHeight: "56px", fontWeight: 800, letterSpacing: 0, textTransform: "uppercase" }}
             />
           ))}
         </div>
 
         {error && (
-          <div style={{ 
-            color: "var(--primary)", 
-            background: "var(--primary-light)", 
-            padding: "0.75rem", 
-            borderRadius: "var(--radius-lg)",
-            marginBottom: "1rem",
-            fontWeight: 600,
-            fontSize: "0.875rem"
-          }}>
+          <div style={{ color: "var(--primary)", background: "var(--primary-light)", padding: "0.75rem", borderRadius: "var(--radius-lg)", marginBottom: "1rem", fontWeight: 600, fontSize: "0.875rem" }}>
             {error}
           </div>
         )}
 
-          <button 
-            onClick={handlePinSubmit}
-            disabled={joining || digits.join("").length !== 6}
-            className="btn btn-primary btn-lg"
-            style={{ width: "100%" }}
-          >
+        <button onClick={handlePinSubmit} disabled={joining || digits.join("").length !== 6} className="btn btn-primary btn-lg join-submit-btn">
           {joining ? "Finding..." : "Enter Game"}
         </button>
       </div>
@@ -342,7 +272,7 @@ function JoinForm() {
 
 export default function JoinPage() {
   return (
-    <Suspense fallback={<div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>Loading...</div>}>
+    <Suspense fallback={<div className="container report-status">Loading...</div>}>
       <JoinForm />
     </Suspense>
   );

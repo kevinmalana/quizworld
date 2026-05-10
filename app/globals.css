@@ -1155,3 +1155,240 @@ body.qw-present-live-route main {
 .profile-link-label {
   font-weight: 600;
 }
+
+/* Host & Join shared */
+.game-status-panel {
+  padding-top: 4rem;
+  padding-bottom: 5rem;
+  max-width: 520px;
+}
+
+.game-status-card {
+  padding: 2rem;
+  text-align: center;
+}
+
+.game-status-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.game-status-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.game-status-text {
+  color: var(--muted);
+}
+
+/* Host page */
+.host-shell {
+  padding-top: 4rem;
+  padding-bottom: 5rem;
+}
+
+.host-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+}
+
+.host-subtitle {
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.host-section {
+  margin-bottom: 2rem;
+}
+
+.host-section-title {
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.host-quiz-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.host-quiz-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.host-quiz-option.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.host-quiz-emoji {
+  font-size: 1.5rem;
+}
+
+.host-quiz-title {
+  font-weight: 700;
+}
+
+.host-quiz-meta {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.host-mode-card {
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--line);
+  cursor: pointer;
+  background: var(--surface);
+}
+
+.host-mode-card.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.host-mode-title {
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+}
+
+.host-mode-desc {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.host-launch-btn {
+  width: 100%;
+}
+
+.host-launch-hint {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  margin-top: 0.75rem;
+  text-align: center;
+}
+
+/* Join page */
+.join-shell {
+  padding-top: 4rem;
+  padding-bottom: 5rem;
+  max-width: 480px;
+}
+
+.join-card {
+  padding: 2rem;
+  text-align: center;
+}
+
+.join-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.join-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+}
+
+.join-subtitle {
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.join-pin-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.join-pin-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+.join-pin-input {
+  width: 100%;
+  aspect-ratio: 1;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.join-pin-input:focus {
+  border-color: var(--accent);
+}
+
+.join-pin-input.has-error {
+  border-color: var(--primary);
+}
+
+.join-pin-length {
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-size: 1.25rem;
+}
+
+.join-submit-btn {
+  width: 100%;
+}
+
+/* Nickname step */
+.nickname-avatars {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.nickname-avatar-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.nickname-avatar-btn.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.nickname-input-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.nickname-submit-btn {
+  flex-shrink: 0;
+}

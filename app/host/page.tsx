@@ -96,9 +96,7 @@ function HostPageContent() {
 
     loadQuizzes();
 
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, [preSelectedQuiz, user?.id]);
 
   const handleLaunch = async () => {
@@ -154,9 +152,7 @@ function HostPageContent() {
           game_mode: "classic",
         });
 
-        if (sessionError) {
-          throw sessionError;
-        }
+        if (sessionError) throw sessionError;
 
         setLoading(false);
         router.push(`/game/${newPin}`);
@@ -166,30 +162,20 @@ function HostPageContent() {
       console.error("Session create error:", sessionError);
       setError("Failed to create game. Try again.");
       setLoading(false);
-      return;
     }
-
   };
 
   if (authLoading) {
-    return (
-      <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
-        Loading...
-      </div>
-    );
+    return <div className="container report-status">Loading...</div>;
   }
 
   if (liveGameEngineMisconfigured) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem", maxWidth: 520 }}>
-        <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚙️</div>
-          <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: "0.75rem" }}>
-            Live Game Service Not Configured
-          </h1>
-          <p style={{ color: "var(--muted)" }}>
-            `NEXT_PUBLIC_GAME_ENGINE` is set to Phoenix, but `NEXT_PUBLIC_GAME_SERVICE_URL` is missing.
-          </p>
+      <div className="container game-status-panel">
+        <div className="card game-status-card">
+          <div className="game-status-icon">⚙️</div>
+          <h1 className="font-display game-status-title">Live Game Service Not Configured</h1>
+          <p className="game-status-text">`NEXT_PUBLIC_GAME_ENGINE` is set to Phoenix, but `NEXT_PUBLIC_GAME_SERVICE_URL` is missing.</p>
         </div>
       </div>
     );
@@ -197,15 +183,11 @@ function HostPageContent() {
 
   if (legacySupabaseGameEngine) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem", maxWidth: 520 }}>
-        <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🛑</div>
-          <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: "0.75rem" }}>
-            Legacy Supabase Live Games Disabled
-          </h1>
-          <p style={{ color: "var(--muted)" }}>
-            Production live sessions now require the Phoenix realtime service.
-          </p>
+      <div className="container game-status-panel">
+        <div className="card game-status-card">
+          <div className="game-status-icon">🛑</div>
+          <h1 className="font-display game-status-title">Legacy Supabase Live Games Disabled</h1>
+          <p className="game-status-text">Production live sessions now require the Phoenix realtime service.</p>
         </div>
       </div>
     );
@@ -213,122 +195,65 @@ function HostPageContent() {
 
   if (!user) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem", maxWidth: 480 }}>
-        <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔐</div>
-          <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: "0.75rem" }}>
-            Sign In To Host
-          </h1>
-          <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
-            Hosting is authenticated so only the real host can control the live game.
-          </p>
+      <div className="container join-shell">
+        <div className="card join-card">
+          <div className="join-icon">🔐</div>
+          <h1 className="font-display join-title">Sign In To Host</h1>
+          <p className="join-subtitle">Hosting is authenticated so only the real host can control the live game.</p>
           <button
-            onClick={() => {
-              sessionStorage.setItem("qw_post_login_redirect", "/host");
-              router.push("/login");
-            }}
+            onClick={() => { sessionStorage.setItem("qw_post_login_redirect", "/host"); router.push("/login"); }}
             className="btn btn-primary btn-lg"
             style={{ width: "100%", marginBottom: "0.75rem" }}
-          >
-            Sign In
-          </button>
-          <Link href="/explore" className="btn btn-secondary" style={{ width: "100%" }}>
-            Browse Quizzes
-          </Link>
+          >Sign In</button>
+          <Link href="/explore" className="btn btn-secondary" style={{ width: "100%" }}>Browse Quizzes</Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem" }}>
-      <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.5rem" }}>
-        🏁 Host a Game
-      </h1>
-      <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
-        Pick a quiz and launch the live lobby.
-      </p>
+    <div className="container host-shell">
+      <h1 className="font-display host-title">🏁 Host a Game</h1>
+      <p className="host-subtitle">Pick a quiz and launch the live lobby.</p>
 
-      <div style={{ marginBottom: "2rem" }}>
-        <h3 style={{ fontWeight: 700, marginBottom: "1rem" }}>Select a Quiz</h3>
-        <div style={{ display: "grid", gap: "0.75rem" }}>
+      <div className="host-section">
+        <h3 className="host-section-title">Select a Quiz</h3>
+        <div className="host-quiz-grid">
           {quizzes.map((quiz) => (
             <button
               key={quiz.id}
               onClick={() => setSelectedQuiz(quiz)}
-              style={{
-                padding: "1rem 1.5rem",
-                borderRadius: "var(--radius-xl)",
-                border:
-                  selectedQuiz?.id === quiz.id
-                    ? "3px solid var(--accent)"
-                    : "3px solid var(--line)",
-                background:
-                  selectedQuiz?.id === quiz.id
-                    ? "var(--accent-light)"
-                    : "var(--surface)",
-                cursor: "pointer",
-                textAlign: "left",
-                display: "flex",
-                alignItems: "center",
-                gap: "1rem",
-              }}
+              className={selectedQuiz?.id === quiz.id ? "host-quiz-option is-selected" : "host-quiz-option"}
             >
-              <span style={{ fontSize: "1.5rem" }}>{quiz.emoji || "📝"}</span>
+              <span className="host-quiz-emoji">{quiz.emoji || "📝"}</span>
               <div>
-                <div style={{ fontWeight: 700 }}>{quiz.title}</div>
-                <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
-                  {questionCount(quiz)} questions
-                </div>
+                <div className="host-quiz-title">{quiz.title}</div>
+                <div className="host-quiz-meta">{questionCount(quiz)} questions</div>
               </div>
             </button>
           ))}
         </div>
       </div>
 
-      <div style={{ marginBottom: "2rem" }}>
-        <h3 style={{ fontWeight: 700, marginBottom: "1rem" }}>Game Mode</h3>
-        <div
-          style={{
-            padding: "1rem 1.1rem",
-            borderRadius: "var(--radius-xl)",
-            border: "2px solid var(--line)",
-            background: "var(--surface)",
-          }}
-        >
-          <div style={{ fontWeight: 800, marginBottom: "0.35rem" }}>🏆 Classic</div>
-          <div style={{ color: "var(--muted)", fontSize: "0.95rem" }}>
-            Phoenix currently ships the authoritative classic mode. Additional modes should stay hidden until their rules are implemented server-side.
-          </div>
+      <div className="host-section">
+        <h3 className="host-section-title">Game Mode</h3>
+        <div className="host-mode-card is-selected">
+          <div className="host-mode-title">🏆 Classic</div>
+          <div className="host-mode-desc">Phoenix currently ships the authoritative classic mode. Additional modes should stay hidden until their rules are implemented server-side.</div>
         </div>
       </div>
 
       {error && (
-        <div
-          style={{
-            color: "var(--primary)",
-            background: "var(--primary-light)",
-            padding: "0.75rem",
-            borderRadius: "var(--radius-lg)",
-            marginBottom: "1rem",
-          }}
-        >
+        <div style={{ color: "var(--primary)", background: "var(--primary-light)", padding: "0.75rem", borderRadius: "var(--radius-lg)", marginBottom: "1rem" }}>
           {error}
         </div>
       )}
 
-      <button
-        onClick={handleLaunch}
-        disabled={loading || !selectedQuiz}
-        className="btn btn-primary btn-lg"
-        style={{ width: "100%" }}
-      >
+      <button onClick={handleLaunch} disabled={loading || !selectedQuiz} className="btn btn-primary btn-lg host-launch-btn">
         {loading ? (selectedQuiz?.questions?.some((q: any) => q.image_url) ? "Creating... (images loading)" : "Creating...") : "Launch Game 🚀"}
       </button>
       {loading && selectedQuiz?.questions?.some((q: any) => q.image_url) && (
-        <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: "0.75rem", textAlign: "center" }}>
-          Quizzes with images may take a few extra seconds to set up.
-        </p>
+        <p className="host-launch-hint">Quizzes with images may take a few extra seconds to set up.</p>
       )}
     </div>
   );
@@ -336,7 +261,7 @@ function HostPageContent() {
 
 export default function HostPage() {
   return (
-    <Suspense fallback={<div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>Loading...</div>}>
+    <Suspense fallback={<div className="container report-status">Loading...</div>}>
       <HostPageContent />
     </Suspense>
   );
