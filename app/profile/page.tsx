@@ -157,7 +157,6 @@ export default function ProfilePage() {
     <div className="profile-shell">
       {/* Hero Banner */}
       <div className="profile-hero">
-        <div className="profile-hero-bg" />
         <div className="container profile-hero-content">
           <div className="profile-hero-avatar-wrap" onClick={() => setTab("edit")} style={{ cursor: "pointer" }}>
             <div className="profile-hero-avatar">{avatar}</div>

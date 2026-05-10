@@ -8,12 +8,12 @@
   position: relative;
   padding: 3rem 0 2rem;
   overflow: hidden;
+  background: var(--bg);
 }
 
 .profile-hero-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, var(--accent), #6d28d9, #4f46e5);
   z-index: 0;
 }
 
@@ -35,18 +35,17 @@
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.15);
-  backdrop-filter: blur(10px);
+  background: var(--surface);
   display: grid;
   place-items: center;
   font-size: 2.5rem;
-  border: 3px solid rgba(255,255,255,0.25);
+  border: 2px solid var(--line);
   transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
 .profile-hero-avatar-wrap:hover .profile-hero-avatar {
   transform: scale(1.05);
-  border-color: rgba(255,255,255,0.5);
+  border-color: var(--accent);
 }
 
 .profile-hero-badge {
@@ -56,11 +55,12 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: #f59e0b;
+  background: var(--accent);
   display: grid;
   place-items: center;
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   border: 2px solid #fff;
+  color: #fff;
 }
 
 .profile-hero-info {
@@ -71,14 +71,14 @@
 .profile-hero-name {
   font-size: 1.75rem;
   font-weight: 900;
-  color: #fff;
+  color: var(--ink);
   margin-bottom: 0.25rem;
   letter-spacing: -0.02em;
 }
 
 .profile-hero-email {
-  font-size: 0.875rem;
-  color: rgba(255,255,255,0.7);
+  font-size: 0.8125rem;
+  color: var(--muted);
   margin-bottom: 0.5rem;
 }
 
@@ -92,11 +92,11 @@
 .profile-hero-stat {
   font-size: 0.8125rem;
   font-weight: 700;
-  color: rgba(255,255,255,0.9);
+  color: var(--ink-secondary);
 }
 
 .profile-hero-divider {
-  color: rgba(255,255,255,0.4);
+  color: var(--line);
   font-weight: 700;
 }
 
@@ -433,7 +433,7 @@
 /* Username input */
 .profile-hero-username {
   font-size: 0.875rem;
-  color: rgba(255,255,255,0.7);
+  color: var(--muted);
   margin-bottom: 0.5rem;
   font-weight: 600;
 }
