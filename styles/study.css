@@ -60,3 +60,119 @@
 .study-flash-score { text-align: center; margin-top: 1.5rem; }
 .study-score-row { display: inline-flex; gap: 0.75rem; align-items: center; }
 .study-score-divider { color: var(--line-strong); font-weight: 700; }
+
+/* Study list page */
+.study-list-shell {
+  min-height: calc(100vh - 72px);
+  background: var(--bg);
+  padding-bottom: 5rem;
+}
+
+.study-list-container {
+  padding-top: 3rem;
+}
+
+.study-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.study-list-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+}
+
+.study-list-subtitle {
+  color: var(--muted);
+}
+
+.study-xp-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--accent-light);
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+}
+
+.study-xp-badge-icon {
+  font-size: 1.1rem;
+}
+
+.study-xp-badge-value {
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.study-login-hint {
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  border: 1px solid var(--line);
+  background: var(--accent-light);
+}
+
+.study-section-title {
+  font-weight: 800;
+  margin-bottom: 1.25rem;
+}
+
+.study-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 3rem;
+}
+
+.study-empty-card {
+  padding: 3rem 2rem;
+  text-align: center;
+  border: 2px dashed var(--line-strong);
+}
+
+.study-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.study-empty-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.study-empty-text {
+  color: var(--muted);
+  margin-top: 0.5rem;
+}
+
+.study-empty-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Loading/error states */
+.study-status-panel {
+  padding-top: 4rem;
+  text-align: center;
+}
+
+.study-status-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.study-error-card {
+  padding: 3rem 2rem;
+  text-align: center;
+  border: 2px dashed var(--line-strong);
+  max-width: 480px;
+  margin: 0 auto;
+}

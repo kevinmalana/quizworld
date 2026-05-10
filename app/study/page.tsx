@@ -17,8 +17,6 @@ type QuizRow = {
   questions?: { count: number }[];
 };
 
-// ─── Main page ─────────────────────────────────────────────────────────────────
-
 export default function StudyListPage() {
   const { user } = useAuth();
   const [quizzes, setQuizzes] = useState<QuizRow[]>([]);
@@ -42,22 +40,26 @@ export default function StudyListPage() {
         .order("created_at", { ascending: false })
         .limit(50);
 
-      const { data: quizData, error: quizError } = user
+      const { data: quizData, error: qError } = user
         ? await quizQuery.or(`is_public.eq.true,creator_id.eq.${user.id}`)
         : await quizQuery.eq("is_public", true);
 
       if (ignore) return;
 
-      if (quizError) {
-        console.error("Error loading study quizzes:", quizError);
+      if (qError) {
+        console.error("Error loading study quizzes:", qError);
         setQuizError("Could not load study sets. Please try again.");
         setQuizzes([]);
-      } else {
-        setQuizzes(quizData ?? []);
+        setLoading(false);
+        return;
       }
 
+      setQuizzes(quizData ?? []);
+
       if (!user) {
-        if (!ignore) { setProgress([]); setSessions([]); setLoading(false); }
+        setProgress([]);
+        setSessions([]);
+        setLoading(false);
         return;
       }
 
@@ -67,8 +69,6 @@ export default function StudyListPage() {
           .select("quiz_id, questions_studied, correct, mastery, last_studied")
           .eq("user_id", user.id)
           .order("last_studied", { ascending: false }),
-        // Select the full profile row so Study Hall still loads if optional XP/streak
-        // columns have not been deployed to the live Supabase schema yet.
         supabase
           .from("profiles")
           .select("*")
@@ -105,7 +105,6 @@ export default function StudyListPage() {
   const studiedQuizzes = quizzes.filter((quiz) => progressByQuizId.has(quiz.id));
   const availableQuizzes = quizzes.filter((quiz) => !progressByQuizId.has(quiz.id));
 
-  // Aggregate stats
   const totalCorrect = progress.reduce((s, p) => s + (p.correct ?? 0), 0);
   const totalStudied = progress.reduce((s, p) => s + (p.questions_studied ?? 0), 0);
   const avgMastery = progress.length
@@ -119,22 +118,20 @@ export default function StudyListPage() {
 
   if (loading) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
-        <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>📡</div>
-        <p style={{ color: "var(--muted)" }}>Loading study sets...</p>
+      <div className="container study-status-panel">
+        <div className="study-status-icon">📡</div>
+        <p className="study-muted">Loading study sets...</p>
       </div>
     );
   }
 
   if (quizError) {
     return (
-      <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
-        <div className="card" style={{ padding: "3rem 2rem", textAlign: "center", border: "2px dashed var(--line-strong)", maxWidth: 480, margin: "0 auto" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⚠️</div>
-          <h3 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>
-            Could not load study sets
-          </h3>
-          <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>{quizError}</p>
+      <div className="container study-status-panel">
+        <div className="card study-error-card">
+          <div className="study-status-icon">⚠️</div>
+          <h3 className="font-display study-empty-title">Could not load study sets</h3>
+          <p className="study-empty-text">{quizError}</p>
           <button onClick={() => window.location.reload()} className="btn btn-primary" style={{ marginTop: "1.25rem" }}>
             Retry
           </button>
@@ -144,34 +141,27 @@ export default function StudyListPage() {
   }
 
   return (
-    <div style={{ minHeight: "calc(100vh - 72px)", background: "var(--bg)", paddingBottom: "5rem" }}>
-      <div className="container" style={{ paddingTop: "3rem" }}>
-
-        {/* ── Header ── */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+    <div className="study-list-shell">
+      <div className="container study-list-container">
+        <div className="study-list-header">
           <div>
-            <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.5rem" }}>
-              🧠 Study Hall
-            </h1>
-            <p style={{ color: "var(--muted)" }}>
-              Master your knowledge with flashcards and quickfire practice.
-            </p>
+            <h1 className="font-display study-list-title">🧠 Study Hall</h1>
+            <p className="study-list-subtitle">Master your knowledge with flashcards and quickfire practice.</p>
           </div>
           {user && (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "var(--accent-light)", padding: "0.5rem 1rem", borderRadius: 999 }}>
-              <span style={{ fontSize: "1.1rem" }}>⭐</span>
-              <span style={{ fontWeight: 800, color: "var(--accent)" }}>{totalXp.toLocaleString()} XP</span>
+            <div className="study-xp-badge">
+              <span className="study-xp-badge-icon">⭐</span>
+              <span className="study-xp-badge-value">{totalXp.toLocaleString()} XP</span>
             </div>
           )}
         </div>
 
         {!user && (
-          <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "2rem", border: "1px solid var(--line)", background: "var(--accent-light)" }}>
+          <div className="card study-login-hint">
             Sign in to save study progress and earn XP across sessions.
           </div>
         )}
 
-        {/* ── Stats dashboard (only when logged in) ── */}
         {user && (
           <StudyStatsDashboard
             totalXp={totalXp}
@@ -186,11 +176,10 @@ export default function StudyListPage() {
           />
         )}
 
-        {/* ── Continue Studying ── */}
         {studiedQuizzes.length > 0 && (
           <>
-            <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>Continue Studying</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem", marginBottom: "3rem" }}>
+            <h2 className="study-section-title">Continue Studying</h2>
+            <div className="study-card-grid">
               {studiedQuizzes.map((quiz) => (
                 <ContinueStudyQuizCard
                   key={quiz.id}
@@ -202,34 +191,25 @@ export default function StudyListPage() {
           </>
         )}
 
-        {/* ── Ready to Study ── */}
-        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>Ready to Study</h2>
+        <h2 className="study-section-title">Ready to Study</h2>
         {availableQuizzes.length === 0 ? (
-          <div className="card" style={{ padding: "3rem 2rem", textAlign: "center", border: "2px dashed var(--line-strong)" }}>
-            <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>
+          <div className="card study-empty-card">
+            <div className="study-empty-icon">
               {studiedQuizzes.length === 0 ? "📝" : "🎉"}
             </div>
             {studiedQuizzes.length === 0 ? (
               <>
-                <h3 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>
-                  No study sets available
-                </h3>
-                <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
-                  Create a quiz or explore public quizzes to get started.
-                </p>
-                <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", marginTop: "1.5rem", flexWrap: "wrap" }}>
+                <h3 className="font-display study-empty-title">No study sets available</h3>
+                <p className="study-empty-text">Create a quiz or explore public quizzes to get started.</p>
+                <div className="study-empty-actions">
                   <Link href="/explore" className="btn btn-secondary">Browse Public Quizzes</Link>
                   <Link href="/create" className="btn btn-primary">Create Quiz</Link>
                 </div>
               </>
             ) : (
               <>
-                <h3 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>
-                  All caught up!
-                </h3>
-                <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
-                  You've studied everything available. Create a quiz to add more.
-                </p>
+                <h3 className="font-display study-empty-title">All caught up!</h3>
+                <p className="study-empty-text">You've studied everything available. Create a quiz to add more.</p>
                 <Link href="/create" className="btn btn-primary" style={{ marginTop: "1.25rem", display: "inline-flex" }}>
                   Create Quiz
                 </Link>
@@ -237,7 +217,7 @@ export default function StudyListPage() {
             )}
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem", marginBottom: "3rem" }}>
+          <div className="study-card-grid">
             {availableQuizzes.map((quiz) => (
               <AvailableStudyQuizCard key={quiz.id} quiz={quiz} />
             ))}
