@@ -30,6 +30,76 @@ const ANSWER_SURFACES = [
   { surface: "#d1fae5", border: "#059669", iconBg: "#059669" },
 ];
 
+function StudyProgressBar({
+  current,
+  total,
+  correct,
+  answered,
+}: {
+  current: number;
+  total: number;
+  correct: number;
+  answered: number;
+}) {
+  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+  const accuracy = answered > 0 ? correct / answered : 1;
+
+  // Color shifts from green (good) → amber → red (poor)
+  let barColor: string;
+  if (answered === 0) {
+    barColor = "var(--accent)";
+  } else if (accuracy >= 0.8) {
+    barColor = "var(--success)";
+  } else if (accuracy >= 0.5) {
+    barColor = "#d97706";
+  } else {
+    barColor = "#ef4444";
+  }
+
+  return (
+    <div style={{ marginBottom: "1.5rem" }}>
+      <div
+        style={{
+          height: 6,
+          borderRadius: 999,
+          background: "var(--line)",
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${pct}%`,
+            borderRadius: 999,
+            background: barColor,
+            transition: "width 0.4s ease, background 0.3s ease",
+          }}
+        />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: "0.35rem",
+          fontSize: "0.75rem",
+          fontWeight: 700,
+          color: "var(--muted)",
+        }}
+      >
+        <span>
+          {current} of {total} answered
+        </span>
+        {answered > 0 && (
+          <span style={{ color: barColor }}>
+            {Math.round(accuracy * 100)}% correct
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function shuffleQuestions<T>(questions: T[]) {
   const cloned = [...questions];
   for (let index = cloned.length - 1; index > 0; index -= 1) {
@@ -516,6 +586,13 @@ export default function StudyPage() {
           </div>
         </div>
 
+        <StudyProgressBar
+          current={answeredCount}
+          total={totalQuestions}
+          correct={correctCount}
+          answered={answeredCount}
+        />
+
         <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
           <div
             style={{
@@ -602,6 +679,13 @@ export default function StudyPage() {
           <div style={{ fontWeight: 700 }}>{currentIndex + 1} / {totalQuestions}</div>
         </div>
       </div>
+
+      <StudyProgressBar
+        current={answeredCount}
+        total={totalQuestions}
+        correct={correctCount}
+        answered={answeredCount}
+      />
 
       {currentQuestion && (
         <FlashCard
