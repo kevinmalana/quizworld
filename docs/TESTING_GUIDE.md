@@ -7,6 +7,7 @@ Use this guide for the current split-runtime smoke/regression test.
 ## Frontend Checks
 
 - `npm run check` passes
+- `npm run quality` passes without increasing inline styles, type escapes, large route files, or duplicate Phoenix roots
 - frontend env vars are set
 - Supabase auth and quiz content load normally
 - builder draft autosave works when signed in
@@ -59,6 +60,7 @@ Production runs should use `BASE_URL=https://www.quizworld.xyz` and should exerc
 
 Latest 2026-05-14 local checks passed:
 
+- `npm run quality`
 - `npm run typecheck`
 - Local Playwright: `40/40` via `BASE_URL=http://localhost:3002 npx playwright test --reporter=line`
 

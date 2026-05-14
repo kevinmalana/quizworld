@@ -68,7 +68,7 @@ Key outcomes:
 - Removed duplicate root Phoenix source; kept `services/quizworld_realtime` only.
 - Moved game/present styles out of global/runtime injection into CSS files.
 - Added shared public config helpers and reusable QR component.
-- Added `npm run check` as the main gate: TypeScript + Next build + Phoenix compile/tests.
+- Added `npm run quality` as the architecture guardrail gate and wired it into `npm run check` before TypeScript/build/Phoenix tests.
 - Extracted game helpers, game panels, dashboard cards, explore cards, study cards, builder workspace, source modals, study session panels, live presentation stage/status/dock components, and presentation editor panels.
 
 ## Current AI Builder Flow
@@ -101,12 +101,14 @@ app/explore/page.tsx       ~549 lines, 46 inline styles
 Latest local gates after the 2026-05-14 AI/test/doc audit:
 
 ```bash
+npm run quality
 npm run typecheck
 BASE_URL=http://localhost:3002 npx playwright test --reporter=line
 ```
 
 Results:
 
+- Quality guard passed: inline styles `488`, type escapes `40`, route file limits within current baseline.
 - TypeScript passed.
 - Local Playwright passed: `40/40`.
 - Local browser run allows either configured Phoenix live-game screens or the explicit live-service configuration status when `NEXT_PUBLIC_GAME_SERVICE_URL` is absent.
@@ -157,6 +159,8 @@ BASE_URL=https://www.quizworld.xyz npx playwright test --project=chromium
 ```
 
 ## Safe Future Cleanup Targets
+
+Run `npm run quality` before and after cleanup work. The guard intentionally fails if inline styles, `any` usage, large route files, or duplicate Phoenix roots get worse.
 
 Recommended order:
 
