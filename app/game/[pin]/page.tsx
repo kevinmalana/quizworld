@@ -642,6 +642,10 @@ export default function GamePage() {
       return;
     }
 
+    const questions = (session as { quiz?: { questions?: unknown[] } })?.quiz?.questions ?? [];
+    const currentIndex = (session as { current_question_index?: number })?.current_question_index ?? 0;
+    const isLastQuestion = currentIndex >= questions.length - 1;
+
     try {
       if (isPhoenixGameEngine) {
         if (!hostSession?.hostToken) {
@@ -650,13 +654,25 @@ export default function GamePage() {
 
         const response = await advancePhoenixSession(pin, hostSession.hostToken) as { session?: Record<string, unknown> };
         if (response?.session) applySessionSnapshot(response.session);
-      } else {
-        const { error: advanceError } = await supabase.rpc("advance_game_session", {
-          p_session_id: (session as { id: string }).id,
-        });
 
-        if (advanceError) {
-          throw advanceError;
+        // Record game results after Phoenix advance
+        if (isLastQuestion) {
+          await supabase.rpc("finish_game_and_record_results", {
+            p_session_id: (session as { id: string }).id,
+          });
+        }
+      } else {
+        if (isLastQuestion) {
+          // Finish + record results in one call
+          const { error: finishError } = await supabase.rpc("finish_game_and_record_results", {
+            p_session_id: (session as { id: string }).id,
+          });
+          if (finishError) throw finishError;
+        } else {
+          const { error: advanceError } = await supabase.rpc("advance_game_session", {
+            p_session_id: (session as { id: string }).id,
+          });
+          if (advanceError) throw advanceError;
         }
 
         await loadSession();
