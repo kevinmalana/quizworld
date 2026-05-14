@@ -62,13 +62,14 @@ Latest 2026-05-14 local checks passed:
 
 - `npm run quality`
 - `npm run typecheck`
-- Local Playwright: `40/40` via `BASE_URL=http://localhost:3002 npx playwright test --reporter=line`
-
-Latest full build/service baseline before this audit:
-
 - `npm run check`
+- Local Playwright: `40/40` via `npm run test:e2e`
+
+Latest production baseline:
+
+- Route smoke: `200` for `/`, `/create`, `/explore`, `/study`, `/dashboard`, `/host`, `/join`, `/present`, `/present/join`, `/game/NOPE01`, `/sitemap.xml`
 - Phoenix tests: `29/29`
-- Production Playwright: `40/40` via `BASE_URL=https://www.quizworld.xyz npx playwright test --reporter=line` after deploy `dpl_5mjZcVEQQZBGUXCfsvmtVW65SAZQ`.
+- Production Playwright: `40/40` via `BASE_URL=https://www.quizworld.xyz npm run test:e2e` after deploy `dpl_FaY2PResJBuMdtuJXL58GWf3FCkB`.
 - Phoenix health: `redis:true`
 
 For high-risk game changes, also run an authenticated host + second-browser/mobile player smoke test through finish/leaderboard.
