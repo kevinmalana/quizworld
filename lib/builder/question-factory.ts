@@ -1,6 +1,6 @@
 import type { AIQuizDraft } from "@/lib/quiz-ai";
 import { uid } from "@/lib/store";
-import type { QuestionData, QuestionType } from "@/components/builder/QuestionCard";
+import type { QuestionData } from "@/components/builder/QuestionCard";
 
 export function makeBlankQuestion(): QuestionData {
   return {
@@ -52,6 +52,8 @@ export function questionsToPublishPayload(questions: QuestionData[]) {
     video_url: question.videoUrl || "",
     time_limit: question.timeLimit,
     points: question.points,
+    question_type: question.type || "multiple_choice",
+    explanation: question.explanation || "",
     answers: question.answers.map((answer) => ({
       text: answer.text,
       image_url: answer.imageUrl || "",
@@ -93,9 +95,10 @@ export function aiDraftToQuestionData(draft: AIQuizDraft): QuestionData[] {
   return draft.questions.map((question) => ({
     id: uid(),
     text: question.text,
-    type: "multiple_choice" as QuestionType,
+    type: question.question_type === "true_false" ? "true_false" : "multiple_choice",
     timeLimit: question.time_limit,
     points: question.points,
+    explanation: question.explanation || "",
     answers: question.answers.map((answer) => ({
       id: uid(),
       text: answer.text,

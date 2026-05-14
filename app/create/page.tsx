@@ -57,6 +57,7 @@ function CreatePageContent() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [pasteText, setPasteText] = useState("");
+  const [enriching, setEnriching] = useState(false);
 
   // ── Load existing quiz for editing ──
   useEffect(() => {
@@ -86,10 +87,11 @@ function CreatePageContent() {
         sorted.map((q: any) => ({
           id: q.id || uid(),
           text: q.text ?? "",
-          type: q.question_type === "true_false" ? "true_false" : "multiple_choice",
+          type: q.question_type === "true_false" ? "true_false" : q.question_type === "poll" ? "poll" : "multiple_choice",
           imageUrl: q.image_url ?? "",
           timeLimit: q.time_limit ?? 20,
           points: q.points ?? 1000,
+          explanation: q.explanation ?? "",
           answers: [...(q.answers ?? [])]
             .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
             .map((a: any) => ({
@@ -268,6 +270,50 @@ function CreatePageContent() {
     }
   }, [aiUrl, aiCount]);
 
+  // ── AI Enrichment ──
+  const handleEnrich = useCallback(async () => {
+    const questionsToEnrich = questions.filter((q) => q.text.trim()).map((q) => ({
+      text: q.text,
+      answers: q.answers.map((a) => ({ text: a.text, is_correct: a.isCorrect })),
+    }));
+    if (questionsToEnrich.length === 0) return;
+    setEnriching(true);
+    try {
+      const res = await fetch("/api/ai-enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questions: questionsToEnrich }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Enrichment failed");
+      const enrichments = data.enrichments as Array<{ explanation: string; difficulty: string; confidence: string }>;
+      setQuestions((prev) =>
+        prev.map((q, i) => {
+          const enrichment = enrichments[i];
+          if (!enrichment) return q;
+          // Map difficulty to time/points if not already set by user
+          const difficultyHints: Record<string, { timeLimit: number; points: number }> = {
+            easy: { timeLimit: 30, points: 500 },
+            medium: { timeLimit: 20, points: 1000 },
+            hard: { timeLimit: 10, points: 2000 },
+          };
+          const hint = difficultyHints[enrichment.difficulty] || difficultyHints.medium;
+          return {
+            ...q,
+            explanation: enrichment.explanation || q.explanation,
+            // Only update time/points if they're still at defaults
+            timeLimit: q.timeLimit === 20 ? hint.timeLimit : q.timeLimit,
+            points: q.points === 1000 ? hint.points : q.points,
+          };
+        })
+      );
+    } catch (err: any) {
+      setAiError(err.message || "Enrichment failed");
+    } finally {
+      setEnriching(false);
+    }
+  }, [questions]);
+
   // ── Draft persistence ──
   const saveDraftToSupabase = useCallback(async (mode: "auto" | "manual") => {
     if (!user) return;
@@ -303,7 +349,7 @@ function CreatePageContent() {
         for (let i = 0; i < questions.length; i++) {
           const q = questions[i];
           const { data: insertedQ } = await supabase.from("quiz_draft_questions").insert({
-            draft_id: draftId, text: q.text, image_url: q.imageUrl || null, time_limit: q.timeLimit, points: q.points, order_index: i,
+            draft_id: draftId, text: q.text, image_url: q.imageUrl || null, time_limit: q.timeLimit, points: q.points, order_index: i, question_type: q.type || "multiple_choice", explanation: q.explanation || null,
           }).select("id").single();
           if (insertedQ) {
             await supabase.from("quiz_draft_answers").insert(
@@ -473,6 +519,8 @@ function CreatePageContent() {
       onUpdateQuestion={updateQuestion}
       onDeleteQuestion={deleteQuestion}
       onDuplicateQuestion={duplicateQuestion}
+      onEnrich={handleEnrich}
+      enriching={enriching}
     />
   );
 }

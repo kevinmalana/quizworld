@@ -187,8 +187,9 @@ export function QuestionSidebar({ questions, activeIndex, onSelect, onReorder, o
                   <p style={{ fontSize: "0.75rem", fontWeight: 600, color: isActive ? "var(--accent)" : "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {q.text || "Empty"}
                   </p>
-                  <p style={{ fontSize: "0.625rem", color: "var(--faint)", marginTop: "0.125rem" }}>
-                    {q.type === "true_false" ? "T/F" : q.type === "poll" ? "Poll" : `${q.answers.length} answers`} · {q.timeLimit}s · {q.points}pts
+                  <p style={{ fontSize: "0.625rem", color: "var(--faint)", marginTop: "0.125rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                    <span>{q.type === "true_false" ? "T/F" : q.type === "poll" ? "Poll" : `${q.answers.length} answers`} · {q.timeLimit}s · {q.points}pts</span>
+                    {q.explanation && <span title="Has explanation" style={{ color: "var(--success)" }}>📖</span>}
                   </p>
                 </div>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: status === "ready" ? "var(--success)" : status === "error" ? "var(--primary)" : "var(--line)", flexShrink: 0 }} />

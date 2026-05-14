@@ -35,6 +35,8 @@ type BuilderWorkspaceProps = {
   onUpdateQuestion: (index: number, question: QuestionData) => void;
   onDeleteQuestion: (index: number) => void;
   onDuplicateQuestion: (index: number) => void;
+  onEnrich?: () => void;
+  enriching?: boolean;
 };
 
 export function BuilderWorkspace({
@@ -66,6 +68,8 @@ export function BuilderWorkspace({
   onUpdateQuestion,
   onDeleteQuestion,
   onDuplicateQuestion,
+  onEnrich,
+  enriching,
 }: BuilderWorkspaceProps) {
   const activeQuestion = questions[activeIndex] || null;
 
@@ -144,6 +148,17 @@ export function BuilderWorkspace({
                 <button onClick={onAddTrueFalse} className="btn btn-sm btn-ghost" style={{ border: "1px solid var(--line)" }}>
                   + True/False
                 </button>
+                {onEnrich && (
+                  <button
+                    onClick={onEnrich}
+                    disabled={enriching || questions.length === 0}
+                    className="btn btn-sm btn-ghost"
+                    style={{ border: "1px solid var(--accent)", color: "var(--accent)", opacity: enriching ? 0.6 : 1 }}
+                    title="Add explanations and difficulty tags to all questions using AI"
+                  >
+                    {enriching ? "⏳ Enriching…" : "✨ Enrich All"}
+                  </button>
+                )}
               </div>
             </div>
           ) : (
