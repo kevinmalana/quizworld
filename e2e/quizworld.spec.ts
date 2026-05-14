@@ -99,7 +99,7 @@ test.describe('P1: Quiz Builder - Source Picker', () => {
     await expect(page.locator('h1')).toContainText('Create a new quiz');
     await expect(page.locator('text=Start from Scratch')).toBeVisible();
     await expect(page.locator('text=AI from Topic')).toBeVisible();
-    await expect(page.locator('text=Paste Questions')).toBeVisible();
+    await expect(page.locator('h3:has-text("Paste Text")')).toBeVisible();
     await expect(page.locator('text=AI from URL')).toBeVisible();
   });
 
@@ -229,7 +229,7 @@ test.describe('P1: AI from Topic', () => {
 test.describe('P1: Paste Questions', () => {
   test('modal opens', async ({ page }) => {
     await page.goto('/create');
-    await page.click('text=Paste Questions');
+    await page.click('text=Paste Text');
     await expect(page.locator('h2:has-text("Paste Questions")')).toBeVisible();
     await expect(page.locator('textarea')).toBeVisible();
   });

@@ -32,6 +32,7 @@ interface Props {
   onChange: (q: QuestionData) => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  compact?: boolean;
 }
 
 const TIME_OPTIONS = [10, 20, 30, 60];
@@ -56,7 +57,7 @@ function getIssues(q: QuestionData): string[] {
   return issues;
 }
 
-export function QuestionCard({ question, index, total, onChange, onDelete, onDuplicate }: Props) {
+export function QuestionCard({ question, index, total, onChange, onDelete, onDuplicate, compact }: Props) {
   const issues = getIssues(question);
   const isReady = issues.length === 0;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -311,7 +312,8 @@ export function QuestionCard({ question, index, total, onChange, onDelete, onDup
         <button onClick={addAnswer} className="btn btn-secondary" style={{ width: "100%", borderStyle: "dashed" }}>+ Add answer</button>
       )}
 
-      {/* Settings — compact row */}
+      {/* Settings — hidden in compact mode (moved to properties panel) */}
+      {!compact && (<>
       <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexWrap: "wrap", paddingTop: "0.375rem", borderTop: "1px solid var(--line)" }}>
         {/* Difficulty badge (#11) */}
         <span style={{
@@ -358,6 +360,7 @@ export function QuestionCard({ question, index, total, onChange, onDelete, onDup
         <textarea value={question.explanation || ""} onChange={(e) => onChange({ ...question, explanation: e.target.value })}
           placeholder="Why is this correct?" rows={2} className="input" style={{ marginTop: "0.5rem", resize: "none" }} />
       </details>
+      </>)}
     </div>
   );
 }
