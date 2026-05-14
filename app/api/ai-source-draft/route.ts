@@ -3,6 +3,8 @@ import {
   buildAIQuizPrompt,
   sanitizeJsonString,
   validateAIQuizDraft,
+  DEFAULT_AI_OPTIONS,
+  type AIGenerationOptions,
 } from "@/lib/quiz-ai";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -25,12 +27,14 @@ export async function POST(request: Request) {
       sourceTitle?: string;
       sourceLabel?: string;
       questionCount?: number;
+      aiOptions?: AIGenerationOptions;
     };
 
     const sourceText = body.sourceText?.trim() ?? "";
     const sourceTitle = body.sourceTitle?.trim() ?? "";
     const sourceLabel = body.sourceLabel?.trim() ?? "Source material";
     const questionCount = Math.min(10, Math.max(3, Number(body.questionCount) || 5));
+    const aiOptions = body.aiOptions ?? DEFAULT_AI_OPTIONS;
 
     if (!sourceText || sourceText.length < 200) {
       return NextResponse.json(
@@ -50,6 +54,7 @@ export async function POST(request: Request) {
       sourceLabel,
       sourceText: sourceText.slice(0, 24000),
       questionCount,
+      aiOptions,
     });
 
     const response = await fetch(apiUrl, {

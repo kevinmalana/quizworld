@@ -29,6 +29,27 @@ export type AIQuizDraft = {
   questions: AIQuestionDraft[];
 };
 
+// ── Generation options shared between UI and prompt ────────
+
+export type AIDifficultyPreset = "easy" | "balanced" | "hard" | "mixed";
+export type AITonePreset = "educational" | "fun" | "exam" | "challenging";
+
+export type AIGenerationOptions = {
+  audience: string;
+  difficulty: AIDifficultyPreset;
+  questionTypes: { mc: boolean; tf: boolean };
+  focusAreas: string;
+  tone: AITonePreset;
+};
+
+export const DEFAULT_AI_OPTIONS: AIGenerationOptions = {
+  audience: "",
+  difficulty: "balanced",
+  questionTypes: { mc: true, tf: true },
+  focusAreas: "",
+  tone: "educational",
+};
+
 export function sanitizeJsonString(raw: string) {
   const fencedMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
   return (fencedMatch ? fencedMatch[1] : raw).trim();
@@ -93,8 +114,6 @@ export function validateAIQuizDraft(input: unknown): AIQuizDraft {
       throw new Error(`Question ${index + 1} is missing text.`);
     }
 
-    // True/false must have exactly 2 answers; MC must have 4
-    const expectedAnswers = questionType === "true_false" ? 2 : 4;
     if (rawAnswers.length < 2 || rawAnswers.length > 4) {
       throw new Error(`Question ${index + 1} must have between two and four answers.`);
     }
@@ -169,29 +188,71 @@ export function aiDraftToQuestions(draft: AIQuizDraft): Question[] {
   }));
 }
 
+// ── Helpers for options → prompt instructions ────────────────
+
+function difficultyInstruction(difficulty: AIDifficultyPreset): string {
+  switch (difficulty) {
+    case "easy":
+      return "Generate mostly easy questions (70% easy, 20% medium, 10% hard). Use 30-second timers and 500 points for most questions.";
+    case "balanced":
+      return "Mix difficulties: 30% easy, 50% medium, 20% hard. Use appropriate timers and points for each.";
+    case "hard":
+      return "Generate mostly challenging questions (10% easy, 30% medium, 60% hard). Use 10-second timers and 2000 points for hard questions.";
+    case "mixed":
+      return "Mix all difficulties evenly: 33% easy, 34% medium, 33% hard.";
+  }
+}
+
+function toneInstruction(tone: AITonePreset): string {
+  switch (tone) {
+    case "educational":
+      return "Write clear, educational questions that teach concepts. Explanations should be instructive.";
+    case "fun":
+      return "Write engaging, fun questions with a casual tone. Include interesting facts and trivia-style phrasing.";
+    case "exam":
+      return "Write exam-style questions that test understanding. Use formal language. Explanations should mirror textbook clarity.";
+    case "challenging":
+      return "Write tricky, challenging questions that require deep thinking. Use plausible distractors and nuanced phrasing.";
+  }
+}
+
+function questionTypeInstruction(types: { mc: boolean; tf: boolean }): string {
+  if (types.mc && types.tf) {
+    return "Generate a mix of multiple_choice and true_false questions (about 70% MC, 30% T/F).";
+  }
+  if (types.tf) {
+    return "Generate only true_false questions. Every question must have question_type \"true_false\" with exactly 2 answers (True/False).";
+  }
+  return "Generate only multiple_choice questions. Every question must have question_type \"multiple_choice\" with exactly 4 answers.";
+}
+
+// ── Main prompt builder ──────────────────────────────────────
+
 export function buildAIQuizPrompt(options: {
   sourceTitle: string;
   sourceLabel: string;
   sourceText: string;
   questionCount: number;
-  difficultyMix?: { easy: number; medium: number; hard: number };
+  aiOptions?: AIGenerationOptions;
 }) {
-  const { easy = 0, medium = 0, hard = 0 } = options.difficultyMix ?? {};
-  const difficultyInstruction =
-    easy + medium + hard > 0
-      ? `\n- Difficulty distribution: ${easy} easy, ${medium} medium, ${hard} hard questions.`
-      : `\n- Mix difficulties: roughly 30% easy, 50% medium, 20% hard.`;
+  const opts = options.aiOptions ?? DEFAULT_AI_OPTIONS;
+
+  const audienceLine = opts.audience
+    ? `\n- Target audience: ${opts.audience}. Adjust language complexity and topic depth accordingly.`
+    : "";
+
+  const focusLine = opts.focusAreas
+    ? `\n- Focus specifically on these areas: ${opts.focusAreas}. Dedicate more questions to these topics.`
+    : "";
 
   return `
-You are generating a quiz draft from source material. Generate a mix of multiple-choice and true/false questions.
+You are generating a quiz draft from source material. Generate questions that match the user's preferences.
 
 Requirements:
 - Return valid JSON only.
 - Generate exactly ${options.questionCount} questions.
 - Every question must be answerable from the provided source text.
-- Mix question types: about 70% multiple_choice and 30% true_false.
-- For multiple_choice: exactly 4 answer choices.
-- For true_false: exactly 2 answer choices (True / False).
+${questionTypeInstruction(opts.questionTypes)}
 - Exactly one answer must be correct per question.
 - Avoid trivial wording copied directly from the source.
 - Include a short rationale for the correct answer.
@@ -199,10 +260,13 @@ Requirements:
 - Include 1 to 2 citations per question.
 - Each citation must quote a short exact snippet from the source text that supports the answer.
 - Use time_limit values of 10, 20, 30, or 60.
-- Use points values of 500 (easy), 1000 (medium), or 2000 (hard).
+- Use points values of 500, 1000, or 2000.
 - Confidence must be one of: high, medium, low.
 - Difficulty must be one of: easy, medium, hard.
-- If the source is weak or ambiguous, reduce confidence and keep the question conservative.${difficultyInstruction}
+- If the source is weak or ambiguous, reduce confidence and keep the question conservative.
+${audienceLine}${focusLine}
+- ${difficultyInstruction(opts.difficulty)}
+- ${toneInstruction(opts.tone)}
 
 Output JSON shape:
 {
@@ -223,23 +287,6 @@ Output JSON shape:
         { "text": "string", "is_correct": false },
         { "text": "string", "is_correct": false },
         { "text": "string", "is_correct": false }
-      ],
-      "citations": [
-        { "source_label": "${options.sourceLabel}", "snippet": "exact source quote" }
-      ]
-    },
-    {
-      "text": "True or false: ...",
-      "question_type": "true_false",
-      "time_limit": 10,
-      "points": 500,
-      "confidence": "high",
-      "difficulty": "easy",
-      "rationale": "string",
-      "explanation": "2-3 sentence explanation",
-      "answers": [
-        { "text": "True", "is_correct": true },
-        { "text": "False", "is_correct": false }
       ],
       "citations": [
         { "source_label": "${options.sourceLabel}", "snippet": "exact source quote" }

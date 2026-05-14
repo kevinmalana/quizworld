@@ -1,6 +1,8 @@
 import { useState, useRef } from "react";
 import type { SourceType } from "@/components/builder/SourcePicker";
 import { extractTextFromFile, FileExtractionError } from "@/lib/file-extract";
+import type { AIGenerationOptions, AIDifficultyPreset, AITonePreset } from "@/lib/quiz-ai";
+import { DEFAULT_AI_OPTIONS } from "@/lib/quiz-ai";
 
 export type AIQuestionCount = 3 | 5 | 8 | 10;
 
@@ -12,6 +14,7 @@ type SourceModalProps = {
   aiUrl: string;
   pasteText: string;
   aiCount: AIQuestionCount;
+  aiOptions: AIGenerationOptions;
   aiLoading: boolean;
   aiError: string;
   onClose: () => void;
@@ -19,6 +22,7 @@ type SourceModalProps = {
   onAiUrlChange: (value: string) => void;
   onPasteTextChange: (value: string) => void;
   onAiCountChange: (value: AIQuestionCount) => void;
+  onAiOptionsChange: (options: AIGenerationOptions) => void;
   onAiGenerate: () => void;
   onPasteImport: () => void;
   onUrlFetch: () => void;
@@ -30,6 +34,7 @@ export function CreateSourceModals({
   aiUrl,
   pasteText,
   aiCount,
+  aiOptions,
   aiLoading,
   aiError,
   onClose,
@@ -37,6 +42,7 @@ export function CreateSourceModals({
   onAiUrlChange,
   onPasteTextChange,
   onAiCountChange,
+  onAiOptionsChange,
   onAiGenerate,
   onPasteImport,
   onUrlFetch,
@@ -52,6 +58,7 @@ export function CreateSourceModals({
           className="builder-source-input"
           autoFocus
         />
+        <AIOptionsPanel options={aiOptions} onChange={onAiOptionsChange} />
         <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
@@ -92,13 +99,14 @@ export function CreateSourceModals({
           className="builder-source-input"
           autoFocus
         />
+        <AIOptionsPanel options={aiOptions} onChange={onAiOptionsChange} />
+        <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
           <button onClick={onUrlFetch} disabled={aiLoading || !aiUrl.trim()} className="btn btn-primary btn-compact" style={{ flexShrink: 0 }}>
             {aiLoading ? "Fetching…" : "Fetch & Generate ✨"}
           </button>
         </ModalFooter>
-        <SourceError message={aiError} />
       </BuilderSourceModal>
     );
   }
@@ -107,6 +115,7 @@ export function CreateSourceModals({
     return (
       <BuilderSourceModal title="📄 AI from Document" onClose={onClose}>
         <FileUploadArea onTextExtracted={(text) => onAiTopicChange(text)} currentText={aiTopic} />
+        <AIOptionsPanel options={aiOptions} onChange={onAiOptionsChange} />
         <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
@@ -121,21 +130,191 @@ export function CreateSourceModals({
   return null;
 }
 
+// ── AI Options Panel ──────────────────────────────────────────
+
+function AIOptionsPanel({ options, onChange }: { options: AIGenerationOptions; onChange: (o: AIGenerationOptions) => void }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div style={{ borderRadius: "var(--radius-lg)", border: "1px solid var(--line)", overflow: "hidden" }}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          width: "100%", padding: "0.5rem 0.75rem", background: "var(--bg-subtle)", border: "none",
+          display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
+          fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)",
+        }}
+      >
+        <span>⚙️ Customize generation</span>
+        <span style={{ fontSize: "0.75rem", transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
+      </button>
+
+      {expanded && (
+        <div style={{ padding: "0.75rem", display: "flex", flexDirection: "column", gap: "0.625rem", background: "var(--surface)" }}>
+          {/* Audience */}
+          <div>
+            <label style={labelStyle}>👤 Who is this for?</label>
+            <input
+              type="text"
+              value={options.audience}
+              onChange={(e) => onChange({ ...options, audience: e.target.value })}
+              placeholder="e.g. Year 10 students, trivia night, new employees"
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Difficulty */}
+          <div>
+            <label style={labelStyle}>📊 Difficulty</label>
+            <div style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap" }}>
+              {(["easy", "balanced", "mixed", "hard"] as AIDifficultyPreset[]).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => onChange({ ...options, difficulty: d })}
+                  style={{
+                    ...chipStyle,
+                    background: options.difficulty === d ? "var(--accent)" : "var(--bg-subtle)",
+                    color: options.difficulty === d ? "#fff" : "var(--ink)",
+                    borderColor: options.difficulty === d ? "var(--accent)" : "var(--line)",
+                  }}
+                >
+                  {d === "easy" ? "🟢 Easy" : d === "balanced" ? "🟡 Balanced" : d === "mixed" ? "🎲 Mixed" : "🔴 Hard"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Question types */}
+          <div>
+            <label style={labelStyle}>❓ Question types</label>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <ToggleChip
+                label="◉ Multiple Choice"
+                active={options.questionTypes.mc}
+                onToggle={() => onChange({ ...options, questionTypes: { ...options.questionTypes, mc: !options.questionTypes.mc } })}
+                disabled={options.questionTypes.mc && !options.questionTypes.tf}
+              />
+              <ToggleChip
+                label="⚖ True / False"
+                active={options.questionTypes.tf}
+                onToggle={() => onChange({ ...options, questionTypes: { ...options.questionTypes, tf: !options.questionTypes.tf } })}
+                disabled={options.questionTypes.tf && !options.questionTypes.mc}
+              />
+            </div>
+          </div>
+
+          {/* Tone */}
+          <div>
+            <label style={labelStyle}>🎯 Tone</label>
+            <div style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap" }}>
+              {(["educational", "fun", "exam", "challenging"] as AITonePreset[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => onChange({ ...options, tone: t })}
+                  style={{
+                    ...chipStyle,
+                    background: options.tone === t ? "var(--accent)" : "var(--bg-subtle)",
+                    color: options.tone === t ? "#fff" : "var(--ink)",
+                    borderColor: options.tone === t ? "var(--accent)" : "var(--line)",
+                  }}
+                >
+                  {t === "educational" ? "📚 Educational" : t === "fun" ? "🎉 Fun" : t === "exam" ? "📝 Exam" : "🧠 Challenging"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Focus areas */}
+          <div>
+            <label style={labelStyle}>🔍 Focus areas <span style={{ fontWeight: 400, color: "var(--faint)" }}>(optional)</span></label>
+            <input
+              type="text"
+              value={options.focusAreas}
+              onChange={(e) => onChange({ ...options, focusAreas: e.target.value })}
+              placeholder="e.g. photosynthesis, cell division, mitosis"
+              style={inputStyle}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToggleChip({ label, active, onToggle, disabled }: { label: string; active: boolean; onToggle: () => void; disabled?: boolean }) {
+  return (
+    <button
+      onClick={onToggle}
+      disabled={disabled}
+      style={{
+        ...chipStyle,
+        background: active ? "var(--accent)" : "var(--bg-subtle)",
+        color: active ? "#fff" : "var(--ink)",
+        borderColor: active ? "var(--accent)" : "var(--line)",
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      {active ? "✓ " : ""}{label}
+    </button>
+  );
+}
+
+// ── Shared styles ──────────────────────────────────────────────
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: "0.75rem",
+  fontWeight: 700,
+  color: "var(--ink)",
+  marginBottom: "0.25rem",
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "0.5rem 0.625rem",
+  borderRadius: "var(--radius-md)",
+  border: "1.5px solid var(--line)",
+  background: "var(--surface)",
+  fontSize: "0.8125rem",
+  color: "var(--ink)",
+  outline: "none",
+  fontWeight: 500,
+};
+
+const chipStyle: React.CSSProperties = {
+  padding: "0.375rem 0.625rem",
+  borderRadius: "var(--radius-md)",
+  border: "1.5px solid",
+  fontSize: "0.75rem",
+  fontWeight: 700,
+  cursor: "pointer",
+  transition: "all 0.15s",
+  whiteSpace: "nowrap",
+};
+
+// ── File Upload Area ───────────────────────────────────────────
+
 function FileUploadArea({ onTextExtracted, currentText }: { onTextExtracted: (text: string) => void; currentText: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [extracting, setExtracting] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileError, setFileError] = useState("");
+  const [fileWarning, setFileWarning] = useState("");
   const [dragOver, setDragOver] = useState(false);
 
   async function handleFile(file: File) {
     setFileError("");
+    setFileWarning("");
     setExtracting(true);
     setFileName(null);
 
     try {
-      const { text, filename } = await extractTextFromFile(file);
+      const { text, filename, truncated } = await extractTextFromFile(file);
       setFileName(filename);
+      if (truncated) {
+        setFileWarning(`Text was truncated to 24,000 characters. Original file had more content.`);
+      }
       onTextExtracted(text);
     } catch (err) {
       if (err instanceof FileExtractionError) {
@@ -151,7 +330,6 @@ function FileUploadArea({ onTextExtracted, currentText }: { onTextExtracted: (te
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
-    // Reset input so same file can be selected again
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -173,33 +351,21 @@ function FileUploadArea({ onTextExtracted, currentText }: { onTextExtracted: (te
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-      {/* Drop zone */}
       <div
         onClick={() => fileInputRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "0.5rem",
-          padding: "1.5rem",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          gap: "0.5rem", padding: "1.5rem",
           border: `2px dashed ${dragOver ? "var(--accent)" : "var(--line)"}`,
           borderRadius: "var(--radius-xl)",
           background: dragOver ? "var(--accent-light)" : "var(--bg-subtle)",
-          cursor: "pointer",
-          transition: "all 0.15s ease",
+          cursor: "pointer", transition: "all 0.15s ease",
         }}
       >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".txt,.md,.pdf,.docx"
-          onChange={handleInputChange}
-          style={{ display: "none" }}
-        />
+        <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.docx" onChange={handleInputChange} style={{ display: "none" }} />
         {extracting ? (
           <>
             <span style={{ fontSize: "1.5rem" }}>⏳</span>
@@ -222,7 +388,6 @@ function FileUploadArea({ onTextExtracted, currentText }: { onTextExtracted: (te
 
       {fileError && <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--primary)", margin: 0 }}>{fileError}</p>}
 
-      {/* Textarea */}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
         <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Or paste text directly:</span>
         <textarea
@@ -242,6 +407,8 @@ function FileUploadArea({ onTextExtracted, currentText }: { onTextExtracted: (te
     </div>
   );
 }
+
+// ── Shared components ──────────────────────────────────────────
 
 function BuilderSourceModal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (

@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { uid } from "@/lib/store";
 import { parseImportedQuestions } from "@/lib/quiz-import";
+import type { AIGenerationOptions } from "@/lib/quiz-ai";
+import { DEFAULT_AI_OPTIONS } from "@/lib/quiz-ai";
 import { SourcePicker, type SourceType } from "@/components/builder/SourcePicker";
 import { type QuestionData } from "@/components/builder/QuestionCard";
 import { BuilderWorkspace, type DraftSyncState } from "@/components/builder/BuilderWorkspace";
@@ -58,6 +60,7 @@ function CreatePageContent() {
   const [aiError, setAiError] = useState("");
   const [pasteText, setPasteText] = useState("");
   const [enriching, setEnriching] = useState(false);
+  const [aiOptions, setAiOptions] = useState<AIGenerationOptions>(DEFAULT_AI_OPTIONS);
 
   // ── Load existing quiz for editing ──
   useEffect(() => {
@@ -207,7 +210,7 @@ function CreatePageContent() {
       const res = await fetch("/api/ai-source-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceText, sourceTitle: topic.slice(0, 60), questionCount: aiCount }),
+        body: JSON.stringify({ sourceText, sourceTitle: topic.slice(0, 60), questionCount: aiCount, aiOptions }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "AI generation failed");
@@ -221,7 +224,7 @@ function CreatePageContent() {
     } finally {
       setAiLoading(false);
     }
-  }, [aiTopic, aiCount]);
+  }, [aiTopic, aiCount, aiOptions]);
 
   const handlePasteImport = useCallback(() => {
     if (!pasteText.trim()) return;
@@ -254,7 +257,7 @@ function CreatePageContent() {
       const aiRes = await fetch("/api/ai-source-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceText: text, sourceTitle: aiUrl, questionCount: aiCount }),
+        body: JSON.stringify({ sourceText: text, sourceTitle: aiUrl, questionCount: aiCount, aiOptions }),
       });
       const aiData = await aiRes.json();
       if (!aiRes.ok) throw new Error(aiData.error || "AI generation failed");
@@ -268,7 +271,7 @@ function CreatePageContent() {
     } finally {
       setAiLoading(false);
     }
-  }, [aiUrl, aiCount]);
+  }, [aiUrl, aiCount, aiOptions]);
 
   // ── AI Enrichment ──
   const handleEnrich = useCallback(async () => {
@@ -473,6 +476,7 @@ function CreatePageContent() {
           aiUrl={aiUrl}
           pasteText={pasteText}
           aiCount={aiCount}
+          aiOptions={aiOptions}
           aiLoading={aiLoading}
           aiError={aiError}
           onClose={() => setSourceType("manual")}
@@ -480,6 +484,7 @@ function CreatePageContent() {
           onAiUrlChange={setAiUrl}
           onPasteTextChange={setPasteText}
           onAiCountChange={setAiCount}
+          onAiOptionsChange={setAiOptions}
           onAiGenerate={() => void handleAiGenerate()}
           onPasteImport={handlePasteImport}
           onUrlFetch={() => void handleUrlFetch()}
