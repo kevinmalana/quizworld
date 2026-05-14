@@ -1,7 +1,7 @@
 # QuizWorld Current Agent Handoff
 
-Last verified: 2026-05-14 20:29 UTC
-Production alignment checked: 2026-05-14 20:29 UTC, aligned with local workspace
+Last verified: 2026-05-14 21:20 UTC
+Production alignment checked: 2026-05-14 21:20 UTC, aligned with local workspace
 Production: https://www.quizworld.xyz
 Repo: https://github.com/kevinmalana/quizworld
 Workspace: `/root/.openclaw/workspace/quizworld`
@@ -132,7 +132,7 @@ Latest production/browser alignment check:
 BASE_URL=https://www.quizworld.xyz npx playwright test --reporter=line
 ```
 
-- Production Playwright passed `40/40` against the updated suite after deploy `dpl_G41cr5bN9UQFFjnSwv6RJDZNfJfW`.
+- Production Playwright passed `40/40` against the updated suite after deploy `dpl_5mjZcVEQQZBGUXCfsvmtVW65SAZQ`.
 - Production now includes the builder navigation test hook/markup and AI builder test/doc alignment changes.
 - Production route smoke passed for `/`, `/create`, `/study`, `/study/[id]`, `/dashboard`, `/explore`, `/host`, `/join`, `/present`, `/game/NOPE01`.
 - Phoenix health returned `{"status":"ok","service":"quizworld_realtime","redis":true}`.
@@ -174,7 +174,7 @@ Avoid broad rewrites. Prefer small PR-style extractions, then run the full gates
 ## Known Product/Ops Notes
 
 - `www.quizworld.xyz` is the public production alias.
-- As of 2026-05-14 20:29 UTC, production is aligned with the local workspace and updated docs/tests.
+- As of 2026-05-14 21:20 UTC, production is aligned with the local workspace and updated docs/tests.
 - Direct Vercel deployment URLs may show Vercel protection; use production aliases for public smoke.
 - Phoenix backend: `https://quizworld-xs0g.onrender.com`.
 - Local live game routes show `Live Game Service Not Configured` unless `NEXT_PUBLIC_GAME_SERVICE_URL` is present; this is expected.

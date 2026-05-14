@@ -68,7 +68,7 @@ Latest full build/service baseline before this audit:
 
 - `npm run check`
 - Phoenix tests: `29/29`
-- Production Playwright: `40/40` via `BASE_URL=https://www.quizworld.xyz npx playwright test --reporter=line` after deploy `dpl_G41cr5bN9UQFFjnSwv6RJDZNfJfW`.
+- Production Playwright: `40/40` via `BASE_URL=https://www.quizworld.xyz npx playwright test --reporter=line` after deploy `dpl_5mjZcVEQQZBGUXCfsvmtVW65SAZQ`.
 - Phoenix health: `redis:true`
 
 For high-risk game changes, also run an authenticated host + second-browser/mobile player smoke test through finish/leaderboard.
