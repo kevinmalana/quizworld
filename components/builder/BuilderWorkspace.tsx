@@ -148,15 +148,15 @@ export function BuilderWorkspace({
                 <button onClick={onAddTrueFalse} className="btn btn-sm btn-ghost" style={{ border: "1px solid var(--line)" }}>
                   + True/False
                 </button>
-                {onEnrich && (
+                {onEnrich && questions.some((q) => q.text.trim() && !q.explanation?.trim()) && (
                   <button
                     onClick={onEnrich}
-                    disabled={enriching || questions.length === 0}
+                    disabled={enriching}
                     className="btn btn-sm btn-ghost"
                     style={{ border: "1px solid var(--accent)", color: "var(--accent)", opacity: enriching ? 0.6 : 1 }}
-                    title="Add explanations and difficulty tags to all questions using AI"
+                    title="Use AI to add explanations to questions that don't have them"
                   >
-                    {enriching ? "⏳ Enriching…" : "✨ Enrich All"}
+                    {enriching ? "⏳ Adding…" : "✨ Add explanations"}
                   </button>
                 )}
               </div>
