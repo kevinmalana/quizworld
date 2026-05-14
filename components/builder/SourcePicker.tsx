@@ -1,20 +1,50 @@
 "use client";
 
+import type { AIGenerationOptions } from "@/lib/quiz-ai";
+
 export type SourceType = "manual" | "paste" | "ai-topic" | "ai-url" | "ai-document";
 
 interface Props {
   onSelect: (type: SourceType) => void;
+  onTemplateSelect?: (topic: string, options: AIGenerationOptions) => void;
 }
 
 const SOURCES = [
   { key: "manual" as const, icon: "✏️", title: "Start from Scratch", desc: "Build question by question." },
   { key: "ai-topic" as const, icon: "💡", title: "AI from Topic", desc: "Describe a topic, get a draft." },
-  { key: "paste" as const, icon: "📋", title: "Paste Questions", desc: "Paste in any format." },
+  { key: "paste" as const, icon: "📋", title: "Paste Text", desc: "Paste notes, articles, or questions." },
   { key: "ai-url" as const, icon: "🔗", title: "AI from URL", desc: "Extract questions from a link." },
   { key: "ai-document" as const, icon: "📄", title: "AI from Document", desc: "Upload or paste text." },
 ];
 
-export function SourcePicker({ onSelect }: Props) {
+const TEMPLATES = [
+  {
+    label: "🧠 Trivia Night",
+    desc: "5 fun mixed trivia questions",
+    topic: "General knowledge trivia covering science, history, geography, pop culture, and sports",
+    options: { audience: "Adults at a trivia night", difficulty: "mixed" as const, questionTypes: { mc: true, tf: true }, focusAreas: "", tone: "fun" as const },
+  },
+  {
+    label: "📚 Study Quiz",
+    desc: "Test your knowledge",
+    topic: "Educational quiz covering key concepts, definitions, and important facts",
+    options: { audience: "Students", difficulty: "balanced" as const, questionTypes: { mc: true, tf: true }, focusAreas: "", tone: "educational" as const },
+  },
+  {
+    label: "🎉 Party Game",
+    desc: "Fun for everyone",
+    topic: "Fun entertaining questions about movies, music, celebrities, and pop culture",
+    options: { audience: "Everyone at a party", difficulty: "easy" as const, questionTypes: { mc: true, tf: true }, focusAreas: "", tone: "fun" as const },
+  },
+  {
+    label: "💼 Team Building",
+    desc: "Work-friendly quiz",
+    topic: "Professional team building quiz about business, technology, and workplace fun",
+    options: { audience: "Coworkers at a team event", difficulty: "easy" as const, questionTypes: { mc: true, tf: true }, focusAreas: "", tone: "fun" as const },
+  },
+];
+
+export function SourcePicker({ onSelect, onTemplateSelect }: Props) {
   return (
     <div className="container" style={{ minHeight: "calc(100vh - var(--nav-height))", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "1.5rem 1rem 1rem" }}>
       <div style={{ width: "100%", maxWidth: "36rem" }}>
@@ -41,22 +71,20 @@ export function SourcePicker({ onSelect }: Props) {
           ))}
         </div>
 
-        {/* Quick templates (#7) */}
+        {/* Quick start templates with presets */}
         <div style={{ marginTop: "1.25rem" }}>
           <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Quick start templates</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.375rem" }}>
-            {[{
-              label: "🧠 Trivia Night", desc: "5 fun trivia questions", topic: "General knowledge trivia covering science, history, geography, pop culture, and sports",
-            }, {
-              label: "📚 Study Quiz", desc: "Test your knowledge", topic: "Educational quiz covering key concepts, definitions, and important facts",
-            }, {
-              label: "🎉 Party Game", desc: "Fun for everyone", topic: "Fun entertaining questions about movies, music, celebrities, and pop culture",
-            }, {
-              label: "💼 Team Building", desc: "Work-friendly quiz", topic: "Professional team building quiz about business, technology, and workplace fun",
-            }].map((t) => (
+          <div style={{ display: "grid", gap: "0.375rem", gridTemplateColumns: "repeat(2, 1fr)" }}>
+            {TEMPLATES.map((t) => (
               <button
                 key={t.label}
-                onClick={() => onSelect("ai-topic")}
+                onClick={() => {
+                  if (onTemplateSelect) {
+                    onTemplateSelect(t.topic, t.options);
+                  } else {
+                    onSelect("ai-topic");
+                  }
+                }}
                 className="card card-hover"
                 style={{ padding: "0.75rem", textAlign: "left", cursor: "pointer", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)" }}
               >

@@ -226,18 +226,51 @@ function CreatePageContent() {
     }
   }, [aiTopic, aiCount, aiOptions]);
 
-  const handlePasteImport = useCallback(() => {
+  const handlePasteImport = useCallback(async () => {
     if (!pasteText.trim()) return;
+    setAiError("");
+
+    // Try regex parsing first (structured format)
     const parsed = parseImportedQuestions(pasteText);
-    if (!parsed.questions || parsed.questions.length === 0) {
-      setAiError(parsed.error || "Could not parse any questions. Try the format: Question? * Correct - Wrong");
+    if (parsed.questions && parsed.questions.length > 0) {
+      const generated = parsed.questions.map((q: any) => legacyToQuestionData(q));
+      setQuestions(generated);
+      setActiveIndex(0);
+      setStep("builder");
       return;
     }
-    const generated = parsed.questions.map((q: any) => legacyToQuestionData(q));
-    setQuestions(generated);
-    setActiveIndex(0);
-    setStep("builder");
-  }, [pasteText]);
+
+    // Fallback: treat as source text for AI generation
+    if (pasteText.trim().length < 20) {
+      setAiError("Paste more text — at least a few sentences for AI to work with.");
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      const res = await fetch("/api/ai-source-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceText: pasteText,
+          sourceTitle: "Pasted content",
+          questionCount: aiCount,
+          aiOptions,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "AI generation failed");
+      const generated = aiDraftToQuestionData(data.draft);
+      setQuestions(generated);
+      setQuizTitle(data.draft.title || "Quiz from pasted text");
+      setActiveIndex(0);
+      setStep("builder");
+    } catch (err: any) {
+      setAiError(err.message || "Something went wrong");
+    } finally {
+      setAiLoading(false);
+    }
+  }, [pasteText, aiCount, aiOptions]);
 
   const handleUrlFetch = useCallback(async () => {
     if (!aiUrl.trim()) return;
@@ -469,7 +502,14 @@ function CreatePageContent() {
   if (step === "source") {
     return (
       <div>
-        <SourcePicker onSelect={handleSourceSelect} />
+        <SourcePicker
+          onSelect={handleSourceSelect}
+          onTemplateSelect={(topic, options) => {
+            setAiTopic(topic);
+            setAiOptions(options);
+            setSourceType("ai-topic");
+          }}
+        />
         <CreateSourceModals
           sourceType={sourceType}
           aiTopic={aiTopic}

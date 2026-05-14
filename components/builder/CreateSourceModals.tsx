@@ -76,15 +76,19 @@ export function CreateSourceModals({
         <textarea
           value={pasteText}
           onChange={(e) => onPasteTextChange(e.target.value)}
-          placeholder={"Question 1: What is the capital of France?\n* Paris\n- London\n- Berlin\n- Rome"}
+          placeholder={"Paste anything — structured questions OR raw text\n\nStructured format (parsed directly):\nQuestion 1: What is the capital of France?\n* Paris\n- London\n- Berlin\n- Rome\n\nOr just paste notes, articles, study material — AI will generate questions from it."}
           rows={6}
           className="builder-source-input builder-source-input--mono"
           autoFocus
         />
+        <AIOptionsPanel options={aiOptions} onChange={onAiOptionsChange} />
         <SourceError message={aiError} />
-        <div className="flex justify-end">
-          <button onClick={onPasteImport} className="btn btn-primary btn-compact">Import →</button>
-        </div>
+        <ModalFooter>
+          <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
+          <button onClick={onPasteImport} disabled={aiLoading || pasteText.trim().length < 5} className="btn btn-primary btn-compact" style={{ flexShrink: 0 }}>
+            {aiLoading ? "Generating…" : "Import ✨"}
+          </button>
+        </ModalFooter>
       </BuilderSourceModal>
     );
   }
