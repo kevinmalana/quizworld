@@ -13,7 +13,7 @@ function count(command) {
 }
 
 const limits = {
-  inlineStyles: 488,
+  inlineStyles: 458,
   anyCount: 40,
   routeFiles: {
     "app/game/[pin]/page.tsx": 930,
@@ -62,4 +62,3 @@ if (failures.length) {
 
 console.log("Quality guard passed.");
 console.log(`inline_styles=${inlineStyles} any_count=${anyCount}`);
-

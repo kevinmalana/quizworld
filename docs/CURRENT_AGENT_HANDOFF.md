@@ -108,7 +108,7 @@ BASE_URL=http://localhost:3002 npx playwright test --reporter=line
 
 Results:
 
-- Quality guard passed: inline styles `488`, type escapes `40`, route file limits within current baseline.
+- Quality guard passed: inline styles `458`, type escapes `40`, route file limits within current baseline.
 - TypeScript passed.
 - Local Playwright passed: `40/40`.
 - Local browser run allows either configured Phoenix live-game screens or the explicit live-service configuration status when `NEXT_PUBLIC_GAME_SERVICE_URL` is absent.
@@ -166,7 +166,7 @@ Recommended order:
 
 1. `app/explore/page.tsx` — move remaining filter/sort/header CSS/components. Low risk.
 2. `app/study/page.tsx` — move remaining dashboard layout styles into CSS. Low risk.
-3. `components/builder/BuilderWorkspace.tsx` — remaining properties-panel inline styles are still concentrated here. Medium risk because builder controls are heavily tested.
+3. `components/builder/QuestionCard.tsx` and `components/builder/CreateSourceModals.tsx` — continue reducing inline styles behind the builder UI. Medium risk because builder controls are heavily tested.
 4. `app/game/[pin]/page.tsx` — only do further logic extraction with live host/player smoke tests. Higher risk.
 
 Avoid broad rewrites. Prefer small PR-style extractions, then run the full gates above.
