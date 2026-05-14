@@ -375,8 +375,8 @@ function PropertiesPanel({
         <button onClick={onPrevious} disabled={index === 0} className="btn btn-sm btn-secondary" style={{ flex: 1, justifyContent: "center", opacity: index === 0 ? 0.4 : 1 }}>
           ← Prev
         </button>
-        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>
-          {index + 1}/{total}
+        <span data-testid="question-nav" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>
+          {index + 1} / {total}
         </span>
         <button onClick={onNext} className="btn btn-sm btn-primary" style={{ flex: 1, justifyContent: "center" }}>
           {index < total - 1 ? "Next →" : "+ New"}

@@ -30,7 +30,7 @@ QuizWorld is:
 - a Supabase-backed content/auth layer
 - a Phoenix realtime service for live multiplayer sessions
 - an optional Redis-backed state cache for the Phoenix service
-- a builder workflow with drafts, versioning, archive/visibility controls, source import, and AI-assisted review
+- a builder workflow with drafts, versioning, archive/visibility controls, source import, AI generation, and AI-assisted review
 - a responsive, componentized builder that works cleanly on mobile/tablet without losing timing, scoring, or preview controls
 
 ## Current Cleanup/Component Map
@@ -38,6 +38,7 @@ QuizWorld is:
 The 2026-05-09 cleanup pass moved most large route JSX into components. Future agents should keep route files as containers and put reusable UI in:
 
 - `components/builder/` for `/create` builder UI and source modals
+- `lib/quiz-ai.ts`, `app/api/ai-source-draft/route.ts`, and `app/api/ai-enrich/route.ts` for AI generation/enrichment
 - `components/game/` for `/game/[pin]` live-game panels
 - `components/study/` for study hall/session cards and panels
 - `components/dashboard/` for dashboard cards
@@ -45,6 +46,15 @@ The 2026-05-09 cleanup pass moved most large route JSX into components. Future a
 - `styles/builder.css`, `styles/game.css`, `styles/present.css`, `styles/study.css` for route-specific CSS
 
 Main verification gate: `npm run check`, then `BASE_URL=https://www.quizworld.xyz npx playwright test --project=chromium` before/after deploy.
+
+For local UI/test work, start Next.js and point Playwright at the local port:
+
+```bash
+npm run dev
+BASE_URL=http://localhost:<port> npx playwright test --reporter=line
+```
+
+If local Phoenix env is not configured, `/join` and `/host` should show the explicit live-service configuration status. That is valid local behavior; production should use the Phoenix service URL.
 
 ## What To Ignore Unless You Need History
 

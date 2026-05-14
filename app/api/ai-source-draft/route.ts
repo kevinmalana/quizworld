@@ -3,6 +3,7 @@ import {
   buildAIQuizPrompt,
   sanitizeJsonString,
   validateAIQuizDraft,
+  detectDuplicateQuestions,
   DEFAULT_AI_OPTIONS,
   type AIGenerationOptions,
 } from "@/lib/quiz-ai";
@@ -43,6 +44,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Source-to-question ratio: require ~150 chars per question minimum
+    const minSourceLength = questionCount * 150;
+    if (sourceText.length < minSourceLength) {
+      return NextResponse.json(
+        { error: `Not enough source material for ${questionCount} questions. Add more text or reduce the question count.` },
+        { status: 400 }
+      );
+    }
+
     const apiKey = requireEnv("QUIZWORLD_AI_API_KEY");
     const model = requireEnv("QUIZWORLD_AI_MODEL");
     const apiUrl =
@@ -69,8 +79,28 @@ export async function POST(request: Request) {
         messages: [
           {
             role: "system",
-            content:
-              "You generate conservative, source-grounded quiz drafts. Never invent support outside the provided source.",
+            content: `You are a quiz author for educational and entertainment use.
+
+HARD RULES:
+- Every question MUST be answerable from the source text provided
+- The correct answer MUST be factually accurate
+- Each wrong answer (distractor) MUST be plausible — a real person might pick it
+- Never generate two questions that test the same fact or concept
+- If the source text doesn't cover enough material, generate fewer questions rather than inventing facts
+- Match difficulty to the audience: "easy" means most people would know it, "hard" means only experts would
+
+DIFFICULTY CALIBRATION:
+- Easy: recall of basic facts (What is...? Which one...?)
+- Medium: understanding or application (Why does...? What happens if...?)
+- Hard: analysis or synthesis (Compare...? What would happen if...?)
+
+ANSWER QUALITY:
+- Wrong answers should be similar in length and style to the correct answer
+- Never use "All of the above" or "None of the above"
+- Avoid giveaways: the longest answer is often correct — vary answer lengths
+- Each question should test a distinct concept
+
+OUTPUT: Valid JSON only. No markdown fences. No commentary outside JSON.`,
           },
           {
             role: "user",
@@ -107,6 +137,20 @@ export async function POST(request: Request) {
 
     const parsed = JSON.parse(sanitizeJsonString(content));
     const draft = validateAIQuizDraft(parsed);
+
+    // Remove duplicate questions
+    const duplicateIndices = detectDuplicateQuestions(draft.questions);
+    if (duplicateIndices.length > 0) {
+      draft.questions = draft.questions.filter((_, i) => !duplicateIndices.includes(i));
+    }
+
+    // If we removed too many, that's still fine — return what we have
+    if (draft.questions.length === 0) {
+      return NextResponse.json(
+        { error: "AI generated duplicate questions. Try with more specific source material." },
+        { status: 422 }
+      );
+    }
 
     return NextResponse.json({ draft });
   } catch (error) {

@@ -108,12 +108,12 @@
   background: var(--surface);
   padding: 1rem 0.875rem;
   overflow-y: auto;
-  display: flex;
+  display: none;
   flex-direction: column;
 }
 
-@media (max-width: 768px) {
+@media (min-width: 768px) {
   .builder-props-panel {
-    display: none;
+    display: flex !important;
   }
 }

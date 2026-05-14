@@ -70,8 +70,19 @@ export async function POST(request: Request) {
         messages: [
           {
             role: "system",
-            content:
-              "You enrich quiz questions with educational metadata. Be concise and accurate. Explanations should teach the concept, not just restate the answer.",
+            content: `You are a quiz quality reviewer and educator.
+
+For each question:
+- Write a clear explanation (2-3 sentences) that teaches the concept
+- Rate difficulty accurately: easy = basic recall, medium = understanding, hard = analysis
+- Rate confidence: high = unambiguous, medium = slight ambiguity, low = question may be flawed
+
+Explanations should:
+- Teach the "why" behind the correct answer
+- Be concise and clear
+- Not just restate the answer
+
+OUTPUT: Valid JSON only. No markdown fences.`,
           },
           {
             role: "user",

@@ -1,5 +1,59 @@
 import { test, expect } from '@playwright/test';
 
+async function expectLiveGameEntrySurface(page: import('@playwright/test').Page) {
+  const notConfigured = page.getByRole('heading', { name: 'Live Game Service Not Configured' }).first();
+  const legacyDisabled = page.getByRole('heading', { name: 'Legacy Supabase Live Games Disabled' }).first();
+  const joinHeading = page.getByRole('heading', { name: 'Join a Game' }).first();
+
+  await expect(
+    page.locator('h1,h2').filter({ hasText: /Live Game Service Not Configured|Legacy Supabase Live Games Disabled|Join a Game/ }).first()
+  ).toBeVisible();
+
+  if (await notConfigured.isVisible().catch(() => false)) {
+    await expect(notConfigured).toBeVisible();
+    return;
+  }
+
+  if (await legacyDisabled.isVisible().catch(() => false)) {
+    await expect(legacyDisabled).toBeVisible();
+    return;
+  }
+
+  await expect(joinHeading).toBeVisible();
+  await expect(page.locator('input[aria-label^="PIN character"]')).toHaveCount(6);
+  await expect(page.getByRole('button', { name: 'Enter Game' })).toBeVisible();
+}
+
+async function expectHostEntrySurface(page: import('@playwright/test').Page) {
+  const notConfigured = page.getByRole('heading', { name: 'Live Game Service Not Configured' }).first();
+  const legacyDisabled = page.getByRole('heading', { name: 'Legacy Supabase Live Games Disabled' }).first();
+  const signInHeading = page.getByRole('heading', { name: 'Sign In To Host' }).first();
+  const hostHeading = page.getByRole('heading', { name: 'Host a Game' }).first();
+
+  await expect(
+    page.locator('h1,h2').filter({ hasText: /Live Game Service Not Configured|Legacy Supabase Live Games Disabled|Sign In To Host|Host a Game/ }).first()
+  ).toBeVisible();
+
+  if (await notConfigured.isVisible().catch(() => false)) {
+    await expect(notConfigured).toBeVisible();
+    return;
+  }
+
+  if (await legacyDisabled.isVisible().catch(() => false)) {
+    await expect(legacyDisabled).toBeVisible();
+    return;
+  }
+
+  if (await hostHeading.isVisible().catch(() => false)) {
+    await expect(hostHeading).toBeVisible();
+    return;
+  }
+
+  await expect(signInHeading).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Browse Quizzes' })).toBeVisible();
+}
+
 // ─── P0: Critical Path Tests ─────────────────────────────────────────────
 
 test.describe('P0: Homepage', () => {
@@ -57,12 +111,9 @@ test.describe('P0: Explore Page', () => {
 });
 
 test.describe('P0: Join Page', () => {
-  test('displays PIN input', async ({ page }) => {
+  test('displays PIN input or live-service configuration status', async ({ page }) => {
     await page.goto('/join');
-    await expect(page.locator('h2')).toContainText('Join a Game');
-    // Should have 6 PIN input boxes
-    const inputs = page.locator('input');
-    await expect(inputs).toHaveCount(6);
+    await expectLiveGameEntrySurface(page);
   });
 });
 
@@ -140,52 +191,46 @@ test.describe('P1: Quiz Builder - Question Editor', () => {
   });
 
   test('can add a new question', async ({ page }) => {
-    await page.click('text=+ Multiple Choice');
-    // Should show 2/2 in navigation
-    await expect(page.locator('text=2 / 2')).toBeVisible({ timeout: 3000 });
+    await page.getByRole('button', { name: '+ Multiple Choice' }).click();
+    await expect(page.locator('[data-testid=question-nav]')).toHaveText('2 / 2', { timeout: 5000 });
   });
 
   test('can switch to true/false', async ({ page }) => {
-    await page.click('button:has-text("T/F")');
+    await page.locator('.builder-props-panel button:has-text("T/F")').click();
     await expect(page.locator('input[placeholder="Answer A"]')).toHaveValue('True');
     await expect(page.locator('input[placeholder="Answer B"]')).toHaveValue('False');
   });
 
   test('time selector works', async ({ page }) => {
-    await page.click('button:has-text("30s")');
-    // Button should be selected (primary style)
-    await expect(page.locator('button:has-text("30s")')).toBeVisible();
+    await page.locator('.builder-props-panel button:has-text("30s")').click();
+    await expect(page.locator('.builder-props-panel button:has-text("30s")')).toBeVisible();
   });
 
   test('points selector works', async ({ page }) => {
-    await page.click('button:has-text("2000")');
-    await expect(page.locator('button:has-text("2000")')).toBeVisible();
+    await page.locator('.builder-props-panel button:has-text("2000")').click();
+    await expect(page.locator('.builder-props-panel button:has-text("2000")')).toBeVisible();
   });
 
   test('can delete a question', async ({ page }) => {
-    // Add a second question first
-    await page.click('text=+ Multiple Choice');
-    await page.click('text=✕ Delete');
-    // Should be back to 1 question
-    await expect(page.locator('text=1 / 1')).toBeVisible();
+    await page.getByRole('button', { name: '+ Multiple Choice' }).click();
+    await expect(page.locator('[data-testid=question-nav]')).toHaveText('2 / 2', { timeout: 5000 });
+    await page.getByRole('button', { name: 'Delete' }).click();
+    await expect(page.locator('[data-testid=question-nav]')).toHaveText('1 / 1', { timeout: 5000 });
   });
 
   test('navigation buttons work', async ({ page }) => {
-    // First go to the builder
     await page.goto('/create');
     await page.getByText('Start from Scratch').click();
     await page.waitForSelector('textarea[placeholder*="Type your question"]', { timeout: 5000 });
-    // Add two more questions (total 3)
     await page.getByRole('button', { name: '+ Multiple Choice' }).click();
+    await page.waitForTimeout(300);
     await page.getByRole('button', { name: '+ Multiple Choice' }).click();
-    // Should now be on question 3 (index 2), showing "+ Add Question"
-    await expect(page.getByText(/3 \/ 3/)).toBeVisible({ timeout: 5000 });
-    // Go to question 2
-    await page.getByRole('button', { name: '← Previous' }).click();
-    await expect(page.getByText(/2 \/ 3/)).toBeVisible();
-    // Now "Next →" should be visible
-    await page.getByRole('button', { name: 'Next →' }).click();
-    await expect(page.getByText(/3 \/ 3/)).toBeVisible();
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-testid=question-nav]')).toHaveText('3 / 3', { timeout: 5000 });
+    await page.locator('.builder-props-panel button:has-text("Prev")').click();
+    await expect(page.locator('[data-testid=question-nav]')).toHaveText('2 / 3', { timeout: 5000 });
+    await page.locator('.builder-props-panel button:has-text("Next")').click();
+    await expect(page.locator('[data-testid=question-nav]')).toHaveText('3 / 3', { timeout: 5000 });
   });
 });
 
@@ -198,6 +243,7 @@ test.describe('P1: AI from Topic', () => {
     await expect(page.locator('h2:has-text("AI Topic Generator")')).toBeVisible();
     await expect(page.locator('textarea')).toBeVisible();
     await expect(page.locator('button:has-text("Generate")')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Customize generation/ })).toBeVisible();
   });
 
   test('generate button disabled with short input', async ({ page }) => {
@@ -211,8 +257,22 @@ test.describe('P1: AI from Topic', () => {
     await page.goto('/create');
     await page.click('text=AI from Topic');
     await page.click('button:has-text("8")');
-    // Button should be selected
     await expect(page.locator('button:has-text("8")')).toBeVisible();
+  });
+
+  test('generation options expose audience, difficulty, type, tone, and focus controls', async ({ page }) => {
+    await page.goto('/create');
+    await page.click('text=AI from Topic');
+    await page.getByRole('button', { name: /Customize generation/ }).click();
+
+    await expect(page.getByPlaceholder(/Year 10 students/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Easy/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Balanced/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Hard/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Multiple Choice/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /True \/ False/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Educational/ })).toBeVisible();
+    await expect(page.getByPlaceholder(/photosynthesis/)).toBeVisible();
   });
 
   test('close button works', async ({ page }) => {
@@ -248,9 +308,9 @@ test.describe('P2: Dashboard', () => {
 // ─── P2: Host Page (requires auth) ──────────────────────────────────────
 
 test.describe('P2: Host Page', () => {
-  test('shows sign in when not authenticated', async ({ page }) => {
+  test('shows sign in or live-service configuration status when not authenticated', async ({ page }) => {
     await page.goto('/host');
-    await expect(page.locator('text=Sign In To Host')).toBeVisible({ timeout: 5000 });
+    await expectHostEntrySurface(page);
   });
 });
 

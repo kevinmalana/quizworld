@@ -174,6 +174,58 @@ export function validateAIQuizDraft(input: unknown): AIQuizDraft {
   };
 }
 
+/**
+ * Check for duplicate/near-duplicate questions in a draft.
+ * Returns indices of questions that are too similar to earlier questions.
+ */
+export function detectDuplicateQuestions(questions: AIQuestionDraft[]): number[] {
+  const duplicates: number[] = [];
+
+  function getKeywords(text: string): Set<string> {
+    return new Set(
+      text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, "")
+        .split(/\s+/)
+        .filter((w) => w.length > 3 && !STOP_WORDS.has(w))
+    );
+  }
+
+  function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+    const intersection = new Set([...a].filter((x) => b.has(x)));
+    const union = new Set([...a, ...b]);
+    return union.size === 0 ? 0 : intersection.size / union.size;
+  }
+
+  for (let i = 0; i < questions.length; i++) {
+    for (let j = 0; j < i; j++) {
+      const keywordsA = getKeywords(questions[i].text);
+      const keywordsB = getKeywords(questions[j].text);
+      const similarity = jaccardSimilarity(keywordsA, keywordsB);
+
+      // Also check if correct answers are the same
+      const correctA = questions[i].answers.find((a) => a.is_correct)?.text.toLowerCase() ?? "";
+      const correctB = questions[j].answers.find((a) => a.is_correct)?.text.toLowerCase() ?? "";
+      const sameAnswer = correctA === correctB && correctA.length > 0;
+
+      if (similarity > 0.6 || sameAnswer) {
+        duplicates.push(i);
+        break;
+      }
+    }
+  }
+
+  return [...new Set(duplicates)];
+}
+
+const STOP_WORDS = new Set([
+  "the", "and", "for", "are", "but", "not", "you", "all", "can", "has", "her", "was", "one",
+  "our", "out", "this", "that", "with", "have", "from", "they", "been", "said", "each",
+  "which", "their", "will", "other", "about", "many", "then", "them", "these", "some",
+  "would", "make", "like", "into", "time", "very", "when", "come", "could", "more",
+  "than", "what", "your", "how", "its", "also", "did", "just", "true", "false",
+]);
+
 export function aiDraftToQuestions(draft: AIQuizDraft): Question[] {
   return draft.questions.map((question) => ({
     id: uid(),

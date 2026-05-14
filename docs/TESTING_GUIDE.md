@@ -15,8 +15,11 @@ Use this guide for the current split-runtime smoke/regression test.
 - timer and points can be edited on small screens
 - URL import works from `/create`
 - document import works from `/create`
-- AI Source Draft returns cited review output when AI env vars are configured
-- AI source drafts keep the correct source type after loading into the builder
+- AI topic, URL, document, and pasted-source starts open the correct source modal
+- AI generation options expose audience, difficulty, question type, tone, and focus controls
+- AI Source Draft returns validated, cited output when AI env vars are configured
+- AI source drafts preserve question type, explanation, timing, scoring, and answer correctness after loading into the builder
+- AI enrichment can add explanations/difficulty/confidence to manually-created questions when AI env vars are configured
 
 ## Phoenix Checks
 
@@ -41,13 +44,31 @@ Use this guide for the current split-runtime smoke/regression test.
 6. Submit answers and verify reveal/scoring happens from the service.
 7. Confirm the study/dashboard/profile flows still work through Supabase.
 
+## Local Vs Production Live Game Expectations
+
+The frontend defaults to the Phoenix live engine. Locally, if `NEXT_PUBLIC_GAME_SERVICE_URL` is missing, `/join` and `/host` intentionally render `Live Game Service Not Configured` instead of the player PIN/host auth screens.
+
+Current Playwright coverage accepts either:
+
+- configured live-game entry surfaces, or
+- the explicit configuration-status screen when Phoenix env is absent.
+
+Production runs should use `BASE_URL=https://www.quizworld.xyz` and should exercise the configured Phoenix path.
+
 ## Current Baseline
 
-Latest 2026-05-09 checks passed:
+Latest 2026-05-14 local checks passed:
+
+- `npm run typecheck`
+- Local Playwright: `40/40` via `BASE_URL=http://localhost:3002 npx playwright test --reporter=line`
+
+Latest full build/service baseline before this audit:
 
 - `npm run check`
 - Phoenix tests: `29/29`
-- Production Playwright: `39/39` via `BASE_URL=https://www.quizworld.xyz npx playwright test --project=chromium`
+- Production Playwright: `37/40` via `BASE_URL=https://www.quizworld.xyz npx playwright test --reporter=line` against the updated local suite
+- Production mismatch: the 3 failures are builder navigation tests expecting local-only `data-testid="question-nav"` markup. Production UI otherwise reached the builder and rendered updated question counts.
+- Previous production baseline before local test/doc updates was `39/39`.
 - Phoenix health: `redis:true`
 
 For high-risk game changes, also run an authenticated host + second-browser/mobile player smoke test through finish/leaderboard.
