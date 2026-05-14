@@ -13,7 +13,7 @@ function count(command) {
 }
 
 const limits = {
-  inlineStyles: 458,
+  inlineStyles: 414,
   anyCount: 40,
   routeFiles: {
     "app/game/[pin]/page.tsx": 930,
