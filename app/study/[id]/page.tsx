@@ -59,15 +59,10 @@ export default function StudyPage() {
     fetchQuiz();
   }, [quizId]);
 
-  // Sync active question list when mode changes
+  // Sync active question list when mode changes (review uses questions set directly in startReviewRound)
   useEffect(() => {
-    if (!quiz) return;
-    if (mode === "review") {
-      // Review round uses the wrong answers from the completed session
-      setQuestions(wrongQuestions);
-    } else {
-      setQuestions(quiz.questions ?? []);
-    }
+    if (!quiz || mode === "review") return;
+    setQuestions(quiz.questions ?? []);
   }, [mode, quiz]);
 
   const currentQuestion = questions[currentIndex] ?? null;
@@ -122,12 +117,13 @@ export default function StudyPage() {
   const advanceToNext = async (nextCorrect: number, nextTotal: number, nextWrong: StudyQuestion[]) => {
     if (currentIndex < questions.length - 1) {
       setAdvancing(true);
+      // Delay gives user time to read explanation before next question loads
       window.setTimeout(() => {
         setCurrentIndex((i) => i + 1);
         setCardState("front");
         setAdvancing(false);
         setLastAnswerCorrect(null);
-      }, 600);
+      }, 1800);
       return;
     }
     await finishSession(nextCorrect, nextTotal, nextWrong);
@@ -146,7 +142,8 @@ export default function StudyPage() {
   };
 
   const startReviewRound = () => {
-    setQuestions(wrongQuestions);
+    const reviewQs = wrongQuestions; // capture before any state clears
+    setQuestions(reviewQs);
     setCurrentIndex(0);
     setCardState("front");
     setCorrectCount(0);

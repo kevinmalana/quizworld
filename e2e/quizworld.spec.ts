@@ -519,3 +519,110 @@ test.describe('P2: Study Session', () => {
     expect(page.url()).toMatch(/\/study\/.+/);
   });
 });
+
+// ─── P1: Study — search + filter ─────────────────────────────────────────────
+
+test.describe('P1: Study — search and filter', () => {
+  test('search filters quiz list', async ({ page }) => {
+    await page.goto('/study');
+    const search = page.locator('input[type="search"]');
+    await expect(search).toBeVisible({ timeout: 8000 });
+    await search.fill('cricket');
+    await expect(page.getByRole('link').filter({ hasText: /cricket/i }).first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('category chip filters quiz list', async ({ page }) => {
+    await page.goto('/study');
+    await expect(page.locator('.study-category-chip').first()).toBeVisible({ timeout: 8000 });
+    const chips = page.locator('.study-category-chip');
+    const count = await chips.count();
+    if (count > 1) {
+      await chips.nth(1).click();
+      await expect(chips.nth(1)).toHaveClass(/is-active/);
+    }
+  });
+
+  test('search + category combo filters correctly', async ({ page }) => {
+    await page.goto('/study');
+    await page.locator('input[type="search"]').fill('quiz');
+    const allChip = page.locator('.study-category-chip', { hasText: 'All' });
+    await expect(allChip).toBeVisible({ timeout: 5000 });
+    await allChip.click();
+    await expect(page.getByRole('link', { name: /Study Now/i }).first()).toBeVisible({ timeout: 5000 });
+  });
+});
+
+// ─── P1: Study session — flashcard flow ──────────────────────────────────────
+
+test.describe('P1: Study session — flashcard flow', () => {
+  test('flashcard mode starts and shows question front', async ({ page }) => {
+    await page.goto('/study');
+    const studyBtn = page.getByRole('button', { name: 'Study Now' }).first();
+    await expect(studyBtn).toBeVisible({ timeout: 10000 });
+    const href = await page.getByRole('link').filter({ has: studyBtn }).getAttribute('href');
+    if (!href) return;
+    await page.goto(href);
+    await page.getByRole('button', { name: /Flashcard/i }).click();
+    await expect(page.locator('.study-flashcard-card--front')).toBeVisible();
+    await expect(page.locator('text=Tap to reveal answers')).toBeVisible();
+  });
+
+  test('clicking flashcard front flips to answers', async ({ page }) => {
+    await page.goto('/study');
+    const studyBtn = page.getByRole('button', { name: 'Study Now' }).first();
+    await expect(studyBtn).toBeVisible({ timeout: 10000 });
+    const href = await page.getByRole('link').filter({ has: studyBtn }).getAttribute('href');
+    if (!href) return;
+    await page.goto(href);
+    await page.getByRole('button', { name: /Flashcard/i }).click();
+    await page.locator('.study-flashcard').click();
+    // After flip, answer buttons become interactable
+    await expect(page.getByRole('button', { name: /^A / }).first()).toBeVisible({ timeout: 3000 });
+  });
+});
+
+// ─── P1: Study session — quickfire flow ──────────────────────────────────────
+
+test.describe('P1: Study session — quickfire flow', () => {
+  test('quickfire mode shows timer and question', async ({ page }) => {
+    await page.goto('/study');
+    const studyBtn = page.getByRole('button', { name: 'Study Now' }).first();
+    await expect(studyBtn).toBeVisible({ timeout: 10000 });
+    const href = await page.getByRole('link').filter({ has: studyBtn }).getAttribute('href');
+    if (!href) return;
+    await page.goto(href);
+    await page.getByRole('button', { name: /Quick Fire/i }).click();
+    await expect(page.locator('.study-timer')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('.study-question-card h2')).toBeVisible();
+  });
+
+  test('quickfire answer buttons are immediately visible (no flip required)', async ({ page }) => {
+    await page.goto('/study');
+    const studyBtn = page.getByRole('button', { name: 'Study Now' }).first();
+    await expect(studyBtn).toBeVisible({ timeout: 10000 });
+    const href = await page.getByRole('link').filter({ has: studyBtn }).getAttribute('href');
+    if (!href) return;
+    await page.goto(href);
+    await page.getByRole('button', { name: /Quick Fire/i }).click();
+    await expect(page.getByRole('button', { name: /^A / }).first()).toBeVisible({ timeout: 3000 });
+  });
+});
+
+// ─── P1: Study result + review round ─────────────────────────────────────────
+
+test.describe('P1: Study result screen', () => {
+  test('result screen shows score and action buttons', async ({ page }) => {
+    await page.goto('/study/da0f193f-054b-49df-b0c1-972a888d643e');
+    await page.getByRole('button', { name: /Flashcard/i }).click();
+    // Answer all 5 questions (wrong to get review button)
+    for (let i = 0; i < 5; i++) {
+      await page.locator('.study-flashcard').click({ timeout: 5000 });
+      await page.getByRole('button', { name: /^A / }).first().click({ timeout: 5000 });
+      await page.waitForTimeout(1900); // wait for auto-advance
+    }
+    await expect(page.getByRole('heading', { name: 'Session Complete' })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=out of 5 correct')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Study Again' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Back to Study' })).toBeVisible();
+  });
+});
