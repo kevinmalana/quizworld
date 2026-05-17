@@ -1,7 +1,7 @@
 # QuizWorld Current Agent Handoff
 
-Last verified: 2026-05-17 20:15 UTC
-Production alignment checked: 2026-05-17 20:15 UTC, aligned with local workspace
+Last verified: 2026-05-17 21:06 UTC
+Production alignment checked: 2026-05-17 21:06 UTC, aligned with local workspace
 Production: https://www.quizworld.xyz
 Repo: https://github.com/kevinmalana/quizworld
 Workspace: `/root/.openclaw/workspace/quizworld`
@@ -142,10 +142,13 @@ BASE_URL=https://www.quizworld.xyz npx playwright test --reporter=line
 - Phoenix health returned `{"status":"ok","service":"quizworld_realtime","redis":true}`.
 - Authenticated live host + mobile player game flow passed with no host/player console errors after the game/dashboard cleanup.
 
-Latest deploy (2026-05-17):
+Latest deploy (2026-05-17 — session 2):
 
-- `63b0d0f` — fix: AI source mode validation — topic bypasses length checks, better URL/paste errors
-- Deployed as `dpl_zVDneDQSGkVWyXsfzxYLdXJzJSwH`, verified production aliases respond 200.
+- `3f3c3b4` — fix: replace all technical user-facing strings in game mode
+- `a54478a` — fix: review round bug, explanation delay 600→1800ms, study e2e tests
+- `b18e099` — feat: study mode overhaul (QuickFire bug, flashcard UX, explanations, review round, search+filter)
+- `6905a4a` — refactor: remove AI slop, extract inline styles to CSS, clean components, security middleware, 19 new tests
+- All deployed to `www.quizworld.xyz`. Latest: `dpl_rao401m7r` (21:06 UTC).
 
 ## Deploy Pattern
 
@@ -203,3 +206,45 @@ See `docs/AUDIT-2026-05-17.md` for full details. Priority order:
 4. 🟡 **`study_progress` upsert** uses `onConflict: "user_id, quiz_id"` — requires unique constraint in DB or silently inserts duplicates.
 5. 🟡 **`quiz_drafts` RLS** — verify owner-read policy exists in Supabase dashboard.
 6. 🟡 **`/report/[pin]`** — no auth guard, any unauthenticated user can view game reports by PIN.
+
+## Changes Made 2026-05-17 (Session 2)
+
+### Code Quality Refactor
+- Extracted all inline styles from `live-game-panels.tsx` (81→0), `admin/page.tsx` (20→0), `LivePreview.tsx` (18→0) into CSS files
+- Total inline styles reduced: 218 → 113
+- Admin page: extracted `StatCard` + `HealthCard` sub-components, removed unused imports
+- `LivePreview.tsx`: 90 lines → 60 lines, cleaned up
+- `live-game-panels.tsx`: named constants for podium logic, proper GameAnswerWithMedia + GameSessionData types
+- Dashboard: try/catch/finally so `setLoading(false)` always fires on network error
+- `middleware.ts` (new): server-side `/admin` auth guard using `@supabase/ssr`
+
+### Study Mode Overhaul
+- **Bug fixed**: QuickFire mode was rendering `FlashcardPanel` instead of `QuickFirePanel` — broken from the start
+- **Bug fixed**: Review round showed "No questions available" — wrong questions state cleared before mode change; fixed by capturing array before state reset
+- Flashcard UX redesigned: front = question only + "Tap to reveal answers", back = answer grid + explanation
+- Explanation display delay: 600ms → 1800ms (users can now read it before auto-advance)
+- New review round: after session, replay only missed questions with correct answers highlighted
+- Wrong-answer breakdown on result screen with correct answers + explanations
+- Search input + category chip filter on Study Hall
+- `StudyQuestion` type now includes `explanation` and `difficulty` fields
+- New `StudyReviewPanel` component for retry rounds
+
+### Game Mode User-Facing Copy
+- Removed all technical jargon from error states visible to end users
+- "Live Game Service Not Configured" → "Live Games Unavailable"
+- "Legacy Supabase Live Games Disabled — Production live sessions now require the Phoenix realtime service." → "Live Games Unavailable — Live multiplayer games are temporarily unavailable."
+- NEXT_PUBLIC env var strings removed from all user-facing text
+- Classic mode description replaced with plain English: "Everyone answers simultaneously, points awarded for speed and accuracy."
+
+### Tests
+- 40 → 59 Playwright tests
+- New test coverage: present flow, AI from URL/doc modals, PIN validation, auth guards (/admin redirect, /report public), study session flashcard flip, QuickFire timer, review round, search + category filter
+
+### Updated Open Issues (post-session-2)
+- ✅ `/admin` server-side guard — DONE (middleware.ts)
+- ✅ Dashboard partial-load — DONE (try/catch/finally)
+- 🔴 In-memory rate limiter still needs replacing
+- 🟡 `study_progress` unique constraint — verify in Supabase
+- 🟡 `quiz_drafts` RLS — verify in Supabase
+- 🟡 `/report/[pin]` no auth guard
+- 🟡 Explore pagination (no limit on public quiz fetch)
