@@ -75,6 +75,9 @@ export default function GamePage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
+  const [answerFeedback, setAnswerFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [scorePop, setScorePop] = useState<number | null>(null);
+  const [questionKey, setQuestionKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -177,6 +180,7 @@ export default function GamePage() {
       setCurrentAnswers(nextAnswers);
       setGameStatus(((normalizedSession.status as string) ?? "waiting") as GameStatus);
       setCurrentQuestion(nextQuestion);
+      setQuestionKey(nextQuestion?.id ?? "");
       setQuestionHistory((normalizedSession.question_history as typeof questionHistory) ?? []);
       setSelectedAnswer(
         playerSession?.playerId
@@ -708,6 +712,19 @@ export default function GamePage() {
     setNotice(null);
     setSelectedAnswer(answer.id);
 
+    // Immediate visual feedback — we can check locally since answer data is present
+    const isCorrect = (answer as { is_correct?: boolean }).is_correct === true;
+    setAnswerFeedback(isCorrect ? "correct" : "wrong");
+    window.setTimeout(() => setAnswerFeedback(null), 800);
+
+    // Score pop on correct answer
+    if (isCorrect && timeLeft > 0) {
+      const timeFraction = Math.min(1, timeLeft / Math.max(currentQuestion.time_limit ?? 20, 1));
+      const pts = Math.round(500 + timeFraction * 500);
+      setScorePop(pts);
+      window.setTimeout(() => setScorePop(null), 1200);
+    }
+
     const questionStartedAt = (session as { question_started_at?: string }).question_started_at;
     const questionStart = questionStartedAt
       ? new Date(questionStartedAt).getTime()
@@ -791,10 +808,21 @@ export default function GamePage() {
   if (gameStatus === "active" && currentQuestion) {
     return (
       <div className="container game-container">
+        {/* Answer feedback flash overlay */}
+        {answerFeedback && (
+          <div className={`game-feedback-overlay ${answerFeedback === "correct" ? "is-correct" : "is-wrong"}`}>
+            <div className="game-feedback-icon">{answerFeedback === "correct" ? "✅" : "❌"}</div>
+          </div>
+        )}
+        {/* Score pop */}
+        {scorePop !== null && (
+          <div className="game-score-pop">+{scorePop} pts</div>
+        )}
+
         <GameNotice notice={notice} />
         <GameProgressBar currentIndex={currentIndex} totalQuestions={totalQuestions} />
 
-        <div className="card game-question-card">
+        <div key={questionKey} className="card game-question-card game-question-enter">
           <div className="game-question-header">
             <span className="game-question-label">
               {currentQuestionIndexLabel(session)}

@@ -9,6 +9,38 @@
   50% { transform: scale(1.05); }
 }
 
+/* Timer critical pulse */
+@keyframes timerPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+
+/* Answer feedback flash */
+@keyframes feedbackFlash {
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes feedbackIconBounce {
+  0%   { transform: scale(0.3); opacity: 0; }
+  45%  { transform: scale(1.25); opacity: 1; }
+  65%  { transform: scale(0.95); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+/* Score pop */
+@keyframes scorePop {
+  0%   { transform: translateX(-50%) translateY(0) scale(0.5); opacity: 0; }
+  25%  { transform: translateX(-50%) translateY(-12px) scale(1.2); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-90px) scale(1); opacity: 0; }
+}
+
+/* Question slide-in */
+@keyframes questionSlideIn {
+  from { transform: translateX(32px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
 .qr-code {
   border-radius: 24px;
   border: 1px solid var(--line);
@@ -93,14 +125,56 @@
 .game-timer {
   font-weight: 900;
   font-size: 1.5rem;
+  transition: color 0.3s;
 }
 
 .game-timer.is-critical {
   color: var(--primary);
+  animation: timerPulse 0.5s ease-in-out infinite;
+  display: inline-block;
 }
 
 .game-timer.is-normal {
   color: var(--ink);
+}
+
+/* ── Answer feedback overlay ─────────────────────── */
+.game-feedback-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: feedbackFlash 0.8s ease-out forwards;
+}
+.game-feedback-overlay.is-correct { background: rgba(34, 197, 94, 0.2); }
+.game-feedback-overlay.is-wrong   { background: rgba(239, 68, 68, 0.18); }
+.game-feedback-icon {
+  font-size: 5rem;
+  line-height: 1;
+  animation: feedbackIconBounce 0.8s ease-out forwards;
+}
+
+/* ── Score pop ───────────────────────────────────── */
+.game-score-pop {
+  position: fixed;
+  left: 50%;
+  bottom: 28%;
+  transform: translateX(-50%);
+  z-index: 201;
+  font-size: 2.25rem;
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  pointer-events: none;
+  animation: scorePop 1.2s ease-out forwards;
+}
+
+/* ── Question slide-in ───────────────────────────── */
+.game-question-enter {
+  animation: questionSlideIn 0.3s ease-out;
 }
 
 .game-question-title {
