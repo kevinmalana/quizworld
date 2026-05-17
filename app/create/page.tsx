@@ -210,7 +210,7 @@ function CreatePageContent() {
       const res = await fetch("/api/ai-source-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceText, sourceTitle: topic.slice(0, 60), questionCount: aiCount, aiOptions }),
+        body: JSON.stringify({ sourceText, sourceTitle: topic.slice(0, 60), questionCount: aiCount, aiOptions, sourceMode: "topic" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "AI generation failed");
@@ -241,8 +241,8 @@ function CreatePageContent() {
     }
 
     // Fallback: treat as source text for AI generation
-    if (pasteText.trim().length < 20) {
-      setAiError("Paste more text — at least a few sentences for AI to work with.");
+    if (pasteText.trim().length < 200) {
+      setAiError("Paste more text — at least a paragraph for AI to work with.");
       return;
     }
 
@@ -256,6 +256,7 @@ function CreatePageContent() {
           sourceTitle: "Pasted content",
           questionCount: aiCount,
           aiOptions,
+          sourceMode: "paste",
         }),
       });
       const data = await res.json();
@@ -285,12 +286,14 @@ function CreatePageContent() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "URL fetch failed");
       const text = data.text || data.content || "";
-      if (text.length < 100) throw new Error("Not enough content found on that page");
+      const minChars = aiCount * 150;
+      if (text.length < 100) throw new Error("Not enough content found on that page. Try a different URL or paste the content directly.");
+      if (text.length < minChars) throw new Error(`This page doesn't have enough readable text for ${aiCount} questions. Try a longer article, or paste the content directly.`);
       // Now generate from that text
       const aiRes = await fetch("/api/ai-source-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceText: text, sourceTitle: aiUrl, questionCount: aiCount, aiOptions }),
+        body: JSON.stringify({ sourceText: text, sourceTitle: aiUrl, questionCount: aiCount, aiOptions, sourceMode: "url" }),
       });
       const aiData = await aiRes.json();
       if (!aiRes.ok) throw new Error(aiData.error || "AI generation failed");

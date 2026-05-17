@@ -286,8 +286,10 @@ export function buildAIQuizPrompt(options: {
   sourceText: string;
   questionCount: number;
   aiOptions?: AIGenerationOptions;
+  sourceMode?: "topic" | "url" | "paste" | "document";
 }) {
   const opts = options.aiOptions ?? DEFAULT_AI_OPTIONS;
+  const isTopicMode = options.sourceMode === "topic";
 
   const audienceLine = opts.audience
     ? `\n- Target audience: ${opts.audience}. Adjust language complexity and topic depth accordingly.`
@@ -297,20 +299,27 @@ export function buildAIQuizPrompt(options: {
     ? `\n- Focus specifically on these areas: ${opts.focusAreas}. Dedicate more questions to these topics.`
     : "";
 
+  const sourceInstruction = isTopicMode
+    ? `- Generate questions using your own knowledge about this topic. The source text is a hint, not a constraint.\n- Ensure every answer is factually accurate.`
+    : `- Every question must be answerable from the provided source text.\n- Each citation must quote a short exact snippet from the source text that supports the answer.`;
+
+  const citationInstruction = isTopicMode
+    ? `- Citations are optional for topic mode; omit them or leave citations as an empty array [] if not applicable.`
+    : `- Include 1 to 2 citations per question.`;
+
   return `
-You are generating a quiz draft from source material. Generate questions that match the user's preferences.
+You are generating a quiz draft${isTopicMode ? " about a topic" : " from source material"}. Generate questions that match the user's preferences.
 
 Requirements:
 - Return valid JSON only.
 - Generate exactly ${options.questionCount} questions.
-- Every question must be answerable from the provided source text.
+${sourceInstruction}
 ${questionTypeInstruction(opts.questionTypes)}
 - Exactly one answer must be correct per question.
 - Avoid trivial wording copied directly from the source.
 - Include a short rationale for the correct answer.
 - Include a clear explanation (2-3 sentences) that teaches the concept. This will be shown to students after they answer.
-- Include 1 to 2 citations per question.
-- Each citation must quote a short exact snippet from the source text that supports the answer.
+${citationInstruction}
 - Use time_limit values of 10, 20, 30, or 60.
 - Use points values of 500, 1000, or 2000.
 - Confidence must be one of: high, medium, low.
@@ -349,7 +358,7 @@ Output JSON shape:
 
 Source title: ${options.sourceTitle || "Untitled source"}
 Source label: ${options.sourceLabel}
-Source text:
+${isTopicMode ? "Topic" : "Source text"}:
 ${options.sourceText}
 `.trim();
 }

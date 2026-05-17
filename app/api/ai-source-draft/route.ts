@@ -29,6 +29,9 @@ export async function POST(request: Request) {
       sourceLabel?: string;
       questionCount?: number;
       aiOptions?: AIGenerationOptions;
+      // "topic" = LLM uses its own knowledge; skip source-length checks
+      // "url" | "paste" | "document" = source text must be substantive
+      sourceMode?: "topic" | "url" | "paste" | "document";
     };
 
     const sourceText = body.sourceText?.trim() ?? "";
@@ -36,21 +39,27 @@ export async function POST(request: Request) {
     const sourceLabel = body.sourceLabel?.trim() ?? "Source material";
     const questionCount = Math.min(10, Math.max(3, Number(body.questionCount) || 5));
     const aiOptions = body.aiOptions ?? DEFAULT_AI_OPTIONS;
+    const sourceMode = body.sourceMode ?? "paste";
 
-    if (!sourceText || sourceText.length < 200) {
-      return NextResponse.json(
-        { error: "Add more source material before generating a quiz draft." },
-        { status: 400 }
-      );
-    }
+    // For topic mode the LLM generates from its own knowledge — the sourceText
+    // is just a prompt hint, so length-based guards don't apply.
+    if (sourceMode !== "topic") {
+      if (!sourceText || sourceText.length < 200) {
+        return NextResponse.json(
+          { error: "Add more source material before generating a quiz draft." },
+          { status: 400 }
+        );
+      }
 
-    // Source-to-question ratio: require ~150 chars per question minimum
-    const minSourceLength = questionCount * 150;
-    if (sourceText.length < minSourceLength) {
-      return NextResponse.json(
-        { error: `Not enough source material for ${questionCount} questions. Add more text or reduce the question count.` },
-        { status: 400 }
-      );
+      // Source-to-question ratio: require ~150 chars per question minimum
+      const minSourceLength = questionCount * 150;
+      if (sourceText.length < minSourceLength) {
+        const suggestion =
+          sourceMode === "url"
+            ? `This page doesn't have enough readable text for ${questionCount} questions. Try a longer article, or paste the content directly.`
+            : `Not enough source material for ${questionCount} questions. Add more text or reduce the question count.`;
+        return NextResponse.json({ error: suggestion }, { status: 400 });
+      }
     }
 
     const apiKey = requireEnv("QUIZWORLD_AI_API_KEY");
@@ -65,6 +74,7 @@ export async function POST(request: Request) {
       sourceText: sourceText.slice(0, 24000),
       questionCount,
       aiOptions,
+      sourceMode,
     });
 
     const response = await fetch(apiUrl, {
