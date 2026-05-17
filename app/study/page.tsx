@@ -162,6 +162,8 @@ export default function StudyListPage() {
     );
   }
 
+  const isFiltering = search.trim().length > 0 || activeCategory !== "All";
+
   return (
     <div className="study-list-shell">
       <div className="container study-list-container">
@@ -178,13 +180,7 @@ export default function StudyListPage() {
           )}
         </div>
 
-        {!user && (
-          <div className="card study-login-hint">
-            Sign in to save study progress and earn XP across sessions.
-          </div>
-        )}
-
-        {/* Search + filter */}
+        {/* Search + filter — always at top so results appear immediately below */}
         <div className="study-filter-bar">
           <input
             className="study-search-input"
@@ -208,7 +204,23 @@ export default function StudyListPage() {
           </div>
         )}
 
-        {user && (
+        {/* Result count shown when filtering */}
+        {isFiltering && (
+          <p className="study-filter-results">
+            {filteredQuizzes.length === 0
+              ? "No matching quizzes"
+              : `${filteredQuizzes.length} result${filteredQuizzes.length !== 1 ? "s" : ""}`}
+          </p>
+        )}
+
+        {/* Stats collapsed when user is actively filtering */}
+        {!isFiltering && !user && (
+          <div className="card study-login-hint">
+            Sign in to save study progress and earn XP across sessions.
+          </div>
+        )}
+
+        {!isFiltering && user && (
           <StudyStatsDashboard
             totalXp={totalXp}
             streak={streak}

@@ -743,3 +743,11 @@
   .study-list-title { font-size: 1.25rem; }
   .study-quiz-card__title { font-size: 0.9rem; }
 }
+
+/* ── Filter result count ────────────────────────── */
+.study-filter-results {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
