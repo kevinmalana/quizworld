@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { AvailableStudyQuizCard, ContinueStudyQuizCard } from "@/components/study/study-quiz-card";
@@ -25,6 +25,8 @@ export default function StudyListPage() {
   const [profile, setProfile] = useState<{ total_xp: number; study_streak: number; longest_streak: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [quizError, setQuizError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState("All");
 
   useEffect(() => {
     let ignore = false;
@@ -102,8 +104,22 @@ export default function StudyListPage() {
     [progress]
   );
 
-  const studiedQuizzes = quizzes.filter((quiz) => progressByQuizId.has(quiz.id));
-  const availableQuizzes = quizzes.filter((quiz) => !progressByQuizId.has(quiz.id));
+  const allCategories = useMemo(() => {
+    const cats = Array.from(new Set(quizzes.map((q) => q.category).filter(Boolean)));
+    return ["All", ...cats.sort()];
+  }, [quizzes]);
+
+  const filteredQuizzes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return quizzes.filter((quiz) => {
+      const matchesSearch = !q || quiz.title.toLowerCase().includes(q) || quiz.category?.toLowerCase().includes(q);
+      const matchesCat = activeCategory === "All" || quiz.category === activeCategory;
+      return matchesSearch && matchesCat;
+    });
+  }, [quizzes, search, activeCategory]);
+
+  const studiedQuizzes = filteredQuizzes.filter((quiz) => progressByQuizId.has(quiz.id));
+  const availableQuizzes = filteredQuizzes.filter((quiz) => !progressByQuizId.has(quiz.id));
 
   const totalCorrect = progress.reduce((s, p) => s + (p.correct ?? 0), 0);
   const totalStudied = progress.reduce((s, p) => s + (p.questions_studied ?? 0), 0);
@@ -159,6 +175,30 @@ export default function StudyListPage() {
         {!user && (
           <div className="card study-login-hint">
             Sign in to save study progress and earn XP across sessions.
+          </div>
+        )}
+
+        {/* Search + filter */}
+        <div className="study-filter-bar">
+          <input
+            className="study-search-input"
+            type="search"
+            placeholder="Search study sets..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        {allCategories.length > 2 && (
+          <div className="study-category-chips">
+            {allCategories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`study-category-chip${activeCategory === cat ? " is-active" : ""}`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         )}
 

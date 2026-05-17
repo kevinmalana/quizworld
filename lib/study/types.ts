@@ -1,6 +1,10 @@
-export type StudyMode = "choose" | "flashcard" | "quickfire";
+export type StudyMode = "choose" | "flashcard" | "quickfire" | "review";
 export type CardState = "front" | "back";
-export type SessionResult = { correct: number; total: number };
+export type SessionResult = {
+  correct: number;
+  total: number;
+  wrongQuestions: StudyQuestion[];
+};
 
 export type StudyAnswer = {
   id: string;
@@ -14,6 +18,8 @@ export type StudyQuestion = {
   text: string;
   image_url?: string | null;
   time_limit?: number | null;
+  explanation?: string | null;
+  difficulty?: string | null;
   answers?: StudyAnswer[];
 };
 
