@@ -175,8 +175,8 @@ function HostPageContent() {
       <div className="container game-status-panel">
         <div className="card game-status-card">
           <div className="game-status-icon">⚙️</div>
-          <h1 className="font-display game-status-title">Live Game Service Not Configured</h1>
-          <p className="game-status-text">`NEXT_PUBLIC_GAME_ENGINE` is set to Phoenix, but `NEXT_PUBLIC_GAME_SERVICE_URL` is missing.</p>
+          <h1 className="font-display game-status-title">Live Games Unavailable</h1>
+          <p className="game-status-text">The live game service isn't reachable right now. Please try again shortly or contact support.</p>
         </div>
       </div>
     );
@@ -187,8 +187,8 @@ function HostPageContent() {
       <div className="container game-status-panel">
         <div className="card game-status-card">
           <div className="game-status-icon">🛑</div>
-          <h1 className="font-display game-status-title">Legacy Supabase Live Games Disabled</h1>
-          <p className="game-status-text">Production live sessions now require the Phoenix realtime service.</p>
+          <h1 className="font-display game-status-title">Live Games Unavailable</h1>
+          <p className="game-status-text">Live multiplayer games are temporarily unavailable. Please check back shortly.</p>
         </div>
       </div>
     );
@@ -239,7 +239,7 @@ function HostPageContent() {
         <h3 className="host-section-title">Game Mode</h3>
         <div className="host-mode-card is-selected">
           <div className="host-mode-title">🏆 Classic</div>
-          <div className="host-mode-desc">Phoenix currently ships the authoritative classic mode. Additional modes should stay hidden until their rules are implemented server-side.</div>
+          <div className="host-mode-desc">Everyone answers simultaneously, points awarded for speed and accuracy. A winner is crowned at the end.</div>
         </div>
       </div>
 

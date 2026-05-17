@@ -109,8 +109,8 @@ export default function GamePage() {
     return (
       <GameStatePanel
         icon="⚙️"
-        title="Live Game Service Not Configured"
-        message="Phoenix is selected as the live engine, but NEXT_PUBLIC_GAME_SERVICE_URL is missing."
+        title="Live Games Unavailable"
+        message="The live game service isn't reachable right now. Please try again shortly."
       />
     );
   }
@@ -119,8 +119,8 @@ export default function GamePage() {
     return (
       <GameStatePanel
         icon="🛑"
-        title="Legacy Supabase Live Games Disabled"
-        message="Production live sessions now require the Phoenix realtime service."
+        title="Live Games Unavailable"
+        message="Live multiplayer games are temporarily unavailable. Please check back shortly."
       />
     );
   }

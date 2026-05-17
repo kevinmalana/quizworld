@@ -40,8 +40,8 @@ function JoinForm() {
       <div className="container game-status-panel">
         <div className="card game-status-card">
           <div className="game-status-icon">⚙️</div>
-          <h2 className="font-display game-status-title">Live Game Service Not Configured</h2>
-          <p className="game-status-text">Phoenix is selected as the live engine, but `NEXT_PUBLIC_GAME_SERVICE_URL` is missing.</p>
+          <h2 className="font-display game-status-title">Live Games Unavailable</h2>
+          <p className="game-status-text">The live game service isn't reachable right now. Please try again shortly or contact support.</p>
         </div>
       </div>
     );
@@ -52,8 +52,8 @@ function JoinForm() {
       <div className="container game-status-panel">
         <div className="card game-status-card">
           <div className="game-status-icon">🛑</div>
-          <h2 className="font-display game-status-title">Legacy Supabase Live Games Disabled</h2>
-          <p className="game-status-text">Production live sessions now require the Phoenix realtime service.</p>
+          <h2 className="font-display game-status-title">Live Games Unavailable</h2>
+          <p className="game-status-text">Live multiplayer games are temporarily unavailable. Please check back shortly.</p>
         </div>
       </div>
     );

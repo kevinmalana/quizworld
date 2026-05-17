@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 async function expectLiveGameEntrySurface(page: import('@playwright/test').Page) {
-  const notConfigured = page.getByRole('heading', { name: 'Live Game Service Not Configured' }).first();
-  const legacyDisabled = page.getByRole('heading', { name: 'Legacy Supabase Live Games Disabled' }).first();
+  const notConfigured = page.getByRole('heading', { name: 'Live Games Unavailable' }).first();
+  const legacyDisabled = page.getByRole('heading', { name: 'Live Games Unavailable' }).first();
   const joinHeading = page.getByRole('heading', { name: 'Join a Game' }).first();
 
   await expect(
-    page.locator('h1,h2').filter({ hasText: /Live Game Service Not Configured|Legacy Supabase Live Games Disabled|Join a Game/ }).first()
+    page.locator('h1,h2').filter({ hasText: /Live Games Unavailable|Join a Game/ }).first()
   ).toBeVisible();
 
   if (await notConfigured.isVisible().catch(() => false)) {
@@ -25,13 +25,13 @@ async function expectLiveGameEntrySurface(page: import('@playwright/test').Page)
 }
 
 async function expectHostEntrySurface(page: import('@playwright/test').Page) {
-  const notConfigured = page.getByRole('heading', { name: 'Live Game Service Not Configured' }).first();
-  const legacyDisabled = page.getByRole('heading', { name: 'Legacy Supabase Live Games Disabled' }).first();
+  const notConfigured = page.getByRole('heading', { name: 'Live Games Unavailable' }).first();
+  const legacyDisabled = page.getByRole('heading', { name: 'Live Games Unavailable' }).first();
   const signInHeading = page.getByRole('heading', { name: 'Sign In To Host' }).first();
   const hostHeading = page.getByRole('heading', { name: 'Host a Game' }).first();
 
   await expect(
-    page.locator('h1,h2').filter({ hasText: /Live Game Service Not Configured|Legacy Supabase Live Games Disabled|Sign In To Host|Host a Game/ }).first()
+    page.locator('h1,h2').filter({ hasText: /Live Games Unavailable|Sign In To Host|Host a Game/ }).first()
   ).toBeVisible();
 
   if (await notConfigured.isVisible().catch(() => false)) {
