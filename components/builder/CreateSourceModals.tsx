@@ -62,7 +62,7 @@ export function CreateSourceModals({
         <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
-          <button onClick={onAiGenerate} disabled={aiLoading || aiTopic.trim().length < 5} className="btn btn-primary btn-compact" style={{ flexShrink: 0 }}>
+          <button onClick={onAiGenerate} disabled={aiLoading || aiTopic.trim().length < 5} className="btn btn-primary btn-compact builder-source-action">
             {aiLoading ? "Generating…" : "Generate ✨"}
           </button>
         </ModalFooter>
@@ -85,7 +85,7 @@ export function CreateSourceModals({
         <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
-          <button onClick={onPasteImport} disabled={aiLoading || pasteText.trim().length < 5} className="btn btn-primary btn-compact" style={{ flexShrink: 0 }}>
+          <button onClick={onPasteImport} disabled={aiLoading || pasteText.trim().length < 5} className="btn btn-primary btn-compact builder-source-action">
             {aiLoading ? "Generating…" : "Import ✨"}
           </button>
         </ModalFooter>
@@ -107,7 +107,7 @@ export function CreateSourceModals({
         <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
-          <button onClick={onUrlFetch} disabled={aiLoading || !aiUrl.trim()} className="btn btn-primary btn-compact" style={{ flexShrink: 0 }}>
+          <button onClick={onUrlFetch} disabled={aiLoading || !aiUrl.trim()} className="btn btn-primary btn-compact builder-source-action">
             {aiLoading ? "Fetching…" : "Fetch & Generate ✨"}
           </button>
         </ModalFooter>
@@ -123,7 +123,7 @@ export function CreateSourceModals({
         <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
-          <button onClick={onAiGenerate} disabled={aiLoading || aiTopic.trim().length < 20} className="btn btn-primary btn-compact" style={{ flexShrink: 0 }}>
+          <button onClick={onAiGenerate} disabled={aiLoading || aiTopic.trim().length < 20} className="btn btn-primary btn-compact builder-source-action">
             {aiLoading ? "Generating…" : "Generate ✨"}
           </button>
         </ModalFooter>
@@ -140,47 +140,38 @@ function AIOptionsPanel({ options, onChange }: { options: AIGenerationOptions; o
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div style={{ borderRadius: "var(--radius-lg)", border: "1px solid var(--line)", overflow: "hidden" }}>
+    <div className="builder-ai-options">
       <button
         onClick={() => setExpanded(!expanded)}
-        style={{
-          width: "100%", padding: "0.5rem 0.75rem", background: "var(--bg-subtle)", border: "none",
-          display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
-          fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)",
-        }}
+        className="builder-ai-options__toggle"
       >
         <span>⚙️ Customize generation</span>
-        <span style={{ fontSize: "0.75rem", transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
+        <span className={expanded ? "builder-ai-options__chevron is-open" : "builder-ai-options__chevron"}>▼</span>
       </button>
 
       {expanded && (
-        <div style={{ padding: "0.75rem", display: "flex", flexDirection: "column", gap: "0.625rem", background: "var(--surface)" }}>
+        <div className="builder-ai-options__body">
           {/* Audience */}
           <div>
-            <label style={labelStyle}>👤 Who is this for?</label>
+            <label className="builder-ai-options__label">👤 Who is this for?</label>
             <input
               type="text"
               value={options.audience}
               onChange={(e) => onChange({ ...options, audience: e.target.value })}
               placeholder="e.g. Year 10 students, trivia night, new employees"
-              style={inputStyle}
+              className="builder-ai-options__input"
             />
           </div>
 
           {/* Difficulty */}
           <div>
-            <label style={labelStyle}>📊 Difficulty</label>
-            <div style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap" }}>
+            <label className="builder-ai-options__label">📊 Difficulty</label>
+            <div className="builder-ai-options__chip-row">
               {(["easy", "balanced", "mixed", "hard"] as AIDifficultyPreset[]).map((d) => (
                 <button
                   key={d}
                   onClick={() => onChange({ ...options, difficulty: d })}
-                  style={{
-                    ...chipStyle,
-                    background: options.difficulty === d ? "var(--accent)" : "var(--bg-subtle)",
-                    color: options.difficulty === d ? "#fff" : "var(--ink)",
-                    borderColor: options.difficulty === d ? "var(--accent)" : "var(--line)",
-                  }}
+                  className={options.difficulty === d ? "builder-ai-chip is-selected" : "builder-ai-chip"}
                 >
                   {d === "easy" ? "🟢 Easy" : d === "balanced" ? "🟡 Balanced" : d === "mixed" ? "🎲 Mixed" : "🔴 Hard"}
                 </button>
@@ -190,8 +181,8 @@ function AIOptionsPanel({ options, onChange }: { options: AIGenerationOptions; o
 
           {/* Question types */}
           <div>
-            <label style={labelStyle}>❓ Question types</label>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
+            <label className="builder-ai-options__label">❓ Question types</label>
+            <div className="builder-ai-options__question-types">
               <ToggleChip
                 label="◉ Multiple Choice"
                 active={options.questionTypes.mc}
@@ -209,18 +200,13 @@ function AIOptionsPanel({ options, onChange }: { options: AIGenerationOptions; o
 
           {/* Tone */}
           <div>
-            <label style={labelStyle}>🎯 Tone</label>
-            <div style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap" }}>
+            <label className="builder-ai-options__label">🎯 Tone</label>
+            <div className="builder-ai-options__chip-row">
               {(["educational", "fun", "exam", "challenging"] as AITonePreset[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => onChange({ ...options, tone: t })}
-                  style={{
-                    ...chipStyle,
-                    background: options.tone === t ? "var(--accent)" : "var(--bg-subtle)",
-                    color: options.tone === t ? "#fff" : "var(--ink)",
-                    borderColor: options.tone === t ? "var(--accent)" : "var(--line)",
-                  }}
+                  className={options.tone === t ? "builder-ai-chip is-selected" : "builder-ai-chip"}
                 >
                   {t === "educational" ? "📚 Educational" : t === "fun" ? "🎉 Fun" : t === "exam" ? "📝 Exam" : "🧠 Challenging"}
                 </button>
@@ -230,13 +216,13 @@ function AIOptionsPanel({ options, onChange }: { options: AIGenerationOptions; o
 
           {/* Focus areas */}
           <div>
-            <label style={labelStyle}>🔍 Focus areas <span style={{ fontWeight: 400, color: "var(--faint)" }}>(optional)</span></label>
+            <label className="builder-ai-options__label">🔍 Focus areas <span className="builder-ai-options__optional">(optional)</span></label>
             <input
               type="text"
               value={options.focusAreas}
               onChange={(e) => onChange({ ...options, focusAreas: e.target.value })}
               placeholder="e.g. photosynthesis, cell division, mitosis"
-              style={inputStyle}
+              className="builder-ai-options__input"
             />
           </div>
         </div>
@@ -250,52 +236,16 @@ function ToggleChip({ label, active, onToggle, disabled }: { label: string; acti
     <button
       onClick={onToggle}
       disabled={disabled}
-      style={{
-        ...chipStyle,
-        background: active ? "var(--accent)" : "var(--bg-subtle)",
-        color: active ? "#fff" : "var(--ink)",
-        borderColor: active ? "var(--accent)" : "var(--line)",
-        opacity: disabled ? 0.5 : 1,
-        cursor: disabled ? "not-allowed" : "pointer",
-      }}
+      className={[
+        "builder-ai-chip",
+        active ? "is-selected" : "",
+        disabled ? "is-disabled" : "",
+      ].filter(Boolean).join(" ")}
     >
       {active ? "✓ " : ""}{label}
     </button>
   );
 }
-
-// ── Shared styles ──────────────────────────────────────────────
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: "0.75rem",
-  fontWeight: 700,
-  color: "var(--ink)",
-  marginBottom: "0.25rem",
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "0.5rem 0.625rem",
-  borderRadius: "var(--radius-md)",
-  border: "1.5px solid var(--line)",
-  background: "var(--surface)",
-  fontSize: "0.8125rem",
-  color: "var(--ink)",
-  outline: "none",
-  fontWeight: 500,
-};
-
-const chipStyle: React.CSSProperties = {
-  padding: "0.375rem 0.625rem",
-  borderRadius: "var(--radius-md)",
-  border: "1.5px solid",
-  fontSize: "0.75rem",
-  fontWeight: 700,
-  cursor: "pointer",
-  transition: "all 0.15s",
-  whiteSpace: "nowrap",
-};
 
 // ── File Upload Area ───────────────────────────────────────────
 
@@ -354,46 +304,39 @@ function FileUploadArea({ onTextExtracted, currentText }: { onTextExtracted: (te
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+    <div className="builder-file-upload">
       <div
         onClick={() => fileInputRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        style={{
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          gap: "0.5rem", padding: "1.5rem",
-          border: `2px dashed ${dragOver ? "var(--accent)" : "var(--line)"}`,
-          borderRadius: "var(--radius-xl)",
-          background: dragOver ? "var(--accent-light)" : "var(--bg-subtle)",
-          cursor: "pointer", transition: "all 0.15s ease",
-        }}
+        className={dragOver ? "builder-file-dropzone is-drag-over" : "builder-file-dropzone"}
       >
-        <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.docx" onChange={handleInputChange} style={{ display: "none" }} />
+        <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.docx" onChange={handleInputChange} className="builder-file-input" />
         {extracting ? (
           <>
-            <span style={{ fontSize: "1.5rem" }}>⏳</span>
-            <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--muted)" }}>Extracting text…</span>
+            <span className="builder-file-icon">⏳</span>
+            <span className="builder-file-status builder-file-status--muted">Extracting text…</span>
           </>
         ) : fileName ? (
           <>
-            <span style={{ fontSize: "1.5rem" }}>✅</span>
-            <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--success)" }}>{fileName}</span>
-            <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Click to upload a different file</span>
+            <span className="builder-file-icon">✅</span>
+            <span className="builder-file-status builder-file-status--success">{fileName}</span>
+            <span className="builder-file-hint">Click to upload a different file</span>
           </>
         ) : (
           <>
-            <span style={{ fontSize: "1.5rem" }}>📁</span>
-            <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--ink)" }}>Upload a file</span>
-            <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>PDF, Word, TXT, or Markdown · Max 5MB</span>
+            <span className="builder-file-icon">📁</span>
+            <span className="builder-file-status">Upload a file</span>
+            <span className="builder-file-hint">PDF, Word, TXT, or Markdown · Max 5MB</span>
           </>
         )}
       </div>
 
-      {fileError && <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--primary)", margin: 0 }}>{fileError}</p>}
+      {fileError && <p className="builder-file-error">{fileError}</p>}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Or paste text directly:</span>
+      <div className="builder-file-paste">
+        <span className="builder-file-paste-label">Or paste text directly:</span>
         <textarea
           value={currentText}
           onChange={(e) => onTextExtracted(e.target.value)}
@@ -404,7 +347,7 @@ function FileUploadArea({ onTextExtracted, currentText }: { onTextExtracted: (te
       </div>
 
       {currentText.length > 0 && (
-        <span style={{ fontSize: "0.7rem", color: "var(--muted)", textAlign: "right" }}>
+        <span className="builder-file-count">
           {currentText.length.toLocaleString()} / 24,000 characters
         </span>
       )}
@@ -445,14 +388,7 @@ function QuestionCountPicker({ value, onChange }: { value: AIQuestionCount; onCh
         <button
           key={n}
           onClick={() => onChange(n)}
-          className="btn btn-compact"
-          style={{
-            background: value === n ? "var(--accent)" : "var(--surface)",
-            color: value === n ? "#fff" : "var(--ink)",
-            border: value === n ? "1px solid var(--accent)" : "1px solid var(--line)",
-            padding: "0.375rem 0.75rem",
-            fontSize: "0.8125rem",
-          }}
+          className={value === n ? "btn btn-compact builder-question-count is-selected" : "btn btn-compact builder-question-count"}
         >
           {n}
         </button>

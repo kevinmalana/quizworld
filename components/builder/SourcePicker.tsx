@@ -46,35 +46,34 @@ const TEMPLATES = [
 
 export function SourcePicker({ onSelect, onTemplateSelect }: Props) {
   return (
-    <div className="container" style={{ minHeight: "calc(100vh - var(--nav-height))", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "1.5rem 1rem 1rem" }}>
-      <div style={{ width: "100%", maxWidth: "36rem" }}>
-        <div style={{ textAlign: "center", marginBottom: "1.25rem" }}>
-          <div className="tag tag-accent" style={{ marginBottom: "0.75rem" }}>✦ Quiz Builder</div>
-          <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--ink)", marginBottom: "0.375rem" }}>Create a new quiz</h1>
-          <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Choose how you want to start.</p>
+    <div className="container builder-source-picker">
+      <div className="builder-source-picker__panel">
+        <div className="builder-source-picker__header">
+          <div className="tag tag-accent builder-source-picker__tag">✦ Quiz Builder</div>
+          <h1 className="font-display builder-source-picker__title">Create a new quiz</h1>
+          <p className="builder-source-picker__subtitle">Choose how you want to start.</p>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+        <div className="builder-source-picker__list">
           {SOURCES.map((s) => (
             <button key={s.key} onClick={() => onSelect(s.key)}
-              className="card card-hover"
-              style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.875rem 1rem", textAlign: "left", cursor: "pointer", border: "1px solid var(--line)", borderRadius: "var(--radius-xl)" }}>
-              <div style={{ width: "2.5rem", height: "2.5rem", borderRadius: "var(--radius-md)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.25rem", background: "var(--accent-light)", flexShrink: 0 }}>
+              className="card card-hover builder-source-option">
+              <div className="builder-source-option__icon">
                 {s.icon}
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h3 style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--ink)", fontFamily: "var(--font-display)" }}>{s.title}</h3>
-                <p style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{s.desc}</p>
+              <div className="builder-source-option__body">
+                <h3 className="builder-source-option__title">{s.title}</h3>
+                <p className="builder-source-option__desc">{s.desc}</p>
               </div>
-              <span style={{ color: "var(--faint)", fontSize: "0.875rem" }}>→</span>
+              <span className="builder-source-option__arrow">→</span>
             </button>
           ))}
         </div>
 
         {/* Quick start templates with presets */}
-        <div style={{ marginTop: "1.25rem" }}>
-          <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Quick start templates</p>
-          <div style={{ display: "grid", gap: "0.375rem", gridTemplateColumns: "repeat(2, 1fr)" }}>
+        <div className="builder-source-templates">
+          <p className="builder-source-templates__label">Quick start templates</p>
+          <div className="builder-source-templates__grid">
             {TEMPLATES.map((t) => (
               <button
                 key={t.label}
@@ -85,11 +84,10 @@ export function SourcePicker({ onSelect, onTemplateSelect }: Props) {
                     onSelect("ai-topic");
                   }
                 }}
-                className="card card-hover"
-                style={{ padding: "0.75rem", textAlign: "left", cursor: "pointer", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)" }}
+                className="card card-hover builder-source-template"
               >
-                <div style={{ fontWeight: 700, fontSize: "0.8125rem", color: "var(--ink)", marginBottom: "0.125rem" }}>{t.label}</div>
-                <div style={{ fontSize: "0.6875rem", color: "var(--muted)" }}>{t.desc}</div>
+                <div className="builder-source-template__title">{t.label}</div>
+                <div className="builder-source-template__desc">{t.desc}</div>
               </button>
             ))}
           </div>

@@ -1,6 +1,6 @@
 # QuizWorld Current Agent Handoff
 
-Last verified: 2026-05-14 21:45 UTC
+Last verified: 2026-05-15 15:40 UTC
 Production alignment checked: 2026-05-14 21:45 UTC, aligned with local workspace
 Production: https://www.quizworld.xyz
 Repo: https://github.com/kevinmalana/quizworld
@@ -53,6 +53,7 @@ styles/builder.css                builder-specific CSS
 styles/game.css                   game-specific CSS
 styles/present.css                present-specific CSS
 styles/study.css                  study-specific CSS
+styles/dashboard.css              dashboard-specific CSS
 services/quizworld_realtime/      only Phoenix source of truth
 ```
 
@@ -71,6 +72,8 @@ Key outcomes:
 - Added `npm run quality` as the architecture guardrail gate and wired it into `npm run check` before TypeScript/build/Phoenix tests.
 - Extracted game helpers, game panels, dashboard cards, explore cards, study cards, builder workspace, source modals, study session panels, live presentation stage/status/dock components, and presentation editor panels.
 - Continued builder cleanup on 2026-05-14 by moving `QuestionCard.tsx` static/state styling into `styles/builder.css`, reducing global inline styles from `458` to `414`.
+- Continued builder cleanup on 2026-05-15 by moving `CreateSourceModals.tsx`, `BuilderToolbar.tsx`, and `PublishLoginPrompt.tsx` inline styling into `styles/builder.css`, reducing global inline styles from `414` to `364`.
+- Continued the 2026-05-15 cleanup by extracting `SourcePicker.tsx`, `QuestionSidebar.tsx`, dashboard cards, study quiz cards, and study stats styling into CSS. Global inline styles are now `218`; main route files listed below have 0 route inline styles.
 
 ## Current AI Builder Flow
 
@@ -87,14 +90,14 @@ AI is now part of the builder workflow, not a separate page.
 Current approximate route file sizes after cleanup:
 
 ```text
-app/game/[pin]/page.tsx    ~909 lines, 17 inline styles
-app/present/[code]/live/page.tsx ~431 lines, 0 route inline styles; 2 dynamic component styles
+app/game/[pin]/page.tsx    ~919 lines, 0 route inline styles
+app/present/[code]/live/page.tsx ~431 lines, 0 route inline styles
 app/present/[code]/edit/page.tsx ~188 lines, 0 inline styles
-app/create/page.tsx        ~492 lines, 0 inline styles
-app/dashboard/page.tsx     ~444 lines, 20 inline styles
+app/create/page.tsx        ~585 lines, 0 inline styles
+app/dashboard/page.tsx     ~440 lines, 0 route inline styles
 app/study/[id]/page.tsx    ~223 lines, 0 inline styles
-app/study/page.tsx         ~249 lines, 30 inline styles
-app/explore/page.tsx       ~549 lines, 46 inline styles
+app/study/page.tsx         ~229 lines, 0 route inline styles
+app/explore/page.tsx       ~293 lines, 0 route inline styles
 ```
 
 ## Verification Baseline
@@ -109,7 +112,7 @@ BASE_URL=http://localhost:3002 npx playwright test --reporter=line
 
 Results:
 
-- Quality guard passed: inline styles `414`, type escapes `40`, route file limits within current baseline.
+- Quality guard passed: inline styles `218`, type escapes `40`, route file limits within current baseline.
 - TypeScript passed.
 - Local Playwright passed: `40/40`.
 - Local browser run allows either configured Phoenix live-game screens or the explicit live-service configuration status when `NEXT_PUBLIC_GAME_SERVICE_URL` is absent.
@@ -165,10 +168,10 @@ Run `npm run quality` before and after cleanup work. The guard intentionally fai
 
 Recommended order:
 
-1. `app/explore/page.tsx` — move remaining filter/sort/header CSS/components. Low risk.
-2. `app/study/page.tsx` — move remaining dashboard layout styles into CSS. Low risk.
-3. `components/builder/CreateSourceModals.tsx` — continue reducing inline styles behind the builder source/import UI. Medium risk because source modals are heavily tested.
-4. `app/game/[pin]/page.tsx` — only do further logic extraction with live host/player smoke tests. Higher risk.
+1. `components/game/live-game-panels.tsx` — largest remaining inline-style hotspot. Requires host/player smoke tests.
+2. `app/admin/page.tsx` — low-traffic admin surface with remaining inline styles.
+3. `components/builder/LivePreview.tsx` — builder preview modal still has static/dynamic inline styling.
+4. `components/present/*` and profile/report shared components — smaller remaining style cleanup.
 
 Avoid broad rewrites. Prefer small PR-style extractions, then run the full gates above.
 

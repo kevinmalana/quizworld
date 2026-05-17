@@ -18,7 +18,7 @@ export type StudyQuizProgress = {
 
 function StudyQuizIcon({ quiz }: { quiz: StudyQuizCardQuiz }) {
   return (
-    <div style={{ width: 48, height: 48, borderRadius: 12, background: `${quiz.color ?? "var(--accent)"}15`, display: "grid", placeItems: "center", fontSize: "1.5rem", flexShrink: 0 }}>
+    <div className="study-quiz-icon" style={{ background: `${quiz.color ?? "var(--accent)"}15` }}>
       {quiz.emoji || CATEGORY_EMOJIS[quiz.category] || "📝"}
     </div>
   );
@@ -30,18 +30,17 @@ export function AvailableStudyQuizCard({ quiz }: { quiz: StudyQuizCardQuiz }) {
   return (
     <Link
       href={`/study/${quiz.id}`}
-      className="card card-hover"
-      style={{ padding: "1.5rem", display: "block", textDecoration: "none", border: "2px solid var(--line)" }}
+      className="card card-hover study-quiz-card"
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
+      <div className="study-quiz-card__header">
         <StudyQuizIcon quiz={quiz} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, color: "var(--ink)" }}>{quiz.title}</div>
-          <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{questionCount} questions · {quiz.category}</div>
+        <div className="study-quiz-card__body">
+          <div className="study-quiz-card__title">{quiz.title}</div>
+          <div className="study-quiz-card__meta">{questionCount} questions · {quiz.category}</div>
         </div>
       </div>
-      <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
-        <button className="btn btn-primary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+      <div className="study-quiz-card__actions">
+        <button className="btn btn-primary study-quiz-card__button">
           Study Now
         </button>
         <ShareStudyLinkButton quizId={quiz.id} quizTitle={quiz.title} compact />
@@ -58,49 +57,44 @@ export function ContinueStudyQuizCard({ quiz, progress }: { quiz: StudyQuizCardQ
   return (
     <Link
       href={`/study/${quiz.id}`}
-      className="card card-hover"
-      style={{ padding: "1.5rem", display: "block", textDecoration: "none", border: "2px solid var(--line)", position: "relative", overflow: "hidden" }}
+      className="card card-hover study-quiz-card study-quiz-card--progress"
     >
       {progress && (
         <div
+          className="study-quiz-card__progress-bg"
           style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            height: "100%",
             width: `${mastery}%`,
             background: `${masteryColor}10`,
             borderRight: `2px solid ${masteryColor}`,
-            transition: "width 0.3s ease",
           }}
         />
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem", position: "relative" }}>
+      <div className="study-quiz-card__header study-quiz-card__layer">
         <StudyQuizIcon quiz={quiz} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div className="study-quiz-card__body">
+          <div className="study-quiz-card__title study-quiz-card__title--truncate">
             {quiz.title}
           </div>
-          <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{questionCount} Qs · {quiz.category}</div>
+          <div className="study-quiz-card__meta">{questionCount} Qs · {quiz.category}</div>
         </div>
         {progress && (
-          <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontWeight: 900, fontSize: "1.1rem", color: masteryColor }}>{mastery}%</div>
-            <div style={{ fontSize: "0.7rem", color: "var(--muted)" }}>mastery</div>
+          <div className="study-quiz-card__mastery">
+            <div className="study-quiz-card__mastery-value" style={{ color: masteryColor }}>{mastery}%</div>
+            <div className="study-quiz-card__mastery-label">mastery</div>
           </div>
         )}
       </div>
-      <div style={{ display: "flex", gap: "0.5rem", position: "relative" }}>
-        <button className="btn btn-primary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }}>
+      <div className="study-quiz-card__actions study-quiz-card__layer">
+        <button className="btn btn-primary study-quiz-card__button">
           Resume
         </button>
-        <Link href={`/study/${quiz.id}`} className="btn btn-secondary" style={{ flex: 1, fontSize: "0.875rem", padding: "0.5rem" }} onClick={(e) => e.stopPropagation()}>
+        <Link href={`/study/${quiz.id}`} className="btn btn-secondary study-quiz-card__button" onClick={(e) => e.stopPropagation()}>
           Study Again
         </Link>
         <ShareStudyLinkButton quizId={quiz.id} quizTitle={quiz.title} compact />
       </div>
       {progress?.last_studied && (
-        <div style={{ fontSize: "0.7rem", color: "var(--muted)", marginTop: "0.5rem", textAlign: "right", position: "relative" }}>
+        <div className="study-quiz-card__last-studied">
           Last studied {new Date(progress.last_studied).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
         </div>
       )}

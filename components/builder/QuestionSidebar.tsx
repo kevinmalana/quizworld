@@ -31,7 +31,6 @@ export function QuestionSidebar({ questions, activeIndex, onSelect, onReorder, o
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(idx));
     setDragIdx(idx);
-    (e.currentTarget as HTMLElement).style.opacity = "0.4";
   }
 
   function handleDragOver(e: React.DragEvent, idx: number) {
@@ -50,8 +49,7 @@ export function QuestionSidebar({ questions, activeIndex, onSelect, onReorder, o
     setDropIdx(null);
   }
 
-  function handleDragEnd(e: React.DragEvent) {
-    (e.currentTarget as HTMLElement).style.opacity = "1";
+  function handleDragEnd() {
     setDragIdx(null);
     setDropIdx(null);
   }
@@ -88,55 +86,51 @@ export function QuestionSidebar({ questions, activeIndex, onSelect, onReorder, o
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div className="builder-question-sidebar">
       {/* Header */}
-      <div style={{ padding: "0.625rem 0.875rem", borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span className="tag tag-accent" style={{ fontSize: "0.65rem" }}>{questions.length} Questions</span>
-        <span className="tag tag-success" style={{ fontSize: "0.65rem" }}>{readyCount} ready</span>
+      <div className="builder-question-sidebar__header">
+        <span className="tag tag-accent builder-question-sidebar__tag">{questions.length} Questions</span>
+        <span className="tag tag-success builder-question-sidebar__tag">{readyCount} ready</span>
       </div>
 
       {/* Progress bar */}
-      <div style={{ padding: "0.375rem 0.875rem", borderBottom: "1px solid var(--line)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-          <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--muted)" }}>{readyCount}/{questions.length} complete</span>
+      <div className="builder-question-sidebar__progress">
+        <div className="builder-question-sidebar__progress-meta">
+          <span>{readyCount}/{questions.length} complete</span>
           {questions.length > 0 && (
-            <span style={{ fontSize: "0.6rem", fontWeight: 700, color: readyCount === questions.length ? "var(--success)" : "var(--muted)" }}>
+            <span className={readyCount === questions.length ? "is-complete" : ""}>
               {Math.round((readyCount / questions.length) * 100)}%
             </span>
           )}
         </div>
-        <div style={{ height: 6, borderRadius: 3, background: "var(--line)", overflow: "hidden" }}>
-          <div style={{
-            height: "100%",
-            width: `${questions.length > 0 ? (readyCount / questions.length) * 100 : 0}%`,
-            background: readyCount === questions.length ? "var(--success)" : "var(--accent)",
-            borderRadius: 3,
-            transition: "width 0.3s, background 0.3s",
-          }} />
-        </div>
+        <progress
+          className={readyCount === questions.length ? "builder-question-sidebar__progress-bar is-complete" : "builder-question-sidebar__progress-bar"}
+          value={readyCount}
+          max={Math.max(questions.length, 1)}
+        />
       </div>
 
       {/* Bulk operations bar */}
       {selected.size > 0 && (
-        <div style={{ padding: "0.375rem 0.875rem", borderBottom: "1px solid var(--line)", display: "flex", gap: "0.25rem", alignItems: "center" }}>
-          <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--accent)", marginRight: "0.25rem" }}>{selected.size} selected</span>
+        <div className="builder-question-sidebar__bulk">
+          <span className="builder-question-sidebar__selected">{selected.size} selected</span>
           {onDelete && (
-            <button onClick={deleteSelected} className="btn btn-sm btn-ghost" style={{ padding: "0.25rem 0.5rem", fontSize: "0.65rem", color: "var(--primary)" }}>🗑 Delete</button>
+            <button onClick={deleteSelected} className="btn btn-sm btn-ghost builder-question-sidebar__mini-button builder-question-sidebar__mini-button--danger">🗑 Delete</button>
           )}
           {onDuplicate && (
-            <button onClick={duplicateSelected} className="btn btn-sm btn-ghost" style={{ padding: "0.25rem 0.5rem", fontSize: "0.65rem" }}>⧉ Copy</button>
+            <button onClick={duplicateSelected} className="btn btn-sm btn-ghost builder-question-sidebar__mini-button">⧉ Copy</button>
           )}
-          <button onClick={() => setSelected(new Set())} className="btn btn-sm btn-ghost" style={{ padding: "0.25rem 0.5rem", fontSize: "0.65rem" }}>✕</button>
+          <button onClick={() => setSelected(new Set())} className="btn btn-sm btn-ghost builder-question-sidebar__mini-button">✕</button>
         </div>
       )}
 
       {/* List */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "0.125rem 0.375rem" }}>
+      <div className="builder-question-sidebar__list">
         {questions.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
-            <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>📝</div>
-            <p style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--ink)", marginBottom: "0.25rem" }}>No questions yet</p>
-            <p style={{ fontSize: "0.6875rem", color: "var(--muted)", lineHeight: 1.5 }}>Click &quot;+ Add Question&quot; below to start building your quiz.</p>
+          <div className="builder-question-sidebar__empty">
+            <div className="builder-question-sidebar__empty-icon">📝</div>
+            <p className="builder-question-sidebar__empty-title">No questions yet</p>
+            <p className="builder-question-sidebar__empty-text">Click &quot;+ Add Question&quot; below to start building your quiz.</p>
           </div>
         ) : (
           questions.map((q, idx) => {
@@ -145,6 +139,18 @@ export function QuestionSidebar({ questions, activeIndex, onSelect, onReorder, o
             const isDragging = idx === dragIdx;
             const isDropTarget = idx === dropIdx && dragIdx !== null && dragIdx !== idx;
             const isSelected = selected.has(idx);
+            const rowClasses = [
+              "builder-question-sidebar__item",
+              isActive ? "is-active" : "",
+              isSelected ? "is-selected" : "",
+              isDragging ? "is-dragging" : "",
+              isDropTarget ? "is-drop-target" : "",
+            ].filter(Boolean).join(" ");
+            const numberClasses = [
+              "builder-question-sidebar__number",
+              isActive ? "is-active" : "",
+              `is-${status}`,
+            ].join(" ");
 
             return (
               <div
@@ -155,44 +161,28 @@ export function QuestionSidebar({ questions, activeIndex, onSelect, onReorder, o
                 onDrop={(e) => handleDrop(e, idx)}
                 onDragEnd={handleDragEnd}
                 onClick={() => onSelect(idx)}
-                style={{
-                  display: "flex", alignItems: "center", gap: "0.5rem",
-                  padding: "0.5rem 0.625rem", marginBottom: "0.0625rem",
-                  borderRadius: "var(--radius-sm)", cursor: "pointer",
-                  background: isActive ? "var(--accent-light)" : isSelected ? "var(--bg-subtle)" : "transparent",
-                  border: isDropTarget ? "2px solid var(--accent)" : isActive ? "1px solid var(--accent)" : "1px solid transparent",
-                  opacity: isDragging ? 0.4 : 1,
-                  transition: "all 0.15s",
-                }}
-                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "var(--bg-subtle)"; }}
-                onMouseLeave={(e) => { if (!isActive && !isSelected) e.currentTarget.style.background = "transparent"; }}
+                className={rowClasses}
               >
                 <input
                   type="checkbox"
                   checked={isSelected}
                   onChange={(e) => { e.stopPropagation(); toggleSelect(idx); }}
                   onClick={(e) => e.stopPropagation()}
-                  style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }}
+                  className="builder-question-sidebar__checkbox"
                 />
-                <div style={{
-                  width: "1.75rem", height: "1.75rem", borderRadius: "var(--radius-sm)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontWeight: 800, fontSize: "0.7rem", flexShrink: 0,
-                  background: isActive ? "var(--accent)" : status === "ready" ? "var(--success)" : status === "error" ? "var(--primary)" : "var(--bg-subtle)",
-                  color: isActive || status !== "empty" ? "#fff" : "var(--muted)",
-                }}>
+                <div className={numberClasses}>
                   {idx + 1}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: "0.75rem", fontWeight: 600, color: isActive ? "var(--accent)" : "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div className="builder-question-sidebar__item-body">
+                  <p className={isActive ? "builder-question-sidebar__item-title is-active" : "builder-question-sidebar__item-title"}>
                     {q.text || "Empty"}
                   </p>
-                  <p style={{ fontSize: "0.625rem", color: "var(--faint)", marginTop: "0.125rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                  <p className="builder-question-sidebar__item-meta">
                     <span>{q.type === "true_false" ? "T/F" : q.type === "poll" ? "Poll" : `${q.answers.length} answers`} · {q.timeLimit}s · {q.points}pts</span>
-                    {q.explanation && <span title="Has explanation" style={{ color: "var(--success)" }}>📖</span>}
+                    {q.explanation && <span title="Has explanation" className="builder-question-sidebar__explanation">📖</span>}
                   </p>
                 </div>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: status === "ready" ? "var(--success)" : status === "error" ? "var(--primary)" : "var(--line)", flexShrink: 0 }} />
+                <div className={`builder-question-sidebar__status-dot is-${status}`} />
               </div>
             );
           })
@@ -200,9 +190,9 @@ export function QuestionSidebar({ questions, activeIndex, onSelect, onReorder, o
       </div>
 
       {/* Add */}
-      <div style={{ padding: "0.375rem", borderTop: "1px solid var(--line)", display: "flex", gap: "0.25rem" }}>
-        <button onClick={onAdd} className="btn btn-sm btn-secondary" style={{ flex: 1, borderStyle: "dashed", fontSize: "0.75rem" }}>+ Add Question</button>
-        <button onClick={selectAll} className="btn btn-sm btn-ghost" style={{ padding: "0.375rem 0.5rem", fontSize: "0.65rem" }} title="Select all">☑</button>
+      <div className="builder-question-sidebar__footer">
+        <button onClick={onAdd} className="btn btn-sm btn-secondary builder-question-sidebar__add">+ Add Question</button>
+        <button onClick={selectAll} className="btn btn-sm btn-ghost builder-question-sidebar__select-all" title="Select all">☑</button>
       </div>
     </div>
   );

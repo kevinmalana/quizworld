@@ -1,0 +1,196 @@
+.app-shell {
+  padding-top: var(--nav-height);
+}
+
+.dashboard-notice {
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--line);
+}
+
+.dashboard-notice--success {
+  background: var(--success-light);
+}
+
+.dashboard-notice--success strong {
+  color: var(--success);
+}
+
+.dashboard-notice--primary {
+  background: var(--primary-light);
+}
+
+.dashboard-notice--primary strong {
+  color: var(--primary);
+}
+
+.dashboard-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.dashboard-card {
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+}
+
+.dashboard-card--version,
+.dashboard-card--published {
+  background: linear-gradient(180deg, var(--surface), var(--bg-subtle));
+}
+
+.dashboard-card--version {
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-card--archived {
+  border: 1px dashed var(--line-strong);
+  background: var(--surface);
+}
+
+.dashboard-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard-card-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.dashboard-card-icon--draft {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+}
+
+.dashboard-card-icon--archived {
+  opacity: 0.7;
+}
+
+.dashboard-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-card-title {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.dashboard-card-title--truncate {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-card-meta {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.dashboard-action-row,
+.dashboard-version-actions,
+.dashboard-recent-game__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dashboard-action {
+  flex: 1;
+}
+
+.dashboard-action--disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.dashboard-version-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-version-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.dashboard-version-title span {
+  color: var(--accent);
+}
+
+.dashboard-version-actions {
+  flex-wrap: wrap;
+}
+
+.dashboard-action-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dashboard-action-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-action-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-action-grid--archive {
+  grid-template-columns: 1fr;
+  margin-top: 0.5rem;
+}
+
+.dashboard-visibility-pill {
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: var(--warning-light);
+  color: var(--warning);
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.dashboard-visibility-pill.is-public {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.dashboard-recent-game {
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboard-recent-game__pin {
+  font-weight: 700;
+}
+
+.dashboard-recent-game__actions {
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dashboard-recent-game__actions span {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.875rem;
+}

@@ -116,6 +116,248 @@
   background: var(--accent-light);
 }
 
+.study-dashboard-hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  align-items: stretch;
+}
+
+.study-xp-progress {
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+}
+
+.study-xp-progress__header,
+.study-xp-progress__level,
+.study-streak-card__row {
+  display: flex;
+  align-items: center;
+}
+
+.study-xp-progress__header {
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.study-xp-progress__level {
+  gap: 0.5rem;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.study-xp-progress__icon {
+  font-size: 1.25rem;
+}
+
+.study-xp-progress__count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.study-xp-progress__bar {
+  width: 100%;
+  height: 10px;
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  overflow: hidden;
+  display: block;
+}
+
+.study-xp-progress__bar::-webkit-progress-bar {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+}
+
+.study-xp-progress__bar::-webkit-progress-value {
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.study-xp-progress__bar::-moz-progress-bar {
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.study-xp-progress__next {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+.study-streak-card {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+}
+
+.study-streak-card__row {
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.study-streak-card__icon,
+.study-streak-card__value {
+  font-size: 1.1rem;
+}
+
+.study-streak-card__value {
+  font-weight: 800;
+}
+
+.study-streak-card__label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.study-streak-card__best {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.study-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.study-stat-card {
+  padding: 1rem;
+  text-align: center;
+}
+
+.study-stat-card__icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.study-stat-card__value {
+  font-weight: 900;
+  font-size: 1.4rem;
+}
+
+.study-stat-card__label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.study-chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.study-chart-card {
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+}
+
+.study-chart-title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.study-mastery-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.study-mastery-chart__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.study-mastery-chart__label {
+  width: 52px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.study-mastery-chart__track {
+  flex: 1;
+  height: 22px;
+  background: var(--bg);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.study-mastery-chart__bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.study-mastery-chart__count {
+  width: 24px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink);
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.study-xp-sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+  height: 64px;
+}
+
+.study-xp-sparkline__day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.study-xp-sparkline__bar {
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  transition: height 0.3s ease;
+}
+
+.study-xp-sparkline__bar.has-xp {
+  background: linear-gradient(180deg, #8b5cf6, #a78bfa);
+  border: none;
+}
+
+.study-xp-sparkline__labels {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.study-xp-sparkline__labels div {
+  flex: 1;
+  text-align: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
 .study-section-title {
   font-weight: 800;
   margin-bottom: 1.25rem;
@@ -126,6 +368,102 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1rem;
   margin-bottom: 3rem;
+}
+
+.study-quiz-card {
+  padding: 1.5rem;
+  display: block;
+  text-decoration: none;
+  border: 2px solid var(--line);
+}
+
+.study-quiz-card--progress {
+  position: relative;
+  overflow: hidden;
+}
+
+.study-quiz-card__progress-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.study-quiz-card__layer {
+  position: relative;
+}
+
+.study-quiz-card__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.study-quiz-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.study-quiz-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.study-quiz-card__title {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.study-quiz-card__title--truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.study-quiz-card__meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.study-quiz-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.study-quiz-card__button {
+  flex: 1;
+  font-size: 0.875rem;
+  padding: 0.5rem;
+}
+
+.study-quiz-card__mastery {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.study-quiz-card__mastery-value {
+  font-weight: 900;
+  font-size: 1.1rem;
+}
+
+.study-quiz-card__mastery-label,
+.study-quiz-card__last-studied {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.study-quiz-card__last-studied {
+  margin-top: 0.5rem;
+  text-align: right;
+  position: relative;
 }
 
 .study-empty-card {
