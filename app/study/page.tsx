@@ -65,12 +65,18 @@ export default function StudyListPage() {
         return;
       }
 
-      const [progressResult, profileResult] = await Promise.all([
+      const [progressResult, sessionResult, profileResult] = await Promise.all([
         supabase
           .from("study_progress")
           .select("quiz_id, questions_studied, correct, mastery, last_studied")
           .eq("user_id", user.id)
           .order("last_studied", { ascending: false }),
+        supabase
+          .from("study_sessions")
+          .select("id, xp_earned, correct, total, study_mode, duration_secs, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50),
         supabase
           .from("profiles")
           .select("*")
@@ -86,7 +92,7 @@ export default function StudyListPage() {
         setProgress(progressResult.data ?? []);
       }
 
-      setSessions([]);
+      setSessions(sessionResult.data ?? []);
 
       if (profileResult.data) {
         setProfile(profileResult.data as any);
