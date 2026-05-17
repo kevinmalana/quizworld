@@ -463,6 +463,12 @@ export default function GamePage() {
     playTick();
   }, [timeLeft, gameStatus]);
 
+  // Clear transient animations when question changes
+  useEffect(() => {
+    setAnswerFeedback(null);
+    setScorePop(null);
+  }, [questionKey]);
+
   useEffect(() => {
     if (gameStatus !== "active" || !currentQuestion) return;
 
@@ -712,8 +718,9 @@ export default function GamePage() {
     setNotice(null);
     setSelectedAnswer(answer.id);
 
-    // Immediate visual feedback — we can check locally since answer data is present
-    const isCorrect = (answer as { is_correct?: boolean }).is_correct === true;
+    // Immediate visual feedback — look up the full answer from currentQuestion to get is_correct
+    const fullAnswer = currentQuestion.answers?.find((a) => a.id === answer.id);
+    const isCorrect = fullAnswer?.is_correct === true;
     setAnswerFeedback(isCorrect ? "correct" : "wrong");
     window.setTimeout(() => setAnswerFeedback(null), 800);
 
