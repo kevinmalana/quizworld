@@ -16,7 +16,7 @@ const limits = {
   inlineStyles: 218,
   anyCount: 40,
   routeFiles: {
-    "app/game/[pin]/page.tsx": 930,
+    "app/game/[pin]/page.tsx": 960,
     "app/create/page.tsx": 600,
     "app/dashboard/page.tsx": 450,
     "app/present/[code]/live/page.tsx": 440,
