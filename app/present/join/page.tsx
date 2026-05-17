@@ -43,7 +43,7 @@ function JoinForm() {
     if (e.key === "Enter" && digits.join("").length === 6) void handleJoin();
   };
 
-  // Handle paste on any digit box
+  // Handle paste on all 6 digit boxes at once
   const handlePaste = (e: React.ClipboardEvent) => {
     const pasted = e.clipboardData.getData("text").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
     if (pasted.length > 0) {
@@ -76,7 +76,7 @@ function JoinForm() {
       const msg = err instanceof Error ? err.message : "Could not join presentation.";
       setError(
         msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("not live")
-          ? "That code doesn't match any active presentation. Check the code and try again."
+          ? "That code doesn't match an active presentation. Double-check the code and try again."
           : msg
       );
       setLoading(false);
