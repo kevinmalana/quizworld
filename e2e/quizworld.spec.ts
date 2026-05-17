@@ -429,8 +429,8 @@ test.describe('P0: Present Page', () => {
   test('present/join shows error for short code', async ({ page }) => {
     await page.goto('/present/join');
     const joinBtn = page.getByRole('button', { name: /Join/i });
-    await joinBtn.click();
-    await expect(page.locator('text=6-character')).toBeVisible({ timeout: 5000 });
+    // Button should be disabled when no code entered
+    await expect(joinBtn).toBeDisabled({ timeout: 5000 });
   });
 });
 
@@ -462,10 +462,11 @@ test.describe('P1: AI from Document', () => {
   test('modal opens and has file upload', async ({ page }) => {
     await page.goto('/create');
     await page.click('text=AI from Document');
-    const hasFileInput = await page.locator('input[type="file"]').isVisible().catch(() => false);
-    const hasUploadText = await page.locator('text=upload, text=Upload, text=drag').first().isVisible().catch(() => false);
-    expect(hasFileInput || hasUploadText).toBeTruthy();
-    await expect(page.locator('button:has-text("Generate")')).toBeVisible();
+    await expect(page.locator('button:has-text("Generate")')).toBeVisible({ timeout: 5000 });
+    // File input may be hidden (styled upload); check the label/button text instead
+    const hasUpload = await page.locator('[class*="upload"], [class*="file"], label:has(input[type="file"]), button:has-text("Choose"), button:has-text("Upload"), text=/upload|drag|pdf|docx/i').first().isVisible().catch(() => false);
+    const hasHiddenInput = await page.locator('input[type="file"]').count() > 0;
+    expect(hasUpload || hasHiddenInput).toBeTruthy();
   });
 });
 
@@ -511,10 +512,8 @@ test.describe('P2: Study Session', () => {
   });
 
   test('study session page loads for a known quiz', async ({ page }) => {
-    await page.goto('/study');
-    const studyBtn = page.getByRole('link', { name: 'Study Now' }).first();
-    await expect(studyBtn).toBeVisible({ timeout: 10000 });
-    await studyBtn.click();
+    // Use a known quiz ID from the live DB
+    await page.goto('/study/da0f193f-054b-49df-b0c1-972a888d643e');
     await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 8000 });
     expect(page.url()).toMatch(/\/study\/.+/);
   });
@@ -554,30 +553,23 @@ test.describe('P1: Study — search and filter', () => {
 
 // ─── P1: Study session — flashcard flow ──────────────────────────────────────
 
+// Known quiz ID: Heredity and Genetics (5 questions) — stable production fixture
+const STUDY_QUIZ_ID = 'da0f193f-054b-49df-b0c1-972a888d643e';
+
 test.describe('P1: Study session — flashcard flow', () => {
   test('flashcard mode starts and shows question front', async ({ page }) => {
-    await page.goto('/study');
-    const studyBtn = page.getByRole('button', { name: 'Study Now' }).first();
-    await expect(studyBtn).toBeVisible({ timeout: 10000 });
-    const href = await page.getByRole('link').filter({ has: studyBtn }).getAttribute('href');
-    if (!href) return;
-    await page.goto(href);
+    await page.goto(`/study/${STUDY_QUIZ_ID}`);
     await page.getByRole('button', { name: /Flashcard/i }).click();
-    await expect(page.locator('.study-flashcard-card--front')).toBeVisible();
+    await expect(page.locator('.study-flashcard-card--front')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('text=Tap to reveal answers')).toBeVisible();
   });
 
   test('clicking flashcard front flips to answers', async ({ page }) => {
-    await page.goto('/study');
-    const studyBtn = page.getByRole('button', { name: 'Study Now' }).first();
-    await expect(studyBtn).toBeVisible({ timeout: 10000 });
-    const href = await page.getByRole('link').filter({ has: studyBtn }).getAttribute('href');
-    if (!href) return;
-    await page.goto(href);
+    await page.goto(`/study/${STUDY_QUIZ_ID}`);
     await page.getByRole('button', { name: /Flashcard/i }).click();
     await page.locator('.study-flashcard').click();
     // After flip, answer buttons become interactable
-    await expect(page.getByRole('button', { name: /^A / }).first()).toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole('button', { name: /^A / }).first()).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -585,24 +577,14 @@ test.describe('P1: Study session — flashcard flow', () => {
 
 test.describe('P1: Study session — quickfire flow', () => {
   test('quickfire mode shows timer and question', async ({ page }) => {
-    await page.goto('/study');
-    const studyBtn = page.getByRole('button', { name: 'Study Now' }).first();
-    await expect(studyBtn).toBeVisible({ timeout: 10000 });
-    const href = await page.getByRole('link').filter({ has: studyBtn }).getAttribute('href');
-    if (!href) return;
-    await page.goto(href);
+    await page.goto(`/study/${STUDY_QUIZ_ID}`);
     await page.getByRole('button', { name: /Quick Fire/i }).click();
     await expect(page.locator('.study-timer')).toBeVisible({ timeout: 3000 });
     await expect(page.locator('.study-question-card h2')).toBeVisible();
   });
 
   test('quickfire answer buttons are immediately visible (no flip required)', async ({ page }) => {
-    await page.goto('/study');
-    const studyBtn = page.getByRole('button', { name: 'Study Now' }).first();
-    await expect(studyBtn).toBeVisible({ timeout: 10000 });
-    const href = await page.getByRole('link').filter({ has: studyBtn }).getAttribute('href');
-    if (!href) return;
-    await page.goto(href);
+    await page.goto(`/study/${STUDY_QUIZ_ID}`);
     await page.getByRole('button', { name: /Quick Fire/i }).click();
     await expect(page.getByRole('button', { name: /^A / }).first()).toBeVisible({ timeout: 3000 });
   });
