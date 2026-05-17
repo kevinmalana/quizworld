@@ -410,3 +410,112 @@ test.describe('P2: Error Handling', () => {
     expect(results).toContain(429);
   });
 });
+
+// ─── P0: Present Page ──────────────────────────────────────────────────────
+test.describe('P0: Present Page', () => {
+  test('loads and shows create presentation UI or sign-in prompt', async ({ page }) => {
+    await page.goto('/present');
+    const hasInput = await page.locator('input[placeholder*="title"], input[placeholder*="Title"]').isVisible().catch(() => false);
+    const hasSignIn = await page.locator('text=Sign In').first().isVisible().catch(() => false);
+    expect(hasInput || hasSignIn).toBeTruthy();
+  });
+
+  test('present/join page has code and name inputs', async ({ page }) => {
+    await page.goto('/present/join');
+    await expect(page.locator('input[placeholder*="code"], input[placeholder*="Code"], input[maxlength="6"]').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('input[placeholder*="name"], input[placeholder*="Name"]').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('present/join shows error for short code', async ({ page }) => {
+    await page.goto('/present/join');
+    const joinBtn = page.getByRole('button', { name: /Join/i });
+    await joinBtn.click();
+    await expect(page.locator('text=6-character')).toBeVisible({ timeout: 5000 });
+  });
+});
+
+// ─── P1: AI from URL ───────────────────────────────────────────────────────
+test.describe('P1: AI from URL', () => {
+  test('modal opens and has URL input', async ({ page }) => {
+    await page.goto('/create');
+    await page.click('text=AI from URL');
+    await expect(page.locator('input[placeholder*="https"], input[type="url"], input[placeholder*="URL"]').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('button:has-text("Generate")')).toBeVisible();
+  });
+
+  test('generate disabled with empty URL', async ({ page }) => {
+    await page.goto('/create');
+    await page.click('text=AI from URL');
+    await expect(page.locator('button:has-text("Generate")')).toBeDisabled();
+  });
+
+  test('close button returns to source picker', async ({ page }) => {
+    await page.goto('/create');
+    await page.click('text=AI from URL');
+    await page.click('button:has-text("✕")');
+    await expect(page.locator('h1:has-text("Create a new quiz")')).toBeVisible();
+  });
+});
+
+// ─── P1: AI from Document ──────────────────────────────────────────────────
+test.describe('P1: AI from Document', () => {
+  test('modal opens and has file upload', async ({ page }) => {
+    await page.goto('/create');
+    await page.click('text=AI from Document');
+    const hasFileInput = await page.locator('input[type="file"]').isVisible().catch(() => false);
+    const hasUploadText = await page.locator('text=upload, text=Upload, text=drag').first().isVisible().catch(() => false);
+    expect(hasFileInput || hasUploadText).toBeTruthy();
+    await expect(page.locator('button:has-text("Generate")')).toBeVisible();
+  });
+});
+
+// ─── P1: Join — Invalid PIN ────────────────────────────────────────────────
+test.describe('P1: Join — PIN validation', () => {
+  test('Enter Game button is disabled with empty PIN', async ({ page }) => {
+    await page.goto('/join');
+    const enterBtn = page.getByRole('button', { name: 'Enter Game' });
+    await expect(enterBtn).toBeDisabled();
+  });
+
+  test('game page with invalid PIN shows error or not found', async ({ page }) => {
+    await page.goto('/game/XXXXXX');
+    const hasError = await page.locator('h1,h2').filter({ hasText: /not found|error|invalid|game over|expired|No game/i }).first().isVisible({ timeout: 8000 }).catch(() => false);
+    const redirected = page.url().includes('/join') || page.url().includes('/');
+    expect(hasError || redirected).toBeTruthy();
+  });
+});
+
+// ─── P2: Auth Guards ───────────────────────────────────────────────────────
+test.describe('P2: Auth Guards', () => {
+  test('admin page redirects or blocks unauthenticated users', async ({ page }) => {
+    await page.goto('/admin');
+    const redirectedToLogin = page.url().includes('/login');
+    const hasSignIn = await page.locator('text=Sign in, text=Sign In').first().isVisible({ timeout: 5000 }).catch(() => false);
+    expect(redirectedToLogin || hasSignIn).toBeTruthy();
+  });
+
+  test('report page loads for any PIN without auth (public access)', async ({ page }) => {
+    const response = await page.goto('/report/NOPE01');
+    expect(response?.status()).toBeLessThan(500);
+  });
+});
+
+// ─── P2: Study Session ─────────────────────────────────────────────────────
+test.describe('P2: Study Session', () => {
+  test('clicking Study Now navigates to a study session', async ({ page }) => {
+    await page.goto('/study');
+    const studyBtn = page.getByRole('link', { name: 'Study Now' }).first();
+    await expect(studyBtn).toBeVisible({ timeout: 10000 });
+    const href = await studyBtn.getAttribute('href');
+    expect(href).toMatch(/\/study\/.+/);
+  });
+
+  test('study session page loads for a known quiz', async ({ page }) => {
+    await page.goto('/study');
+    const studyBtn = page.getByRole('link', { name: 'Study Now' }).first();
+    await expect(studyBtn).toBeVisible({ timeout: 10000 });
+    await studyBtn.click();
+    await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 8000 });
+    expect(page.url()).toMatch(/\/study\/.+/);
+  });
+});

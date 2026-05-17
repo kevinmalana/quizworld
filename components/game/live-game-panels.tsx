@@ -3,46 +3,81 @@ import { QrCode } from "@/components/shared/qr-code";
 import { extractYouTubeId } from "@/lib/media/youtube";
 import type { CurrentAnswer, GameAnswer, GamePlayer, GameQuestion } from "@/lib/game/session-normalizers";
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type GameAnswerWithMedia = GameAnswer & { image_url?: string | null };
+type GameSessionData = { quiz_id?: string };
+
+// ─── GameNotice ───────────────────────────────────────────────────────────────
+
 export function GameNotice({ notice, maxWidth = 720 }: { notice: string | null; maxWidth?: number }) {
   if (!notice) return null;
   return (
-    <div className="card" style={{ padding: "0.9rem 1rem", maxWidth, margin: "0 auto 1rem", color: "var(--primary)", background: "var(--primary-light)" }}>
+    <div className="card game-notice" style={{ maxWidth }}>
       {notice}
     </div>
   );
 }
 
-export function GameProgressBar({ currentIndex, totalQuestions, compact = false }: { currentIndex: number; totalQuestions: number; compact?: boolean }) {
-  const progressPct = totalQuestions > 0 ? ((currentIndex + 1) / totalQuestions) * 100 : 0;
+// ─── GameProgressBar ──────────────────────────────────────────────────────────
+
+export function GameProgressBar({
+  currentIndex,
+  totalQuestions,
+  compact = false,
+}: {
+  currentIndex: number;
+  totalQuestions: number;
+  compact?: boolean;
+}) {
+  const pct = totalQuestions > 0 ? ((currentIndex + 1) / totalQuestions) * 100 : 0;
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto 1rem" }}>
+    <div className="game-progress-wrapper">
       {!compact && (
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)", marginBottom: "0.35rem" }}>
+        <div className="game-progress-meta">
           <span>Question {currentIndex + 1} of {totalQuestions}</span>
-          <span>{Math.round(progressPct)}%</span>
+          <span>{Math.round(pct)}%</span>
         </div>
       )}
-      <div style={{ height: 8, borderRadius: 4, background: "var(--line)", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${progressPct}%`, background: "var(--accent)", borderRadius: 4, transition: "width 0.4s" }} />
+      <div className="game-progress-track">
+        <div className="game-progress-fill" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
 }
 
-export function QuestionMedia({ question, maxHeight = 240, margin = "1rem" }: { question: GameQuestion; maxHeight?: number; margin?: string }) {
-  const questionWithMedia = question as GameQuestion & { image_url?: string; video_url?: string };
-  const youtubeId = questionWithMedia.video_url ? extractYouTubeId(questionWithMedia.video_url) : null;
+// ─── QuestionMedia ────────────────────────────────────────────────────────────
+
+export function QuestionMedia({
+  question,
+  maxHeight = 240,
+  margin = "1rem",
+}: {
+  question: GameQuestion;
+  maxHeight?: number;
+  margin?: string;
+}) {
+  const q = question as GameQuestion & { image_url?: string; video_url?: string };
+  const youtubeId = q.video_url ? extractYouTubeId(q.video_url) : null;
 
   return (
     <>
-      {questionWithMedia.image_url && (
-        <img src={questionWithMedia.image_url} alt="" style={{ width: "100%", maxHeight, objectFit: "cover", borderRadius: 16, marginTop: margin, marginBottom: margin === "0" ? 0 : undefined }} />
+      {q.image_url && (
+        <img
+          src={q.image_url}
+          alt=""
+          className="game-question-img"
+          style={{ maxHeight, marginTop: margin, marginBottom: margin === "0" ? 0 : undefined }}
+        />
       )}
-      {questionWithMedia.video_url && youtubeId && (
-        <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, marginTop: margin, marginBottom: margin === "0" ? 0 : undefined, borderRadius: 16, overflow: "hidden" }}>
+      {q.video_url && youtubeId && (
+        <div
+          className="game-video-wrapper"
+          style={{ marginTop: margin, marginBottom: margin === "0" ? 0 : undefined }}
+        >
           <iframe
             src={`https://www.youtube.com/embed/${youtubeId}`}
-            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+            className="game-video-iframe"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
@@ -51,6 +86,8 @@ export function QuestionMedia({ question, maxHeight = 240, margin = "1rem" }: { 
     </>
   );
 }
+
+// ─── WaitingLobbyPanel ────────────────────────────────────────────────────────
 
 export function WaitingLobbyPanel({
   pin,
@@ -80,71 +117,133 @@ export function WaitingLobbyPanel({
   onStart: () => void;
 }) {
   return (
-    <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>
+    <div className="container game-lobby">
       <GameNotice notice={notice} maxWidth={640} />
-      <div className="card" style={{ padding: "3rem", maxWidth: 640, margin: "0 auto" }}>
-        <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎮</div>
-        <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.5rem" }}>Waiting for host...</h1>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1.5rem", marginBottom: "2rem", flexWrap: "wrap", flexDirection: "row" }} className="lobby-pin-qr">
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "0.5rem" }}>Game PIN</div>
-            <div style={{ fontSize: "2.5rem", fontWeight: 900, letterSpacing: "0.2em", color: "var(--accent)", fontFamily: "var(--font-display)" }}>{pin}</div>
+      <div className="card game-lobby-card">
+        <div className="game-lobby-icon">🎮</div>
+        <h1 className="font-display game-lobby-title">Waiting for host...</h1>
+
+        <div className="game-lobby-pin-area lobby-pin-qr">
+          <div>
+            <div className="game-lobby-pin-label">Game PIN</div>
+            <div className="game-lobby-pin-value">{pin}</div>
           </div>
-          <div style={{ width: 1, height: 60, background: "var(--line)" }} />
-          <div style={{ textAlign: "center" }}>
+          <div className="game-lobby-divider" />
+          <div>
             <QrCode value={joinUrl} size={120} label="Scan to join" className="qr-code qr-code-sm" />
-            <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--muted)", marginTop: "0.35rem" }}>Scan to join</div>
+            <div className="game-lobby-qr-label">Scan to join</div>
           </div>
         </div>
 
         {players.length > 0 && (
           <>
-            {isHost && readyCount > 0 && <p style={{ fontSize: "0.875rem", color: "var(--success)", fontWeight: 700, marginBottom: "0.75rem" }}>✅ {readyCount}/{players.length} players ready</p>}
-            <div style={{ display: "grid", gap: "0.5rem", marginBottom: "1.5rem", maxWidth: 400, marginLeft: "auto", marginRight: "auto" }}>
+            {isHost && readyCount > 0 && (
+              <p className="game-lobby-ready-count">✅ {readyCount}/{players.length} players ready</p>
+            )}
+            <div className="game-lobby-players">
               {players.map((player) => (
-                <div key={player.id} style={{ padding: "0.75rem 1rem", borderRadius: "var(--radius-lg)", background: readyPlayers.has(player.id) ? "var(--accent-light)" : "var(--bg)", display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, border: readyPlayers.has(player.id) ? "2px solid var(--accent)" : "2px solid transparent" }}>
+                <div
+                  key={player.id}
+                  className={`game-lobby-player${readyPlayers.has(player.id) ? " is-ready" : ""}`}
+                >
                   <span>{player.avatar || "🎮"}</span>
-                  <span style={{ flex: 1, textAlign: "left" }}>{player.nickname}</span>
-                  {readyPlayers.has(player.id) && <span style={{ color: "var(--success)" }}>✅ Ready</span>}
+                  <span className="game-lobby-player-name">{player.nickname}</span>
+                  {readyPlayers.has(player.id) && (
+                    <span className="game-lobby-ready-badge">✅ Ready</span>
+                  )}
                 </div>
               ))}
             </div>
           </>
         )}
 
-        {!isHost && currentPlayer && !amReady && <button onClick={onReady} className="btn btn-primary" style={{ width: "100%", marginBottom: "0.75rem" }}>Ready ✅</button>}
-        {!isHost && currentPlayer && amReady && <div style={{ padding: "0.75rem", background: "var(--accent-light)", borderRadius: "var(--radius-lg)", marginBottom: "0.75rem", fontWeight: 700, color: "var(--success)" }}>✅ You're ready!</div>}
-        {isHost && <button onClick={onStart} disabled={players.length === 0} className="btn btn-primary btn-lg" style={{ width: "100%" }}>{players.length === 0 ? "Waiting for players..." : "Start Game 🚀"}</button>}
-        {!isHost && !currentPlayer && playerSessionReady && <Link href={`/join?pin=${pin}`} className="btn btn-secondary">Join this game</Link>}
+        {!isHost && currentPlayer && !amReady && (
+          <button onClick={onReady} className="btn btn-primary" style={{ width: "100%", marginBottom: "0.75rem" }}>
+            Ready ✅
+          </button>
+        )}
+        {!isHost && currentPlayer && amReady && (
+          <div className="game-lobby-you-ready">✅ You&apos;re ready!</div>
+        )}
+        {isHost && (
+          <button
+            onClick={onStart}
+            disabled={players.length === 0}
+            className="btn btn-primary btn-lg"
+            style={{ width: "100%" }}
+          >
+            {players.length === 0 ? "Waiting for players..." : "Start Game 🚀"}
+          </button>
+        )}
+        {!isHost && !currentPlayer && playerSessionReady && (
+          <Link href={`/join?pin=${pin}`} className="btn btn-secondary">
+            Join this game
+          </Link>
+        )}
       </div>
     </div>
   );
 }
 
-export function ActiveHostDashboard({ currentAnswers, players, currentQuestion, timeLeft }: { currentAnswers: CurrentAnswer[]; players: GamePlayer[]; currentQuestion: GameQuestion; timeLeft: number }) {
+// ─── ActiveHostDashboard ──────────────────────────────────────────────────────
+
+export function ActiveHostDashboard({
+  currentAnswers,
+  players,
+  currentQuestion,
+  timeLeft,
+}: {
+  currentAnswers: CurrentAnswer[];
+  players: GamePlayer[];
+  currentQuestion: GameQuestion;
+  timeLeft: number;
+}) {
+  const answered = currentAnswers.length;
+  const correct = currentAnswers.filter((a) => a.is_correct).length;
+  const accuracy = answered > 0 ? Math.round((correct / answered) * 100) : 0;
+
   return (
-    <div className="card" style={{ padding: "1.25rem", maxWidth: 680, margin: "0 auto" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem", marginBottom: "0.75rem" }}>
-        <HostMetric value={`${currentAnswers.length}/${players.length}`} label="Answered" color="var(--accent)" />
+    <div className="card game-host-dashboard">
+      <div className="game-host-metrics">
+        <HostMetric value={`${answered}/${players.length}`} label="Answered" color="var(--accent)" />
         <HostMetric
-          value={`${currentAnswers.length > 0 ? Math.round(currentAnswers.filter((a) => a.is_correct).length / currentAnswers.length * 100) : 0}%`}
+          value={`${accuracy}%`}
           label="Accuracy"
-          color={currentAnswers.length > 0 && currentAnswers.filter((a) => a.is_correct).length / currentAnswers.length >= 0.7 ? "var(--success)" : "var(--primary)"}
+          color={answered > 0 && accuracy >= 70 ? "var(--success)" : "var(--primary)"}
         />
-        <HostMetric value={`${timeLeft}s`} label="Time Left" color={timeLeft <= 5 ? "var(--primary)" : "var(--ink)"} />
+        <HostMetric
+          value={`${timeLeft}s`}
+          label="Time Left"
+          color={timeLeft <= 5 ? "var(--primary)" : "var(--ink)"}
+        />
       </div>
-      {currentAnswers.length > 0 && currentQuestion.answers && (
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${currentQuestion.answers.length}, 1fr)`, gap: "0.375rem" }}>
+
+      {answered > 0 && currentQuestion.answers && (
+        <div
+          className="game-host-bars"
+          style={{ gridTemplateColumns: `repeat(${currentQuestion.answers.length}, 1fr)` }}
+        >
           {currentQuestion.answers.map((answer, i) => {
-            const count = currentAnswers.filter((row) => row.answer_id === answer.id).length;
-            const pct = Math.round(count / currentAnswers.length * 100);
+            const count = currentAnswers.filter((r) => r.answer_id === answer.id).length;
+            const pct = Math.round((count / answered) * 100);
             return (
-              <div key={answer.id} style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "0.75rem", fontWeight: 800, color: answer.is_correct ? "var(--accent)" : "var(--muted)" }}>{String.fromCharCode(65 + i)}</div>
-                <div style={{ height: 40, borderRadius: 4, background: "var(--line)", overflow: "hidden", position: "relative" }}>
-                  <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${pct}%`, borderRadius: 4, background: answer.is_correct ? "var(--accent)" : "var(--muted)", transition: "height 0.3s" }} />
+              <div key={answer.id} className="game-host-bar-col">
+                <div
+                  className="game-host-bar-letter"
+                  style={{ color: answer.is_correct ? "var(--accent)" : "var(--muted)" }}
+                >
+                  {String.fromCharCode(65 + i)}
                 </div>
-                <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--muted)" }}>{pct}%</div>
+                <div className="game-host-bar-track">
+                  <div
+                    className="game-host-bar-fill"
+                    style={{
+                      height: `${pct}%`,
+                      background: answer.is_correct ? "var(--accent)" : "var(--muted)",
+                    }}
+                  />
+                </div>
+                <div className="game-host-bar-pct">{pct}%</div>
               </div>
             );
           })}
@@ -156,66 +255,123 @@ export function ActiveHostDashboard({ currentAnswers, players, currentQuestion, 
 
 function HostMetric({ value, label, color }: { value: string; label: string; color: string }) {
   return (
-    <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: "1.5rem", fontWeight: 900, color }}>{value}</div>
-      <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>{label}</div>
+    <div className="game-host-metric">
+      <div className="game-host-metric-value" style={{ color }}>{value}</div>
+      <div className="game-host-metric-label">{label}</div>
     </div>
   );
 }
 
+// ─── SpectatorPanel ───────────────────────────────────────────────────────────
+
 export function SpectatorPanel() {
   return (
-    <div className="card" style={{ padding: "1.5rem", maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
-      <p style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Spectator view</p>
-      <p style={{ color: "var(--muted)", marginBottom: "1rem" }}>The game is already in progress.<br />Watch along or join the next session.</p>
+    <div className="card game-spectator">
+      <p className="game-spectator-title">Spectator view</p>
+      <p className="game-spectator-desc">
+        The game is already in progress.<br />Watch along or join the next session.
+      </p>
       <Link href="/" className="btn btn-secondary">Back to Home</Link>
     </div>
   );
 }
 
-export function PlayerAnswerGrid({ currentQuestion, selectedAnswer, submittingAnswer, timeLeft, onSubmit }: { currentQuestion: GameQuestion; selectedAnswer: string | null; submittingAnswer: boolean; timeLeft: number; onSubmit: (answer: { id: string }) => void }) {
+// ─── PlayerAnswerGrid ─────────────────────────────────────────────────────────
+
+export function PlayerAnswerGrid({
+  currentQuestion,
+  selectedAnswer,
+  submittingAnswer,
+  timeLeft,
+  onSubmit,
+}: {
+  currentQuestion: GameQuestion;
+  selectedAnswer: string | null;
+  submittingAnswer: boolean;
+  timeLeft: number;
+  onSubmit: (answer: { id: string }) => void;
+}) {
+  const locked = selectedAnswer !== null || submittingAnswer || timeLeft <= 0;
+
   return (
-    <div style={{ display: "grid", gap: "1rem", maxWidth: 680, margin: "0 auto" }}>
-      {currentQuestion.answers?.map((answer, index) => (
-        <button key={answer.id} onClick={() => onSubmit(answer)} disabled={selectedAnswer !== null || submittingAnswer || timeLeft <= 0} style={{ padding: "1.5rem", borderRadius: "var(--radius-xl)", border: "3px solid var(--line)", background: selectedAnswer === answer.id ? "var(--accent)" : "var(--surface)", color: selectedAnswer === answer.id ? "#fff" : "var(--ink)", fontSize: "1.125rem", fontWeight: 700, cursor: selectedAnswer !== null ? "default" : "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ width: 40, height: 40, borderRadius: "50%", background: selectedAnswer === answer.id ? "#fff" : "var(--bg)", color: selectedAnswer === answer.id ? "var(--accent)" : "var(--muted)", display: "grid", placeItems: "center", fontWeight: 900, flexShrink: 0 }}>{String.fromCharCode(65 + index)}</span>
-          {(answer as GameAnswer & { image_url?: string }).image_url && <img src={(answer as any).image_url} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />}
-          {answer.text}
-        </button>
-      ))}
+    <div className="game-answer-grid">
+      {currentQuestion.answers?.map((answer, index) => {
+        const a = answer as GameAnswerWithMedia;
+        const selected = selectedAnswer === answer.id;
+        return (
+          <button
+            key={answer.id}
+            onClick={() => onSubmit(answer)}
+            disabled={locked}
+            className={`game-answer-btn${selected ? " is-selected" : ""}`}
+          >
+            <span className="game-answer-badge">{String.fromCharCode(65 + index)}</span>
+            {a.image_url && <img src={a.image_url} alt="" className="game-answer-img" />}
+            {answer.text}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-export function AnswerRevealList({ answerCounts }: { answerCounts: (GameAnswer & { count: number; image_url?: string | null })[] }) {
+// ─── AnswerRevealList ─────────────────────────────────────────────────────────
+
+export function AnswerRevealList({
+  answerCounts,
+}: {
+  answerCounts: (GameAnswer & { count: number; image_url?: string | null })[];
+}) {
   return (
-    <div style={{ display: "grid", gap: "0.75rem", marginBottom: "1.5rem" }}>
+    <div className="game-reveal-list">
       {answerCounts.map((answer, index) => (
-        <div key={answer.id} style={{ padding: "1rem 1.25rem", borderRadius: "var(--radius-lg)", border: answer.is_correct ? "2px solid var(--accent)" : "1px solid var(--line)", background: answer.is_correct ? "var(--accent-light)" : "var(--surface)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
-          <span style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div key={answer.id} className={`game-reveal-item${answer.is_correct ? " is-correct" : ""}`}>
+          <span className="game-reveal-label">
             {answer.is_correct ? "✅" : `${String.fromCharCode(65 + index)}.`} {answer.text}
-            {answer.image_url && <img src={answer.image_url} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />}
+            {answer.image_url && <img src={answer.image_url} alt="" className="game-reveal-img" />}
           </span>
-          <span style={{ color: "var(--muted)", fontWeight: 700 }}>{answer.count} vote{answer.count !== 1 ? "s" : ""}</span>
+          <span className="game-reveal-votes">{answer.count} vote{answer.count !== 1 ? "s" : ""}</span>
         </div>
       ))}
     </div>
   );
 }
 
-export function LeaderboardList({ leaderboard, playerStreaks, playerAchievements, playerCorrectCounts, totalQuestions }: { leaderboard: GamePlayer[]; playerStreaks: Record<string, number>; playerAchievements: Record<string, { label: string; emoji: string }[]>; playerCorrectCounts: Record<string, number>; totalQuestions: number }) {
+// ─── LeaderboardList ──────────────────────────────────────────────────────────
+
+export function LeaderboardList({
+  leaderboard,
+  playerStreaks,
+  playerAchievements,
+  playerCorrectCounts,
+  totalQuestions,
+}: {
+  leaderboard: GamePlayer[];
+  playerStreaks: Record<string, number>;
+  playerAchievements: Record<string, { label: string; emoji: string }[]>;
+  playerCorrectCounts: Record<string, number>;
+  totalQuestions: number;
+}) {
   return (
     <div>
-      <h3 style={{ fontWeight: 800, marginBottom: "1rem" }}>Leaderboard</h3>
-      <div style={{ display: "grid", gap: "0.75rem" }}>
+      <h3 className="game-leaderboard-title">Leaderboard</h3>
+      <div className="game-leaderboard-list">
         {leaderboard.map((player, index) => (
-          <div key={player.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.9rem 1rem", borderRadius: "var(--radius-lg)", background: "var(--bg)" }}>
-            <span style={{ fontWeight: 700 }}>
+          <div key={player.id} className="game-leaderboard-row">
+            <span className="game-leaderboard-name">
               {index + 1}. {player.avatar || "🎮"} {player.nickname}
-              {(playerStreaks[player.id] ?? 0) >= 2 && <span style={{ marginLeft: "0.5rem" }}>🔥{playerStreaks[player.id]}</span>}
-              {(playerAchievements[player.id] ?? []).map((badge, bi) => <span key={bi} style={{ marginLeft: "0.375rem", fontSize: "0.75rem" }} title={badge.label}>{badge.emoji}</span>)}
+              {(playerStreaks[player.id] ?? 0) >= 2 && (
+                <span className="game-leaderboard-streak">🔥{playerStreaks[player.id]}</span>
+              )}
+              {(playerAchievements[player.id] ?? []).map((badge, bi) => (
+                <span key={bi} className="game-leaderboard-badge" title={badge.label}>
+                  {badge.emoji}
+                </span>
+              ))}
             </span>
-            <span style={{ color: "var(--muted)", fontWeight: 700 }}>{playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts</span>
+            <span className="game-leaderboard-score">
+              {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
+            </span>
           </div>
         ))}
       </div>
@@ -223,6 +379,12 @@ export function LeaderboardList({ leaderboard, playerStreaks, playerAchievements
   );
 }
 
+// ─── GameFinishedPanel ────────────────────────────────────────────────────────
+
+// Podium display order: 2nd place left, 1st place centre, 3rd place right
+const PODIUM_ORDER = [1, 0, 2] as const;
+const PODIUM_MEDALS = ["🥇", "🥈", "🥉"] as const;
+const PODIUM_HEIGHTS = [140, 110, 90] as const;
 
 export function GameFinishedPanel({
   notice,
@@ -249,30 +411,32 @@ export function GameFinishedPanel({
   aiSummaryLoading: boolean;
   onGenerateAiSummary: () => void;
 }) {
+  const quizId = (session as GameSessionData)?.quiz_id;
+
   return (
-    <div className="container" style={{ paddingTop: "4rem", paddingBottom: "5rem", textAlign: "center" }}>
+    <div className="container game-finished">
       <GameNotice notice={notice} maxWidth={640} />
-      <div className="card" style={{ padding: "3rem", maxWidth: 640, margin: "0 auto" }}>
-        <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🏆</div>
-        <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "1rem" }}>Game Finished</h1>
-        <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>Final leaderboard for PIN {pin}</p>
+      <div className="card game-finished-card">
+        <div className="game-finished-icon">🏆</div>
+        <h1 className="font-display game-finished-title">Game Finished</h1>
+        <p className="game-finished-sub">Final leaderboard for PIN {pin}</p>
 
         {leaderboard.length >= 1 && (
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", gap: "1rem", marginBottom: "2rem" }}>
-            {leaderboard.slice(0, 3).map((_player, i) => {
-              const medals = ["🥇", "🥈", "🥉"];
-              const heights = [140, 110, 90];
-              const order = [1, 0, 2];
-              const idx = order[i] ?? i;
-              const p = leaderboard[idx];
-              if (!p) return null;
+          <div className="game-podium">
+            {PODIUM_ORDER.map((playerIndex, slotIndex) => {
+              const player = leaderboard[playerIndex];
+              if (!player) return null;
+              const isWinner = slotIndex === 1; // centre slot = 1st place
               return (
-                <div key={p.id} style={{ textAlign: "center", animation: i === 1 ? "pulse 1.5s infinite" : "none" }}>
-                  <div style={{ fontSize: "2rem" }}>{medals[idx]}</div>
-                  <div style={{ fontSize: "1.5rem" }}>{p.avatar || "🎮"}</div>
-                  <div style={{ fontWeight: 800, fontSize: "0.875rem" }}>{p.nickname}</div>
-                  <div style={{ height: heights[idx], width: 80, background: i === 1 ? "var(--accent)" : "var(--line)", borderRadius: "8px 8px 0 0", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0.5rem", marginTop: "0.5rem" }}>
-                    <span style={{ fontWeight: 900, color: i === 1 ? "#fff" : "var(--ink)", fontSize: "0.875rem" }}>{(p.score ?? 0).toLocaleString()}</span>
+                <div key={player.id} className="game-podium-slot">
+                  <div className="game-podium-medal">{PODIUM_MEDALS[playerIndex]}</div>
+                  <div className="game-podium-avatar">{player.avatar || "🎮"}</div>
+                  <div className="game-podium-name">{player.nickname}</div>
+                  <div
+                    className={`game-podium-bar${isWinner ? " is-winner" : ""}`}
+                    style={{ height: PODIUM_HEIGHTS[playerIndex] }}
+                  >
+                    <span className="game-podium-score">{(player.score ?? 0).toLocaleString()}</span>
                   </div>
                 </div>
               );
@@ -280,34 +444,48 @@ export function GameFinishedPanel({
           </div>
         )}
 
-        <div style={{ display: "grid", gap: "0.75rem", marginBottom: "2rem" }}>
+        <div className="game-final-list">
           {leaderboard.map((player, index) => (
-            <div key={player.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", borderRadius: "var(--radius-lg)", background: index === 0 ? "var(--accent-light)" : "var(--bg)", border: index === 0 ? "2px solid var(--accent)" : "1px solid var(--line)" }}>
-              <span style={{ fontWeight: 700 }}>
-                {index < 3 ? ["🥇", "🥈", "🥉"][index] : `${index + 1}.`} {player.avatar || "🎮"} {player.nickname}
-                {(playerAchievements[player.id] ?? []).map((badge, bi) => <span key={bi} style={{ marginLeft: "0.375rem", fontSize: "0.875rem" }} title={badge.label}>{badge.emoji}</span>)}
+            <div key={player.id} className={`game-final-row${index === 0 ? " is-first" : ""}`}>
+              <span className="game-final-name">
+                {index < 3 ? PODIUM_MEDALS[index] : `${index + 1}.`} {player.avatar || "🎮"} {player.nickname}
+                {(playerAchievements[player.id] ?? []).map((badge, bi) => (
+                  <span key={bi} className="game-final-badge" title={badge.label}>{badge.emoji}</span>
+                ))}
               </span>
-              <span style={{ fontWeight: 700 }}>{playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts</span>
+              <span className="game-final-score">
+                {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
+              </span>
             </div>
           ))}
         </div>
 
         {isHost && (
-          <div style={{ marginBottom: "1.5rem", textAlign: "left" }}>
-            {!aiSummary && !aiSummaryLoading && <button onClick={onGenerateAiSummary} className="btn btn-secondary" style={{ width: "100%", padding: "0.75rem" }}>🧠 Get AI Insights</button>}
-            {aiSummaryLoading && <div style={{ padding: "1rem", borderRadius: "var(--radius-lg)", background: "var(--bg)", textAlign: "center", color: "var(--muted)", fontWeight: 600 }}>🧠 Analyzing game data...</div>}
+          <div className="game-ai-section">
+            {!aiSummary && !aiSummaryLoading && (
+              <button onClick={onGenerateAiSummary} className="btn btn-secondary" style={{ width: "100%" }}>
+                🧠 Get AI Insights
+              </button>
+            )}
+            {aiSummaryLoading && (
+              <div className="game-ai-loading">🧠 Analyzing game data...</div>
+            )}
             {aiSummary && (
-              <div style={{ padding: "1rem 1.25rem", borderRadius: "var(--radius-lg)", background: "var(--accent-light)", border: "1px solid var(--accent)" }}>
-                <div style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--accent)", marginBottom: "0.5rem" }}>🧠 AI Insights</div>
-                <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--ink)", whiteSpace: "pre-wrap" }}>{aiSummary}</div>
+              <div className="game-ai-result">
+                <div className="game-ai-result-label">🧠 AI Insights</div>
+                <div className="game-ai-result-text">{aiSummary}</div>
               </div>
             )}
           </div>
         )}
 
-        <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
-          {isHost && (session as { quiz_id?: string })?.quiz_id && <Link href={`/host?quiz=${(session as { quiz_id: string }).quiz_id}`} className="btn btn-primary">Play Again 🔄</Link>}
-          {isHost && <Link href={`/report/${pin}`} className="btn btn-secondary">View Report 📊</Link>}
+        <div className="game-finished-actions">
+          {isHost && quizId && (
+            <Link href={`/host?quiz=${quizId}`} className="btn btn-primary">Play Again 🔄</Link>
+          )}
+          {isHost && (
+            <Link href={`/report/${pin}`} className="btn btn-secondary">View Report 📊</Link>
+          )}
           <Link href="/" className="btn btn-secondary">Back to Home</Link>
         </div>
       </div>

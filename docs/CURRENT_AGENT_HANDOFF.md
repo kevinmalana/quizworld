@@ -1,7 +1,7 @@
 # QuizWorld Current Agent Handoff
 
-Last verified: 2026-05-15 15:40 UTC
-Production alignment checked: 2026-05-14 21:45 UTC, aligned with local workspace
+Last verified: 2026-05-17 20:15 UTC
+Production alignment checked: 2026-05-17 20:15 UTC, aligned with local workspace
 Production: https://www.quizworld.xyz
 Repo: https://github.com/kevinmalana/quizworld
 Workspace: `/root/.openclaw/workspace/quizworld`
@@ -142,6 +142,11 @@ BASE_URL=https://www.quizworld.xyz npx playwright test --reporter=line
 - Phoenix health returned `{"status":"ok","service":"quizworld_realtime","redis":true}`.
 - Authenticated live host + mobile player game flow passed with no host/player console errors after the game/dashboard cleanup.
 
+Latest deploy (2026-05-17):
+
+- `63b0d0f` — fix: AI source mode validation — topic bypasses length checks, better URL/paste errors
+- Deployed as `dpl_zVDneDQSGkVWyXsfzxYLdXJzJSwH`, verified production aliases respond 200.
+
 ## Deploy Pattern
 
 Use stored deployment credentials; do not declare blocked until checking these files:
@@ -178,10 +183,23 @@ Avoid broad rewrites. Prefer small PR-style extractions, then run the full gates
 ## Known Product/Ops Notes
 
 - `www.quizworld.xyz` is the public production alias.
-- As of 2026-05-14 21:45 UTC, production is aligned with the local workspace and updated docs/tests.
+- As of 2026-05-17 20:15 UTC, production is aligned with the local workspace (latest commit: `63b0d0f`).
 - Direct Vercel deployment URLs may show Vercel protection; use production aliases for public smoke.
-- Phoenix backend: `https://quizworld-xs0g.onrender.com`.
-- Local live game routes show `Live Game Service Not Configured` unless `NEXT_PUBLIC_GAME_SERVICE_URL` is present; this is expected.
+- Phoenix backend: `https://quizworld-xs0g.onrender.com` — **hosted on Render**, health endpoint: `/api/health` returns `{"status":"ok","redis":true}`.
+- **`NEXT_PUBLIC_GAME_SERVICE_URL` IS set in Vercel production** (encrypted, set ~48 days ago). Live hosting and joining works. Do NOT flag this as missing — it's configured in the Vercel dashboard, not in local files or vercel.json.
+- `NEXT_PUBLIC_GAME_ENGINE` is also set in Vercel production (encrypted).
+- Local dev: live game routes show `Live Game Service Not Configured` unless `NEXT_PUBLIC_GAME_SERVICE_URL` is set in `.env.local`; this is expected locally only.
 - Present icon should remain `🎤`; Host icon is `🏁`; Join/player icon is `🎮`.
 - There was a production test presentation created during smoke testing: `Phase 1 UI Smoke 2026-05-09`, id `1f6fa58f-4e43-4894-b608-3476297a6632`, join code `5506DD`.
 - GitHub normal auth may fail; token URL push is the reliable path.
+
+## Open Issues (from AUDIT-2026-05-17.md)
+
+See `docs/AUDIT-2026-05-17.md` for full details. Priority order:
+
+1. 🔴 **In-memory rate limiter** (`lib/rate-limit.ts`) resets on Vercel cold start — AI endpoints unprotected in production. Replace with Upstash Redis or auth-only guard.
+2. 🔴 **`/admin` has no server-side auth guard** — client-side useEffect only; anyone can attempt the URL.
+3. 🟡 **Dashboard nukes on single query failure** — 5 parallel Supabase queries, any failure shows blank page. Needs partial-load fallback.
+4. 🟡 **`study_progress` upsert** uses `onConflict: "user_id, quiz_id"` — requires unique constraint in DB or silently inserts duplicates.
+5. 🟡 **`quiz_drafts` RLS** — verify owner-read policy exists in Supabase dashboard.
+6. 🟡 **`/report/[pin]`** — no auth guard, any unauthenticated user can view game reports by PIN.

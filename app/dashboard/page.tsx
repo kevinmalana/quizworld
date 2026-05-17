@@ -59,6 +59,7 @@ function DashboardPageContent() {
     const userId = user.id;
 
     async function fetchQuizzes() {
+      try {
       const [
         { data, error },
         { data: draftRows, error: draftError },
@@ -122,7 +123,11 @@ function DashboardPageContent() {
         setGameResults((resultRows as GameResultRow[]) ?? []);
       }
       setShowNameBanner(!profileData?.display_name);
-      setLoading(false);
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
     }
 
     fetchQuizzes();

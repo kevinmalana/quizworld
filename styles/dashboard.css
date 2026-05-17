@@ -194,3 +194,30 @@
   font-weight: 700;
   font-size: 0.875rem;
 }
+
+/* ── Admin page ─────────────────────────────────── */
+.admin-page { padding-top: 2rem; padding-bottom: 4rem; }
+.admin-title { font-size: 1.75rem; font-weight: 900; margin-bottom: 0.5rem; }
+.admin-subtitle { margin-bottom: 1.5rem; }
+.admin-tabs { margin-bottom: 1.5rem; }
+.admin-stat-value--accent   { color: var(--accent); }
+.admin-stat-value--secondary { color: var(--secondary); }
+.admin-stat-value--success  { color: var(--success); }
+.admin-stat-value--primary  { color: var(--primary); }
+.admin-stat-value--sm       { font-size: 1rem; }
+.admin-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+.admin-quiz-actions { display: flex; gap: 0.5rem; align-items: center; }
+.admin-quiz-plays { font-size: 0.75rem; font-weight: 700; color: var(--muted); }
+.admin-section { margin-bottom: 1.5rem; }
+.admin-section-title { font-weight: 800; margin-bottom: 0.75rem; }
+.admin-active-session { border: 2px solid var(--success); }
+.admin-health-value { font-weight: 700; }
+.admin-health-value--ok    { color: var(--success); }
+.admin-health-value--error { color: var(--primary); }

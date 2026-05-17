@@ -1,41 +1,55 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 
-type Profile = { id: string; username: string | null; is_admin: boolean | null; created_at: string };
-type Quiz = { id: string; title: string; plays: number; is_public: boolean; created_at: string; creator_id: string };
-type GameResult = { id: string; pin: string; player_count: number; finished_at: string; host_id: string };
+type Profile    = { id: string; username: string | null; is_admin: boolean | null; created_at: string };
+type Quiz       = { id: string; title: string; plays: number; is_public: boolean; created_at: string };
+type GameResult = { id: string; pin: string; player_count: number; finished_at: string };
 type GameSession = { id: string; pin: string; status: string; created_at: string };
 
+type Tab = "overview" | "users" | "quizzes" | "games" | "health";
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "overview", label: "📊 Overview" },
+  { key: "users",    label: "👥 Users" },
+  { key: "quizzes",  label: "📝 Quizzes" },
+  { key: "games",    label: "🎮 Games" },
+  { key: "health",   label: "🩺 Health" },
+];
+
 export default function AdminPage() {
-  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [tab, setTab] = useState<"overview" | "users" | "quizzes" | "games" | "health">("overview");
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [isAdmin, setIsAdmin]         = useState<boolean | null>(null);
+  const [tab, setTab]                 = useState<Tab>("overview");
+  const [profiles, setProfiles]       = useState<Profile[]>([]);
+  const [quizzes, setQuizzes]         = useState<Quiz[]>([]);
   const [gameResults, setGameResults] = useState<GameResult[]>([]);
   const [gameSessions, setGameSessions] = useState<GameSession[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [phoenixHealth, setPhoenixHealth] = useState<string>("checking...");
+  const [loading, setLoading]         = useState(true);
+  const [phoenixHealth, setPhoenixHealth] = useState("checking...");
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("is_admin").eq("id", user.id).single().then(({ data }) => {
-      setIsAdmin(data?.is_admin ?? false);
-      if (data?.is_admin) loadAll();
-    });
+    supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        const admin = data?.is_admin ?? false;
+        setIsAdmin(admin);
+        if (admin) loadAll();
+      });
   }, [user]);
 
   async function loadAll() {
     setLoading(true);
     const [p, q, gr, gs] = await Promise.all([
       supabase.from("profiles").select("id,username,is_admin,created_at").order("created_at", { ascending: false }),
-      supabase.from("quizzes").select("id,title,plays,is_public,created_at,creator_id").order("created_at", { ascending: false }),
-      supabase.from("game_results").select("id,pin,player_count,finished_at,host_id").order("finished_at", { ascending: false }).limit(50),
+      supabase.from("quizzes").select("id,title,plays,is_public,created_at").order("created_at", { ascending: false }),
+      supabase.from("game_results").select("id,pin,player_count,finished_at").order("finished_at", { ascending: false }).limit(50),
       supabase.from("game_sessions").select("id,pin,status,created_at").order("created_at", { ascending: false }).limit(50),
     ]);
     setProfiles((p.data as Profile[]) ?? []);
@@ -45,68 +59,74 @@ export default function AdminPage() {
     setLoading(false);
 
     try {
-      const res = await fetch("https://quizworld-xs0g.onrender.com/api/health", { signal: AbortSignal.timeout(15000) });
+      const res  = await fetch("https://quizworld-xs0g.onrender.com/api/health", { signal: AbortSignal.timeout(15000) });
       const data = await res.json();
       setPhoenixHealth(`${data.status} — redis:${data.redis}`);
-    } catch { setPhoenixHealth("unreachable"); }
+    } catch {
+      setPhoenixHealth("unreachable");
+    }
   }
 
-  if (authLoading) return <div className="container loading-panel">Loading...</div>;
-  if (!user) return <div className="container loading-panel"><p className="text-muted">Sign in to access admin.</p></div>;
-  if (isAdmin === false) return <div className="container loading-panel"><p className="text-muted">⛔ Not authorized.</p></div>;
+  if (authLoading)           return <div className="container loading-panel">Loading...</div>;
+  if (!user)                 return <div className="container loading-panel"><p className="text-muted">Sign in to access admin.</p></div>;
+  if (isAdmin === false)     return <div className="container loading-panel"><p className="text-muted">⛔ Not authorized.</p></div>;
   if (isAdmin === null || loading) return <div className="container loading-panel"><p className="text-muted">Loading admin data...</p></div>;
 
-  const totalPlays = quizzes.reduce((s, q) => s + (q.plays ?? 0), 0);
-  const publicQuizzes = quizzes.filter(q => q.is_public).length;
-  const activeSessions = gameSessions.filter(s => s.status === "waiting" || s.status === "active").length;
-
-  const tabs = [
-    { key: "overview" as const, label: "📊 Overview" },
-    { key: "users" as const, label: "👥 Users" },
-    { key: "quizzes" as const, label: "📝 Quizzes" },
-    { key: "games" as const, label: "🎮 Games" },
-    { key: "health" as const, label: "🩺 Health" },
-  ];
+  const totalPlays     = quizzes.reduce((s, q) => s + (q.plays ?? 0), 0);
+  const publicQuizzes  = quizzes.filter((q) => q.is_public).length;
+  const activeSessions = gameSessions.filter((s) => s.status === "waiting" || s.status === "active");
+  const healthOk       = phoenixHealth.includes("ok");
 
   return (
-    <div className="container" style={{ paddingTop: "2rem", paddingBottom: "4rem" }}>
-      <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 900, marginBottom: "0.5rem" }}>⚙️ Admin Panel</h1>
-      <p className="text-muted" style={{ marginBottom: "1.5rem" }}>System administration for QuizWorld</p>
+    <div className="container admin-page">
+      <h1 className="font-display admin-title">⚙️ Admin Panel</h1>
+      <p className="text-muted admin-subtitle">System administration for QuizWorld</p>
 
-      <div className="report-tabs" style={{ marginBottom: "1.5rem" }}>
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} className={tab === t.key ? "report-tab is-active" : "report-tab"}>
+      <div className="report-tabs admin-tabs">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`report-tab${tab === t.key ? " is-active" : ""}`}
+          >
             {t.label}
           </button>
         ))}
       </div>
 
       {tab === "overview" && (
-        <div>
+        <>
           <div className="report-stats-grid">
-            <div className="report-stat-card"><div className="report-stat-label">Users</div><div className="report-stat-value" style={{ color: "var(--accent)" }}>{profiles.length}</div></div>
-            <div className="report-stat-card"><div className="report-stat-label">Quizzes</div><div className="report-stat-value" style={{ color: "var(--secondary)" }}>{quizzes.length}</div></div>
-            <div className="report-stat-card"><div className="report-stat-label">Total Plays</div><div className="report-stat-value" style={{ color: "var(--success)" }}>{totalPlays}</div></div>
-            <div className="report-stat-card"><div className="report-stat-label">Game Results</div><div className="report-stat-value" style={{ color: "var(--primary)" }}>{gameResults.length}</div></div>
+            <StatCard label="Users"        value={profiles.length}    className="admin-stat-value--accent" />
+            <StatCard label="Quizzes"      value={quizzes.length}     className="admin-stat-value--secondary" />
+            <StatCard label="Total Plays"  value={totalPlays}         className="admin-stat-value--success" />
+            <StatCard label="Game Results" value={gameResults.length} className="admin-stat-value--primary" />
           </div>
           <div className="report-stats-grid">
-            <div className="report-stat-card"><div className="report-stat-label">Public Quizzes</div><div className="report-stat-value">{publicQuizzes}</div></div>
-            <div className="report-stat-card"><div className="report-stat-label">Active Sessions</div><div className="report-stat-value">{activeSessions}</div></div>
-            <div className="report-stat-card"><div className="report-stat-label">Phoenix</div><div className="report-stat-value" style={{ fontSize: "1rem", color: phoenixHealth.includes("ok") ? "var(--success)" : "var(--primary)" }}>{phoenixHealth}</div></div>
+            <StatCard label="Public Quizzes"  value={publicQuizzes} />
+            <StatCard label="Active Sessions" value={activeSessions.length} />
+            <div className="report-stat-card">
+              <div className="report-stat-label">Phoenix</div>
+              <div className={`report-stat-value admin-stat-value--sm admin-health-value ${healthOk ? "admin-health-value--ok" : "admin-health-value--error"}`}>
+                {phoenixHealth}
+              </div>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {tab === "users" && (
         <div className="report-question-list">
-          {profiles.map(p => (
+          {profiles.map((p) => (
             <div key={p.id} className="card report-player-card">
               <span className="report-player-avatar">👤</span>
               <div className="report-player-info">
                 <div className="report-player-name">{p.username ?? "(no username)"}</div>
-                <div className="report-player-accuracy">{p.id.slice(0, 8)}... · joined {new Date(p.created_at).toLocaleDateString()}</div>
+                <div className="report-player-accuracy">
+                  {p.id.slice(0, 8)}... · joined {new Date(p.created_at).toLocaleDateString()}
+                </div>
               </div>
-              {p.is_admin && <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--accent)", background: "var(--accent-light)", padding: "0.2rem 0.5rem", borderRadius: 999 }}>ADMIN</span>}
+              {p.is_admin && <span className="admin-badge">ADMIN</span>}
             </div>
           ))}
         </div>
@@ -114,16 +134,18 @@ export default function AdminPage() {
 
       {tab === "quizzes" && (
         <div className="report-question-list">
-          {quizzes.map(q => (
+          {quizzes.map((q) => (
             <div key={q.id} className="card report-question-card">
               <div className="report-question-header">
                 <div className="report-question-text">
                   <div className="font-700">{q.title}</div>
-                  <div className="report-player-accuracy">{q.id.slice(0, 8)}... · created {new Date(q.created_at).toLocaleDateString()}</div>
+                  <div className="report-player-accuracy">
+                    {q.id.slice(0, 8)}... · created {new Date(q.created_at).toLocaleDateString()}
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>{q.plays} plays</span>
-                  <span className={q.is_public ? "report-difficulty-badge report-difficulty-badge--easy" : "report-difficulty-badge report-difficulty-badge--hard"}>
+                <div className="admin-quiz-actions">
+                  <span className="admin-quiz-plays">{q.plays} plays</span>
+                  <span className={`report-difficulty-badge ${q.is_public ? "report-difficulty-badge--easy" : "report-difficulty-badge--hard"}`}>
                     {q.is_public ? "🌐 Public" : "🔒 Private"}
                   </span>
                 </div>
@@ -134,71 +156,87 @@ export default function AdminPage() {
       )}
 
       {tab === "games" && (
-        <div>
-          {activeSessions > 0 && (
-            <div style={{ marginBottom: "1.5rem" }}>
-              <h3 style={{ fontWeight: 800, marginBottom: "0.75rem" }}>🔴 Active Sessions</h3>
+        <>
+          {activeSessions.length > 0 && (
+            <div className="admin-section">
+              <h3 className="admin-section-title">🔴 Active Sessions</h3>
               <div className="report-question-list">
-                {gameSessions.filter(s => s.status === "waiting" || s.status === "active").map(s => (
-                  <div key={s.id} className="card report-player-card" style={{ border: "2px solid var(--success)" }}>
+                {activeSessions.map((s) => (
+                  <div key={s.id} className="card report-player-card admin-active-session">
                     <span className="report-player-avatar">🎮</span>
                     <div className="report-player-info">
                       <div className="report-player-name">PIN: {s.pin}</div>
-                      <div className="report-player-accuracy">Status: {s.status} · started {new Date(s.created_at).toLocaleString()}</div>
+                      <div className="report-player-accuracy">
+                        Status: {s.status} · started {new Date(s.created_at).toLocaleString()}
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          <h3 style={{ fontWeight: 800, marginBottom: "0.75rem" }}>📋 Recent Game Results</h3>
+          <h3 className="admin-section-title">📋 Recent Game Results</h3>
           <div className="report-question-list">
-            {gameResults.map(g => (
+            {gameResults.map((g) => (
               <div key={g.id} className="card report-player-card">
                 <span className="report-player-avatar">🏆</span>
                 <div className="report-player-info">
                   <div className="report-player-name">PIN: {g.pin}</div>
-                  <div className="report-player-accuracy">{g.player_count} players · finished {new Date(g.finished_at).toLocaleDateString()}</div>
+                  <div className="report-player-accuracy">
+                    {g.player_count} players · finished {new Date(g.finished_at).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </>
       )}
 
       {tab === "health" && (
-        <div>
-          <div className="report-question-list">
-            <div className="card report-question-card">
-              <div className="report-question-header">
-                <div className="font-700">Phoenix Backend</div>
-                <span style={{ color: phoenixHealth.includes("ok") ? "var(--success)" : "var(--primary)", fontWeight: 700 }}>{phoenixHealth}</span>
-              </div>
-              <div className="report-player-accuracy">https://quizworld-xs0g.onrender.com</div>
-            </div>
-            <div className="card report-question-card">
-              <div className="report-question-header">
-                <div className="font-700">Supabase</div>
-                <span style={{ color: "var(--success)", fontWeight: 700 }}>connected</span>
-              </div>
-              <div className="report-player-accuracy">https://tqmygnkwkjtkteguemya.supabase.co</div>
-            </div>
-            <div className="card report-question-card">
-              <div className="report-question-header">
-                <div className="font-700">Vercel</div>
-                <span style={{ color: "var(--success)", fontWeight: 700 }}>deployed</span>
-              </div>
-              <div className="report-player-accuracy">https://www.quizworld.xyz</div>
-            </div>
-            <div className="card report-question-card">
-              <div className="report-question-header">
-                <div className="font-700">Database</div>
-                <span style={{ fontWeight: 700 }}>{profiles.length} users · {quizzes.length} quizzes · {gameResults.length} results</span>
-              </div>
+        <div className="report-question-list">
+          <HealthCard
+            label="Phoenix Backend"
+            url="https://quizworld-xs0g.onrender.com"
+            status={phoenixHealth}
+            ok={healthOk}
+          />
+          <HealthCard label="Supabase" url="https://tqmygnkwkjtkteguemya.supabase.co" status="connected" ok />
+          <HealthCard label="Vercel"   url="https://www.quizworld.xyz"                 status="deployed"  ok />
+          <div className="card report-question-card">
+            <div className="report-question-header">
+              <div className="font-700">Database</div>
+              <span className="admin-health-value">
+                {profiles.length} users · {quizzes.length} quizzes · {gameResults.length} results
+              </span>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatCard({ label, value, className = "" }: { label: string; value: number; className?: string }) {
+  return (
+    <div className="report-stat-card">
+      <div className="report-stat-label">{label}</div>
+      <div className={`report-stat-value ${className}`}>{value}</div>
+    </div>
+  );
+}
+
+function HealthCard({ label, url, status, ok }: { label: string; url: string; status: string; ok: boolean }) {
+  return (
+    <div className="card report-question-card">
+      <div className="report-question-header">
+        <div className="font-700">{label}</div>
+        <span className={`admin-health-value ${ok ? "admin-health-value--ok" : "admin-health-value--error"}`}>
+          {status}
+        </span>
+      </div>
+      <div className="report-player-accuracy">{url}</div>
     </div>
   );
 }
