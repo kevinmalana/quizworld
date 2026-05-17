@@ -1089,3 +1089,77 @@
   font-size: 0.75rem;
   color: var(--muted);
 }
+
+/* ── Present Join page ──────────────────────────── */
+.present-join-screen {
+  min-height: calc(100vh - 72px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+.present-join-card {
+  padding: 2.5rem 2rem;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+}
+.present-join-icon { font-size: 3rem; margin-bottom: 1rem; }
+.present-join-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; }
+.present-join-subtitle { color: var(--muted); margin-bottom: 1.5rem; font-size: 0.9rem; }
+.present-join-code-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  font-size: 1.75rem;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+  margin-bottom: 0.75rem;
+  transition: border-color 0.15s;
+}
+.present-join-code-input:focus { border-color: var(--accent); }
+.present-join-name-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+  margin-bottom: 1rem;
+  transition: border-color 0.15s;
+}
+.present-join-name-input:focus { border-color: var(--accent); }
+
+/* Prominent error banner */
+.present-join-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-lg);
+  background: var(--primary-light);
+  border: 1.5px solid var(--primary);
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  margin-bottom: 1rem;
+}
+.present-join-error-icon { flex-shrink: 0; }
+.present-join-btn { width: 100%; }
+.present-join-loading { padding: 4rem; text-align: center; color: var(--muted); }
+
+@media (max-width: 480px) {
+  .present-join-card { padding: 2rem 1.25rem; }
+  .present-join-code-input { font-size: 1.5rem; letter-spacing: 0.2em; }
+}

@@ -6,29 +6,27 @@ import { joinPhoenixPresentation, writeParticipantSession } from "@/lib/presenta
 import { setParticipantName } from "@/lib/presentation/types";
 
 function JoinForm() {
-  const router = useRouter();
+  const router      = useRouter();
   const searchParams = useSearchParams();
-  const initialCode = (searchParams.get("code") || "").toUpperCase().slice(0, 6);
-  const [code, setCode] = useState(initialCode);
-  const [name, setName] = useState("");
-  const [error, setError] = useState("");
+  const initialCode  = (searchParams.get("code") || "").toUpperCase().slice(0, 6);
+
+  const [code, setCode]       = useState(initialCode);
+  const [name, setName]       = useState("");
+  const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Auto-join if code is provided in URL
+  // Auto-fill saved name + pre-populated code from URL
   useEffect(() => {
     if (initialCode.length === 6) {
       setCode(initialCode);
-      const savedName = localStorage.getItem("qw_present_name");
-      if (savedName) setName(savedName);
+      const saved = localStorage.getItem("qw_present_name");
+      if (saved) setName(saved);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleJoin = async () => {
     const joinCode = code.trim().toUpperCase();
-    if (joinCode.length !== 6) {
-      setError("Enter the 6-character code");
-      return;
-    }
+    if (joinCode.length !== 6) return;
 
     setLoading(true);
     setError("");
@@ -44,61 +42,58 @@ function JoinForm() {
       });
       router.push(`/present/${joined.presentationId}/live`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not join presentation.");
+      const msg = err instanceof Error ? err.message : "Could not join presentation.";
+      // Make the error user-friendly
+      if (msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("not live")) {
+        setError("That code doesn't match any active presentation. Check the code and try again.");
+      } else {
+        setError(msg);
+      }
       setLoading(false);
     }
   };
 
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") void handleJoin();
+  };
+
   return (
-    <div className="present-join-screen" style={{ minHeight: "calc(100vh - 72px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-      <div className="card present-join-card" style={{ padding: "2rem", maxWidth: 400, width: "100%", textAlign: "center" }}>
-        <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎤</div>
-        <h1 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.5rem" }}>
-          Join Presentation
-        </h1>
-        <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
-          Enter the 6-character code from your presenter
-        </p>
+    <div className="present-join-screen">
+      <div className="card present-join-card">
+        <div className="present-join-icon">🎤</div>
+        <h1 className="font-display present-join-title">Join Presentation</h1>
+        <p className="present-join-subtitle">Enter the 6-character code from your presenter</p>
 
         <input
           value={code}
           onChange={(e) => { setCode(e.target.value.toUpperCase().slice(0, 6)); setError(""); }}
           placeholder="ABCDEF"
           maxLength={6}
-          style={{
-            width: "100%", padding: "0.75rem 1rem", fontSize: "1.5rem", fontWeight: 800,
-            textAlign: "center", letterSpacing: "0.2em", textTransform: "uppercase",
-            border: "2px solid var(--line)", borderRadius: "var(--radius-xl)",
-            background: "var(--surface)", color: "var(--ink)", outline: "none",
-            marginBottom: "0.75rem",
-          }}
-          onKeyDown={(e) => { if (e.key === "Enter") void handleJoin(); }}
+          className="present-join-code-input"
+          onKeyDown={onKey}
           autoFocus
         />
 
         <input
           value={name}
           onChange={(e) => { setName(e.target.value); setError(""); }}
-          placeholder="Your name…"
+          placeholder="Your name (optional)"
           maxLength={80}
-          style={{
-            width: "100%", padding: "0.75rem 1rem", fontSize: "1rem", fontWeight: 600,
-            textAlign: "center", border: "1.5px solid var(--line)", borderRadius: "var(--radius-xl)",
-            background: "var(--surface)", color: "var(--ink)", outline: "none",
-            marginBottom: "1rem",
-          }}
-          onKeyDown={(e) => { if (e.key === "Enter") void handleJoin(); }}
+          className="present-join-name-input"
+          onKeyDown={onKey}
         />
 
         {error && (
-          <p style={{ color: "var(--primary)", fontSize: "0.8125rem", fontWeight: 600, marginBottom: "1rem" }}>{error}</p>
+          <div className="present-join-error">
+            <span className="present-join-error-icon">⚠️</span>
+            {error}
+          </div>
         )}
 
         <button
           onClick={handleJoin}
           disabled={loading || code.trim().length !== 6}
-          className="btn btn-primary btn-lg"
-          style={{ width: "100%" }}
+          className="btn btn-primary btn-lg present-join-btn"
         >
           {loading ? "Joining..." : "Join →"}
         </button>
@@ -109,7 +104,7 @@ function JoinForm() {
 
 export default function PresentJoinPage() {
   return (
-    <Suspense fallback={<div style={{ padding: "4rem", textAlign: "center" }}>Loading...</div>}>
+    <Suspense fallback={<div className="present-join-loading">Loading...</div>}>
       <JoinForm />
     </Suspense>
   );
