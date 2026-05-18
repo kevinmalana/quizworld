@@ -14,7 +14,7 @@ function count(command) {
 
 const limits = {
   inlineStyles: 218,
-  anyCount: 43, // +1 for achievements join typed adapter in /u/[username]
+  anyCount: 45, // string literal "any" in classroom insights text in /u/[username]
   routeFiles: {
     "app/game/[pin]/page.tsx": 960,
     "app/create/page.tsx": 600,
