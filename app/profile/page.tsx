@@ -258,6 +258,13 @@ export default function ProfilePage() {
                     <div className="profile-link-desc">Discover new quizzes</div>
                   </div>
                 </Link>
+                <Link href="/classrooms" className="card profile-link-card">
+                  <span className="profile-link-icon">🏫</span>
+                  <div>
+                    <div className="profile-link-title">Classrooms</div>
+                    <div className="profile-link-desc">Join or manage classrooms</div>
+                  </div>
+                </Link>
               </div>
             </div>
           </div>

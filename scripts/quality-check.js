@@ -20,7 +20,7 @@ const limits = {
     "app/create/page.tsx": 600,
     "app/dashboard/page.tsx": 450,
     "app/present/[code]/live/page.tsx": 440,
-    "app/profile/page.tsx": 380,
+    "app/profile/page.tsx": 390, // added Classrooms quick link card (+8 lines)
     "app/report/[pin]/page.tsx": 370,
     "app/explore/page.tsx": 345, // creator level fields added to profile fetch (+3 lines)
     "app/join/page.tsx": 290,
