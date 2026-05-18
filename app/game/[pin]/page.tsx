@@ -888,6 +888,9 @@ export default function GamePage() {
             players={players}
             currentQuestion={currentQuestion}
             timeLeft={timeLeft}
+            gameMode={gameMode}
+            teams={teams}
+            teamAssignments={teamAssignments}
           />
         ) : !playerSessionReady || !currentPlayer ? (
           <SpectatorPanel />
@@ -1002,6 +1005,10 @@ export default function GamePage() {
       aiSummary={aiSummary}
       aiSummaryLoading={aiSummaryLoading}
       onGenerateAiSummary={() => void generateAiSummary()}
+      gameMode={gameMode}
+      teams={teams}
+      teamAssignments={teamAssignments}
+      eliminated={eliminated}
     />
   );
 }

@@ -192,11 +192,17 @@ export function ActiveHostDashboard({
   players,
   currentQuestion,
   timeLeft,
+  teams = {},
+  teamAssignments = {},
+  gameMode = "classic",
 }: {
   currentAnswers: CurrentAnswer[];
   players: GamePlayer[];
   currentQuestion: GameQuestion;
   timeLeft: number;
+  teams?: Record<string, Team>;
+  teamAssignments?: Record<string, string>;
+  gameMode?: string;
 }) {
   const answered = currentAnswers.length;
   const correct = currentAnswers.filter((a) => a.is_correct).length;
@@ -217,6 +223,11 @@ export function ActiveHostDashboard({
           color={timeLeft <= 5 ? "var(--primary)" : "var(--ink)"}
         />
       </div>
+
+      {/* Team mode: show live team scores alongside answer bars */}
+      {gameMode === "team" && Object.keys(teams).length > 0 && (
+        <TeamScoreBar teams={teams} myTeamId={null} />
+      )}
 
       {answered > 0 && currentQuestion.answers && (
         <div
@@ -398,6 +409,10 @@ export function GameFinishedPanel({
   aiSummary,
   aiSummaryLoading,
   onGenerateAiSummary,
+  gameMode = "classic",
+  teams = {},
+  teamAssignments = {},
+  eliminated = [],
 }: {
   notice: string | null;
   pin: string;
@@ -410,26 +425,77 @@ export function GameFinishedPanel({
   aiSummary: string | null;
   aiSummaryLoading: boolean;
   onGenerateAiSummary: () => void;
+  gameMode?: string;
+  teams?: Record<string, Team>;
+  teamAssignments?: Record<string, string>;
+  eliminated?: string[];
 }) {
   const quizId = (session as GameSessionData)?.quiz_id;
+
+  // Survival: winner = last non-eliminated player (highest scorer among alive)
+  const survivalWinner = gameMode === "survival"
+    ? leaderboard.find(p => !eliminated.includes(p.id)) ?? leaderboard[0]
+    : null;
+
+  // Team: winning team = highest score
+  const teamList = Object.values(teams).sort((a, b) => b.score - a.score);
+  const winningTeam = teamList[0] ?? null;
 
   return (
     <div className="container game-finished">
       <GameNotice notice={notice} maxWidth={640} />
       <div className="card game-finished-card">
-        <div className="game-finished-icon">🏆</div>
-        <h1 className="font-display game-finished-title">Game Finished</h1>
-        <p className="game-finished-sub">Final leaderboard for PIN {pin}</p>
 
-        {leaderboard.length >= 1 && (
+        {/* Mode-specific header */}
+        {gameMode === "survival" ? (
+          <>
+            <div className="game-finished-icon">💀</div>
+            <h1 className="font-display game-finished-title">Survival Complete!</h1>
+            {survivalWinner ? (
+              <div className="survival-winner-banner">
+                <div className="survival-winner-avatar">{survivalWinner.avatar || "🎮"}</div>
+                <div>
+                  <div className="survival-winner-label">Last Player Standing</div>
+                  <div className="survival-winner-name">{survivalWinner.nickname}</div>
+                  <div className="survival-winner-score">{(survivalWinner.score ?? 0).toLocaleString()} pts</div>
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : gameMode === "team" ? (
+          <>
+            <div className="game-finished-icon">{winningTeam?.emoji ?? "🏆"}</div>
+            <h1 className="font-display game-finished-title">Team Battle Complete!</h1>
+            {winningTeam && (
+              <div className="team-winner-banner" style={{ borderColor: winningTeam.color }}>
+                <div className="team-winner-emoji">{winningTeam.emoji}</div>
+                <div>
+                  <div className="team-winner-label">🏆 Winning Team</div>
+                  <div className="team-winner-name" style={{ color: winningTeam.color }}>{winningTeam.name}</div>
+                  <div className="team-winner-score">{winningTeam.score.toLocaleString()} pts</div>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="game-finished-icon">🏆</div>
+            <h1 className="font-display game-finished-title">Game Finished</h1>
+            <p className="game-finished-sub">Final leaderboard for PIN {pin}</p>
+          </>
+        )}
+
+        {/* Classic + Survival: individual podium */}
+        {gameMode !== "team" && leaderboard.length >= 1 && (
           <div className="game-podium">
             {PODIUM_ORDER.map((playerIndex, slotIndex) => {
               const player = leaderboard[playerIndex];
               if (!player) return null;
-              const isWinner = slotIndex === 1; // centre slot = 1st place
+              const isWinner = slotIndex === 1;
+              const wasEliminated = eliminated.includes(player.id);
               return (
-                <div key={player.id} className="game-podium-slot">
-                  <div className="game-podium-medal">{PODIUM_MEDALS[playerIndex]}</div>
+                <div key={player.id} className={`game-podium-slot${wasEliminated ? " is-eliminated" : ""}`}>
+                  <div className="game-podium-medal">{wasEliminated ? "💨" : PODIUM_MEDALS[playerIndex]}</div>
                   <div className="game-podium-avatar">{player.avatar || "🎮"}</div>
                   <div className="game-podium-name">{player.nickname}</div>
                   <div
@@ -444,21 +510,58 @@ export function GameFinishedPanel({
           </div>
         )}
 
-        <div className="game-final-list">
-          {leaderboard.map((player, index) => (
-            <div key={player.id} className={`game-final-row${index === 0 ? " is-first" : ""}`}>
-              <span className="game-final-name">
-                {index < 3 ? PODIUM_MEDALS[index] : `${index + 1}.`} {player.avatar || "🎮"} {player.nickname}
-                {(playerAchievements[player.id] ?? []).map((badge, bi) => (
-                  <span key={bi} className="game-final-badge" title={badge.label}>{badge.emoji}</span>
-                ))}
-              </span>
-              <span className="game-final-score">
-                {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
-              </span>
-            </div>
-          ))}
-        </div>
+        {/* Team Battle: team podium */}
+        {gameMode === "team" && teamList.length > 0 && (
+          <div className="game-podium">
+            {[teamList[1], teamList[0], teamList[2]].map((team, slotIndex) => {
+              if (!team) return null;
+              const ranks = [1, 0, 2] as const;
+              const rank = ranks[slotIndex];
+              return (
+                <div key={team.id} className="game-podium-slot">
+                  <div className="game-podium-medal">{['🥈','🥇','🥉'][rank]}</div>
+                  <div className="game-podium-avatar" style={{ fontSize: "2rem" }}>{team.emoji}</div>
+                  <div className="game-podium-name">{team.name}</div>
+                  <div
+                    className={`game-podium-bar${rank === 0 ? " is-winner" : ""}`}
+                    style={{ height: PODIUM_HEIGHTS[rank], background: `${team.color}44`, borderColor: team.color }}
+                  >
+                    <span className="game-podium-score">{team.score.toLocaleString()}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Classic + Survival: individual final list */}
+        {gameMode !== "team" && (
+          <div className="game-final-list">
+            {leaderboard.map((player, index) => {
+              const wasEliminated = eliminated.includes(player.id);
+              return (
+                <div key={player.id} className={`game-final-row${index === 0 && !wasEliminated ? " is-first" : ""}${wasEliminated ? " is-eliminated-row" : ""}`}>
+                  <span className="game-final-name">
+                    {wasEliminated ? "💨" : index < 3 ? PODIUM_MEDALS[index] : `${index + 1}.`}{" "}
+                    {player.avatar || "🎮"} {player.nickname}
+                    {wasEliminated && <span className="game-final-eliminated-tag">eliminated</span>}
+                    {(playerAchievements[player.id] ?? []).map((badge, bi) => (
+                      <span key={bi} className="game-final-badge" title={badge.label}>{badge.emoji}</span>
+                    ))}
+                  </span>
+                  <span className="game-final-score">
+                    {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Team Battle: team + member breakdown */}
+        {gameMode === "team" && (
+          <TeamLeaderboard teams={teams} players={leaderboard} teamAssignments={teamAssignments} />
+        )}
 
         {isHost && (
           <div className="game-ai-section">

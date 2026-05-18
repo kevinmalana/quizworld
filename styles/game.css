@@ -748,3 +748,48 @@
   font-weight: 400;
   opacity: 0.8;
 }
+
+/* ── Survival finished screen ───────────────────────────────────────────── */
+.survival-winner-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #22c55e15;
+  border: 2px solid #22c55e55;
+  border-radius: var(--radius-xl);
+  padding: 1rem 1.25rem;
+  margin: 0.75rem 0;
+}
+.survival-winner-avatar { font-size: 2.5rem; }
+.survival-winner-label { font-size: 0.75rem; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 0.05em; }
+.survival-winner-name { font-size: 1.1rem; font-weight: 800; margin: 0.15rem 0; }
+.survival-winner-score { font-size: 0.85rem; color: var(--muted); }
+
+.game-podium-slot.is-eliminated { opacity: 0.5; }
+.is-eliminated-row { opacity: 0.6; }
+.game-final-eliminated-tag {
+  font-size: 0.65rem;
+  background: #ef444422;
+  color: #ef4444;
+  border-radius: var(--radius-full);
+  padding: 0.1rem 0.35rem;
+  margin-left: 0.35rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+/* ── Team Battle finished screen ────────────────────────────────────────── */
+.team-winner-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 2px solid;
+  border-radius: var(--radius-xl);
+  padding: 1rem 1.25rem;
+  margin: 0.75rem 0;
+  background: var(--bg-subtle);
+}
+.team-winner-emoji { font-size: 2.5rem; }
+.team-winner-label { font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.team-winner-name { font-size: 1.1rem; font-weight: 800; margin: 0.15rem 0; }
+.team-winner-score { font-size: 0.85rem; color: var(--muted); }
