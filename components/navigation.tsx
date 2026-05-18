@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { HostIcon } from "@/components/shared/host-icon";
 import { SignOutIcon } from "@/components/shared/signout-icon";
+import { NotificationBell } from "@/components/shared/notification-bell";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/supabase-provider";
 import { supabase } from "@/lib/supabase/client";
@@ -87,6 +88,7 @@ export function Navigation() {
             {!loading && (
               user ? (
                 <>
+                  <NotificationBell />
                   <Link href="/profile" className="nav-icon-btn nav-profile-btn" data-tooltip="Profile">
                     <span>👤</span>
                     {needsProfile && <span className="nav-notification-dot" />}

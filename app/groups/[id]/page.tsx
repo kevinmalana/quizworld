@@ -107,6 +107,12 @@ export default function GroupDetailPage() {
     router.push("/groups");
   }
 
+  async function handleRemoveMember(userId: string, memberName: string) {
+    if (!confirm(`Remove ${memberName} from this group?`)) return;
+    await supabase.from("trivia_group_members").delete().eq("group_id", group!.id).eq("user_id", userId);
+    load();
+  }
+
   if (loading) return <div className="container social-shell"><div className="social-empty"><div className="social-empty-icon">📡</div><div>Loading...</div></div></div>;
   if (!group) return null;
 
@@ -160,6 +166,9 @@ export default function GroupDetailPage() {
                 <div className="social-member-actions">
                   <span className={`social-role-badge social-role-badge--${m.role}`}>{m.role}</span>
                   <div className="social-xp-label">{m.total_xp.toLocaleString()} XP</div>
+                  {myRole === "admin" && m.user_id !== user?.id && (
+                    <button className="btn btn-secondary btn-compact social-btn-sm" onClick={() => handleRemoveMember(m.user_id, m.display_name || m.username)}>Remove</button>
+                  )}
                 </div>
               </div>
             );

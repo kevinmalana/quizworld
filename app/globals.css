@@ -1678,3 +1678,105 @@ body.qw-present-live-route main {
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* ── Notification Bell ───────────────────────────────────────────────────── */
+.notif-bell-wrap { position: relative; }
+
+.notif-bell-btn { position: relative; font-size: 1.1rem; }
+
+.notif-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  pointer-events: none;
+}
+
+.notif-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 199;
+}
+
+.notif-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 300px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  z-index: 200;
+  overflow: hidden;
+}
+
+.notif-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+.notif-header-title { font-weight: 700; font-size: 0.88rem; }
+.notif-header-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+}
+
+.notif-empty {
+  padding: 1.25rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.notif-list { max-height: 320px; overflow-y: auto; }
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+  transition: background 0.12s;
+  border-bottom: 1px solid var(--line);
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background: var(--bg-subtle); }
+
+.notif-icon { font-size: 1.25rem; flex-shrink: 0; margin-top: 0.05rem; }
+
+.notif-content { min-width: 0; }
+.notif-title { font-weight: 700; font-size: 0.82rem; color: var(--fg); }
+.notif-subtitle { font-size: 0.75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.notif-footer {
+  display: block;
+  text-align: center;
+  padding: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  border-top: 1px solid var(--line);
+}
+.notif-footer:hover { background: var(--accent-light); }
+
+@media (max-width: 480px) {
+  .notif-dropdown { width: calc(100vw - 2rem); right: -0.5rem; }
+}
