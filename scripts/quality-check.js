@@ -22,7 +22,7 @@ const limits = {
     "app/present/[code]/live/page.tsx": 440,
     "app/profile/page.tsx": 380,
     "app/report/[pin]/page.tsx": 370,
-    "app/explore/page.tsx": 310,
+    "app/explore/page.tsx": 340, // pagination refactor added fetchPage helper (+30 lines)
     "app/join/page.tsx": 290,
     "app/host/page.tsx": 280,
   },

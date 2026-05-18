@@ -12,6 +12,8 @@ import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/expl
 
 const CATEGORY_LIST = ["All", ...Object.keys(CATEGORY_COLORS)];
 
+const PAGE_SIZE = 24;
+
 type SortMode = "popular" | "newest" | "az" | "za";
 
 const SORT_OPTIONS: { value: SortMode; label: string; icon: string }[] = [
@@ -33,7 +35,10 @@ function ExplorePageContent() {
   );
   const [sortMode, setSortMode] = useState<SortMode>("popular");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
     if (categoryParam && CATEGORY_LIST.includes(categoryParam)) {
@@ -41,57 +46,84 @@ function ExplorePageContent() {
     }
   }, [categoryParam]);
 
-  useEffect(() => {
-    async function fetchQuizzes() {
+  async function fetchPage(pageIndex: number, append: boolean) {
+    if (pageIndex === 0) {
       setLoading(true);
       setFetchError(null);
-
-      const { data, error } = await supabase
-        .from("quizzes")
-        .select("*, questions(*, answers(*))")
-        .eq("is_public", true)
-        .is("archived_at", null)
-        .order("plays", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching quizzes:", error);
-        setFetchError("Could not load the quiz catalog. Please try again in a moment.");
-      } else if (data && data.length > 0) {
-        const creatorIds = [...new Set(data.map((q: any) => q.creator_id).filter(Boolean))];
-        let creatorMap: Record<string, { name: string; username: string; avatar: string }> = {};
-
-        if (creatorIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("id, username, display_name, avatar")
-            .in("id", creatorIds);
-          if (profiles) {
-            for (const p of profiles) {
-              creatorMap[p.id] = {
-                name: p.display_name || p.username || "",
-                username: p.username || "",
-                avatar: p.avatar || "👤",
-              };
-            }
-          }
-        }
-
-        const quizzesWithCreator = data.map((q: any) => ({
-          ...q,
-          creator_name: creatorMap[q.creator_id]?.name ?? undefined,
-          creator_display_name: creatorMap[q.creator_id]?.name ?? undefined,
-          creator_username: creatorMap[q.creator_id]?.username ?? undefined,
-          creator_avatar: creatorMap[q.creator_id]?.avatar ?? undefined,
-        }));
-        setQuizzes(quizzesWithCreator as QuizWithCreator[]);
-      } else {
-        setQuizzes([]);
-      }
-      setLoading(false);
+    } else {
+      setLoadingMore(true);
     }
 
-    fetchQuizzes();
+    const from = pageIndex * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    const { data, error } = await supabase
+      .from("quizzes")
+      .select("*, questions(*, answers(*))")
+      .eq("is_public", true)
+      .is("archived_at", null)
+      .order("plays", { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error("Error fetching quizzes:", error);
+      setFetchError("Could not load the quiz catalog. Please try again in a moment.");
+      setLoading(false);
+      setLoadingMore(false);
+      return;
+    }
+
+    const batch = data ?? [];
+    setHasMore(batch.length === PAGE_SIZE);
+
+    if (batch.length > 0) {
+      const creatorIds = [...new Set(batch.map((q: any) => q.creator_id).filter(Boolean))];
+      let creatorMap: Record<string, { name: string; username: string; avatar: string }> = {};
+
+      if (creatorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, username, display_name, avatar")
+          .in("id", creatorIds);
+        if (profiles) {
+          for (const p of profiles) {
+            creatorMap[p.id] = {
+              name: p.display_name || p.username || "",
+              username: p.username || "",
+              avatar: p.avatar || "👤",
+            };
+          }
+        }
+      }
+
+      const withCreator = batch.map((q: any) => ({
+        ...q,
+        creator_name: creatorMap[q.creator_id]?.name ?? undefined,
+        creator_display_name: creatorMap[q.creator_id]?.name ?? undefined,
+        creator_username: creatorMap[q.creator_id]?.username ?? undefined,
+        creator_avatar: creatorMap[q.creator_id]?.avatar ?? undefined,
+      })) as QuizWithCreator[];
+
+      setQuizzes((prev) => append ? [...prev, ...withCreator] : withCreator);
+    } else if (!append) {
+      setQuizzes([]);
+    }
+
+    setLoading(false);
+    setLoadingMore(false);
+  }
+
+  useEffect(() => {
+    setPage(0);
+    fetchPage(0, false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function handleLoadMore() {
+    const next = page + 1;
+    setPage(next);
+    fetchPage(next, true);
+  }
 
   const hasActiveFilter = activeCategory !== "All" || search.trim().length > 0;
 
@@ -273,6 +305,17 @@ function ExplorePageContent() {
                   <ExploreQuizCard key={q.id} quiz={q} />
                 ))}
               </div>
+              {!hasActiveFilter && hasMore && (
+                <div className="explore-load-more">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="btn btn-secondary"
+                  >
+                    {loadingMore ? "Loading..." : "Load more quizzes"}
+                  </button>
+                </div>
+              )}
             </SectionCard>
           </>
         )}
