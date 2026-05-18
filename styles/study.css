@@ -785,3 +785,108 @@
   opacity: 0.7;
   font-size: 1.4rem;
 }
+
+/* ── Level titles on XP bar ─────────────────────────────────────────────── */
+.study-xp-progress__title {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 500;
+  margin-left: 0.35rem;
+}
+
+/* ── XP Breakdown on result screen ─────────────────────────────────────── */
+.study-xp-breakdown {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  margin: 0.75rem 0;
+  text-align: left;
+}
+.study-xp-breakdown__title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  color: var(--fg);
+}
+.study-xp-breakdown__rows { display: flex; flex-direction: column; gap: 0.3rem; }
+.study-xp-breakdown__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.study-xp-breakdown__row--bonus { color: #f59e0b; font-weight: 600; }
+.study-xp-breakdown__row--total {
+  border-top: 1px solid var(--line);
+  margin-top: 0.25rem;
+  padding-top: 0.35rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--fg);
+}
+
+/* ── Mini XP progress bar on result screen ──────────────────────────────── */
+.study-mini-xp-bar {
+  width: 100%;
+  margin: 0.5rem 0 0.75rem;
+}
+.study-levelup-banner {
+  background: linear-gradient(90deg, #f59e0b22, #8b5cf622);
+  border: 1px solid #f59e0b55;
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 0.6rem;
+  text-align: center;
+  animation: levelup-glow 1.2s ease-in-out 2;
+}
+@keyframes levelup-glow {
+  0%,100% { box-shadow: none; }
+  50%      { box-shadow: 0 0 14px #f59e0b88; }
+}
+.study-mini-xp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+}
+.study-mini-xp-level { font-weight: 700; color: var(--fg); }
+.study-mini-xp-title { font-weight: 400; color: var(--muted); margin-left: 0.3rem; }
+.study-mini-xp-count { color: var(--muted); }
+.study-mini-xp-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+  margin-bottom: 0.3rem;
+}
+.study-mini-xp-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), #8b5cf6);
+  transition: width 0.8s cubic-bezier(.22,1,.36,1);
+}
+.study-mini-xp-next { font-size: 0.75rem; color: var(--muted); text-align: right; }
+
+/* ── How XP works info box ──────────────────────────────────────────────── */
+.study-xp-how-it-works {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  margin-top: 0.5rem;
+}
+.study-xp-how-title { font-weight: 700; font-size: 0.85rem; margin-bottom: 0.5rem; }
+.study-xp-how-rows { display: flex; flex-direction: column; gap: 0.3rem; }
+.study-xp-how-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.study-xp-how-row span:last-child { font-weight: 600; color: var(--fg); }
+.study-xp-how-row--note span { color: var(--muted); font-style: italic; font-size: 0.78rem; }
+.study-xp-how-row--note span:last-child { display: none; }

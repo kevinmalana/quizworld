@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { calcLevel } from "@/components/study/study-session-panels";
 
 export type StudyProgressRow = {
   quiz_id: string;
@@ -20,26 +21,8 @@ export type StudySessionRow = {
   created_at: string;
 };
 
-function calcLevel(totalXp: number) {
-  let level = 1;
-  let xpNeeded = 200;
-  while (totalXp >= xpNeeded) {
-    level++;
-    xpNeeded += level * 200;
-  }
-  const levelStartXp = (level - 1) * level * 100;
-  const levelEndXp = level * (level + 1) * 100;
-  const progress = ((totalXp - levelStartXp) / (levelEndXp - levelStartXp)) * 100;
-  return {
-    level,
-    progress: Math.min(100, Math.max(0, progress)),
-    currentXp: totalXp - levelStartXp,
-    xpToNext: levelEndXp - totalXp,
-  };
-}
-
 function XpProgressBar({ totalXp }: { totalXp: number }) {
-  const { level, progress, currentXp, xpToNext } = useMemo(() => calcLevel(totalXp), [totalXp]);
+  const { level, title, progress, xpInLevel, xpForLevel, xpToNext } = useMemo(() => calcLevel(totalXp), [totalXp]);
 
   return (
     <div className="card study-xp-progress">
@@ -47,14 +30,15 @@ function XpProgressBar({ totalXp }: { totalXp: number }) {
         <div className="study-xp-progress__level">
           <span className="study-xp-progress__icon">⭐</span>
           <span>Level {level}</span>
+          <span className="study-xp-progress__title">{title}</span>
         </div>
         <span className="study-xp-progress__count">
-          {currentXp.toLocaleString()} / {xpToNext.toLocaleString()} XP
+          {xpInLevel.toLocaleString()} / {xpForLevel.toLocaleString()} XP
         </span>
       </div>
       <progress className="study-xp-progress__bar" value={progress} max={100} />
       <div className="study-xp-progress__next">
-        {Math.round(progress)}% to Level {level + 1}
+        {Math.round(progress)}% to Level {level + 1} — {xpToNext.toLocaleString()} XP needed
       </div>
     </div>
   );

@@ -1,4 +1,83 @@
+import { useMemo } from "react";
 import type { CardState, SessionResult, StudyMode, StudyQuestion } from "@/lib/study/types";
+
+// ─── Level system ─────────────────────────────────────────────────────────────
+
+const LEVEL_TITLES: Record<number, string> = {
+  1:  "Curious Learner",
+  2:  "Quiz Starter",
+  3:  "Knowledge Seeker",
+  4:  "Trivia Enthusiast",
+  5:  "Quiz Apprentice",
+  6:  "Study Scout",
+  7:  "Brain Trainer",
+  8:  "Quiz Adept",
+  9:  "Knowledge Builder",
+  10: "Trivia Tactician",
+  11: "Quiz Specialist",
+  12: "Study Champion",
+  13: "Knowledge Expert",
+  14: "Quiz Virtuoso",
+  15: "Master Learner",
+  20: "Quiz Legend",
+  25: "Grand Scholar",
+  30: "Trivia Grandmaster",
+};
+
+export function getLevelTitle(level: number): string {
+  // Find the highest matching threshold
+  const keys = Object.keys(LEVEL_TITLES).map(Number).sort((a, b) => b - a);
+  for (const k of keys) {
+    if (level >= k) return LEVEL_TITLES[k];
+  }
+  return "Curious Learner";
+}
+
+export function calcLevel(totalXp: number) {
+  let level = 1;
+  let xpNeeded = 200;
+  while (totalXp >= xpNeeded) {
+    level++;
+    xpNeeded += level * 200;
+  }
+  const levelStartXp = (level - 1) * level * 100;
+  const levelEndXp   = level * (level + 1) * 100;
+  const xpInLevel    = totalXp - levelStartXp;
+  const xpForLevel   = levelEndXp - levelStartXp;
+  const progress     = Math.min(100, Math.max(0, (xpInLevel / xpForLevel) * 100));
+  return {
+    level,
+    title: getLevelTitle(level),
+    progress,
+    xpInLevel,
+    xpForLevel,
+    xpToNext: levelEndXp - totalXp,
+  };
+}
+
+function MiniXpBar({ totalXp, newXp }: { totalXp: number; newXp: number }) {
+  const before = useMemo(() => calcLevel(Math.max(0, totalXp - newXp)), [totalXp, newXp]);
+  const after  = useMemo(() => calcLevel(totalXp), [totalXp]);
+  const leveledUp = after.level > before.level;
+
+  return (
+    <div className="study-mini-xp-bar">
+      {leveledUp && (
+        <div className="study-levelup-banner">
+          🎉 Level Up! You reached <strong>Level {after.level} — {after.title}</strong>!
+        </div>
+      )}
+      <div className="study-mini-xp-header">
+        <span className="study-mini-xp-level">⭐ Level {after.level} <span className="study-mini-xp-title">{after.title}</span></span>
+        <span className="study-mini-xp-count">{after.xpInLevel.toLocaleString()} / {after.xpForLevel.toLocaleString()} XP</span>
+      </div>
+      <div className="study-mini-xp-track">
+        <div className="study-mini-xp-fill" style={{ width: `${after.progress}%` }} />
+      </div>
+      <div className="study-mini-xp-next">{Math.round(after.progress)}% · {after.xpToNext.toLocaleString()} XP to Level {after.level + 1}</div>
+    </div>
+  );
+}
 
 // ─── Colours ─────────────────────────────────────────────────────────────────
 
@@ -348,6 +427,7 @@ export function StudyResultPanel({
   mode,
   saving,
   saveMessage,
+  totalXp,
   onReset,
   onReview,
   onBack,
@@ -356,13 +436,14 @@ export function StudyResultPanel({
   mode: StudyMode;
   saving: boolean;
   saveMessage: string;
+  totalXp?: number;
   onReset: () => void;
   onReview?: () => void;
   onBack: () => void;
 }) {
   const pct = Math.round((result.correct / Math.max(result.total, 1)) * 100);
   const xpPerCorrect    = mode === "quickfire" ? 45 : 25;
-  const completionBonus = result.correct === result.total && result.total > 0 ? 50 : 0;
+  const completionBonus = result.total > 0 ? 50 : 0;
   const perfectBonus    = result.correct === result.total && result.total > 0 ? 100 : 0;
   const sessionXp       = result.correct * xpPerCorrect + completionBonus + perfectBonus;
 
@@ -376,15 +457,39 @@ export function StudyResultPanel({
         </div>
         <p className="study-muted study-result-copy">{result.correct} out of {result.total} correct</p>
 
+        {/* XP breakdown */}
         {sessionXp > 0 && (
-          <div className="study-xp-pill">
-            <span>⭐</span>
-            <span>+{sessionXp} XP earned</span>
+          <div className="study-xp-breakdown">
+            <div className="study-xp-breakdown__title">⭐ XP Earned</div>
+            <div className="study-xp-breakdown__rows">
+              <div className="study-xp-breakdown__row">
+                <span>{result.correct} correct × {xpPerCorrect} XP</span>
+                <span>+{result.correct * xpPerCorrect}</span>
+              </div>
+              <div className="study-xp-breakdown__row">
+                <span>Completion bonus</span>
+                <span>+{completionBonus}</span>
+              </div>
+              {perfectBonus > 0 && (
+                <div className="study-xp-breakdown__row study-xp-breakdown__row--bonus">
+                  <span>⚡ Perfect score bonus</span>
+                  <span>+{perfectBonus}</span>
+                </div>
+              )}
+              <div className="study-xp-breakdown__row study-xp-breakdown__row--total">
+                <span>Total</span>
+                <span>+{sessionXp} XP</span>
+              </div>
+            </div>
           </div>
         )}
-        {pct === 100 && <div className="study-perfect-copy">Perfect score! +100 bonus XP ⚡</div>}
 
-        <p className="study-muted study-save-message">{saving ? "Saving progress..." : saveMessage}</p>
+        {/* Live level progress bar — shows after save completes */}
+        {totalXp !== undefined && !saving && (
+          <MiniXpBar totalXp={totalXp} newXp={sessionXp} />
+        )}
+        {saving && <p className="study-muted study-save-message">Saving progress...</p>}
+        {!saving && saveMessage && <p className="study-muted study-save-message">{saveMessage}</p>}
 
         <div className="study-action-row">
           {onReview && (
@@ -394,6 +499,18 @@ export function StudyResultPanel({
           )}
           <button onClick={onReset} className="btn btn-secondary">Study Again</button>
           <button onClick={onBack} className="btn btn-secondary">Back to Study</button>
+        </div>
+      </div>
+
+      {/* How XP works info box */}
+      <div className="card study-xp-how-it-works">
+        <div className="study-xp-how-title">💡 How XP works</div>
+        <div className="study-xp-how-rows">
+          <div className="study-xp-how-row"><span>🇦️ Flashcard correct answer</span><span>25 XP</span></div>
+          <div className="study-xp-how-row"><span>⚡ Quick Fire correct answer</span><span>45 XP</span></div>
+          <div className="study-xp-how-row"><span>✅ Complete any session</span><span>+50 XP</span></div>
+          <div className="study-xp-how-row"><span>🏆 Perfect score</span><span>+100 XP bonus</span></div>
+          <div className="study-xp-how-row study-xp-how-row--note"><span>Study daily to keep your streak 🔥 — check the Study dashboard to see your level progress</span></div>
         </div>
       </div>
 

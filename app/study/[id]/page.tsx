@@ -33,6 +33,7 @@ export default function StudyPage() {
   const [sessionResult, setSessionResult] = useState<SessionResult | null>(null);
   const [saving, setSaving]           = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [totalXp, setTotalXp]         = useState<number | undefined>(undefined);
   const [quickFireTimeLeft, setQuickFireTimeLeft] = useState(0);
   const [advancing, setAdvancing]     = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
@@ -125,6 +126,11 @@ export default function StudyPage() {
     if (sessionXp > 0) {
       const { error: xpError } = await supabase.rpc("increment_xp", { user_uuid: user.id, xp_amount: sessionXp });
       if (xpError) console.error("Error incrementing XP:", xpError);
+      else {
+        // Fetch updated total_xp to show live level progress on result screen
+        const { data: profile } = await supabase.from("profiles").select("total_xp").eq("id", user.id).single();
+        if (profile?.total_xp !== undefined) setTotalXp(profile.total_xp);
+      }
     }
 
     // 4. Update daily streak
@@ -212,6 +218,7 @@ export default function StudyPage() {
         mode={mode}
         saving={saving}
         saveMessage={saveMessage}
+        totalXp={totalXp}
         onReset={resetSession}
         onReview={sessionResult.wrongQuestions.length > 0 ? startReviewRound : undefined}
         onBack={() => router.push("/study")}

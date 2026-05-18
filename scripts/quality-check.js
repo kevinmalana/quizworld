@@ -14,7 +14,7 @@ function count(command) {
 
 const limits = {
   inlineStyles: 218,
-  anyCount: 40,
+  anyCount: 41, // +1 for 'any' in UX string literal in study-session-panels.tsx ("Complete any session")
   routeFiles: {
     "app/game/[pin]/page.tsx": 960,
     "app/create/page.tsx": 600,
