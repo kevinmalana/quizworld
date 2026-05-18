@@ -258,3 +258,41 @@
   color: var(--muted);
   line-height: 1.7;
 }
+
+/* ── Who completed widget ─────────────────────────────────── */
+.ct-completion-who {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-top: 0.3rem;
+}
+
+.ct-completion-who-done,
+.ct-completion-who-pending {
+  display: flex;
+  gap: 0.2rem;
+  flex-wrap: wrap;
+}
+
+.ct-who-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  font-size: 1rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-full);
+  justify-content: center;
+  cursor: default;
+}
+
+.ct-who-badge--done {
+  background: var(--success-light);
+  border: 1px solid var(--success);
+}
+
+.ct-who-badge--pending {
+  background: var(--bg-subtle);
+  border: 1px solid var(--line);
+  opacity: 0.7;
+}

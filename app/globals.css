@@ -2110,3 +2110,48 @@ body.qw-present-live-route main {
   .host-modes-grid { grid-template-columns: 1fr 1fr; }
   .host-mode-btn { padding: 0.75rem; }
 }
+
+/* ── Report — mode badges ────────────────────────────────── */
+.report-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  padding: 0.15rem 0.5rem;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+.report-mode-badge--survival { background: #ef444422; color: #ef4444; }
+.report-mode-badge--team { background: var(--accent-light); color: var(--accent); }
+
+/* ── Report — mode summary cards ────────────────────────── */
+.report-mode-card { padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
+.report-mode-card-title { font-weight: 800; font-size: 0.95rem; margin-bottom: 0.75rem; }
+.report-mode-card-body { display: flex; flex-direction: column; gap: 0.5rem; }
+.report-survival-survived, .report-survival-eliminated {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.85rem;
+}
+.report-survival-player { padding: 0.2rem 0.5rem; border-radius: var(--radius-full); font-size: 0.78rem; }
+.report-survival-player--alive { background: #22c55e22; color: #16a34a; }
+.report-survival-player--out { background: #ef444422; color: #ef4444; text-decoration: line-through; opacity: 0.7; }
+.report-team-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.report-team-row { padding: 0.75rem 1rem; border-radius: var(--radius-lg); border: 2px solid; }
+.report-team-row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; font-size: 0.88rem; }
+.report-team-score { font-weight: 800; }
+.report-team-members { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.report-team-member { font-size: 0.75rem; background: var(--bg-subtle); padding: 0.15rem 0.45rem; border-radius: var(--radius-full); }
+
+/* ── Game — my team badge on answer grid ─────────────────── */
+.game-my-team-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.875rem;
+  border-radius: var(--radius-xl);
+  border: 2px solid;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}

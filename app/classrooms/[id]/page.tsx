@@ -32,6 +32,7 @@ type Assignment = {
   // teacher-only enrichment
   completion_count?: number;
   member_count?: number;
+  completed_by?: string[]; // user_ids who completed
 };
 
 type MasteryCell = {
@@ -207,6 +208,7 @@ export default function ClassroomDetailPage() {
         completed: myCompletedIds.has(a.id),
         completion_count: completionCountMap[a.id] ?? 0,
         member_count: memberRows.length,
+        completed_by: (allCompletionsRes.data ?? []).filter(c => c.assignment_id === a.id).map(c => c.user_id),
       })));
 
       // Build mastery grid for teacher progress tab
@@ -549,14 +551,33 @@ export default function ClassroomDetailPage() {
                         {isOverdue ? "⚠️ Overdue: " : "Due: "}{new Date(a.due_date).toLocaleDateString()}
                       </div>
                     )}
-                    {/* Teacher: completion progress bar */}
+                    {/* Teacher: completion progress bar + who completed */}
                     {myRole === "teacher" && (
-                      <div className="ct-completion-bar-wrap">
-                        <div className="ct-completion-bar">
-                          <div className="ct-completion-fill" style={{ width: `${completedPct}%` }} />
+                      <>
+                        <div className="ct-completion-bar-wrap">
+                          <div className="ct-completion-bar">
+                            <div className="ct-completion-fill" style={{ width: `${completedPct}%` }} />
+                          </div>
+                          <span className="ct-completion-label">{a.completion_count ?? 0}/{a.member_count} completed</span>
                         </div>
-                        <span className="ct-completion-label">{a.completion_count ?? 0}/{a.member_count} completed</span>
-                      </div>
+                        {/* Who completed / who hasn't */}
+                        <div className="ct-completion-who">
+                          <div className="ct-completion-who-done">
+                            {members.filter(m => m.role === "student" && (a.completed_by ?? []).includes(m.user_id)).map(m => (
+                              <span key={m.user_id} className="ct-who-badge ct-who-badge--done" title={`${m.display_name || m.username} completed`}>
+                                {m.avatar} ✅
+                              </span>
+                            ))}
+                          </div>
+                          <div className="ct-completion-who-pending">
+                            {members.filter(m => m.role === "student" && !(a.completed_by ?? []).includes(m.user_id)).map(m => (
+                              <span key={m.user_id} className="ct-who-badge ct-who-badge--pending" title={`${m.display_name || m.username} - not done`}>
+                                {m.avatar} ⏳
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </>
                     )}
                     <div className="social-card-actions">
                       <Link href={`/study/${a.quiz_id}`} className="btn btn-secondary btn-compact social-flex-1">📖 Study</Link>

@@ -908,6 +908,7 @@ export default function GamePage() {
             selectedAnswer={selectedAnswer}
             submittingAnswer={submittingAnswer}
             timeLeft={timeLeft}
+            myTeam={myTeamId && teams[myTeamId] ? teams[myTeamId] : null}
             onSubmit={(answer) => void submitAnswer(answer)}
           />
         )}

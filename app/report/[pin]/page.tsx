@@ -55,6 +55,10 @@ type GameResult = {
     players: PlayerResult[];
     question_count: number;
     finished_status: string;
+    game_mode?: string;
+    eliminated?: string[];
+    teams?: Record<string, { id: string; name: string; color: string; emoji: string; score: number }>;
+    team_assignments?: Record<string, string>;
     question_breakdown?: QuestionBreakdown[];
   };
   finished_at: string;
@@ -166,6 +170,11 @@ export default function ReportPage() {
   const breakdown = result.results.question_breakdown || [];
   const hasBreakdown = breakdown.length > 0;
   const totalQuestions = result.results.question_count || breakdown.length;
+  const gameMode = result.results.game_mode ?? "classic";
+  const eliminated = result.results.eliminated ?? [];
+  const teams = result.results.teams ?? {};
+  const teamAssignments = result.results.team_assignments ?? {};
+  const teamList = Object.values(teams).sort((a, b) => b.score - a.score);
   const avgScore = players.length > 0 ? Math.round(players.reduce((s, p) => s + p.score, 0) / players.length) : 0;
   const avgAccuracy = hasBreakdown
     ? Math.round(breakdown.reduce((s, q) => s + q.accuracy_pct, 0) / breakdown.length)
@@ -210,7 +219,13 @@ export default function ReportPage() {
       <div className="report-header">
         <div>
           <h1 className="font-display report-header-title">📊 Game Report</h1>
-          <p className="report-header-meta">PIN: {pin} · {finishedDate}</p>
+          <p className="report-header-meta">PIN: {pin} · {finishedDate}
+            {gameMode !== "classic" && (
+              <span className={`report-mode-badge report-mode-badge--${gameMode}`}>
+                {gameMode === "survival" ? "💀 Survival" : "👥 Team Battle"}
+              </span>
+            )}
+          </p>
         </div>
         <div className="report-header-actions">
           {hasBreakdown && (
@@ -238,7 +253,53 @@ export default function ReportPage() {
             <StatCard label="Avg Score" value={avgScore.toLocaleString()} color="var(--accent)" />
             {hasBreakdown && <StatCard label="Avg Accuracy" value={`${avgAccuracy}%`} color={avgAccuracy >= 70 ? "var(--success)" : "var(--primary)"} />}
             {hasBreakdown && <StatCard label="Avg Response" value={`${avgResponseTime}s`} color="var(--secondary)" />}
+            {gameMode === "survival" && <StatCard label="Survived" value={`${players.length - eliminated.length}/${players.length}`} color="#22c55e" />}
           </div>
+
+          {/* Survival summary */}
+          {gameMode === "survival" && eliminated.length > 0 && (
+            <div className="card report-mode-card">
+              <h3 className="report-mode-card-title">💀 Survival Results</h3>
+              <div className="report-mode-card-body">
+                <div className="report-survival-survived">
+                  <strong>💪 Survivors ({players.length - eliminated.length}):</strong>
+                  {sortedPlayers.filter(p => !eliminated.includes(p.id)).map(p => (
+                    <span key={p.id} className="report-survival-player report-survival-player--alive">{p.avatar || "🎮"} {p.nickname}</span>
+                  ))}
+                </div>
+                <div className="report-survival-eliminated">
+                  <strong>💨 Eliminated ({eliminated.length}):</strong>
+                  {sortedPlayers.filter(p => eliminated.includes(p.id)).map(p => (
+                    <span key={p.id} className="report-survival-player report-survival-player--out">{p.avatar || "🎮"} {p.nickname}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Team Battle summary */}
+          {gameMode === "team" && teamList.length > 0 && (
+            <div className="card report-mode-card">
+              <h3 className="report-mode-card-title">👥 Team Results</h3>
+              <div className="report-team-list">
+                {teamList.map((team, i) => {
+                  const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
+                  const teamPlayers = players.filter(p => teamAssignments[p.id] === team.id);
+                  return (
+                    <div key={team.id} className="report-team-row" style={{ borderColor: team.color }}>
+                      <div className="report-team-row-header">
+                        <span>{medal} {team.emoji} <strong style={{ color: team.color }}>{team.name}</strong></span>
+                        <span className="report-team-score" style={{ color: team.color }}>{team.score.toLocaleString()} pts</span>
+                      </div>
+                      <div className="report-team-members">
+                        {teamPlayers.map(p => <span key={p.id} className="report-team-member">{p.avatar || "🎮"} {p.nickname}</span>)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {sortedPlayers.length >= 1 && (
             <div className="card report-podium">

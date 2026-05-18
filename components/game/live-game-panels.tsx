@@ -307,17 +307,24 @@ export function PlayerAnswerGrid({
   submittingAnswer,
   timeLeft,
   onSubmit,
+  myTeam,
 }: {
   currentQuestion: GameQuestion;
   selectedAnswer: string | null;
   submittingAnswer: boolean;
   timeLeft: number;
   onSubmit: (answer: { id: string }) => void;
+  myTeam?: { name: string; color: string; emoji: string } | null;
 }) {
   const locked = selectedAnswer !== null || submittingAnswer || timeLeft <= 0;
 
   return (
     <div className="game-answer-grid">
+      {myTeam && (
+        <div className="game-my-team-badge" style={{ borderColor: myTeam.color, color: myTeam.color, background: `${myTeam.color}15` }}>
+          {myTeam.emoji} Your team: <strong>{myTeam.name}</strong>
+        </div>
+      )}
       {currentQuestion.answers?.map((answer, index) => {
         const a = answer as GameAnswerWithMedia;
         const selected = selectedAnswer === answer.id;
