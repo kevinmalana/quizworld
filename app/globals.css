@@ -2006,3 +2006,107 @@ body.qw-present-live-route main {
   .host-quiz-card { padding: 0.75rem; }
   .host-quiz-card__emoji { width: 2.25rem; height: 2.25rem; font-size: 1.4rem; }
 }
+
+/* ── Host page game mode selector ───────────────────────── */
+.host-modes-section {
+  margin: 1.5rem 0 1rem;
+}
+
+.host-modes-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.host-modes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.host-mode-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-xl);
+  border: 2px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.host-mode-btn:hover:not(:disabled) {
+  border-color: var(--accent-glow);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.host-mode-btn--selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  box-shadow: var(--shadow-glow-accent);
+}
+
+.host-mode-btn--locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.3);
+}
+
+.host-mode-btn__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.host-mode-btn__icon { font-size: 1.1rem; }
+
+.host-mode-btn__label {
+  font-weight: 700;
+  font-size: 0.88rem;
+  flex: 1;
+}
+
+.host-mode-btn__badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: var(--bg-subtle);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  padding: 0.1rem 0.4rem;
+  white-space: nowrap;
+}
+
+.host-mode-btn--selected .host-mode-btn__badge {
+  display: none;
+}
+
+.host-mode-btn__check {
+  font-size: 0.9rem;
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.host-mode-btn__desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.host-mode-btn--selected .host-mode-btn__desc {
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+@media (max-width: 480px) {
+  .host-modes-grid { grid-template-columns: 1fr 1fr; }
+  .host-mode-btn { padding: 0.75rem; }
+}

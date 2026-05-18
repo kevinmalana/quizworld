@@ -24,7 +24,7 @@ const limits = {
     "app/report/[pin]/page.tsx": 370,
     "app/explore/page.tsx": 345, // creator level fields added to profile fetch (+3 lines)
     "app/join/page.tsx": 290,
-    "app/host/page.tsx": 415, // v2 host page — quiz sections, search, recent, sticky launch bar
+    "app/host/page.tsx": 480, // v2 host page + game mode selector
   },
 };
 

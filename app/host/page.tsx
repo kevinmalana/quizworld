@@ -15,6 +15,51 @@ import {
 } from "@/lib/game-engine/config";
 import { writeHostSession } from "@/lib/host-session";
 
+// ─── Game modes ──────────────────────────────────────────────────────────────
+
+type GameMode = {
+  id: string;
+  label: string;
+  icon: string;
+  desc: string;
+  available: boolean;
+  badge?: string;
+};
+
+const GAME_MODES: GameMode[] = [
+  {
+    id: "classic",
+    label: "Classic",
+    icon: "🏆",
+    desc: "Everyone answers at the same time. Points awarded for speed and accuracy. A winner is crowned at the end.",
+    available: true,
+  },
+  {
+    id: "team",
+    label: "Team Battle",
+    icon: "👥",
+    desc: "Split players into teams. Teams compete collectively for the highest score.",
+    available: false,
+    badge: "Coming Soon",
+  },
+  {
+    id: "survival",
+    label: "Survival",
+    icon: "💀",
+    desc: "One wrong answer and you're out. Last player standing wins.",
+    available: false,
+    badge: "Coming Soon",
+  },
+  {
+    id: "practice",
+    label: "Practice Mode",
+    icon: "📖",
+    desc: "No time pressure. Players answer at their own pace. Great for learning.",
+    available: false,
+    badge: "Coming Soon",
+  },
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function generatePin(): string {
@@ -114,6 +159,7 @@ function HostPageContent() {
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
   const [section, setSection] = useState<"mine" | "recent" | "public">("mine");
+  const [gameMode, setGameMode] = useState("classic");
 
   useEffect(() => {
     if (!user) return;
@@ -221,7 +267,7 @@ function HostPageContent() {
 
         const response = await createPhoenixSession({
           quiz_id: fullQuiz.id,
-          game_mode: "classic",
+          game_mode: gameMode,
           questions: toPhoenixQuestions(fullQuiz as QuizFull),
         }, authSession.access_token);
 
@@ -234,7 +280,7 @@ function HostPageContent() {
         const newPin = generatePin();
         const { error: sessionError } = await supabase.from("game_sessions").insert({
           pin: newPin, quiz_id: fullQuiz.id, host_id: user.id,
-          status: "waiting", current_question_index: -1, game_mode: "classic",
+          status: "waiting", current_question_index: -1, game_mode: gameMode,
         });
         if (sessionError) throw sessionError;
         router.push(`/game/${newPin}`);
@@ -382,6 +428,29 @@ function HostPageContent() {
           ))}
         </div>
       )}
+
+      {/* Game mode selector */}
+      <div className="host-modes-section">
+        <h3 className="host-modes-title">Game Mode</h3>
+        <div className="host-modes-grid">
+          {GAME_MODES.map(mode => (
+            <button
+              key={mode.id}
+              disabled={!mode.available}
+              onClick={() => mode.available && setGameMode(mode.id)}
+              className={`host-mode-btn${gameMode === mode.id && mode.available ? " host-mode-btn--selected" : ""}${!mode.available ? " host-mode-btn--locked" : ""}`}
+            >
+              <div className="host-mode-btn__header">
+                <span className="host-mode-btn__icon">{mode.icon}</span>
+                <span className="host-mode-btn__label">{mode.label}</span>
+                {mode.badge && <span className="host-mode-btn__badge">{mode.badge}</span>}
+                {gameMode === mode.id && mode.available && <span className="host-mode-btn__check">✓</span>}
+              </div>
+              <p className="host-mode-btn__desc">{mode.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Launch button — bottom sticky on mobile */}
       {selectedQuiz && (
