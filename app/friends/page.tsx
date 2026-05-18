@@ -30,6 +30,7 @@ export default function FriendsPage() {
   const [friends, setFriends] = useState<FriendProfile[]>([]);
   const [pending, setPending] = useState<PendingRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [searchVal, setSearchVal] = useState("");
   const [searchResult, setSearchResult] = useState<{ id: string; username: string; display_name: string; avatar: string } | null>(null);
   const [searchMsg, setSearchMsg] = useState("");
@@ -109,23 +110,24 @@ export default function FriendsPage() {
       .neq("id", user?.id ?? "")
       .maybeSingle();
     if (!data) { setSearchMsg("No user found with that username."); return; }
-    // Check if already friends or pending
+    // Check if already friends or pending (either direction)
     const { data: existing } = await supabase
       .from("friendships")
       .select("id, status")
-      .or(`requester_id.eq.${user?.id},addressee_id.eq.${user?.id}`)
-      .or(`requester_id.eq.${data.id},addressee_id.eq.${data.id}`)
+      .or(`and(requester_id.eq.${user?.id},addressee_id.eq.${data.id}),and(requester_id.eq.${data.id},addressee_id.eq.${user?.id})`)
       .maybeSingle();
     if (existing) { setSearchMsg(`Already ${existing.status === "accepted" ? "friends" : "request pending"}.`); return; }
     setSearchResult(data);
   }
 
   async function sendRequest() {
-    if (!searchResult || !user) return;
+    if (!searchResult || !user || submitting) return;
+    setSubmitting(true);
     const { error } = await supabase.from("friendships").insert({ requester_id: user.id, addressee_id: searchResult.id });
     if (error) { setStatusMsg("Could not send request."); setStatusType("error"); }
     else { setStatusMsg(`Friend request sent to @${searchResult.username}!`); setStatusType("success"); setSearchResult(null); setSearchVal(""); }
     setTimeout(() => setStatusMsg(""), 3000);
+    setSubmitting(false);
   }
 
   async function acceptRequest(friendshipId: string) {
@@ -185,7 +187,7 @@ export default function FriendsPage() {
               <div className="social-member-name">{searchResult.display_name || searchResult.username}</div>
               <div className="social-member-handle">@{searchResult.username}</div>
             </div>
-            <button className="btn btn-primary btn-compact" onClick={sendRequest}>Send Request</button>
+            <button className="btn btn-primary btn-compact" onClick={sendRequest} disabled={submitting}>{submitting ? "Sending..." : "Send Request"}</button>
           </div>
         )}
       </div>

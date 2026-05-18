@@ -19,8 +19,9 @@ type LeaderboardEntry = {
 
 type TabType = "global" | "weekly";
 
-function LeaderboardRow({ entry, rank, isMe }: { entry: LeaderboardEntry; rank: number; isMe: boolean }) {
+function LeaderboardRow({ entry, rank, isMe, showWeekly }: { entry: LeaderboardEntry; rank: number; isMe: boolean; showWeekly?: boolean }) {
   const lv = calcLevel(entry.total_xp);
+  const xpDisplay = showWeekly ? (entry.weekly_xp ?? 0) : entry.total_xp;
   const podiumClass =
     rank === 1 ? "leaderboard-row leaderboard-row--gold" :
     rank === 2 ? "leaderboard-row leaderboard-row--silver" :
@@ -29,11 +30,11 @@ function LeaderboardRow({ entry, rank, isMe }: { entry: LeaderboardEntry; rank: 
   const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
 
   return (
-    <div className={podiumClass}>
+    <div className={podiumClass} style={isMe ? { border: "2px solid var(--accent)" } : {}}>
       <div className="leaderboard-rank">{medal}</div>
       <div className="leaderboard-avatar">{entry.avatar || "👤"}</div>
       <div className="leaderboard-info">
-        <div className="leaderboard-name">{entry.display_name || entry.username}</div>
+        <div className="leaderboard-name">{entry.display_name || entry.username} {isMe && <span style={{ fontSize: "0.7rem", color: "var(--accent)", fontWeight: 700 }}>← You</span>}</div>
         <div className="leaderboard-handle">
           @{entry.username}
           {" · "}
@@ -43,7 +44,7 @@ function LeaderboardRow({ entry, rank, isMe }: { entry: LeaderboardEntry; rank: 
       {entry.study_streak > 0 && (
         <div className="leaderboard-streak">🔥 {entry.study_streak}d</div>
       )}
-      <div className="leaderboard-xp">{entry.total_xp.toLocaleString()} XP</div>
+      <div className="leaderboard-xp">{xpDisplay.toLocaleString()} XP</div>
     </div>
   );
 }
@@ -172,6 +173,7 @@ export default function LeaderboardPage() {
                 entry={entry}
                 rank={i + 1}
                 isMe={user?.id === entry.user_id}
+                showWeekly={tab === "weekly"}
               />
             ))}
           </div>
