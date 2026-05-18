@@ -51,7 +51,7 @@ export default function ProfilePage() {
         supabase.from("quizzes").select("plays").eq("creator_id", userId).is("archived_at", null),
         supabase.from("study_progress").select("quiz_id").eq("user_id", userId),
         supabase.from("game_results").select("id, pin, quiz_id, host_id, player_count, finished_at, results").eq("host_id", userId),
-        supabase.from("profiles").select("display_name, username, avatar, total_xp").eq("id", userId).single(),
+        supabase.from("profiles").select("display_name, username, avatar").eq("id", userId).single(),
       ]);
       if (ignore) return;
       const hostedResults = (resResult.data as GameResultRow[] | null) ?? [];
@@ -68,7 +68,7 @@ export default function ProfilePage() {
         setUsername(profileResult.data.username || "");
         setOriginalUsername(profileResult.data.username || "");
         setAvatar(profileResult.data.avatar || "👤");
-        setTotalXp((profileResult.data.total_xp as number | null) ?? 0);
+        setTotalXp(0); // total_xp column not yet in DB — add via Supabase SQL editor
       }
       setLoading(false);
     }

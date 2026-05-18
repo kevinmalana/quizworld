@@ -79,22 +79,21 @@ function ExplorePageContent() {
 
     if (batch.length > 0) {
       const creatorIds = [...new Set(batch.map((q: any) => q.creator_id).filter(Boolean))];
-      let creatorMap: Record<string, { name: string; username: string; avatar: string; level: number; levelTitle: string }> = {};
+      let creatorMap: Record<string, { name: string; username: string; avatar: string; level: number | null; levelTitle: string | null }> = {};
 
       if (creatorIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, username, display_name, avatar, total_xp")
+          .select("id, username, display_name, avatar")
           .in("id", creatorIds);
         if (profiles) {
           for (const p of profiles) {
-            const lv = calcLevel((p.total_xp as number | null) ?? 0);
             creatorMap[p.id] = {
               name: p.display_name || p.username || "",
               username: p.username || "",
               avatar: p.avatar || "👤",
-              level: lv.level,
-              levelTitle: lv.title,
+              level: null,
+              levelTitle: null,
             };
           }
         }
