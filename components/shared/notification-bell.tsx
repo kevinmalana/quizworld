@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
@@ -24,9 +24,25 @@ type NotifItem = {
  */
 export function NotificationBell() {
   const { user } = useAuth();
-  const router = useRouter();
+  const pathname = usePathname();
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<NotifItem[]>([]);
   const [open, setOpen] = useState(false);
+
+  // Close dropdown on route change
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
 
   const fetchNotifs = useCallback(async () => {
     if (!user) return;
@@ -106,10 +122,10 @@ export function NotificationBell() {
   };
 
   return (
-    <div className="notif-bell-wrap">
+    <div className="notif-bell-wrap" ref={dropdownRef}>
       <button
         className="nav-icon-btn notif-bell-btn"
-        onClick={() => { setOpen(o => !o); }}
+        onClick={() => setOpen(o => !o)}
         aria-label={`Notifications${count > 0 ? ` (${count})` : ""}`}
         data-tooltip="Notifications"
       >
@@ -120,40 +136,37 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <>
-          <div className="notif-overlay" onClick={() => setOpen(false)} />
-          <div className="notif-dropdown">
-            <div className="notif-header">
-              <span className="notif-header-title">Notifications</span>
-              {count > 0 && (
-                <span className="notif-header-count">{count} new</span>
-              )}
-            </div>
-            {items.length === 0 ? (
-              <div className="notif-empty">All caught up! 🎉</div>
-            ) : (
-              <div className="notif-list">
-                {items.map(item => (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className="notif-item"
-                    onClick={() => setOpen(false)}
-                  >
-                    <span className="notif-icon">{iconMap[item.type]}</span>
-                    <div className="notif-content">
-                      <div className="notif-title">{item.title}</div>
-                      <div className="notif-subtitle">{item.subtitle}</div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+        <div className="notif-dropdown">
+          <div className="notif-header">
+            <span className="notif-header-title">Notifications</span>
+            {count > 0 && (
+              <span className="notif-header-count">{count} new</span>
             )}
-            <Link href="/friends" className="notif-footer" onClick={() => setOpen(false)}>
-              View all →
-            </Link>
           </div>
-        </>
+          {items.length === 0 ? (
+            <div className="notif-empty">All caught up! 🎉</div>
+          ) : (
+            <div className="notif-list">
+              {items.map(item => (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className="notif-item"
+                  onClick={() => setOpen(false)}
+                >
+                  <span className="notif-icon">{iconMap[item.type]}</span>
+                  <div className="notif-content">
+                    <div className="notif-title">{item.title}</div>
+                    <div className="notif-subtitle">{item.subtitle}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+          <Link href="/friends" className="notif-footer" onClick={() => setOpen(false)}>
+            View all →
+          </Link>
+        </div>
       )}
     </div>
   );
