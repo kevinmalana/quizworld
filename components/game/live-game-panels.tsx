@@ -102,6 +102,7 @@ export function WaitingLobbyPanel({
   amReady,
   onReady,
   onStart,
+  gameMode = "classic",
 }: {
   pin: string;
   joinUrl: string;
@@ -115,6 +116,7 @@ export function WaitingLobbyPanel({
   amReady: boolean;
   onReady: () => void;
   onStart: () => void;
+  gameMode?: string;
 }) {
   return (
     <div className="container game-lobby">
@@ -166,14 +168,24 @@ export function WaitingLobbyPanel({
           <div className="game-lobby-you-ready">✅ You&apos;re ready!</div>
         )}
         {isHost && (
-          <button
-            onClick={onStart}
-            disabled={players.length === 0}
-            className="btn btn-primary btn-lg"
-            style={{ width: "100%" }}
-          >
-            {players.length === 0 ? "Waiting for players..." : "Start Game 🚀"}
-          </button>
+          <>
+            {gameMode === "survival" && players.length < 2 && players.length > 0 && (
+              <div className="game-lobby-warning">⚠️ Survival works best with 3+ players</div>
+            )}
+            {gameMode === "team" && players.length < 2 && players.length > 0 && (
+              <div className="game-lobby-warning">⚠️ Team Battle needs at least 2 players</div>
+            )}
+            <button
+              onClick={onStart}
+              disabled={players.length === 0 || (gameMode === "team" && players.length < 2)}
+              className="btn btn-primary btn-lg"
+              style={{ width: "100%" }}
+            >
+              {players.length === 0 ? "Waiting for players..."
+                : gameMode === "team" && players.length < 2 ? "Need 2+ players for Team Battle"
+                : "Start Game 🚀"}
+            </button>
+          </>
         )}
         {!isHost && !currentPlayer && playerSessionReady && (
           <Link href={`/join?pin=${pin}`} className="btn btn-secondary">

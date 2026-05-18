@@ -816,6 +816,7 @@ export default function GamePage() {
           currentPlayer={currentPlayer}
           playerSessionReady={playerSessionReady}
           amReady={amReady}
+          gameMode={gameMode}
           onReady={() => {
             setAmReady(true);
             setReadyPlayers((prev) => new Set(prev).add(playerSession?.playerId ?? ""));

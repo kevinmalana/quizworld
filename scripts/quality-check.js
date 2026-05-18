@@ -16,7 +16,7 @@ const limits = {
   inlineStyles: 218,
   anyCount: 45, // string literal "any" in classroom insights text in /u/[username]
   routeFiles: {
-    "app/game/[pin]/page.tsx": 1020, // survival + team mode additions
+    "app/game/[pin]/page.tsx": 1025, // gameMode prop added to WaitingLobbyPanel
     "app/create/page.tsx": 600,
     "app/dashboard/page.tsx": 450,
     "app/present/[code]/live/page.tsx": 440,

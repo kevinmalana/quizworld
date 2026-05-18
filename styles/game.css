@@ -793,3 +793,15 @@
 .team-winner-label { font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .team-winner-name { font-size: 1.1rem; font-weight: 800; margin: 0.15rem 0; }
 .team-winner-score { font-size: 0.85rem; color: var(--muted); }
+
+/* ── Lobby warnings ─────────────────────────────────────────────────────── */
+.game-lobby-warning {
+  font-size: 0.82rem;
+  color: #f59e0b;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  background: #fef9c322;
+  border-radius: var(--radius-md);
+  margin-bottom: 0.5rem;
+  text-align: center;
+}

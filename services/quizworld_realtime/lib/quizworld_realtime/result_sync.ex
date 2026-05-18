@@ -55,6 +55,11 @@ defmodule QuizworldRealtime.ResultSync do
            end),
          question_count: length(game.questions || []),
          finished_status: game.status,
+         # Game mode data
+         game_mode: game.game_mode || "classic",
+         eliminated: MapSet.to_list(game.eliminated || MapSet.new()),
+         teams: Enum.into(game.teams || %{}, %{}, fn {k, v} -> {k, Map.drop(v, [:__struct__])} end),
+         team_assignments: game.team_assignments || %{},
          question_breakdown: question_breakdown
        },
        p_finished_at: DateTime.utc_now()
