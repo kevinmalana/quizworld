@@ -36,6 +36,7 @@ export default function StudyPage() {
   const [quickFireTimeLeft, setQuickFireTimeLeft] = useState(0);
   const [advancing, setAdvancing]     = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
+  const [timerPaused, setTimerPaused] = useState(false);
 
   useEffect(() => {
     async function fetchQuiz() {
@@ -67,24 +68,26 @@ export default function StudyPage() {
 
   const currentQuestion = questions[currentIndex] ?? null;
 
-  // QuickFire timer — reset on question change
+  // QuickFire timer — reset only when a new question is truly ready (not mid-advance)
   useEffect(() => {
-    if (mode !== "quickfire" || !currentQuestion || sessionResult) return;
+    if (mode !== "quickfire" || !currentQuestion || sessionResult || advancing) return;
     setQuickFireTimeLeft(currentQuestion.time_limit ?? 20);
-  }, [mode, currentQuestion?.id, sessionResult]);
+    setTimerPaused(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, currentQuestion?.id, sessionResult]); // intentionally exclude `advancing`
 
-  // QuickFire timer — tick
+  // QuickFire timer — tick (pause while advancing so clock doesn't run on next card)
   useEffect(() => {
-    if (mode !== "quickfire" || !currentQuestion || sessionResult || advancing || quickFireTimeLeft <= 0) return;
+    if (mode !== "quickfire" || !currentQuestion || sessionResult || advancing || timerPaused || quickFireTimeLeft <= 0) return;
     const t = window.setTimeout(() => setQuickFireTimeLeft((n) => n - 1), 1000);
     return () => window.clearTimeout(t);
-  }, [advancing, currentQuestion, mode, quickFireTimeLeft, sessionResult]);
+  }, [advancing, currentQuestion, mode, quickFireTimeLeft, sessionResult, timerPaused]);
 
   // QuickFire timer — expired → auto-wrong
   useEffect(() => {
-    if (mode !== "quickfire" || !currentQuestion || sessionResult || advancing || quickFireTimeLeft > 0) return;
+    if (mode !== "quickfire" || !currentQuestion || sessionResult || advancing || timerPaused || quickFireTimeLeft > 0) return;
     void recordAnswer(false);
-  }, [advancing, currentQuestion, mode, quickFireTimeLeft, sessionResult]);
+  }, [advancing, currentQuestion, mode, quickFireTimeLeft, sessionResult, timerPaused]);
 
   const persistProgress = async (result: SessionResult) => {
     if (!user || !quiz) {
@@ -139,16 +142,19 @@ export default function StudyPage() {
     await persistProgress(result);
   };
 
+  const ADVANCE_DELAY = mode === "quickfire" ? 1200 : 1800;
+
   const advanceToNext = async (nextCorrect: number, nextTotal: number, nextWrong: StudyQuestion[]) => {
     if (currentIndex < questions.length - 1) {
       setAdvancing(true);
-      // Delay gives user time to read explanation before next question loads
+      setTimerPaused(true); // freeze QuickFire clock during feedback window
       window.setTimeout(() => {
         setCurrentIndex((i) => i + 1);
         setCardState("front");
-        setAdvancing(false);
         setLastAnswerCorrect(null);
-      }, 1800);
+        setAdvancing(false);
+        // timerPaused clears via the reset effect once currentQuestion?.id changes
+      }, ADVANCE_DELAY);
       return;
     }
     await finishSession(nextCorrect, nextTotal, nextWrong);
@@ -191,6 +197,7 @@ export default function StudyPage() {
     setSaveMessage("");
     setAdvancing(false);
     setQuickFireTimeLeft(0);
+    setTimerPaused(false);
     setLastAnswerCorrect(null);
     setMode("choose");
   };

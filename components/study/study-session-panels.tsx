@@ -25,22 +25,25 @@ function StudyPlayHeader({ onExit, right }: { onExit: () => void; right: React.R
 }
 
 function AnswerFeedback({ correct, advancing }: { correct: boolean | null; advancing: boolean }) {
-  if (correct === null || advancing) return null;
+  // Keep feedback visible during advancing (don't hide it while waiting to advance)
+  if (correct === null) return null;
   return (
-    <div className="study-answer-feedback" style={{ color: correct ? "var(--success)" : "#ef4444" }}>
+    <div className={`study-answer-feedback${advancing ? " is-advancing" : ""}`} style={{ color: correct ? "var(--success)" : "#ef4444" }}>
       {correct ? "✅ Correct!" : "❌ Wrong!"}
     </div>
   );
 }
 
 function ExplanationBox({ question, show }: { question: StudyQuestion; show: boolean }) {
-  if (!show || !question.explanation) return null;
+  if (!show) return null;
   const correct = question.answers?.find((a) => a.is_correct);
+  // Always show correct answer; explanation text is optional
+  if (!correct && !question.explanation) return null;
   return (
     <div className="study-explanation-box">
-      <div className="study-explanation-label">💡 Explanation</div>
+      <div className="study-explanation-label">💡 Answer</div>
       {correct && <div className="study-explanation-answer">✅ {correct.text}</div>}
-      <div className="study-explanation-text">{question.explanation}</div>
+      {question.explanation && <div className="study-explanation-text">{question.explanation}</div>}
     </div>
   );
 }
@@ -167,6 +170,7 @@ export function FlashcardPanel({
   onAnswer: (correct: boolean) => void;
 }) {
   const isBack = cardState === "back";
+  const answered = lastAnswerCorrect !== null;
 
   return (
     <div className="container study-play-shell">
@@ -177,9 +181,9 @@ export function FlashcardPanel({
 
       <div className="study-flashcard-perspective">
         <div
-          onClick={isBack ? undefined : onFlip}
-          className="study-flashcard"
-          style={{ transform: isBack ? "rotateY(180deg)" : "rotateY(0deg)" }}
+          onClick={(!isBack && !advancing) ? onFlip : undefined}
+          className={`study-flashcard${advancing ? " is-advancing" : ""}`}
+          style={{ transform: isBack ? "rotateY(180deg)" : "rotateY(0deg)", cursor: (!isBack && !advancing) ? "pointer" : "default" }}
         >
           {/* Front — question only */}
           <div className="study-flashcard-face">
@@ -189,16 +193,18 @@ export function FlashcardPanel({
                 <img src={question.image_url} alt="" className="study-question-image" />
               )}
               <div className="study-flashcard-question">{question.text}</div>
-              <div className="study-muted study-flashcard-hint">Tap to reveal answers</div>
+              {!advancing && <div className="study-muted study-flashcard-hint">Tap to reveal answers</div>}
             </div>
           </div>
 
           {/* Back — answer grid + explanation */}
           <div className="study-flashcard-face study-flashcard-face--back">
             <div className="card study-flashcard-card">
-              <div className="study-flashcard-answer-title">Select the correct answer:</div>
+              <div className="study-flashcard-answer-title">
+                {answered ? (lastAnswerCorrect ? "✅ Nice work!" : "❌ Not quite") : "Select the correct answer:"}
+              </div>
               <AnswerGrid question={question} advancing={advancing} stopPropagation onAnswer={onAnswer} />
-              {lastAnswerCorrect !== null && (
+              {answered && (
                 <ExplanationBox question={question} show />
               )}
             </div>
@@ -212,7 +218,8 @@ export function FlashcardPanel({
           <div className="study-score-divider">/</div>
           <div className="study-wrong-count">❌ {answeredCount - correctCount}</div>
         </div>
-        <AnswerFeedback correct={lastAnswerCorrect} advancing={advancing} />
+        {advancing && <div className="study-advancing-hint">Next question loading...</div>}
+        {!advancing && <AnswerFeedback correct={lastAnswerCorrect} advancing={advancing} />}
       </div>
     </div>
   );
@@ -243,6 +250,8 @@ export function QuickFirePanel({
   onExit: () => void;
   onAnswer: (correct: boolean) => void;
 }) {
+  const urgentTimer = timeLeft <= 5;
+
   return (
     <div className="container study-play-shell">
       <StudyPlayHeader
@@ -256,10 +265,14 @@ export function QuickFirePanel({
       />
 
       <div className="study-timer-wrap">
-        <div className="study-timer" style={{ background: timeLeft <= 5 ? "var(--primary)" : "var(--accent)" }}>
-          {timeLeft}
+        <div
+          className={`study-timer${urgentTimer ? " is-urgent" : ""}${advancing ? " is-paused" : ""}`}
+          style={{ background: urgentTimer ? "var(--primary)" : "var(--accent)" }}
+        >
+          {advancing ? "✓" : timeLeft}
         </div>
-        <AnswerFeedback correct={lastAnswerCorrect} advancing={advancing} />
+        {/* Show feedback while advancing so user sees result before next question */}
+        <AnswerFeedback correct={lastAnswerCorrect} advancing={false} />
       </div>
 
       <div className="card study-question-card">

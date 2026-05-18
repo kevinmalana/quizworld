@@ -751,3 +751,37 @@
   color: var(--muted);
   margin-bottom: 0.75rem;
 }
+
+/* ── Study UX fix states ─────────────────────────────────────────────────── */
+
+/* Feedback stays visible during advancing (fade hint only) */
+.study-answer-feedback.is-advancing { opacity: 0.7; }
+
+/* Flashcard locked during advancing */
+.study-flashcard.is-advancing { pointer-events: none; opacity: 0.85; }
+
+/* "Next question loading..." hint */
+.study-advancing-hint {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+  animation: study-pulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes study-pulse { from { opacity: 0.5; } to { opacity: 1; } }
+
+/* QuickFire timer — urgent (≤5s) pulses */
+.study-timer.is-urgent {
+  animation: timer-urgent 0.5s ease-in-out infinite alternate;
+}
+@keyframes timer-urgent {
+  from { transform: scale(1); }
+  to   { transform: scale(1.12); }
+}
+
+/* QuickFire timer — paused/advancing shows checkmark, no pulse */
+.study-timer.is-paused {
+  animation: none;
+  opacity: 0.7;
+  font-size: 1.4rem;
+}
