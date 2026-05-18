@@ -69,6 +69,10 @@ export function Navigation() {
               <span>📖</span>
               <span>Study</span>
             </Link>
+            <Link href="/leaderboard" className={`nav-item ${pathname === "/leaderboard" ? "active" : ""}`}>
+              <span>🏆</span>
+              <span>Ranks</span>
+            </Link>
             <Link href="/present" className={`nav-item ${pathname === "/present" || pathname.startsWith("/present/") ? "active" : ""}`}>
               <span>🎤</span>
               <span>Present</span>
@@ -128,6 +132,11 @@ export function Navigation() {
               <Link href="/join" className="mobile-link">🎮 Join</Link>
               <Link href="/explore" className="mobile-link">🔍 Explore</Link>
               <Link href="/study" className="mobile-link">📖 Study</Link>
+              <Link href="/leaderboard" className="mobile-link">🏆 Leaderboard</Link>
+              <Link href="/friends" className="mobile-link">👥 Friends</Link>
+              <Link href="/classrooms" className="mobile-link">🏫 Classrooms</Link>
+              <Link href="/groups" className="mobile-link">🎯 Trivia Groups</Link>
+              <Link href="/achievements" className="mobile-link">🏅 Achievements</Link>
               <Link href="/present" className="mobile-link">🎤 Present</Link>
               <Link href="/create" className="mobile-link">✨ Create</Link>
               <Link href="/host" className="mobile-link"><span style={{display:"inline-flex",alignItems:"center",gap:"0.4rem"}}><HostIcon size={16} /> Host</span></Link>

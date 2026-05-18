@@ -272,6 +272,41 @@ export default function ProfilePage() {
                     <div className="profile-link-desc">Join or manage classrooms</div>
                   </div>
                 </Link>
+                <Link href="/groups" className="card profile-link-card">
+                  <span className="profile-link-icon">🎯</span>
+                  <div>
+                    <div className="profile-link-title">Groups</div>
+                    <div className="profile-link-desc">Quiz with your community</div>
+                  </div>
+                </Link>
+                <Link href="/achievements" className="card profile-link-card">
+                  <span className="profile-link-icon">🏅</span>
+                  <div>
+                    <div className="profile-link-title">Achievements</div>
+                    <div className="profile-link-desc">Track your milestones</div>
+                  </div>
+                </Link>
+                <Link href="/groups" className="card profile-link-card">
+                  <span className="profile-link-icon">🎯</span>
+                  <div>
+                    <div className="profile-link-title">Trivia Groups</div>
+                    <div className="profile-link-desc">Quiz with your community</div>
+                  </div>
+                </Link>
+                <Link href="/leaderboard" className="card profile-link-card">
+                  <span className="profile-link-icon">🏆</span>
+                  <div>
+                    <div className="profile-link-title">Leaderboard</div>
+                    <div className="profile-link-desc">See the top players</div>
+                  </div>
+                </Link>
+                <Link href="/achievements" className="card profile-link-card">
+                  <span className="profile-link-icon">🏅</span>
+                  <div>
+                    <div className="profile-link-title">Achievements</div>
+                    <div className="profile-link-desc">Earn badges and rewards</div>
+                  </div>
+                </Link>
               </div>
             </div>
           </div>
