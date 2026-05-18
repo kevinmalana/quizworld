@@ -127,21 +127,21 @@ export default function ClassroomDetailPage() {
 
   return (
     <div className="container social-shell">
-      <div style={{ marginBottom: "0.5rem" }}>
+      <div className="social-back-link">
         <Link href="/classrooms" className="btn btn-secondary btn-compact">← Classrooms</Link>
       </div>
 
-      <div className="social-header" style={{ marginBottom: "1rem" }}>
+      <div className="social-header social-header--compact">
         <h1>{classroom.name}</h1>
         {classroom.description && <p>{classroom.description}</p>}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+        <div className="social-header-meta">
           <div className="social-join-code">
             {classroom.join_code}
             <button onClick={copyCode}>{copied ? "✓" : "📋"}</button>
           </div>
-          <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>👥 {members.length} members</span>
+          <span className="social-header-stat">👥 {members.length} members</span>
           {myRole && <span className={`social-role-badge social-role-badge--${myRole}`}>{myRole}</span>}
-          <button className="btn btn-secondary btn-compact" style={{ fontSize: "0.75rem", marginLeft: "auto" }} onClick={handleLeave}>Leave Classroom</button>
+          <button className="btn btn-secondary btn-compact social-leave-btn" onClick={handleLeave}>Leave Classroom</button>
         </div>
       </div>
 
@@ -156,7 +156,7 @@ export default function ClassroomDetailPage() {
       </div>
 
       {tab === "members" && (
-        <div className="card" style={{ padding: "0.75rem 1.25rem" }}>
+        <div className="card social-member-list-card">
           {members.map(m => {
             const lv = calcLevel(m.total_xp);
             return (
@@ -167,14 +167,14 @@ export default function ClassroomDetailPage() {
                   <div className="social-member-handle">@{m.username}</div>
                   <div className="social-member-meta">
                     <span className="social-level-badge">⭐ Lv {lv.level} · {lv.title}</span>
-                    {m.study_streak > 0 && <span style={{ fontSize: "0.75rem", color: "var(--primary)" }}>🔥 {m.study_streak}d</span>}
+                    {m.study_streak > 0 && <span className="social-streak-pill">🔥 {m.study_streak}d</span>}
                   </div>
                 </div>
-                <div style={{ textAlign: "right" }}>
+                <div className="social-member-actions">
                   <span className={`social-role-badge social-role-badge--${m.role}`}>{m.role}</span>
-                  <div style={{ fontSize: "0.82rem", color: "var(--accent)", fontWeight: 700, marginTop: "0.25rem" }}>{m.total_xp.toLocaleString()} XP</div>
+                  <div className="social-xp-label">{m.total_xp.toLocaleString()} XP</div>
                   {myRole === "teacher" && m.user_id !== user?.id && (
-                    <button className="btn btn-secondary btn-compact" style={{ fontSize: "0.7rem", marginTop: "0.25rem" }} onClick={() => handleRemoveMember(m.user_id, m.display_name || m.username)}>Remove</button>
+                    <button className="btn btn-secondary btn-compact social-btn-sm" onClick={() => handleRemoveMember(m.user_id, m.display_name || m.username)}>Remove</button>
                   )}
                 </div>
               </div>
@@ -186,12 +186,12 @@ export default function ClassroomDetailPage() {
       {tab === "assignments" && (
         <div>
           {myRole === "teacher" && (
-            <div style={{ marginBottom: "1rem" }}>
+            <div className="social-header--compact">
               <button className="btn btn-primary" onClick={() => setShowAssign(!showAssign)}>+ Assign Quiz</button>
             </div>
           )}
           {showAssign && (
-            <div className="card" style={{ padding: "1.25rem", marginBottom: "1rem" }}>
+            <div className="card social-form-card">
               <div className="social-modal-field">
                 <label className="social-modal-label">Select Quiz</label>
                 <select className="social-modal-input" value={assignQuizId} onChange={e => setAssignQuizId(e.target.value)}>
@@ -217,15 +217,15 @@ export default function ClassroomDetailPage() {
                 <div key={a.id} className={`card social-card${a.completed ? " assignment-card--done" : ""}`}>
                   <div className="social-card-header">
                     <div className="social-card-emoji">{a.completed ? "✅" : "📝"}</div>
-                    <div className="social-card-title" style={{ textDecoration: a.completed ? "line-through" : "none", opacity: a.completed ? 0.6 : 1 }}>{a.quiz_title ?? "Quiz"}</div>
+                    <div className={`social-card-title${a.completed ? " social-card-title--done" : ""}`}>{a.quiz_title ?? "Quiz"}</div>
                   </div>
                   {a.due_date && (
-                    <div style={{ fontSize: "0.8rem", color: new Date(a.due_date) < new Date() && !a.completed ? "var(--primary)" : "var(--muted)" }}>
+                    <div className={new Date(a.due_date) < new Date() && !a.completed ? "social-overdue-label" : "social-due-label"}>
                       {new Date(a.due_date) < new Date() && !a.completed ? "⚠️ Overdue: " : "Due: "}{new Date(a.due_date).toLocaleDateString()}
                     </div>
                   )}
                   <div className="social-card-actions">
-                    <Link href={`/study/${a.quiz_id}`} className="btn btn-secondary btn-compact" style={{ flex: 1, textAlign: "center" }}>📖 Study</Link>
+                    <Link href={`/study/${a.quiz_id}`} className="btn btn-secondary btn-compact social-flex-1">📖 Study</Link>
                     {myRole === "student" && (
                       <button
                         className={`btn btn-compact ${a.completed ? "btn-secondary" : "btn-primary"}`}

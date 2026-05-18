@@ -114,25 +114,25 @@ export default function GroupDetailPage() {
 
   return (
     <div className="container social-shell">
-      <div style={{ marginBottom: "0.5rem" }}>
+      <div className="social-back-link">
         <Link href="/groups" className="btn btn-secondary btn-compact">← Groups</Link>
       </div>
 
-      <div className="social-header" style={{ marginBottom: "1rem" }}>
+      <div className="social-header social-header--compact">
         <h1>{group.emoji} {group.name}</h1>
         {group.description && <p>{group.description}</p>}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+        <div className="social-header-meta">
           {myRole && (
             <div className="social-join-code">
               {group.join_code}
               <button onClick={() => { navigator.clipboard.writeText(group.join_code); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>{copied ? "✓" : "📋"}</button>
             </div>
           )}
-          <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>👥 {members.length} members</span>
-          <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{group.is_public ? "🌐 Public" : "🔒 Private"}</span>
+          <span className="social-header-stat">👥 {members.length} members</span>
+          <span className="social-header-stat">{group.is_public ? "🌐 Public" : "🔒 Private"}</span>
           {myRole && <span className={`social-role-badge social-role-badge--${myRole}`}>{myRole}</span>}
           {!myRole && user && <button className="btn btn-primary btn-compact" onClick={handleJoin}>Join Group</button>}
-          {myRole && <button className="btn btn-secondary btn-compact" style={{ fontSize: "0.75rem" }} onClick={handleLeave}>Leave Group</button>}
+          {myRole && <button className="btn btn-secondary btn-compact social-leave-btn" onClick={handleLeave}>Leave Group</button>}
         </div>
       </div>
 
@@ -143,7 +143,7 @@ export default function GroupDetailPage() {
       </div>
 
       {tab === "members" && (
-        <div className="card" style={{ padding: "0.75rem 1.25rem" }}>
+        <div className="card social-member-list-card">
           {members.map(m => {
             const lv = calcLevel(m.total_xp);
             return (
@@ -154,12 +154,12 @@ export default function GroupDetailPage() {
                   <div className="social-member-handle">@{m.username}</div>
                   <div className="social-member-meta">
                     <span className="social-level-badge">⭐ Lv {lv.level} · {lv.title}</span>
-                    {m.study_streak > 0 && <span style={{ fontSize: "0.75rem", color: "var(--primary)" }}>🔥 {m.study_streak}d</span>}
+                    {m.study_streak > 0 && <span className="social-streak-pill">🔥 {m.study_streak}d</span>}
                   </div>
                 </div>
-                <div style={{ textAlign: "right" }}>
+                <div className="social-member-actions">
                   <span className={`social-role-badge social-role-badge--${m.role}`}>{m.role}</span>
-                  <div style={{ fontSize: "0.82rem", color: "var(--accent)", fontWeight: 700, marginTop: "0.25rem" }}>{m.total_xp.toLocaleString()} XP</div>
+                  <div className="social-xp-label">{m.total_xp.toLocaleString()} XP</div>
                 </div>
               </div>
             );
@@ -171,12 +171,12 @@ export default function GroupDetailPage() {
         <div>
           {pinMsg && <div className="social-status-msg social-status-msg--success">{pinMsg}</div>}
           {myRole && (
-            <div style={{ marginBottom: "1rem" }}>
+            <div className="social-header--compact">
               <button className="btn btn-primary btn-compact" onClick={() => setShowPinSearch(!showPinSearch)}>📌 Pin a Quiz</button>
             </div>
           )}
           {showPinSearch && (
-            <div className="card" style={{ padding: "1rem", marginBottom: "1rem" }}>
+            <div className="card social-form-card">
               <div className="social-add-row">
                 <input className="social-add-input" value={pinSearchVal} onChange={e => setPinSearchVal(e.target.value)} placeholder="Search public quizzes..." onKeyDown={e => e.key === "Enter" && handleSearchPin()} />
                 <button className="btn btn-primary btn-compact" onClick={handleSearchPin}>Search</button>
@@ -210,11 +210,11 @@ export default function GroupDetailPage() {
                     <span>{pq.quiz_category}</span>
                     <span>▶️ {pq.quiz_plays} plays</span>
                   </div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Pinned by @{pq.pinned_by_username}</div>
+                  <div className="social-pin-by">Pinned by @{pq.pinned_by_username}</div>
                   <div className="social-card-actions">
-                    <Link href={`/study/${pq.quiz_id}`} className="btn btn-secondary btn-compact" style={{ flex: 1, textAlign: "center" }}>📖 Study</Link>
-                    <Link href={`/host?quiz=${pq.quiz_id}`} className="btn btn-primary btn-compact" style={{ flex: 1, textAlign: "center" }}>🏁 Host</Link>
-                    {myRole && <button className="btn btn-secondary btn-compact" onClick={() => handleUnpin(pq.id)}>❌</button>}
+                    <Link href={`/study/${pq.quiz_id}`} className="btn btn-secondary btn-compact social-flex-1">📖 Study</Link>
+                    <Link href={`/host?quiz=${pq.quiz_id}`} className="btn btn-primary btn-compact social-flex-1">🏁 Host</Link>
+                    {myRole && <button className="btn btn-secondary btn-compact social-unpin-btn" onClick={() => handleUnpin(pq.id)}>❌</button>}
                   </div>
                 </div>
               ))}
