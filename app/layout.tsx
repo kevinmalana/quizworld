@@ -9,6 +9,7 @@ import "../styles/profile.css";
 import "../styles/builder.css";
 import "../styles/study.css";
 import "../styles/dashboard.css";
+import "../styles/friends.css";
 import { Navigation } from "@/components/navigation";
 import { AuthProvider } from "@/components/supabase-provider";
 import { ErrorBoundary } from "@/components/error-boundary";

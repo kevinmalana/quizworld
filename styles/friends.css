@@ -1,0 +1,47 @@
+/* ═══════════════════════════════════════════════════════════
+   QuizWorld Friends Page
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Card wrappers ──────────────────────────────────────── */
+.friends-section-card {
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.friends-list-card {
+  padding: 0.75rem 1.25rem;
+}
+
+/* ── Add-friend search section title ────────────────────── */
+.friends-section-title-flush {
+  margin-top: 0;
+}
+
+/* ── Search message ─────────────────────────────────────── */
+.friends-search-msg {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.25rem 0;
+}
+
+/* ── Friend streak inline label ─────────────────────────── */
+.friends-streak-label {
+  font-size: 0.75rem;
+  color: var(--primary);
+}
+
+/* ── Friend XP + remove section ─────────────────────────── */
+.friends-xp-col {
+  text-align: right;
+}
+
+.friends-xp-value {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--accent);
+}
+
+.friends-remove-btn {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+}
