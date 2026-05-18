@@ -205,6 +205,7 @@ export default function StudyPage() {
     setQuickFireTimeLeft(0);
     setTimerPaused(false);
     setLastAnswerCorrect(null);
+    setTotalXp(undefined);
     setMode("choose");
   };
 

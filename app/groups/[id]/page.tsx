@@ -55,6 +55,13 @@ export default function GroupDetailPage() {
     load();
   }
 
+  async function handleLeave() {
+    if (!user || !group) return;
+    if (!confirm(`Leave "${group.name}"?`)) return;
+    await supabase.from("trivia_group_members").delete().eq("group_id", group.id).eq("user_id", user.id);
+    router.push("/groups");
+  }
+
   if (loading) return <div className="container social-shell"><div className="social-empty"><div className="social-empty-icon">📡</div><div>Loading...</div></div></div>;
   if (!group) return null;
 
@@ -80,6 +87,7 @@ export default function GroupDetailPage() {
           <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{group.is_public ? "🌐 Public" : "🔒 Private"}</span>
           {myRole && <span className={`social-role-badge social-role-badge--${myRole}`}>{myRole}</span>}
           {!myRole && user && <button className="btn btn-primary btn-compact" onClick={handleJoin}>Join Group</button>}
+          {myRole && <button className="btn btn-secondary btn-compact" style={{ fontSize: "0.75rem" }} onClick={handleLeave}>Leave Group</button>}
         </div>
       </div>
 

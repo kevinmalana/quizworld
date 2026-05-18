@@ -55,10 +55,12 @@ export default function LeaderboardPage() {
   const [globalEntries, setGlobalEntries] = useState<LeaderboardEntry[]>([]);
   const [weeklyEntries, setWeeklyEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setError(null);
       const [globalRes, weeklyRes] = await Promise.all([
         supabase
           .from("profiles")
@@ -70,6 +72,8 @@ export default function LeaderboardPage() {
           .select("*")
           .limit(50),
       ]);
+
+      if (globalRes.error) { setError("Could not load leaderboard."); setLoading(false); return; }
 
       setGlobalEntries(
         (globalRes.data ?? []).map(p => ({
@@ -125,7 +129,13 @@ export default function LeaderboardPage() {
         </button>
       </div>
 
-      {loading ? (
+      {error ? (
+        <div className="social-empty">
+          <div className="social-empty-icon">⚠️</div>
+          <div className="social-empty-title">{error}</div>
+          <button className="btn btn-primary btn-compact" onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      ) : loading ? (
         <div className="social-empty">
           <div className="social-empty-icon">📡</div>
           <div>Loading rankings...</div>

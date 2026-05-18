@@ -22,6 +22,8 @@ type ProfileStats = {
   hostedGames: number;
   playersReached: number;
   bestHostedScore: number;
+  friendCount: number;
+  classroomCount: number;
 };
 
 type Tab = "overview" | "edit" | "account";
@@ -30,7 +32,7 @@ export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("overview");
-  const [stats, setStats] = useState<ProfileStats>({ quizCount: 0, totalPlays: 0, studiedCount: 0, hostedGames: 0, playersReached: 0, bestHostedScore: 0 });
+  const [stats, setStats] = useState<ProfileStats>({ quizCount: 0, totalPlays: 0, studiedCount: 0, hostedGames: 0, playersReached: 0, bestHostedScore: 0, friendCount: 0, classroomCount: 0 });
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [originalUsername, setOriginalUsername] = useState("");
@@ -47,11 +49,13 @@ export default function ProfilePage() {
     const userId = user.id;
     let ignore = false;
     async function load() {
-      const [pResult, progResult, resResult, profileResult] = await Promise.all([
+      const [pResult, progResult, resResult, profileResult, friendResult, classResult] = await Promise.all([
         supabase.from("quizzes").select("plays").eq("creator_id", userId).is("archived_at", null),
         supabase.from("study_progress").select("quiz_id").eq("user_id", userId),
         supabase.from("game_results").select("id, pin, quiz_id, host_id, player_count, finished_at, results").eq("host_id", userId),
         supabase.from("profiles").select("display_name, username, avatar, total_xp").eq("id", userId).single(),
+        supabase.from("friendships").select("id").or(`requester_id.eq.${userId},addressee_id.eq.${userId}`).eq("status", "accepted"),
+        supabase.from("classroom_members").select("id").eq("user_id", userId),
       ]);
       if (ignore) return;
       const hostedResults = (resResult.data as GameResultRow[] | null) ?? [];
@@ -62,6 +66,8 @@ export default function ProfilePage() {
         hostedGames: getHostedGameCount(hostedResults),
         playersReached: getTotalHostedPlayers(hostedResults),
         bestHostedScore: getBestHostedScore(hostedResults),
+        friendCount: friendResult.data?.length ?? 0,
+        classroomCount: classResult.data?.length ?? 0,
       });
       if (profileResult.data) {
         setDisplayName(profileResult.data.display_name || "");
@@ -182,6 +188,8 @@ export default function ProfilePage() {
               <span className="profile-hero-stat">{stats.totalPlays} plays</span>
               <span className="profile-hero-divider">·</span>
               <span className="profile-hero-stat">{stats.hostedGames} games</span>
+              {stats.friendCount > 0 && <><span className="profile-hero-divider">·</span><span className="profile-hero-stat">👥 {stats.friendCount} friends</span></>}
+              {stats.classroomCount > 0 && <><span className="profile-hero-divider">·</span><span className="profile-hero-stat">🏫 {stats.classroomCount} classes</span></>}
             </div>
           </div>
           <div className="profile-hero-actions">

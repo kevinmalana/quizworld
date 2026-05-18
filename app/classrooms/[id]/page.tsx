@@ -84,13 +84,29 @@ export default function ClassroomDetailPage() {
     load();
   }
 
+  async function handleLeave() {
+    if (!user || !classroom) return;
+    if (myRole === "teacher" && members.filter(m => m.role === "teacher").length <= 1) {
+      alert("You're the only teacher — assign another teacher before leaving.");
+      return;
+    }
+    if (!confirm(`Leave "${classroom.name}"?`)) return;
+    await supabase.from("classroom_members").delete().eq("classroom_id", id).eq("user_id", user.id);
+    router.push("/classrooms");
+  }
+
+  async function handleRemoveMember(userId: string, memberName: string) {
+    if (!confirm(`Remove ${memberName} from this classroom?`)) return;
+    await supabase.from("classroom_members").delete().eq("classroom_id", id).eq("user_id", userId);
+    load();
+  }
+
   function copyCode() {
     navigator.clipboard.writeText(classroom?.join_code ?? "");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
-  if (loading) return <div className="container social-shell"><div className="social-empty"><div className="social-empty-icon">📡</div><div>Loading...</div></div></div>;
   if (!classroom) return null;
 
   const leaderboard = [...members].sort((a, b) => b.total_xp - a.total_xp);
@@ -111,6 +127,7 @@ export default function ClassroomDetailPage() {
           </div>
           <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>👥 {members.length} members</span>
           {myRole && <span className={`social-role-badge social-role-badge--${myRole}`}>{myRole}</span>}
+          <button className="btn btn-secondary btn-compact" style={{ fontSize: "0.75rem", marginLeft: "auto" }} onClick={handleLeave}>Leave Classroom</button>
         </div>
       </div>
 
@@ -142,6 +159,9 @@ export default function ClassroomDetailPage() {
                 <div style={{ textAlign: "right" }}>
                   <span className={`social-role-badge social-role-badge--${m.role}`}>{m.role}</span>
                   <div style={{ fontSize: "0.82rem", color: "var(--accent)", fontWeight: 700, marginTop: "0.25rem" }}>{m.total_xp.toLocaleString()} XP</div>
+                  {myRole === "teacher" && m.user_id !== user?.id && (
+                    <button className="btn btn-secondary btn-compact" style={{ fontSize: "0.7rem", marginTop: "0.25rem" }} onClick={() => handleRemoveMember(m.user_id, m.display_name || m.username)}>Remove</button>
+                  )}
                 </div>
               </div>
             );
