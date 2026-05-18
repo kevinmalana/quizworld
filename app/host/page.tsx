@@ -375,7 +375,30 @@ function HostPageContent() {
 
       {error && <div className="error-message">{error}</div>}
 
-      {/* Section tabs */}
+      {/* Game mode selector — top of page */}
+      <div className="host-modes-section">
+        <h3 className="host-modes-title">Game Mode</h3>
+        <div className="host-modes-grid">
+          {GAME_MODES.map(mode => (
+            <button
+              key={mode.id}
+              disabled={!mode.available}
+              onClick={() => mode.available && setGameMode(mode.id)}
+              className={`host-mode-btn${gameMode === mode.id && mode.available ? " host-mode-btn--selected" : ""}${!mode.available ? " host-mode-btn--locked" : ""}`}
+            >
+              <div className="host-mode-btn__header">
+                <span className="host-mode-btn__icon">{mode.icon}</span>
+                <span className="host-mode-btn__label">{mode.label}</span>
+                {mode.badge && <span className="host-mode-btn__badge">{mode.badge}</span>}
+                {gameMode === mode.id && mode.available && <span className="host-mode-btn__check">✓</span>}
+              </div>
+              <p className="host-mode-btn__desc">{mode.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Quiz picker */}
       <div className="social-tabs host-section-tabs">
         <button className={`social-tab${section === "mine" ? " is-active" : ""}`} onClick={() => setSection("mine")}>
           ✏️ My Quizzes {myQuizzes.length > 0 && `(${myQuizzes.length})`}
@@ -428,29 +451,6 @@ function HostPageContent() {
           ))}
         </div>
       )}
-
-      {/* Game mode selector */}
-      <div className="host-modes-section">
-        <h3 className="host-modes-title">Game Mode</h3>
-        <div className="host-modes-grid">
-          {GAME_MODES.map(mode => (
-            <button
-              key={mode.id}
-              disabled={!mode.available}
-              onClick={() => mode.available && setGameMode(mode.id)}
-              className={`host-mode-btn${gameMode === mode.id && mode.available ? " host-mode-btn--selected" : ""}${!mode.available ? " host-mode-btn--locked" : ""}`}
-            >
-              <div className="host-mode-btn__header">
-                <span className="host-mode-btn__icon">{mode.icon}</span>
-                <span className="host-mode-btn__label">{mode.label}</span>
-                {mode.badge && <span className="host-mode-btn__badge">{mode.badge}</span>}
-                {gameMode === mode.id && mode.available && <span className="host-mode-btn__check">✓</span>}
-              </div>
-              <p className="host-mode-btn__desc">{mode.desc}</p>
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Launch button — bottom sticky on mobile */}
       {selectedQuiz && (
