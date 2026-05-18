@@ -71,7 +71,7 @@ export default function AchievementsPage() {
   return (
     <div className="container social-shell">
       <div className="social-header">
-        <h1>🏅 Achievements</h1>
+        <h1 className="font-display">🏅 Achievements</h1>
         <p>Unlock achievements by playing, studying, and reaching milestones.</p>
       </div>
 

@@ -94,7 +94,7 @@ export default function GroupsPage() {
   return (
     <div className="container social-shell">
       <div className="social-header">
-        <h1>🎯 Trivia Groups</h1>
+        <h1 className="font-display">🎯 Trivia Groups</h1>
         <p>Create or join groups to quiz with your community.</p>
       </div>
 

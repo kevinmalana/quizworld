@@ -164,7 +164,7 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="profile-shell">
+    <div className="profile-shell animate-pop-in">
       {/* Hero Banner */}
       <div className="profile-hero">
         <div className="container profile-hero-content">

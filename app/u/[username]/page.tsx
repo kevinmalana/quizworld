@@ -111,7 +111,7 @@ export default function PublicProfilePage() {
         <div className="social-empty-icon">🔍</div>
         <div className="social-empty-title">Profile not found</div>
         <div className="social-empty-text">No user with username @{username}.</div>
-        <Link href="/explore" className="btn btn-secondary btn-compact" style={{ marginTop: "1rem" }}>Browse Explore</Link>
+        <Link href="/explore" className="btn btn-secondary btn-compact mt-sm">Browse Explore</Link>
       </div>
     </div>
   );
@@ -124,56 +124,52 @@ export default function PublicProfilePage() {
   return (
     <div className="container social-shell">
       {/* Profile hero */}
-      <div className="card public-profile-hero">
-        <div className="public-profile-avatar">{profile.avatar || "👤"}</div>
-        <div className="public-profile-info">
-          <h1 className="public-profile-name font-display">
-            {profile.display_name || profile.username}
-            {profile.is_admin && <span className="public-profile-admin-badge">⚙️ Admin</span>}
-          </h1>
-          <div className="public-profile-username">@{profile.username}</div>
-          <div className="public-profile-badges">
-            <span className="social-level-badge">⭐ Level {lv.level} · {lv.title}</span>
-            <span className="public-profile-xp">{profile.total_xp.toLocaleString()} XP</span>
-            {profile.study_streak > 0 && <span className="public-profile-streak">🔥 {profile.study_streak}d streak</span>}
+      <div className="u-profile-hero">
+        <div className="u-profile-hero__content">
+          <div className="u-profile-avatar-wrap">
+            <div className="u-profile-avatar">{profile.avatar || "👤"}</div>
           </div>
-          {profile.longest_streak > 0 && (
-            <div className="public-profile-best-streak">Personal best: {profile.longest_streak} day streak</div>
-          )}
-        </div>
-        {!isOwnProfile && user && (
-          <div className="public-profile-actions">
-            {friendStatus === "none" && (
-              <button
-                className="btn btn-primary btn-compact"
-                onClick={handleAddFriend}
-                disabled={sendingRequest}
-              >
-                {sendingRequest ? "Sending..." : "➕ Add Friend"}
-              </button>
-            )}
-            {friendStatus === "pending" && (
-              <span className="social-status-msg social-status-msg--success" style={{ margin: 0, fontSize: "0.8rem" }}>
-                Request pending ⏳
-              </span>
-            )}
-            {friendStatus === "friends" && (
-              <span className="social-status-msg social-status-msg--success" style={{ margin: 0, fontSize: "0.8rem" }}>
-                👥 Friends
-              </span>
+          <div className="public-profile-info">
+            <h1 className="public-profile-name font-display">
+              {profile.display_name || profile.username}
+              {profile.is_admin && <span className="public-profile-admin-badge">⚙️ Admin</span>}
+            </h1>
+            <div className="public-profile-username">@{profile.username}</div>
+            <div className="public-profile-badges">
+              <span className="social-level-badge">⭐ Level {lv.level} · {lv.title}</span>
+              <span className="public-profile-xp">{profile.total_xp.toLocaleString()} XP</span>
+              {profile.study_streak > 0 && <span className="public-profile-streak">🔥 {profile.study_streak}d streak</span>}
+            </div>
+            {profile.longest_streak > 0 && (
+              <div className="public-profile-best-streak">Best streak: {profile.longest_streak} days</div>
             )}
           </div>
+          {!isOwnProfile && user && (
+            <div className="public-profile-actions">
+              {friendStatus === "none" && (
+                <button className="btn btn-primary" onClick={handleAddFriend} disabled={sendingRequest}>
+                  {sendingRequest ? "Sending..." : "➕ Add Friend"}
+                </button>
+              )}
+              {friendStatus === "pending" && (
+                <span className="tag tag-accent">Request sent ⏳</span>
+              )}
+              {friendStatus === "friends" && (
+                <span className="tag tag-success">👥 Friends</span>
+              )}
+            </div>
         )}
         {isOwnProfile && (
-          <Link href="/profile" className="btn btn-secondary btn-compact">Edit Profile</Link>
+          <Link href="/profile" className="btn btn-secondary">Edit Profile</Link>
         )}
+        </div>
       </div>
 
       {msg && <div className="social-status-msg social-status-msg--success">{msg}</div>}
 
       {/* Achievements */}
       {achievements.length > 0 && (
-        <div style={{ marginTop: "1.5rem" }}>
+        <div className="social-section-block">
           <div className="social-section-title">🏅 Achievements ({achievements.length})</div>
           <div className="public-profile-achievements">
             {achievements.map(a => (
@@ -188,7 +184,7 @@ export default function PublicProfilePage() {
 
       {/* Public quizzes */}
       {quizzes.length > 0 && (
-        <div style={{ marginTop: "1.5rem" }}>
+        <div className="social-section-block">
           <div className="social-section-title">📝 Public Quizzes ({quizzes.length})</div>
           <div className="social-card-grid">
             {quizzes.map(q => (
@@ -202,8 +198,8 @@ export default function PublicProfilePage() {
                   <span>▶️ {q.plays} plays</span>
                 </div>
                 <div className="social-card-actions">
-                  <Link href={`/study/${q.id}`} className="btn btn-secondary btn-compact" style={{ flex: 1, textAlign: "center" }}>📖 Study</Link>
-                  <Link href={`/host?quiz=${q.id}`} className="btn btn-primary btn-compact" style={{ flex: 1, textAlign: "center" }}>🏁 Host</Link>
+                  <Link href={`/study/${q.id}`} className="btn btn-secondary btn-compact social-flex-1">📖 Study</Link>
+                  <Link href={`/host?quiz=${q.id}`} className="btn btn-primary btn-compact social-flex-1">🏁 Host</Link>
                 </div>
               </div>
             ))}
@@ -212,7 +208,7 @@ export default function PublicProfilePage() {
       )}
 
       {quizzes.length === 0 && achievements.length === 0 && !isOwnProfile && (
-        <div className="social-empty" style={{ marginTop: "2rem" }}>
+        <div className="social-empty social-section-block">
           <div className="social-empty-icon">📭</div>
           <div className="social-empty-title">Nothing public yet</div>
           <div className="social-empty-text">@{profile.username} hasn&apos;t shared any quizzes yet.</div>

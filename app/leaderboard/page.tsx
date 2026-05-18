@@ -111,7 +111,7 @@ export default function LeaderboardPage() {
   return (
     <div className="container social-shell">
       <div className="social-header">
-        <h1>🏆 Leaderboard</h1>
+        <h1 className="font-display">🏆 Leaderboard</h1>
         <p>Top players ranked by XP across the entire QuizWorld community.</p>
       </div>
 

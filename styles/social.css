@@ -22,6 +22,7 @@
 .social-shell {
   min-height: 100vh;
   padding: 2rem 0 4rem;
+  animation: pop-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .social-header {
@@ -29,9 +30,11 @@
 }
 
 .social-header h1 {
+  font-family: var(--font-display);
   font-size: 1.75rem;
   font-weight: 900;
   margin-bottom: 0.35rem;
+  letter-spacing: -0.02em;
 }
 
 .social-header p {
@@ -727,4 +730,53 @@
 @media (max-width: 640px) {
   .leaderboard-list { margin-bottom: 1rem; }
   .leaderboard-week-label { font-size: 0.72rem; }
+}
+
+/* ── Public profile page hero (matches /profile page style) ─────────────── */
+.u-profile-hero {
+  position: relative;
+  padding: 2.5rem 0 2rem;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.u-profile-hero__content {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.u-profile-avatar-wrap { flex-shrink: 0; }
+
+.u-profile-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--accent-light);
+  border: 2px solid var(--accent-glow);
+  display: grid;
+  place-items: center;
+  font-size: 2.5rem;
+}
+
+/* ── Section block spacing ──────────────────────────────────────────────── */
+.social-section-block { margin-top: 1.5rem; }
+
+/* ── Tag variants for friend status ────────────────────────────────────── */
+.tag-accent {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent-glow);
+}
+.tag-success {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+@media (max-width: 600px) {
+  .u-profile-hero { padding: 1.5rem 0 1.25rem; }
+  .u-profile-avatar { width: 60px; height: 60px; font-size: 2rem; }
+  .u-profile-hero__content { gap: 1rem; }
 }

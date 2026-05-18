@@ -101,7 +101,7 @@ export default function ClassroomsPage() {
   return (
     <div className="container social-shell">
       <div className="social-header">
-        <h1>🏫 Classrooms</h1>
+        <h1 className="font-display">🏫 Classrooms</h1>
         <p>Create or join a classroom to study and compete with your class.</p>
       </div>
 
