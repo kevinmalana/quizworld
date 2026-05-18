@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { calcLevel } from "@/components/study/study-session-panels";
@@ -36,7 +37,7 @@ function LeaderboardRow({ entry, rank, isMe, showWeekly }: { entry: LeaderboardE
       <div className="leaderboard-info">
         <div className="leaderboard-name">{entry.display_name || entry.username} {isMe && <span style={{ fontSize: "0.7rem", color: "var(--accent)", fontWeight: 700 }}>← You</span>}</div>
         <div className="leaderboard-handle">
-          @{entry.username}
+          <Link href={`/u/${entry.username}`} style={{ color: "var(--muted)", textDecoration: "none" }}>@{entry.username}</Link>
           {" · "}
           <span className="social-level-badge">⭐ Lv {lv.level} · {lv.title}</span>
         </div>

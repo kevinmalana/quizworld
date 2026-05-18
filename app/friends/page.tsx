@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { calcLevel } from "@/components/study/study-session-panels";
@@ -239,7 +240,7 @@ export default function FriendsPage() {
                 <div key={f.id} className="social-member-row">
                   <div className="social-member-avatar">{f.avatar || "👤"}</div>
                   <div className="social-member-info">
-                    <div className="social-member-name">{f.display_name || f.username}</div>
+                    <Link href={`/u/${f.username}`} className="social-member-name" style={{ textDecoration: "none", color: "inherit" }}>{f.display_name || f.username}</Link>
                     <div className="social-member-handle">@{f.username}</div>
                     <div className="social-member-meta">
                       <span className="social-level-badge">⭐ Lv {lv.level} · {lv.title}</span>

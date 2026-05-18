@@ -9,7 +9,7 @@ import { calcLevel } from "@/components/study/study-session-panels";
 import "@/styles/social.css";
 
 type Member = { id: string; user_id: string; role: string; username: string; display_name: string; avatar: string; total_xp: number; study_streak: number; };
-type Assignment = { id: string; quiz_id: string; due_date: string | null; created_at: string; quiz_title?: string; };
+type Assignment = { id: string; quiz_id: string; due_date: string | null; created_at: string; quiz_title?: string; completed?: boolean; };
 type Classroom = { id: string; name: string; description: string | null; join_code: string; created_by: string; };
 
 export default function ClassroomDetailPage() {
@@ -58,8 +58,12 @@ export default function ClassroomDetailPage() {
     const { data: aData } = await supabase.from("classroom_assignments").select("id, quiz_id, due_date, created_at").eq("classroom_id", id).order("created_at", { ascending: false });
     if (aData && aData.length > 0) {
       const qIds = aData.map(a => a.quiz_id);
-      const { data: quizzes } = await supabase.from("quizzes").select("id, title").in("id", qIds);
-      setAssignments(aData.map(a => ({ ...a, quiz_title: quizzes?.find(q => q.id === a.quiz_id)?.title })));
+      const [quizzesRes, completionsRes] = await Promise.all([
+        supabase.from("quizzes").select("id, title").in("id", qIds),
+        user ? supabase.from("assignment_completions").select("assignment_id").eq("user_id", user.id).in("assignment_id", aData.map(a => a.id)) : Promise.resolve({ data: [] }),
+      ]);
+      const completedIds = new Set((completionsRes.data ?? []).map((c: { assignment_id: string }) => c.assignment_id));
+      setAssignments(aData.map(a => ({ ...a, quiz_title: quizzesRes.data?.find(q => q.id === a.quiz_id)?.title, completed: completedIds.has(a.id) })));
     } else {
       setAssignments([]);
     }
@@ -81,6 +85,16 @@ export default function ClassroomDetailPage() {
     if (error) { setMsg("Could not assign quiz."); return; }
     setMsg("Quiz assigned!"); setShowAssign(false); setAssignQuizId(""); setAssignDue("");
     setTimeout(() => setMsg(""), 3000);
+    load();
+  }
+
+  async function handleMarkComplete(assignmentId: string, isCompleted: boolean) {
+    if (!user) return;
+    if (isCompleted) {
+      await supabase.from("assignment_completions").delete().eq("assignment_id", assignmentId).eq("user_id", user.id);
+    } else {
+      await supabase.from("assignment_completions").insert({ assignment_id: assignmentId, user_id: user.id });
+    }
     load();
   }
 
@@ -200,11 +214,26 @@ export default function ClassroomDetailPage() {
           ) : (
             <div className="social-card-grid">
               {assignments.map(a => (
-                <div key={a.id} className="card social-card">
-                  <div className="social-card-title">📝 {a.quiz_title ?? "Quiz"}</div>
-                  {a.due_date && <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Due: {new Date(a.due_date).toLocaleDateString()}</div>}
+                <div key={a.id} className={`card social-card${a.completed ? " assignment-card--done" : ""}`}>
+                  <div className="social-card-header">
+                    <div className="social-card-emoji">{a.completed ? "✅" : "📝"}</div>
+                    <div className="social-card-title" style={{ textDecoration: a.completed ? "line-through" : "none", opacity: a.completed ? 0.6 : 1 }}>{a.quiz_title ?? "Quiz"}</div>
+                  </div>
+                  {a.due_date && (
+                    <div style={{ fontSize: "0.8rem", color: new Date(a.due_date) < new Date() && !a.completed ? "var(--primary)" : "var(--muted)" }}>
+                      {new Date(a.due_date) < new Date() && !a.completed ? "⚠️ Overdue: " : "Due: "}{new Date(a.due_date).toLocaleDateString()}
+                    </div>
+                  )}
                   <div className="social-card-actions">
-                    <Link href={`/study/${a.quiz_id}`} className="btn btn-primary btn-compact" style={{ flex: 1, textAlign: "center" }}>📖 Study Now</Link>
+                    <Link href={`/study/${a.quiz_id}`} className="btn btn-secondary btn-compact" style={{ flex: 1, textAlign: "center" }}>📖 Study</Link>
+                    {myRole === "student" && (
+                      <button
+                        className={`btn btn-compact ${a.completed ? "btn-secondary" : "btn-primary"}`}
+                        onClick={() => handleMarkComplete(a.id, a.completed ?? false)}
+                      >
+                        {a.completed ? "↩ Undo" : "✅ Done"}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

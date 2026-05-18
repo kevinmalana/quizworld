@@ -10,6 +10,7 @@ import "@/styles/social.css";
 
 type Member = { id: string; user_id: string; role: string; username: string; display_name: string; avatar: string; total_xp: number; study_streak: number; };
 type Group = { id: string; name: string; description: string | null; join_code: string; is_public: boolean; emoji: string; created_by: string; };
+type PinnedQuiz = { id: string; quiz_id: string; quiz_title: string; quiz_category: string; quiz_plays: number; quiz_emoji: string | null; pinned_by_username: string; };
 
 export default function GroupDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -17,10 +18,15 @@ export default function GroupDetailPage() {
   const router = useRouter();
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [pinnedQuizzes, setPinnedQuizzes] = useState<PinnedQuiz[]>([]);
   const [myRole, setMyRole] = useState<string | null>(null);
-  const [tab, setTab] = useState<"members" | "leaderboard">("members");
+  const [tab, setTab] = useState<"members" | "pinned" | "leaderboard">("members");
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [showPinSearch, setShowPinSearch] = useState(false);
+  const [pinSearchVal, setPinSearchVal] = useState("");
+  const [pinSearchResults, setPinSearchResults] = useState<{ id: string; title: string; category: string }[]>([]);
+  const [pinMsg, setPinMsg] = useState("");
 
   async function load() {
     setLoading(true);
@@ -44,6 +50,25 @@ export default function GroupDetailPage() {
       const p = profiles?.find(p => p.id === m.user_id);
       return { id: m.id, user_id: m.user_id, role: m.role, username: p?.username ?? "", display_name: p?.display_name ?? "", avatar: p?.avatar ?? "👤", total_xp: (p?.total_xp as number) ?? 0, study_streak: (p?.study_streak as number) ?? 0 };
     }));
+
+    // Pinned quizzes
+    const { data: pins } = await supabase.from("group_pinned_quizzes").select("id, quiz_id, pinned_by").eq("group_id", id).order("pinned_at", { ascending: false });
+    if (pins && pins.length > 0) {
+      const qIds = pins.map(p => p.quiz_id);
+      const pinnedByIds = pins.map(p => p.pinned_by);
+      const [quizRes, pinnerRes] = await Promise.all([
+        supabase.from("quizzes").select("id, title, category, plays, emoji").in("id", qIds),
+        supabase.from("profiles").select("id, username").in("id", pinnedByIds),
+      ]);
+      setPinnedQuizzes(pins.map(p => {
+        const q = quizRes.data?.find(q => q.id === p.quiz_id);
+        const pinner = pinnerRes.data?.find(pr => pr.id === p.pinned_by);
+        return { id: p.id, quiz_id: p.quiz_id, quiz_title: q?.title ?? "Quiz", quiz_category: q?.category ?? "", quiz_plays: q?.plays ?? 0, quiz_emoji: q?.emoji ?? null, pinned_by_username: pinner?.username ?? "" };
+      }));
+    } else {
+      setPinnedQuizzes([]);
+    }
+
     setLoading(false);
   }
 
@@ -52,6 +77,26 @@ export default function GroupDetailPage() {
   async function handleJoin() {
     if (!user || !group) return;
     await supabase.from("trivia_group_members").insert({ group_id: group.id, user_id: user.id, role: "member" });
+    load();
+  }
+
+  async function handleSearchPin() {
+    if (!pinSearchVal.trim()) return;
+    const { data } = await supabase.from("quizzes").select("id, title, category").eq("is_public", true).is("archived_at", null).ilike("title", `%${pinSearchVal}%`).limit(6);
+    setPinSearchResults(data ?? []);
+  }
+
+  async function handlePin(quizId: string) {
+    if (!user || !group) return;
+    const { error } = await supabase.from("group_pinned_quizzes").insert({ group_id: group.id, quiz_id: quizId, pinned_by: user.id });
+    if (error?.message?.includes("duplicate")) { setPinMsg("Already pinned."); } else { setPinMsg("Quiz pinned! 📌"); }
+    setPinSearchVal(""); setPinSearchResults([]); setShowPinSearch(false);
+    setTimeout(() => setPinMsg(""), 2000);
+    load();
+  }
+
+  async function handleUnpin(pinId: string) {
+    await supabase.from("group_pinned_quizzes").delete().eq("id", pinId);
     load();
   }
 
@@ -93,6 +138,7 @@ export default function GroupDetailPage() {
 
       <div className="social-tabs">
         <button className={`social-tab${tab === "members" ? " is-active" : ""}`} onClick={() => setTab("members")}>👥 Members ({members.length})</button>
+        <button className={`social-tab${tab === "pinned" ? " is-active" : ""}`} onClick={() => setTab("pinned")}>📌 Pinned ({pinnedQuizzes.length})</button>
         <button className={`social-tab${tab === "leaderboard" ? " is-active" : ""}`} onClick={() => setTab("leaderboard")}>🏆 Leaderboard</button>
       </div>
 
@@ -118,6 +164,62 @@ export default function GroupDetailPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {tab === "pinned" && (
+        <div>
+          {pinMsg && <div className="social-status-msg social-status-msg--success">{pinMsg}</div>}
+          {myRole && (
+            <div style={{ marginBottom: "1rem" }}>
+              <button className="btn btn-primary btn-compact" onClick={() => setShowPinSearch(!showPinSearch)}>📌 Pin a Quiz</button>
+            </div>
+          )}
+          {showPinSearch && (
+            <div className="card" style={{ padding: "1rem", marginBottom: "1rem" }}>
+              <div className="social-add-row">
+                <input className="social-add-input" value={pinSearchVal} onChange={e => setPinSearchVal(e.target.value)} placeholder="Search public quizzes..." onKeyDown={e => e.key === "Enter" && handleSearchPin()} />
+                <button className="btn btn-primary btn-compact" onClick={handleSearchPin}>Search</button>
+              </div>
+              {pinSearchResults.map(q => (
+                <div key={q.id} className="social-member-row">
+                  <div className="social-member-info">
+                    <div className="social-member-name">{q.title}</div>
+                    <div className="social-member-handle">{q.category}</div>
+                  </div>
+                  <button className="btn btn-primary btn-compact" onClick={() => handlePin(q.id)}>📌 Pin</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {pinnedQuizzes.length === 0 ? (
+            <div className="social-empty">
+              <div className="social-empty-icon">📌</div>
+              <div className="social-empty-title">No pinned quizzes yet</div>
+              <div className="social-empty-text">{myRole ? "Pin quizzes your group loves!" : "Admins can pin quizzes here."}</div>
+            </div>
+          ) : (
+            <div className="social-card-grid">
+              {pinnedQuizzes.map(pq => (
+                <div key={pq.id} className="card social-card">
+                  <div className="social-card-header">
+                    <div className="social-card-emoji">{pq.quiz_emoji || "📝"}</div>
+                    <div className="social-card-title">{pq.quiz_title}</div>
+                  </div>
+                  <div className="social-card-meta">
+                    <span>{pq.quiz_category}</span>
+                    <span>▶️ {pq.quiz_plays} plays</span>
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Pinned by @{pq.pinned_by_username}</div>
+                  <div className="social-card-actions">
+                    <Link href={`/study/${pq.quiz_id}`} className="btn btn-secondary btn-compact" style={{ flex: 1, textAlign: "center" }}>📖 Study</Link>
+                    <Link href={`/host?quiz=${pq.quiz_id}`} className="btn btn-primary btn-compact" style={{ flex: 1, textAlign: "center" }}>🏁 Host</Link>
+                    {myRole && <button className="btn btn-secondary btn-compact" onClick={() => handleUnpin(pq.id)}>❌</button>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
