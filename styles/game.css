@@ -569,3 +569,182 @@
 }
 .game-ai-result-text { font-size: 0.875rem; font-weight: 600; color: var(--ink); white-space: pre-wrap; }
 .game-finished-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+/* ── Survival mode ──────────────────────────────────────────────────────── */
+.survival-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-xl);
+  background: #22c55e22;
+  border: 1px solid #22c55e55;
+  margin: 0.75rem 0;
+  flex-wrap: wrap;
+}
+
+.survival-status-bar--out {
+  background: #ef444422;
+  border-color: #ef444455;
+}
+
+.survival-alive-icon { font-size: 1.1rem; }
+
+.survival-alive-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #16a34a;
+  white-space: nowrap;
+}
+
+.survival-alive-bar {
+  flex: 1;
+  min-width: 80px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.survival-alive-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #22c55e;
+  transition: width 0.5s ease;
+}
+
+.survival-total {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.survival-eliminated-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.survival-eliminated-icon { font-size: 2rem; }
+
+.survival-eliminated-title {
+  font-weight: 800;
+  font-size: 1rem;
+  color: #ef4444;
+}
+
+.survival-eliminated-sub {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* ── Team Battle ────────────────────────────────────────────────────────── */
+.team-score-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  margin: 0.75rem 0;
+}
+
+.team-score-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.team-score-row--mine { font-weight: 700; }
+
+.team-score-rank { width: 1.5rem; text-align: center; font-weight: 700; color: var(--muted); }
+.team-score-emoji { font-size: 1rem; }
+.team-score-name { min-width: 80px; font-weight: 600; }
+
+.team-score-track {
+  flex: 1;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.team-score-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s ease;
+  min-width: 4px;
+}
+
+.team-score-pts { font-weight: 800; font-size: 0.82rem; white-space: nowrap; }
+.team-score-you { font-size: 0.7rem; color: var(--accent); font-weight: 700; }
+
+/* Team leaderboard */
+.team-leaderboard { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.team-lb-row {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-xl);
+  border: 2px solid;
+  background: var(--surface);
+}
+
+.team-lb-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.team-lb-score { font-size: 0.88rem; font-weight: 800; }
+
+.team-lb-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.team-lb-player {
+  font-size: 0.75rem;
+  background: var(--bg-subtle);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-full);
+  color: var(--muted);
+}
+
+/* ── Lobby game mode badges ─────────────────────────────────────────────── */
+.game-mode-lobby-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-xl);
+  margin-top: 0.75rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.game-mode-lobby-badge--survival {
+  background: #ef444422;
+  border: 1px solid #ef444455;
+  color: #ef4444;
+}
+
+.game-mode-lobby-badge--team {
+  background: var(--accent-light);
+  border: 1px solid var(--accent-glow);
+  color: var(--accent);
+}
+
+.game-mode-lobby-desc {
+  font-size: 0.78rem;
+  font-weight: 400;
+  opacity: 0.8;
+}

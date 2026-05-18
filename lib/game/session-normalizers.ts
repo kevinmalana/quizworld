@@ -51,6 +51,12 @@ export type PhoenixSessionSnapshot = Record<string, unknown> & {
   current_question?: GameQuestion | null;
   current_answers?: CurrentAnswer[];
   question_history?: QuestionHistoryEntry[];
+  // Game mode extensions
+  game_mode?: "classic" | "survival" | "team";
+  eliminated?: string[];       // survival: list of eliminated player_ids
+  alive_count?: number;        // survival: players still in
+  teams?: Record<string, { id: string; name: string; color: string; emoji: string; score: number }>;
+  team_assignments?: Record<string, string>; // player_id → team_id
 };
 
 export function sortQuestions<T extends { order_index?: number }>(questions: T[] = []) {

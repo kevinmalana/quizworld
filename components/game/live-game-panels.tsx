@@ -492,3 +492,129 @@ export function GameFinishedPanel({
     </div>
   );
 }
+
+// ─── SurvivalStatusBar ────────────────────────────────────────────────────────
+
+export function SurvivalStatusBar({
+  aliveCount,
+  totalPlayers,
+  eliminated,
+  myPlayerId,
+}: {
+  aliveCount: number;
+  totalPlayers: number;
+  eliminated: string[];
+  myPlayerId: string | null;
+}) {
+  const isEliminated = myPlayerId ? eliminated.includes(myPlayerId) : false;
+
+  return (
+    <div className={`survival-status-bar${isEliminated ? " survival-status-bar--out" : ""}`}>
+      {isEliminated ? (
+        <div className="survival-eliminated-banner">
+          <span className="survival-eliminated-icon">💀</span>
+          <div>
+            <div className="survival-eliminated-title">You&apos;re Eliminated!</div>
+            <div className="survival-eliminated-sub">Watch the remaining players fight it out</div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <span className="survival-alive-icon">💚</span>
+          <span className="survival-alive-label">
+            <strong>{aliveCount}</strong> player{aliveCount !== 1 ? "s" : ""} still alive
+          </span>
+          <div className="survival-alive-bar">
+            <div
+              className="survival-alive-fill"
+              style={{ width: `${(aliveCount / Math.max(totalPlayers, 1)) * 100}%` }}
+            />
+          </div>
+          <span className="survival-total">{totalPlayers} total</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── TeamScoreBar ─────────────────────────────────────────────────────────────
+
+type Team = { id: string; name: string; color: string; emoji: string; score: number };
+
+export function TeamScoreBar({
+  teams,
+  myTeamId,
+}: {
+  teams: Record<string, Team>;
+  myTeamId: string | null;
+}) {
+  const teamList = Object.values(teams).sort((a, b) => b.score - a.score);
+  const maxScore = Math.max(...teamList.map(t => t.score), 1);
+
+  return (
+    <div className="team-score-bar">
+      {teamList.map((team, i) => (
+        <div
+          key={team.id}
+          className={`team-score-row${team.id === myTeamId ? " team-score-row--mine" : ""}`}
+        >
+          <span className="team-score-rank">#{i + 1}</span>
+          <span className="team-score-emoji">{team.emoji}</span>
+          <span className="team-score-name">{team.name}</span>
+          <div className="team-score-track">
+            <div
+              className="team-score-fill"
+              style={{
+                width: `${(team.score / maxScore) * 100}%`,
+                background: team.color,
+              }}
+            />
+          </div>
+          <span className="team-score-pts">{team.score.toLocaleString()}</span>
+          {team.id === myTeamId && <span className="team-score-you">← You</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── TeamLeaderboard ──────────────────────────────────────────────────────────
+
+export function TeamLeaderboard({
+  teams,
+  players,
+  teamAssignments,
+}: {
+  teams: Record<string, Team>;
+  players: GamePlayer[];
+  teamAssignments: Record<string, string>;
+}) {
+  const teamList = Object.values(teams).sort((a, b) => b.score - a.score);
+
+  return (
+    <div className="team-leaderboard">
+      <h3 className="game-leaderboard-title">Team Scores</h3>
+      {teamList.map((team, i) => {
+        const teamPlayers = players.filter(p => teamAssignments[p.id] === team.id);
+        const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`;
+        return (
+          <div key={team.id} className="team-lb-row" style={{ borderColor: team.color }}>
+            <div className="team-lb-header">
+              <span>{medal} {team.emoji} {team.name}</span>
+              <span className="team-lb-score" style={{ color: team.color }}>
+                {team.score.toLocaleString()} pts
+              </span>
+            </div>
+            <div className="team-lb-players">
+              {teamPlayers.map(p => (
+                <span key={p.id} className="team-lb-player">
+                  {p.avatar || "🎮"} {p.nickname}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

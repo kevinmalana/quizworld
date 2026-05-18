@@ -16,7 +16,12 @@ defmodule QuizworldRealtime.Game do
     question_started_at: nil,
     players: %{},
     questions: [],
-    answers: %{}
+    answers: %{},
+    # Survival mode: set of eliminated player_ids
+    eliminated: MapSet.new(),
+    # Team Battle mode: teams map + player→team assignments
+    teams: %{},
+    team_assignments: %{}
   ]
 
   @max_players 200
@@ -135,7 +140,13 @@ defmodule QuizworldRealtime.Game do
         |> Enum.map(
           &Map.take(&1, [:player_id, :answer_id, :response_time_ms, :is_correct, :points_awarded])
         ),
-      question_history: question_history
+      question_history: question_history,
+      # Survival mode
+      eliminated: MapSet.to_list(game.eliminated),
+      alive_count: map_size(game.players) - MapSet.size(game.eliminated),
+      # Team Battle mode
+      teams: game.teams,
+      team_assignments: game.team_assignments
     }
   end
 
@@ -193,9 +204,10 @@ defmodule QuizworldRealtime.Game do
         {:error, :no_players}
 
       true ->
+        game_with_mode = init_game_mode(game)
         {:ok,
          touch(%{
-           game
+           game_with_mode
            | status: "active",
              current_question_index: 0,
              question_started_at: DateTime.utc_now()
@@ -203,8 +215,49 @@ defmodule QuizworldRealtime.Game do
     end
   end
 
+  # Initialise mode-specific state when the game starts
+  defp init_game_mode(%__MODULE__{game_mode: "team"} = game) do
+    player_ids = Map.keys(game.players)
+    assign_teams(game, player_ids)
+  end
+
+  defp init_game_mode(%__MODULE__{} = game), do: game
+
+  # Assign players to 2-4 balanced teams by round-robin
+  defp assign_teams(%__MODULE__{} = game, player_ids) do
+    team_defs = [
+      %{id: "red",    name: "Red Team",    color: "#ef4444", emoji: "🔴"},
+      %{id: "blue",   name: "Blue Team",   color: "#3b82f6", emoji: "🔵"},
+      %{id: "green",  name: "Green Team",  color: "#22c55e", emoji: "🟢"},
+      %{id: "yellow", name: "Yellow Team", color: "#eab308", emoji: "🟡"}
+    ]
+
+    # Use 2 teams for small games (<8 players), up to 4 for larger
+    team_count = cond do
+      length(player_ids) >= 16 -> 4
+      length(player_ids) >= 8  -> 3
+      true                     -> 2
+    end
+
+    active_teams = Enum.take(team_defs, team_count)
+
+    teams = Enum.into(active_teams, %{}, fn t ->
+      {t.id, Map.put(t, :score, 0)}
+    end)
+
+    team_assignments = player_ids
+      |> Enum.with_index()
+      |> Enum.into(%{}, fn {pid, idx} ->
+        team = Enum.at(active_teams, rem(idx, team_count))
+        {pid, team.id}
+      end)
+
+    %{game | teams: teams, team_assignments: team_assignments}
+  end
+
   def submit_answer(%__MODULE__{} = game, player_id, player_token, answer_id, response_time_ms) do
     with :ok <- ensure_active(game),
+         :ok <- ensure_not_eliminated(game, player_id),
          :ok <- ensure_player_token(game, player_id, player_token),
          {:ok, question} <- fetch_current_question(game),
          :ok <- ensure_answer_window_open(game, question),
@@ -248,7 +301,9 @@ defmodule QuizworldRealtime.Game do
         game.answers
         |> Map.get(question["id"], %{})
         |> Enum.into(%{}, fn {pid, row} ->
-          is_correct = row.answer_id == correct_answer_id
+          # Eliminated players (survival) get 0 points but still recorded
+          already_eliminated = MapSet.member?(game.eliminated, pid)
+          is_correct = !already_eliminated and row.answer_id == correct_answer_id
 
           points_awarded =
             if is_correct do
@@ -272,6 +327,7 @@ defmodule QuizworldRealtime.Game do
            |> Map.put(:points_awarded, points_awarded)}
         end)
 
+      # Update individual player scores
       next_players =
         Enum.reduce(game.players, %{}, fn {pid, player}, acc ->
           scored_points =
@@ -282,11 +338,47 @@ defmodule QuizworldRealtime.Game do
           Map.put(acc, pid, %{player | score: player.score + scored_points})
         end)
 
+      # Survival: eliminate players who answered wrong (or didn't answer)
+      next_eliminated =
+        if game.game_mode == "survival" do
+          alive_pids = Map.keys(game.players) |> Enum.reject(&MapSet.member?(game.eliminated, &1))
+          newly_eliminated = Enum.filter(alive_pids, fn pid ->
+            row = Map.get(scored_rows, pid)
+            row == nil or !row.is_correct
+          end)
+          MapSet.union(game.eliminated, MapSet.new(newly_eliminated))
+        else
+          game.eliminated
+        end
+
+      # Team Battle: aggregate team scores from player scores this round
+      next_teams =
+        if game.game_mode == "team" and map_size(game.teams) > 0 do
+          round_points_by_team =
+            Enum.reduce(scored_rows, %{}, fn {pid, row}, acc ->
+              team_id = Map.get(game.team_assignments, pid)
+              if team_id do
+                Map.update(acc, team_id, row.points_awarded, &(&1 + row.points_awarded))
+              else
+                acc
+              end
+            end)
+
+          Enum.into(game.teams, %{}, fn {tid, team} ->
+            round_pts = Map.get(round_points_by_team, tid, 0)
+            {tid, %{team | score: team.score + round_pts}}
+          end)
+        else
+          game.teams
+        end
+
       {:ok,
        touch(%{
          game
          | status: "reveal",
            players: next_players,
+           eliminated: next_eliminated,
+           teams: next_teams,
            answers: Map.put(game.answers, question["id"], scored_rows)
        })}
     end
@@ -303,7 +395,19 @@ defmodule QuizworldRealtime.Game do
          :ok <- ensure_status(game, "reveal") do
       last_question_index = length(game.questions) - 1
 
-      if game.current_question_index >= last_question_index do
+      # Survival: end game if 1 or 0 players remain alive
+      alive_count =
+        if game.game_mode == "survival" do
+          game.players
+          |> Map.keys()
+          |> Enum.reject(&MapSet.member?(game.eliminated, &1))
+          |> length()
+        else
+          999
+        end
+
+      if game.current_question_index >= last_question_index or
+           (game.game_mode == "survival" and alive_count <= 1) do
         {:ok, touch(%{game | status: "finished", question_started_at: nil})}
       else
         {:ok,
@@ -385,6 +489,12 @@ defmodule QuizworldRealtime.Game do
   defp ensure_player_exists(%__MODULE__{players: players}, player_id) do
     if Map.has_key?(players, player_id), do: :ok, else: {:error, :unknown_player}
   end
+
+  defp ensure_not_eliminated(%__MODULE__{game_mode: "survival", eliminated: eliminated}, player_id) do
+    if MapSet.member?(eliminated, player_id), do: {:error, :eliminated}, else: :ok
+  end
+
+  defp ensure_not_eliminated(%__MODULE__{}, _player_id), do: :ok
 
   defp ensure_player_token(%__MODULE__{} = game, player_id, player_token) do
     with :ok <- ensure_player_exists(game, player_id),
@@ -511,6 +621,8 @@ defmodule QuizworldRealtime.Game do
   end
 
   defp normalize_game_mode("classic"), do: "classic"
+  defp normalize_game_mode("survival"), do: "survival"
+  defp normalize_game_mode("team"), do: "team"
   defp normalize_game_mode(_), do: "classic"
 
   defp normalize_category(nil), do: nil

@@ -12,6 +12,9 @@ import {
   PlayerAnswerGrid,
   QuestionMedia,
   SpectatorPanel,
+  SurvivalStatusBar,
+  TeamScoreBar,
+  TeamLeaderboard,
   WaitingLobbyPanel,
 } from "@/components/game/live-game-panels";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -535,6 +538,16 @@ export default function GamePage() {
 
   const leaderboard = useMemo(() => sortLeaderboard(players), [players]);
 
+  // Mode-specific derived state
+  const typedSession = session as import("@/lib/game/session-normalizers").PhoenixSessionSnapshot | null;
+  const gameMode = typedSession?.game_mode ?? "classic";
+  const eliminated = (typedSession?.eliminated ?? []) as string[];
+  const aliveCount = typedSession?.alive_count ?? players.length;
+  const teams = (typedSession?.teams ?? {}) as Record<string, { id: string; name: string; color: string; emoji: string; score: number }>;
+  const teamAssignments = (typedSession?.team_assignments ?? {}) as Record<string, string>;
+  const myTeamId = playerSession?.playerId ? (teamAssignments[playerSession.playerId] ?? null) : null;
+  const isEliminated = playerSession?.playerId ? eliminated.includes(playerSession.playerId) : false;
+
   // Feature 13: Send reaction
   const sendReaction = useCallback((emoji: string) => {
     const id = String(++reactionIdRef.current);
@@ -791,26 +804,39 @@ export default function GamePage() {
     const joinUrl = gameJoinUrl(pin);
     const readyCount = readyPlayers.size;
     return (
-      <WaitingLobbyPanel
-        pin={pin}
-        joinUrl={joinUrl}
-        notice={notice}
-        players={players}
-        readyPlayers={readyPlayers}
-        readyCount={readyCount}
-        isHost={isHost}
-        currentPlayer={currentPlayer}
-        playerSessionReady={playerSessionReady}
-        amReady={amReady}
-        onReady={() => {
-          setAmReady(true);
-          setReadyPlayers((prev) => new Set(prev).add(playerSession?.playerId ?? ""));
-        }}
-        onStart={() => void startGame()}
-      />
+      <>
+        <WaitingLobbyPanel
+          pin={pin}
+          joinUrl={joinUrl}
+          notice={notice}
+          players={players}
+          readyPlayers={readyPlayers}
+          readyCount={readyCount}
+          isHost={isHost}
+          currentPlayer={currentPlayer}
+          playerSessionReady={playerSessionReady}
+          amReady={amReady}
+          onReady={() => {
+            setAmReady(true);
+            setReadyPlayers((prev) => new Set(prev).add(playerSession?.playerId ?? ""));
+          }}
+          onStart={() => void startGame()}
+        />
+        {gameMode === "survival" && (
+          <div className="container"><div className="game-mode-lobby-badge game-mode-lobby-badge--survival">
+            <span>💀 Survival Mode</span>
+            <span className="game-mode-lobby-desc">One wrong answer and you&apos;re out!</span>
+          </div></div>
+        )}
+        {gameMode === "team" && (
+          <div className="container"><div className="game-mode-lobby-badge game-mode-lobby-badge--team">
+            <span>👥 Team Battle</span>
+            <span className="game-mode-lobby-desc">Teams will be auto-assigned when the game starts</span>
+          </div></div>
+        )}
+      </>
     );
   }
-
 
   if (gameStatus === "active" && currentQuestion) {
     return (
@@ -865,6 +891,13 @@ export default function GamePage() {
           />
         ) : !playerSessionReady || !currentPlayer ? (
           <SpectatorPanel />
+        ) : isEliminated ? (
+          <SurvivalStatusBar
+            aliveCount={aliveCount}
+            totalPlayers={players.length}
+            eliminated={eliminated}
+            myPlayerId={playerSession?.playerId ?? null}
+          />
         ) : (
           <PlayerAnswerGrid
             currentQuestion={currentQuestion}
@@ -873,6 +906,19 @@ export default function GamePage() {
             timeLeft={timeLeft}
             onSubmit={(answer) => void submitAnswer(answer)}
           />
+        )}
+        {/* Survival: show alive count to all players */}
+        {gameMode === "survival" && !isEliminated && (
+          <SurvivalStatusBar
+            aliveCount={aliveCount}
+            totalPlayers={players.length}
+            eliminated={eliminated}
+            myPlayerId={playerSession?.playerId ?? null}
+          />
+        )}
+        {/* Team Battle: show team scores */}
+        {gameMode === "team" && Object.keys(teams).length > 0 && (
+          <TeamScoreBar teams={teams} myTeamId={myTeamId} />
         )}
       </div>
     );
@@ -907,13 +953,26 @@ export default function GamePage() {
 
           <AnswerRevealList answerCounts={answerCounts} />
 
-          <LeaderboardList
-            leaderboard={leaderboard}
-            playerStreaks={playerStreaks}
-            playerAchievements={playerAchievements}
-            playerCorrectCounts={playerCorrectCounts}
-            totalQuestions={totalQuestions}
-          />
+          {/* Mode-specific reveal panels */}
+          {gameMode === "survival" && (
+            <SurvivalStatusBar
+              aliveCount={aliveCount}
+              totalPlayers={players.length}
+              eliminated={eliminated}
+              myPlayerId={playerSession?.playerId ?? null}
+            />
+          )}
+          {gameMode === "team" && Object.keys(teams).length > 0 ? (
+            <TeamLeaderboard teams={teams} players={players} teamAssignments={teamAssignments} />
+          ) : (
+            <LeaderboardList
+              leaderboard={leaderboard}
+              playerStreaks={playerStreaks}
+              playerAchievements={playerAchievements}
+              playerCorrectCounts={playerCorrectCounts}
+              totalQuestions={totalQuestions}
+            />
+          )}
         </div>
 
         {isHost && (
