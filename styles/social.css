@@ -621,3 +621,110 @@
 .social-card-title--done { text-decoration: line-through; opacity: 0.6; }
 .social-flex-1 { flex: 1; text-align: center; }
 .social-unpin-btn { flex-shrink: 0; }
+
+/* ════════════════════════════════════════════════════════════
+   Mobile & responsive fixes (2026-05-18 audit)
+   ════════════════════════════════════════════════════════════ */
+
+/* Tabs — scroll horizontally on mobile instead of wrapping */
+.social-tabs {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+.social-tabs::-webkit-scrollbar { display: none; }
+.social-tab { white-space: nowrap; flex-shrink: 0; }
+
+/* Leaderboard XP — never wrap a number mid-digit */
+.leaderboard-xp { white-space: nowrap; }
+.leaderboard-streak { white-space: nowrap; flex-shrink: 0; }
+
+/* Member row actions — stack on very small screens */
+@media (max-width: 400px) {
+  .social-member-row { gap: 0.5rem; }
+  .social-member-actions { align-items: flex-end; flex-shrink: 0; }
+  .social-member-xp { font-size: 0.75rem; }
+}
+
+/* Social card actions — wrap buttons if needed */
+.social-card-actions {
+  flex-wrap: wrap;
+}
+
+/* Public profile hero — stack on mobile */
+@media (max-width: 600px) {
+  .public-profile-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .public-profile-actions { margin-left: 0; }
+  .public-profile-avatar { width: 3.5rem; height: 3.5rem; font-size: 2.25rem; }
+}
+
+/* Leaderboard podium — scale down on mobile */
+@media (max-width: 500px) {
+  .leaderboard-podium { gap: 0.4rem; }
+  .leaderboard-podium-item { min-width: 60px; }
+  .leaderboard-podium-name { max-width: 60px; font-size: 0.7rem; }
+  .leaderboard-podium-avatar { width: 2.75rem; height: 2.75rem; font-size: 1.6rem; }
+  .leaderboard-podium-item--first .leaderboard-podium-avatar { width: 3.25rem; height: 3.25rem; }
+  .leaderboard-podium-medal { font-size: 1.35rem; }
+}
+
+/* Leaderboard row — tighter on mobile */
+@media (max-width: 480px) {
+  .leaderboard-handle { font-size: 0.7rem; }
+  .leaderboard-name { font-size: 0.82rem; }
+  .leaderboard-avatar { width: 1.9rem; height: 1.9rem; font-size: 1.1rem; }
+}
+
+/* Join code — prevent overflow */
+.social-join-code {
+  overflow: hidden;
+  max-width: 100%;
+}
+.social-join-code__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Social section title — smaller gap on mobile */
+@media (max-width: 640px) {
+  .social-section-title { margin: 1rem 0 0.5rem; font-size: 0.9rem; }
+  .social-shell { padding: 1.25rem 0 3rem; }
+  .social-header h1 { font-size: 1.4rem; }
+}
+
+/* Achievement grid — 1 column on very small screens */
+@media (max-width: 380px) {
+  .achievement-grid { grid-template-columns: 1fr; }
+}
+
+/* Nav — prevent Ranks label overflow at mid-width */
+@media (min-width: 768px) and (max-width: 900px) {
+  .nav-item span:last-child { font-size: 0.78rem; }
+  .nav-item { gap: 0.2rem; padding: 0.35rem 0.5rem; }
+}
+
+/* ── Add row — stack on small screens ─────────────────────────────────── */
+@media (max-width: 380px) {
+  .social-add-row { flex-direction: column; }
+  .social-add-row .btn { width: 100%; }
+}
+
+/* ── Prevent social modal from going off-screen on mobile ─────────────── */
+@media (max-width: 480px) {
+  .social-modal { padding: 1.25rem; }
+  .social-modal-actions { flex-wrap: wrap; }
+  .social-modal-actions .btn { flex: 1; }
+}
+
+/* ── Leaderboard page container padding on mobile ─────────────────────── */
+@media (max-width: 640px) {
+  .leaderboard-list { margin-bottom: 1rem; }
+  .leaderboard-week-label { font-size: 0.72rem; }
+}
