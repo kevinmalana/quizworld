@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
+import { checkAndGrantAchievements } from "@/lib/achievements";
 
 import type { CardState, SessionResult, StudyMode, StudyQuestion, StudyQuiz } from "@/lib/study/types";
 import {
@@ -34,6 +35,7 @@ export default function StudyPage() {
   const [saving, setSaving]           = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [totalXp, setTotalXp]         = useState<number | undefined>(undefined);
+  const [newAchievements, setNewAchievements] = useState<string[]>([]);
   const [quickFireTimeLeft, setQuickFireTimeLeft] = useState(0);
   const [advancing, setAdvancing]     = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
@@ -140,6 +142,16 @@ export default function StudyPage() {
     const saved = !progressError && !sessionError;
     setSaveMessage(saved ? `Progress saved · +${sessionXp} XP` : "Could not save progress this time.");
     setSaving(false);
+
+    // Check + grant achievements after save
+    if (saved) {
+      const granted = await checkAndGrantAchievements({
+        userId: user.id,
+        supabase,
+        sessionResult: { correct: result.correct, total: result.total, mode },
+      });
+      if (granted.length > 0) setNewAchievements(granted);
+    }
   };
 
   const finishSession = async (correct: number, total: number, wrong: StudyQuestion[]) => {
@@ -206,6 +218,7 @@ export default function StudyPage() {
     setTimerPaused(false);
     setLastAnswerCorrect(null);
     setTotalXp(undefined);
+    setNewAchievements([]);
     setMode("choose");
   };
 
@@ -220,6 +233,7 @@ export default function StudyPage() {
         saving={saving}
         saveMessage={saveMessage}
         totalXp={totalXp}
+        newAchievements={newAchievements}
         onReset={resetSession}
         onReview={sessionResult.wrongQuestions.length > 0 ? startReviewRound : undefined}
         onBack={() => router.push("/study")}

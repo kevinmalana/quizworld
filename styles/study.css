@@ -925,3 +925,48 @@
   margin-top: 0.35rem;
   line-height: 1.6;
 }
+
+/* ── New achievement unlock on result screen ─────────────────────────────── */
+.study-new-achievements {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent-light), var(--success-light));
+  border: 1px solid var(--accent-glow);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  margin: 0.5rem 0;
+  text-align: center;
+  animation: achievement-pop 0.4s cubic-bezier(.22,1,.36,1);
+}
+@keyframes achievement-pop {
+  from { transform: scale(0.9); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+.study-new-achievements__title {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+.study-new-achievements__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+.study-new-achievement-badge {
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius-full);
+  padding: 0.25rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.study-new-achievements__link {
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.study-new-achievements__link:hover { text-decoration: underline; }

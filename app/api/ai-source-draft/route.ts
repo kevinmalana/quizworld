@@ -19,7 +19,7 @@ function requireEnv(name: string) {
 
 export async function POST(request: Request) {
   // Rate limiting
-  const rateLimitResponse = checkRateLimit(request as any);
+  const rateLimitResponse = await checkRateLimit(request as any);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {

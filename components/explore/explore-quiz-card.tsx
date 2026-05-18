@@ -34,7 +34,11 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
         <span className="explore-quiz-creator-avatar">{avatar}</span>
         <div className="explore-quiz-creator-info">
           <span className="explore-quiz-creator-name">
-            {displayName || "Anonymous"}
+            {username ? (
+              <a href={`/u/${username}`} style={{ color: "inherit", textDecoration: "none" }}>
+                {displayName || "Anonymous"}
+              </a>
+            ) : (displayName || "Anonymous")}
             {username && <span className="explore-quiz-creator-handle"> @{username}</span>}
           </span>
           {level !== null && (

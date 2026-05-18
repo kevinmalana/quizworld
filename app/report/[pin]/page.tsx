@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/components/supabase-provider";
 
 type PlayerResult = {
   id: string;
@@ -110,6 +111,8 @@ function AccuracyBar({ pct }: { pct: number }) {
 
 export default function ReportPage() {
   const params = useParams();
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const pin = params.pin as string;
   const [result, setResult] = useState<GameResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,6 +120,11 @@ export default function ReportPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "questions" | "players">("overview");
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.push(`/login?next=/report/${pin}`);
+      return;
+    }
     async function load() {
       const { data, error: fetchError } = await supabase
         .from("game_results")
@@ -134,7 +142,7 @@ export default function ReportPage() {
       setLoading(false);
     }
     load();
-  }, [pin]);
+  }, [pin, user, authLoading]);
 
   if (loading) {
     return <div className="container report-status">Loading report...</div>;

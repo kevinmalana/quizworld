@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { calcLevel } from "@/components/study/study-session-panels";
+import { checkAndGrantAchievements } from "@/lib/achievements";
 import "@/styles/social.css";
 import "@/styles/friends.css";
 
@@ -133,6 +134,7 @@ export default function FriendsPage() {
 
   async function acceptRequest(friendshipId: string) {
     await supabase.from("friendships").update({ status: "accepted" }).eq("id", friendshipId);
+    if (user) checkAndGrantAchievements({ userId: user.id, supabase }).catch(() => {});
     load();
   }
 

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { CardState, SessionResult, StudyMode, StudyQuestion } from "@/lib/study/types";
+import { checkAndGrantAchievements } from "@/lib/achievements";
 
 // ─── Level system ─────────────────────────────────────────────────────────────
 
@@ -428,6 +429,7 @@ export function StudyResultPanel({
   saving,
   saveMessage,
   totalXp,
+  newAchievements = [],
   onReset,
   onReview,
   onBack,
@@ -437,6 +439,7 @@ export function StudyResultPanel({
   saving: boolean;
   saveMessage: string;
   totalXp?: number;
+  newAchievements?: string[];
   onReset: () => void;
   onReview?: () => void;
   onBack: () => void;
@@ -481,6 +484,19 @@ export function StudyResultPanel({
                 <span>+{sessionXp} XP</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* New achievements unlocked */}
+        {newAchievements.length > 0 && (
+          <div className="study-new-achievements">
+            <div className="study-new-achievements__title">🏅 Achievement{newAchievements.length > 1 ? "s" : ""} Unlocked!</div>
+            <div className="study-new-achievements__list">
+              {newAchievements.map(slug => (
+                <span key={slug} className="study-new-achievement-badge">{slug.replace(/_/g, " ")}</span>
+              ))}
+            </div>
+            <a href="/achievements" className="study-new-achievements__link">View all achievements →</a>
           </div>
         )}
 

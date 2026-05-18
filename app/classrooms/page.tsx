@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { calcLevel } from "@/components/study/study-session-panels";
+import { checkAndGrantAchievements } from "@/lib/achievements";
 import "@/styles/social.css";
 
 type Classroom = {
@@ -83,6 +84,8 @@ export default function ClassroomsPage() {
     setMsg(`Joined "${room.name}"!`); setMsgType("success");
     setShowJoin(false); setJoinCode("");
     setTimeout(() => setMsg(""), 3000);
+    // Check join_classroom achievement
+    if (user) checkAndGrantAchievements({ userId: user.id, supabase }).catch(() => {});
     load();
   }
 

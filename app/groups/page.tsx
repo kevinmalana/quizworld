@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
+import { checkAndGrantAchievements } from "@/lib/achievements";
 import "@/styles/social.css";
 
 const EMOJIS = ["🎯", "🧠", "🏆", "⚡", "🔥", "🎮", "🌍", "🎬", "🎵", "⚽", "🦁", "🚀", "💡", "🦋", "🐉"];
@@ -86,6 +87,7 @@ export default function GroupsPage() {
     if (error?.message?.includes("duplicate")) { setMsg("Already a member."); setMsgType("error"); return; }
     setMsg("Joined!"); setMsgType("success"); setShowJoin(false); setJoinCode("");
     setTimeout(() => setMsg(""), 2000);
+    if (user) checkAndGrantAchievements({ userId: user.id, supabase }).catch(() => {});
     load();
   }
 
