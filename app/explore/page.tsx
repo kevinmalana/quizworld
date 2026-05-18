@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { SectionCard } from "@/components/section-card";
+import { calcLevel } from "@/components/study/study-session-panels";
 
 import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/store";
 import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/explore-quiz-card";
@@ -78,19 +79,22 @@ function ExplorePageContent() {
 
     if (batch.length > 0) {
       const creatorIds = [...new Set(batch.map((q: any) => q.creator_id).filter(Boolean))];
-      let creatorMap: Record<string, { name: string; username: string; avatar: string }> = {};
+      let creatorMap: Record<string, { name: string; username: string; avatar: string; level: number; levelTitle: string }> = {};
 
       if (creatorIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, username, display_name, avatar")
+          .select("id, username, display_name, avatar, total_xp")
           .in("id", creatorIds);
         if (profiles) {
           for (const p of profiles) {
+            const lv = calcLevel((p.total_xp as number | null) ?? 0);
             creatorMap[p.id] = {
               name: p.display_name || p.username || "",
               username: p.username || "",
               avatar: p.avatar || "👤",
+              level: lv.level,
+              levelTitle: lv.title,
             };
           }
         }
@@ -102,6 +106,8 @@ function ExplorePageContent() {
         creator_display_name: creatorMap[q.creator_id]?.name ?? undefined,
         creator_username: creatorMap[q.creator_id]?.username ?? undefined,
         creator_avatar: creatorMap[q.creator_id]?.avatar ?? undefined,
+        creator_level: creatorMap[q.creator_id]?.level ?? undefined,
+        creator_level_title: creatorMap[q.creator_id]?.levelTitle ?? undefined,
       })) as QuizWithCreator[];
 
       setQuizzes((prev) => append ? [...prev, ...withCreator] : withCreator);

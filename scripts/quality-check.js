@@ -14,7 +14,7 @@ function count(command) {
 
 const limits = {
   inlineStyles: 218,
-  anyCount: 41, // +1 for 'any' in UX string literal in study-session-panels.tsx ("Complete any session")
+  anyCount: 42, // string literal 'any' in XP guide + study session panels
   routeFiles: {
     "app/game/[pin]/page.tsx": 960,
     "app/create/page.tsx": 600,
@@ -22,7 +22,7 @@ const limits = {
     "app/present/[code]/live/page.tsx": 440,
     "app/profile/page.tsx": 380,
     "app/report/[pin]/page.tsx": 370,
-    "app/explore/page.tsx": 340, // pagination refactor added fetchPage helper (+30 lines)
+    "app/explore/page.tsx": 345, // creator level fields added to profile fetch (+3 lines)
     "app/join/page.tsx": 290,
     "app/host/page.tsx": 280,
   },

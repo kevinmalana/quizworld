@@ -8,12 +8,16 @@ export type QuizWithCreator = Quiz & {
   creator_display_name?: string;
   creator_username?: string;
   creator_avatar?: string;
+  creator_level?: number;
+  creator_level_title?: string;
 };
 
 export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
   const displayName = quiz.creator_display_name || quiz.creator_name || null;
   const username = quiz.creator_username || null;
   const avatar = quiz.creator_avatar || "👤";
+  const level = quiz.creator_level ?? null;
+  const levelTitle = quiz.creator_level_title ?? null;
 
   return (
     <div className="card card-hover explore-quiz-card">
@@ -28,10 +32,17 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
 
       <div className="explore-quiz-creator">
         <span className="explore-quiz-creator-avatar">{avatar}</span>
-        <span className="explore-quiz-creator-name">
-          {displayName || "Anonymous"}
-          {username && <span className="explore-quiz-creator-handle"> @{username}</span>}
-        </span>
+        <div className="explore-quiz-creator-info">
+          <span className="explore-quiz-creator-name">
+            {displayName || "Anonymous"}
+            {username && <span className="explore-quiz-creator-handle"> @{username}</span>}
+          </span>
+          {level !== null && (
+            <span className="explore-quiz-creator-level" title={levelTitle ?? undefined}>
+              ⭐ Lv {level}{levelTitle ? ` · ${levelTitle}` : ""}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="explore-quiz-meta">

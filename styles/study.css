@@ -890,3 +890,38 @@
 .study-xp-how-row span:last-child { font-weight: 600; color: var(--fg); }
 .study-xp-how-row--note span { color: var(--muted); font-style: italic; font-size: 0.78rem; }
 .study-xp-how-row--note span:last-child { display: none; }
+
+/* ── XP Guide box on Study Hall page ───────────────────────────────────── */
+.study-xp-guide {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  background: var(--surface);
+  margin-bottom: 1.5rem;
+}
+.study-xp-guide__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+.study-xp-guide__title { font-weight: 700; font-size: 0.9rem; }
+.study-xp-guide__toggle { font-size: 0.8rem; color: var(--muted); }
+.study-xp-guide__body { margin-top: 0.75rem; }
+.study-xp-guide__rows { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.6rem; }
+.study-xp-guide__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.study-xp-guide__row span:last-child { font-weight: 600; color: var(--fg); }
+.study-xp-guide__levels {
+  font-size: 0.78rem;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: 0.5rem;
+  margin-top: 0.35rem;
+  line-height: 1.6;
+}

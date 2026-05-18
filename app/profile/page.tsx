@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/supabase-provider";
 import { supabase } from "@/lib/supabase/client";
 import { HostIcon } from "@/components/shared/host-icon";
+import { calcLevel } from "@/components/study/study-session-panels";
 import {
   type GameResultRow,
   getBestHostedScore,
@@ -34,6 +35,7 @@ export default function ProfilePage() {
   const [username, setUsername] = useState("");
   const [originalUsername, setOriginalUsername] = useState("");
   const [avatar, setAvatar] = useState("👤");
+  const [totalXp, setTotalXp] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -49,7 +51,7 @@ export default function ProfilePage() {
         supabase.from("quizzes").select("plays").eq("creator_id", userId).is("archived_at", null),
         supabase.from("study_progress").select("quiz_id").eq("user_id", userId),
         supabase.from("game_results").select("id, pin, quiz_id, host_id, player_count, finished_at, results").eq("host_id", userId),
-        supabase.from("profiles").select("display_name, username, avatar").eq("id", userId).single(),
+        supabase.from("profiles").select("display_name, username, avatar, total_xp").eq("id", userId).single(),
       ]);
       if (ignore) return;
       const hostedResults = (resResult.data as GameResultRow[] | null) ?? [];
@@ -66,6 +68,7 @@ export default function ProfilePage() {
         setUsername(profileResult.data.username || "");
         setOriginalUsername(profileResult.data.username || "");
         setAvatar(profileResult.data.avatar || "👤");
+        setTotalXp((profileResult.data.total_xp as number | null) ?? 0);
       }
       setLoading(false);
     }
@@ -166,6 +169,13 @@ export default function ProfilePage() {
           <div className="profile-hero-info">
             <h1 className="font-display profile-hero-name">{displayName || "Player"}</h1>
             <p className="profile-hero-username">@{username || "not set"}</p>
+            {(() => { const lv = calcLevel(totalXp); return (
+              <div className="profile-hero-level">
+                <span className="profile-hero-level-badge">⭐ Level {lv.level}</span>
+                <span className="profile-hero-level-title">{lv.title}</span>
+                <span className="profile-hero-level-xp">{totalXp.toLocaleString()} XP</span>
+              </div>
+            ); })()}
             <div className="profile-hero-stats">
               <span className="profile-hero-stat">{stats.quizCount} quizzes</span>
               <span className="profile-hero-divider">·</span>

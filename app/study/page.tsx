@@ -6,6 +6,33 @@ import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { AvailableStudyQuizCard, ContinueStudyQuizCard } from "@/components/study/study-quiz-card";
 import { StudyStatsDashboard, type StudyProgressRow, type StudySessionRow } from "@/components/study/study-dashboard";
+import { calcLevel } from "@/components/study/study-session-panels";
+
+function XpGuideBox() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="study-xp-guide">
+      <div className="study-xp-guide__header" onClick={() => setOpen(o => !o)}>
+        <span className="study-xp-guide__title">💡 How to earn XP &amp; level up</span>
+        <span className="study-xp-guide__toggle">{open ? "Hide ▲" : "Show ▼"}</span>
+      </div>
+      {open && (
+        <div className="study-xp-guide__body">
+          <div className="study-xp-guide__rows">
+            <div className="study-xp-guide__row"><span>🇦️ Flashcard — correct answer</span><span>+25 XP</span></div>
+            <div className="study-xp-guide__row"><span>⚡ Quick Fire — correct answer</span><span>+45 XP</span></div>
+            <div className="study-xp-guide__row"><span>✅ Complete any session</span><span>+50 XP</span></div>
+            <div className="study-xp-guide__row"><span>🏆 Perfect score (100%)</span><span>+100 XP bonus</span></div>
+            <div className="study-xp-guide__row"><span>🔥 Study daily to grow your streak</span><span>keeps streak</span></div>
+          </div>
+          <div className="study-xp-guide__levels">
+            <strong>Level milestones:</strong> Curious Learner (1) → Quiz Starter (2) → Knowledge Seeker (3) → Trivia Enthusiast (4) → Quiz Apprentice (5) → Study Scout (6) → Brain Trainer (7) → Quiz Adept (8) →… Master Learner (15) → Quiz Legend (20) → Grand Scholar (25) → Trivia Grandmaster (30+)
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 
 type QuizRow = {
@@ -172,12 +199,12 @@ export default function StudyListPage() {
             <h1 className="font-display study-list-title">🧠 Study Hall</h1>
             <p className="study-list-subtitle">Master your knowledge with flashcards and quickfire practice.</p>
           </div>
-          {user && (
+          {user && (() => { const lv = calcLevel(totalXp); return (
             <div className="study-xp-badge">
               <span className="study-xp-badge-icon">⭐</span>
-              <span className="study-xp-badge-value">{totalXp.toLocaleString()} XP</span>
+              <span className="study-xp-badge-value">Lv {lv.level} · {lv.title}</span>
             </div>
-          )}
+          ); })()}
         </div>
 
         {/* Search + filter — always at top so results appear immediately below */}
@@ -219,6 +246,8 @@ export default function StudyListPage() {
             Sign in to save study progress and earn XP across sessions.
           </div>
         )}
+
+        {!isFiltering && <XpGuideBox />}
 
         {!isFiltering && user && (
           <StudyStatsDashboard
