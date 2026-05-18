@@ -1643,11 +1643,11 @@ body.qw-present-live-route main {
 .profile-hero-level-badge {
   font-size: 0.8rem;
   font-weight: 700;
-  background: linear-gradient(90deg, #f59e0b22, #8b5cf622);
-  border: 1px solid #f59e0b55;
-  border-radius: 999px;
+  background: var(--accent-light);
+  border: 1px solid var(--accent-glow);
+  border-radius: var(--radius-full);
   padding: 0.2rem 0.6rem;
-  color: var(--fg);
+  color: var(--accent);
 }
 .profile-hero-level-title {
   font-size: 0.78rem;
@@ -1668,7 +1668,7 @@ body.qw-present-live-route main {
 }
 .explore-quiz-creator-level {
   font-size: 0.72rem;
-  color: #f59e0b;
+  color: var(--accent);
   font-weight: 600;
   white-space: nowrap;
 }
