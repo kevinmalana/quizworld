@@ -151,7 +151,7 @@ export default function ClassroomsPage() {
       ) : (
         <div className="social-card-grid">
           {classrooms.map(c => (
-            <div key={c.id} className="card social-card">
+            <div key={c.id} className="card card-hover social-card">
               <div className="social-card-header">
                 <div className="social-card-emoji">🏫</div>
                 <div className="social-card-title">{c.name}</div>

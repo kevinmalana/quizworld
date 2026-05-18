@@ -157,7 +157,7 @@ export default function GroupsPage() {
               <div className="social-section-title">My Groups</div>
               <div className="social-card-grid">
                 {myGroups.map(g => (
-                  <div key={g.id} className="card social-card">
+                  <div key={g.id} className="card card-hover social-card">
                     <div className="social-card-header">
                       <div className="social-card-emoji">{g.emoji}</div>
                       <div className="social-card-title">{g.name}</div>
@@ -182,7 +182,7 @@ export default function GroupsPage() {
               <div className="social-section-title">🌐 Discover Groups</div>
               <div className="social-card-grid">
                 {publicGroups.map(g => (
-                  <div key={g.id} className="card social-card">
+                  <div key={g.id} className="card card-hover social-card">
                     <div className="social-card-header">
                       <div className="social-card-emoji">{g.emoji}</div>
                       <div className="social-card-title">{g.name}</div>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { calcLevel } from "@/components/study/study-session-panels";
+import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/explore-quiz-card";
 import "@/styles/social.css";
 
 type PublicProfile = {
@@ -25,6 +26,7 @@ type PublicQuiz = {
   category: string;
   plays: number;
   emoji: string | null;
+  color: string | null;
 };
 
 type PublicAchievement = {
@@ -60,7 +62,7 @@ export default function PublicProfilePage() {
       setProfile(profileData as PublicProfile);
 
       const [quizRes, achRes] = await Promise.all([
-        supabase.from("quizzes").select("id, title, category, plays, emoji").eq("creator_id", profileData.id).eq("is_public", true).is("archived_at", null).order("plays", { ascending: false }).limit(6),
+        supabase.from("quizzes").select("id, title, category, plays, emoji, color").eq("creator_id", profileData.id).eq("is_public", true).is("archived_at", null).order("plays", { ascending: false }).limit(6),
         supabase.from("user_achievements").select("achievement_slug, earned_at, achievements(name, icon)").eq("user_id", profileData.id).order("earned_at", { ascending: false }),
       ]);
 
@@ -188,20 +190,21 @@ export default function PublicProfilePage() {
           <div className="social-section-title">📝 Public Quizzes ({quizzes.length})</div>
           <div className="social-card-grid">
             {quizzes.map(q => (
-              <div key={q.id} className="card social-card">
-                <div className="social-card-header">
-                  <div className="social-card-emoji">{q.emoji || "📝"}</div>
-                  <div className="social-card-title">{q.title}</div>
-                </div>
-                <div className="social-card-meta">
-                  <span>{q.category}</span>
-                  <span>▶️ {q.plays} plays</span>
-                </div>
-                <div className="social-card-actions">
-                  <Link href={`/study/${q.id}`} className="btn btn-secondary btn-compact social-flex-1">📖 Study</Link>
-                  <Link href={`/host?quiz=${q.id}`} className="btn btn-primary btn-compact social-flex-1">🏁 Host</Link>
-                </div>
-              </div>
+              <ExploreQuizCard
+                key={q.id}
+                quiz={{
+                  ...q,
+                  questions: [],
+                  is_public: true,
+                  archived_at: null,
+                  creator_id: profile!.id,
+                  creator_display_name: profile!.display_name,
+                  creator_username: profile!.username,
+                  creator_avatar: profile!.avatar,
+                  creator_level: calcLevel(profile!.total_xp).level,
+                  creator_level_title: calcLevel(profile!.total_xp).title,
+                } as unknown as QuizWithCreator}
+              />
             ))}
           </div>
         </div>

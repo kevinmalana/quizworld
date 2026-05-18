@@ -210,7 +210,7 @@ export default function GroupDetailPage() {
           ) : (
             <div className="social-card-grid">
               {pinnedQuizzes.map(pq => (
-                <div key={pq.id} className="card social-card">
+                <div key={pq.id} className="card card-hover social-card">
                   <div className="social-card-header">
                     <div className="social-card-emoji">{pq.quiz_emoji || "📝"}</div>
                     <div className="social-card-title">{pq.quiz_title}</div>

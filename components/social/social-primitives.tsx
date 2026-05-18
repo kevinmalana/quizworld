@@ -147,7 +147,7 @@ export function SocialCard({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="card social-card">
+    <div className="card card-hover social-card">
       <div className="social-card-header">
         <div className="social-card-emoji">{emoji}</div>
         <div className="social-card-title">{title}</div>
