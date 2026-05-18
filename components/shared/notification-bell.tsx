@@ -28,6 +28,28 @@ export function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<NotifItem[]>([]);
   const [open, setOpen] = useState(false);
+  const [seenIds, setSeenIds] = useState<Set<string>>(() => {
+    // Persist dismissed notifications across page loads
+    try {
+      const stored = localStorage.getItem("qw_seen_notifs");
+      return new Set(stored ? JSON.parse(stored) : []);
+    } catch { return new Set(); }
+  });
+
+  function dismissAll() {
+    const allIds = items.map(i => i.id);
+    const next = new Set([...seenIds, ...allIds]);
+    setSeenIds(next);
+    try { localStorage.setItem("qw_seen_notifs", JSON.stringify([...next])); } catch {}
+    setOpen(false);
+  }
+
+  function dismissOne(id: string) {
+    const next = new Set([...seenIds, id]);
+    setSeenIds(next);
+    try { localStorage.setItem("qw_seen_notifs", JSON.stringify([...next])); } catch {}
+    setOpen(false);
+  }
 
   // Close dropdown on route change
   useEffect(() => { setOpen(false); }, [pathname]);
@@ -103,8 +125,8 @@ export function NotificationBell() {
       });
     });
 
-    setItems(notifs);
-  }, [user?.id]);
+    setItems(notifs.filter(n => !seenIds.has(n.id)));
+  }, [user?.id, seenIds]);
 
   useEffect(() => {
     fetchNotifs();
@@ -140,7 +162,7 @@ export function NotificationBell() {
           <div className="notif-header">
             <span className="notif-header-title">Notifications</span>
             {count > 0 && (
-              <span className="notif-header-count">{count} new</span>
+              <button className="notif-clear-btn" onClick={dismissAll}>Clear all</button>
             )}
           </div>
           {items.length === 0 ? (
@@ -152,7 +174,7 @@ export function NotificationBell() {
                   key={item.id}
                   href={item.href}
                   className="notif-item"
-                  onClick={() => setOpen(false)}
+                  onClick={() => dismissOne(item.id)}
                 >
                   <span className="notif-icon">{iconMap[item.type]}</span>
                   <div className="notif-content">
@@ -163,7 +185,7 @@ export function NotificationBell() {
               ))}
             </div>
           )}
-          <Link href="/friends" className="notif-footer" onClick={() => setOpen(false)}>
+          <Link href="/friends" className="notif-footer" onClick={dismissAll}>
             View all →
           </Link>
         </div>

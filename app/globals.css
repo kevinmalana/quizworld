@@ -1780,3 +1780,14 @@ body.qw-present-live-route main {
 @media (max-width: 480px) {
   .notif-dropdown { width: calc(100vw - 2rem); right: -0.5rem; }
 }
+
+.notif-clear-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0;
+}
+.notif-clear-btn:hover { color: var(--primary); }
