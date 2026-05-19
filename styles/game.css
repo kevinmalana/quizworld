@@ -805,3 +805,93 @@
   margin-bottom: 0.5rem;
   text-align: center;
 }
+
+/* ─── Error Handling ─────────────────────────────────── */
+
+.game-error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.game-error-card {
+  text-align: center;
+  max-width: 400px;
+  padding: 2rem;
+}
+
+.game-error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.game-error-title {
+  margin-bottom: 0.5rem;
+}
+
+.game-error-message {
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
+
+.game-error-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.game-inline-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--error-bg, #fef2f2);
+  border: 1px solid var(--error-border, #fecaca);
+  border-radius: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.game-inline-error-icon {
+  font-size: 1.25rem;
+}
+
+.game-inline-error-text {
+  flex: 1;
+  color: var(--error-text, #991b1b);
+}
+
+.game-inline-error-dismiss {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: var(--error-text, #991b1b);
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+
+.game-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+}
+
+.game-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.game-loading-message {
+  margin-top: 1rem;
+  color: var(--muted);
+}

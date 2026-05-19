@@ -24,7 +24,8 @@ test.describe('Study Engine: Availability', () => {
     const hasQuizzes = await quizCard.isVisible().catch(() => false);
 
     // Either has quizzes or empty state
-    expect(hasQuizzes || await page.locator('body').innerText().length > 0).toBe(true);
+    const bodyText = await page.locator('body').innerText();
+    expect(hasQuizzes || bodyText.length > 0).toBe(true);
   });
 });
 
