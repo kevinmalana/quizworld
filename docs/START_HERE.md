@@ -1,70 +1,54 @@
-# Start Here
+# QuizWorld — Start Here
 
-This is the authoritative entrypoint for the current QuizWorld production architecture. Older release docs still mention v9/v12 for history; start with the current handoff first.
+**Production:** https://www.quizworld.xyz
+**Repo:** github.com/kevinmalana/quizworld
+**Last verified:** 2026-05-19
 
-## Read Order
+---
 
-1. [CURRENT_AGENT_HANDOFF.md](./CURRENT_AGENT_HANDOFF.md) — current source map, deploy pattern, verification baseline
-2. [V12_RELEASE.md](./V12_RELEASE.md)
-3. [V9_RELEASE.md](./V9_RELEASE.md) for historical v9 rollout context
-4. [PHOENIX_V2_HANDOFF.md](./PHOENIX_V2_HANDOFF.md)
-5. [V9_CONTRACT.md](./V9_CONTRACT.md) for the service-boundary contract that still informs the current split
-6. [HANDBOOK.md](./HANDBOOK.md)
-7. [ARCHITECTURE.md](./ARCHITECTURE.md)
-8. [BUSINESS_DOCUMENTATION.md](./BUSINESS_DOCUMENTATION.md)
-9. [USE_CASES.md](./USE_CASES.md)
-10. [TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)
-11. [STYLE_GUIDE.md](./STYLE_GUIDE.md)
-12. [DEV_GUIDE.md](./DEV_GUIDE.md)
-13. [TESTING_GUIDE.md](./TESTING_GUIDE.md)
-14. [BA_GUIDE.md](./BA_GUIDE.md)
-15. [QUIZ_BUILDER_AGENT_HANDOVER.md](./QUIZ_BUILDER_AGENT_HANDOVER.md)
-16. [../OPENCLAW_DEPLOY_HANDOVER.md](../OPENCLAW_DEPLOY_HANDOVER.md)
-17. [../services/quizworld_realtime/README.md](../services/quizworld_realtime/README.md)
+## Required Reading (in order)
 
-## What The App Is
+1. **CURRENT_AGENT_HANDOFF.md** — current state, deploy pattern, blockers
+2. **ENGINEERING_HANDBOOK.md** — architecture, schema, conventions (if diving deep)
 
-QuizWorld is:
+That's it. Other docs are historical or supplementary.
 
-- a Next.js frontend for auth, content, dashboard, study, and profile
-- a Supabase-backed content/auth layer
-- a Phoenix realtime service for live multiplayer sessions
-- an optional Redis-backed state cache for the Phoenix service
-- a builder workflow with drafts, versioning, archive/visibility controls, source import, AI generation, and AI-assisted review
-- a responsive, componentized builder that works cleanly on mobile/tablet without losing timing, scoring, or preview controls
+---
 
-## Current Cleanup/Component Map
+## Quick Reference
 
-The 2026-05-09 cleanup pass moved most large route JSX into components. Future agents should keep route files as containers and put reusable UI in:
+**Stack:** Next.js 16 + React 19 + Phoenix/Elixir + Supabase + Redis
 
-- `components/builder/` for `/create` builder UI and source modals
-- `lib/quiz-ai.ts`, `app/api/ai-source-draft/route.ts`, and `app/api/ai-enrich/route.ts` for AI generation/enrichment
-- `components/game/` for `/game/[pin]` live-game panels
-- `components/study/` for study hall/session cards and panels
-- `components/dashboard/` for dashboard cards
-- `components/explore/` for explore quiz cards
-- `styles/builder.css`, `styles/game.css`, `styles/present.css`, `styles/study.css` for route-specific CSS
-
-Main verification gate: `npm run check`, then `BASE_URL=https://www.quizworld.xyz npx playwright test --project=chromium` before/after deploy.
-
-For local UI/test work, start Next.js and point Playwright at the local port:
-
+**Tests:**
 ```bash
-npm run dev
-BASE_URL=http://localhost:<port> npx playwright test --reporter=line
+npm run check           # TypeScript + Phoenix
+npx playwright test     # E2E (production)
 ```
 
-If local Phoenix env is not configured, `/join` and `/host` should show the explicit live-service configuration status. That is valid local behavior; production should use the Phoenix service URL.
+**Deploy:**
+```bash
+git push origin main    # GitHub
+vercel deploy --prod    # Production
+```
 
-## What To Ignore Unless You Need History
+**Secrets:** `/root/.openclaw/secrets/`
 
-These files are historical:
+---
 
-- [V8_4_RELEASE.md](./V8_4_RELEASE.md)
-- [V8_3_RELEASE.md](./V8_3_RELEASE.md)
-- [V8_2_RELEASE.md](./V8_2_RELEASE.md)
-- [V8_1_RELEASE.md](./V8_1_RELEASE.md)
-- [V6_CHANGELOG.md](./V6_CHANGELOG.md)
-- [V6_DESIGN_SYSTEM.md](./V6_DESIGN_SYSTEM.md)
+## What This App Is
 
-They should stay historical. Do not “update” them to describe current behavior.
+- Quiz builder (manual, paste, AI-generated)
+- Study mode (flashcard, quickfire)
+- Live multiplayer games (Phoenix WebSocket)
+- Social layer (friends, classrooms, groups)
+- Gamification (XP, achievements, leaderboards)
+
+---
+
+## Historical Docs (ignore unless needed)
+
+- `V6_*.md`, `V8_*.md`, `V9_*.md`, `V11_*.md`, `V12_*.md` — outdated releases
+- `QUIZWORLD_HANDOFF_2026-05-07.md` — superseded by CURRENT_AGENT_HANDOFF.md
+- `PHOENIX_V2_HANDOFF.md` — historical handoff
+
+Do not update historical docs to describe current behavior.
