@@ -11,7 +11,7 @@ Workspace: `/root/.openclaw/workspace/quizworld`
 2. Run `npm run quality` before any commit
 3. Deploy: `source /root/.openclaw/secrets/deployment.env && vercel deploy --prod --token "$VERCEL_TOKEN" --yes --archive=tgz`
 
-## Current State (2026-05-18)
+## Current State (2026-05-19)
 
 ### What's Live
 - **Core:** quiz builder (manual/paste/AI), explore (paginated), study (flashcard/quickfire), host/join live games, present mode, dashboard
@@ -32,17 +32,31 @@ Workspace: `/root/.openclaw/workspace/quizworld`
 
 ## Latest Commits
 ```
+c4f2cf0 Refactor: split live-game-panels.tsx into 14 individual component files
 04b4d9f feat: achievement auto-unlock, explore creator links, auth-only rate limiter, report auth guard
 0bbb3fd feat: assignment mark-complete, group pinned quizzes, /u/[username] public profiles
 765d08e fix: UX gaps — leave classroom/group, remove member (teacher), stale totalXp reset
-0f8c96d fix: social layer bugs — friendship dupe check, weekly XP display
 4d95931 feat: social layer — friends, classrooms, trivia groups, leaderboard, achievements
 ```
 
+## Code Architecture (2026-05-19)
+
+### Components Structure
+- `components/game/` — 14 individual component files (refactored from 1 monolith)
+  - Import via `from "@/components/game"` (index.ts re-exports all)
+  - Largest: `GameFinishedPanel.tsx` (244 lines), `WaitingLobbyPanel.tsx` (118 lines)
+  - Smallest: `GameNotice.tsx` (11 lines)
+- `app/game/[pin]/page.tsx` — still monolithic (1022 lines)
+  - **Warning:** Contains 25+ useState hooks, multiple useEffects
+  - State logic is tightly coupled to render
+  - Further extraction requires extensive testing
+  - Recommend: leave as-is unless adding game features
+
 ## Quality Baseline
 - TypeScript: clean
+- Phoenix: 44/44 tests passing
 - `npm run quality`: inline_styles=130, any_count=43
-- E2E: 83 tests passing against production
+- E2E: 108 tests passing (production)
 
 ## Deploy Pattern
 ```bash
