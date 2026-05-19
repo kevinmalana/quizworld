@@ -16,7 +16,7 @@ import {
   TeamScoreBar,
   TeamLeaderboard,
   WaitingLobbyPanel,
-} from "@/components/game/live-game-panels";
+} from "@/components/game";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
