@@ -207,7 +207,9 @@ export default function PresentPage() {
         </div>
 
         {/* Import from deck */}
-        <div className="card present-create-card" style={{ padding: "2rem", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", cursor: "pointer" }}
+        <button
+          className="card present-create-card"
+          style={{ padding: "2rem", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", cursor: "pointer", border: "1.5px solid var(--line)", background: "var(--surface)", width: "100%" }}
           onClick={() => {
             if (!user) {
               sessionStorage.setItem("qw_post_login_redirect", "/present");
@@ -222,10 +224,10 @@ export default function PresentPage() {
           <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
             Upload PDF, PPTX, or PPT — each page becomes a slide
           </p>
-          <button className="btn btn-secondary" style={{ marginTop: "1rem", pointerEvents: "none" }}>
+          <span className="btn btn-secondary" style={{ marginTop: "1rem" }}>
             Browse file →
-          </button>
-        </div>
+          </span>
+        </button>
       </div>
 
       <div className="present-feature-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", maxWidth: 680, width: "100%" }}>

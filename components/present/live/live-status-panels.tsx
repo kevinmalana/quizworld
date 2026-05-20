@@ -77,7 +77,15 @@ export function HostDock({ channelJoined, currentIndex, slideCount, resultsHidde
       <button className="present-dock-button" onClick={onJoin}>Join</button>
       <button className="present-dock-button" onClick={onToggleResults}>{resultsHidden ? "Reveal" : "Hide"}</button>
       <button className="present-dock-button" onClick={onToggleFullscreen}>{isFullscreen ? "Exit" : "Fullscreen"}</button>
-      <button className="present-dock-button is-danger" onClick={onEnd} disabled={!channelJoined}>End</button>
+      <button
+        className="present-dock-button is-danger"
+        onClick={() => {
+          if (window.confirm("End the presentation for everyone? This cannot be undone.")) {
+            onEnd();
+          }
+        }}
+        disabled={!channelJoined}
+      >End</button>
     </div>
   );
 }

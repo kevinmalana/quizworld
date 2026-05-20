@@ -5,6 +5,7 @@ export interface SlideContent {
   text?: string;
   image_url?: string;
   video_url?: string;
+  _imported?: boolean; // marks slides created via deck import; stripped on save
 
   // word_cloud
   prompt?: string;

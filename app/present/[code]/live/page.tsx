@@ -400,6 +400,18 @@ export default function PresentationLive() {
         scaleValue={scaleValue}
         submitted={submitted}
         newQnaQuestion={newQnaQuestion}
+        channelJoined={channelJoined}
+        onReconnect={() => {
+          if (channelRef.current) {
+            channelRef.current.disconnect();
+            channelRef.current = null;
+          }
+          // Re-subscribe by toggling loading briefly
+          setChannelJoined(false);
+          setChannelError(null);
+          // Re-run channel subscription effect by re-mounting
+          window.location.reload();
+        }}
         setResponse={setResponse}
         setScaleValue={setScaleValue}
         setSelectedOption={setSelectedOption}

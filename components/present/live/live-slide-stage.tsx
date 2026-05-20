@@ -1,6 +1,37 @@
+import { useState } from "react";
 import type { QnaQuestion, Slide, SlideResponse } from "@/lib/presentation/types";
 
 type WordCloudWord = [string, number];
+
+// Lightweight markdown → HTML for slide content (no external dep)
+function renderMarkdown(text: string): string {
+  return text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    // Headings
+    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+    // Bold + italic
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    // Inline code
+    .replace(/`(.+?)`/g, "<code>$1</code>")
+    // Paragraphs (double newline)
+    .replace(/\n\n/g, "</p><p>")
+    // Single newline
+    .replace(/\n/g, "<br />");
+}
+
+function MarkdownContent({ text }: { text: string }) {
+  return (
+    <div
+      className="present-markdown"
+      // eslint-disable-next-line react/no-danger
+      dangerouslySetInnerHTML={{ __html: `<p>${renderMarkdown(text)}</p>` }}
+    />
+  );
+}
 
 type LiveSlideStageProps = {
   currentSlide: Slide;
@@ -18,6 +49,8 @@ type LiveSlideStageProps = {
   scaleValue: number;
   submitted: boolean;
   newQnaQuestion: string;
+  channelJoined?: boolean;
+  onReconnect?: () => void;
   setResponse: (value: string) => void;
   setScaleValue: (value: number) => void;
   setSelectedOption: (value: string | null) => void;
@@ -43,6 +76,8 @@ export function LiveSlideStage({
   scaleValue,
   submitted,
   newQnaQuestion,
+  channelJoined = true,
+  onReconnect,
   setResponse,
   setScaleValue,
   setSelectedOption,
@@ -52,10 +87,34 @@ export function LiveSlideStage({
   upvoteQna,
 }: LiveSlideStageProps) {
   const shouldShowResults = !isHost || !resultsHidden;
+  // Scale: track whether audience has touched the slider
+  const [scaleInteracted, setScaleInteracted] = useState(false);
 
   return (
     <div className={isHost ? "present-live-stage is-host" : "present-live-stage"}>
+      {/* Audience disconnect banner */}
+      {!isHost && !channelJoined && (
+        <div style={{
+          background: "#fff3cd", color: "#856404", padding: "0.5rem 1rem",
+          fontSize: "0.8125rem", fontWeight: 600, textAlign: "center",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem",
+        }}>
+          ⚠️ Connection lost — slides may be out of sync.
+          {onReconnect && (
+            <button onClick={onReconnect} className="btn btn-secondary" style={{ fontSize: "0.75rem", padding: "0.2rem 0.75rem" }}>
+              Reconnect
+            </button>
+          )}
+        </div>
+      )}
       <div className={isHost ? "present-live-content is-host" : "present-live-content"}>
+        {/* Audience: show slide title above content */}
+        {!isHost && currentSlide.title && (
+          <p style={{ textAlign: "center", fontWeight: 700, color: "var(--muted)", fontSize: "0.875rem", marginBottom: "0.5rem", letterSpacing: "0.01em" }}>
+            {currentSlide.title}
+          </p>
+        )}
+
         {currentSlide.slide_type === "content" && (
           <div className="card present-slide-card present-slide-card--content">
             <h2 className="font-display present-slide-title">{currentSlide.title}</h2>
@@ -65,7 +124,7 @@ export function LiveSlideStage({
               </div>
             )}
             {currentSlide.content?.text && (
-              <div className="present-content-text">{currentSlide.content.text}</div>
+              <MarkdownContent text={currentSlide.content.text} />
             )}
           </div>
         )}
@@ -168,11 +227,23 @@ export function LiveSlideStage({
               <span>{currentSlide.content?.min_label || currentSlide.content?.min || 1}</span>
               <span>{currentSlide.content?.max_label || currentSlide.content?.max || 10}</span>
             </div>
+            {!isHost && !submitted && !scaleInteracted && (
+              <p style={{ textAlign: "center", color: "var(--muted)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
+                Move the slider to set your rating
+              </p>
+            )}
             <input type="range" min={currentSlide.content?.min ?? 1} max={currentSlide.content?.max ?? 10} value={scaleValue}
-              onChange={(e) => setScaleValue(Number(e.target.value))} disabled={submitted || isHost}
+              onChange={(e) => { setScaleValue(Number(e.target.value)); setScaleInteracted(true); }} disabled={submitted || isHost}
               className="present-scale-input" />
-            <div className="present-scale-value">{scaleValue}</div>
-            {!submitted && !isHost && <button onClick={() => submitResponse({ value: scaleValue })} className="btn btn-primary present-scale-submit">Submit</button>}
+            <div className="present-scale-value">{scaleInteracted || isHost ? scaleValue : "—"}</div>
+            {!submitted && !isHost && (
+              <button
+                onClick={() => submitResponse({ value: scaleValue })}
+                className="btn btn-primary present-scale-submit"
+                disabled={!scaleInteracted}
+                title={!scaleInteracted ? "Move the slider first" : undefined}
+              >Submit</button>
+            )}
             {submitted && <p className="present-submitted-text">✅ Submitted!</p>}
             {scaleValues.length > 0 && <p className="present-scale-summary">{shouldShowResults ? `Average: ${scaleAvg} (${scaleValues.length} responses)` : `Responses hidden · ${scaleValues.length} received`}</p>}
           </div>
