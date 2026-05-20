@@ -1,0 +1,244 @@
+/* PDF Upload Panel */
+.present-pdf-panel {
+  max-width: 600px;
+  width: 100%;
+}
+
+.present-pdf-upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1rem;
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  margin: 1rem 0;
+}
+
+.present-pdf-upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: white;
+  background: var(--primary);
+  border: none;
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.present-pdf-upload-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.present-pdf-upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.present-pdf-hint {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.present-pdf-processing {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.present-pdf-progress {
+  width: 100%;
+  max-width: 300px;
+  height: 8px;
+  background: var(--line);
+  border-radius: 4px;
+  margin: 0 auto 1rem;
+  overflow: hidden;
+}
+
+.present-pdf-progress-bar {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.3s ease;
+}
+
+.present-pdf-processing p {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.present-pdf-preview {
+  padding: 1rem 0;
+}
+
+.present-pdf-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.present-pdf-preview-thumb {
+  position: relative;
+  aspect-ratio: 16/9;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+}
+
+.present-pdf-preview-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.present-pdf-preview-thumb span {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.125rem 0.375rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border-radius: 4px;
+}
+
+.present-pdf-preview-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16/9;
+  border-radius: 8px;
+  border: 1.5px dashed var(--line);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.present-pdf-count {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+}
+
+.present-pdf-error {
+  padding: 0.75rem 1rem;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.present-pdf-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.present-pdf-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Content slide image support */
+.present-slide-editor-image {
+  position: relative;
+  margin-top: 0.75rem;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1.5px solid var(--line);
+}
+
+.present-slide-editor-image img {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  background: var(--bg);
+}
+
+.present-slide-editor-image-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.present-slide-editor-image-remove:hover {
+  background: rgba(0, 0, 0, 0.85);
+  transform: scale(1.1);
+}
+
+.present-slide-editor-image-upload {
+  margin-top: 0.75rem;
+}
+
+/* PDF import option in add-slide modal */
+.present-pdf-import-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, var(--primary-light) 0%, transparent 100%);
+  border: 2px solid var(--primary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.present-pdf-import-option:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+}
+
+/* Presentation slide image */
+.present-slide-image {
+  margin: 1rem 0;
+  border-radius: 12px;
+  overflow: hidden;
+  max-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-subtle);
+}
+
+.present-slide-image img {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+}

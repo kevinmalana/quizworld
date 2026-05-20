@@ -4,9 +4,10 @@ import { SLIDE_TYPES } from "./slide-types";
 type AddSlideModalProps = {
   onClose: () => void;
   onSelect: (type: SlideType) => void;
+  onImportPdf?: () => void;
 };
 
-export function AddSlideModal({ onClose, onSelect }: AddSlideModalProps) {
+export function AddSlideModal({ onClose, onSelect, onImportPdf }: AddSlideModalProps) {
   return (
     <div className="present-add-slide-backdrop" onClick={onClose}>
       <div className="card present-add-slide-card" onClick={(e) => e.stopPropagation()}>
@@ -14,6 +15,21 @@ export function AddSlideModal({ onClose, onSelect }: AddSlideModalProps) {
           <h2 className="present-add-slide-title">Add Slide</h2>
           <button onClick={onClose} className="present-add-slide-close">✕</button>
         </div>
+        
+        {/* PDF Import Option */}
+        {onImportPdf && (
+          <button 
+            onClick={onImportPdf} 
+            className="present-pdf-import-option"
+          >
+            <span className="present-add-slide-icon">📄</span>
+            <div>
+              <div className="present-add-slide-label">Import PDF</div>
+              <div className="present-add-slide-desc">Upload PDF, each page becomes a slide</div>
+            </div>
+          </button>
+        )}
+        
         <div className="present-add-slide-grid">
           {SLIDE_TYPES.map((st) => (
             <button key={st.type} onClick={() => onSelect(st.type)} className="present-add-slide-option">

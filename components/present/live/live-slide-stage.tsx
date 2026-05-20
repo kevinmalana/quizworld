@@ -59,7 +59,14 @@ export function LiveSlideStage({
         {currentSlide.slide_type === "content" && (
           <div className="card present-slide-card present-slide-card--content">
             <h2 className="font-display present-slide-title">{currentSlide.title}</h2>
-            <div className="present-content-text">{currentSlide.content?.text || ""}</div>
+            {currentSlide.content?.image_url && (
+              <div className="present-slide-image">
+                <img src={currentSlide.content.image_url} alt={currentSlide.title || "Slide"} />
+              </div>
+            )}
+            {currentSlide.content?.text && (
+              <div className="present-content-text">{currentSlide.content.text}</div>
+            )}
           </div>
         )}
 

@@ -1,5 +1,6 @@
 import type { Slide } from "@/lib/presentation/types";
 import { SLIDE_TYPES } from "./slide-types";
+import { ImageUpload } from "@/components/builder/ImageUpload";
 
 type SlideEditorPanelProps = {
   slide: Slide;
@@ -28,13 +29,24 @@ export function SlideEditorPanel({ slide, slideCount, onUpdate, onDelete }: Slid
         </div>
 
         {slide.slide_type === "content" && (
-          <textarea
-            value={slide.content.text || ""}
-            onChange={(e) => updateContent({ text: e.target.value })}
-            placeholder="Slide content… Use markdown for formatting"
-            rows={8}
-            className="present-editor-textarea"
-          />
+          <div>
+            <textarea
+              value={slide.content.text || ""}
+              onChange={(e) => updateContent({ text: e.target.value })}
+              placeholder="Slide content… Use markdown for formatting"
+              rows={6}
+              className="present-editor-textarea"
+            />
+            <div className="present-slide-editor-image-upload">
+              <ImageUpload
+                imageUrl={slide.content.image_url}
+                onUpload={(url) => updateContent({ image_url: url })}
+                onRemove={() => updateContent({ image_url: null })}
+                label="Add slide image"
+                compact
+              />
+            </div>
+          </div>
         )}
 
         {slide.slide_type === "word_cloud" && (

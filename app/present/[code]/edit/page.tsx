@@ -11,6 +11,7 @@ import { EditorTopbar } from "@/components/present/edit/editor-topbar";
 import { SlideListPanel } from "@/components/present/edit/slide-list-panel";
 import { SlideEditorPanel } from "@/components/present/edit/slide-editor-panel";
 import { AddSlideModal } from "@/components/present/edit/add-slide-modal";
+import { PdfUploadPanel } from "@/components/present/edit/pdf-upload-panel";
 
 function validateSlides(slides: Slide[]): string | null {
   if (!slides.length) return "Add at least one slide.";
@@ -45,6 +46,7 @@ export default function PresentationEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAddSlide, setShowAddSlide] = useState(false);
+  const [showPdfUpload, setShowPdfUpload] = useState(false);
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -82,6 +84,23 @@ export default function PresentationEditor() {
     };
     setSlides(prev => [...prev, newSlide]);
     setActiveIndex(slides.length);
+    setShowAddSlide(false);
+  }, [code, slides.length]);
+
+  const importPdfSlides = useCallback((pdfSlides: Array<{ title: string; image_url: string }>) => {
+    const newSlides: Slide[] = pdfSlides.map((ps, idx) => ({
+      id: "temp_" + Date.now() + "_" + idx,
+      presentation_id: code,
+      slide_type: "content" as SlideType,
+      title: ps.title,
+      content: { image_url: ps.image_url, text: "" },
+      order_index: slides.length + idx,
+      settings: {},
+    }));
+
+    setSlides(prev => [...prev, ...newSlides]);
+    setActiveIndex(slides.length); // Select first imported slide
+    setShowPdfUpload(false);
     setShowAddSlide(false);
   }, [code, slides.length]);
 
@@ -181,6 +200,17 @@ export default function PresentationEditor() {
         <AddSlideModal
           onClose={() => setShowAddSlide(false)}
           onSelect={addSlide}
+          onImportPdf={() => {
+            setShowAddSlide(false);
+            setShowPdfUpload(true);
+          }}
+        />
+      )}
+
+      {showPdfUpload && (
+        <PdfUploadPanel
+          onImport={importPdfSlides}
+          onClose={() => setShowPdfUpload(false)}
         />
       )}
     </div>
