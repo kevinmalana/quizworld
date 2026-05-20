@@ -40,10 +40,35 @@ defmodule QuizworldRealtimeWeb.PresentationController do
     end
   end
 
-  def show(conn, %{"id" => presentation_id}) do
+  def show(conn, %{"id" => presentation_id} = params) do
     case Presentations.get_snapshot(presentation_id) do
-      {:ok, snapshot} -> json(conn, %{presentation: snapshot})
+      {:ok, snapshot} ->
+        # Strip is_correct for non-presenter REST fetches
+        safe = if params["presenter_token"] do
+          snapshot
+        else
+          sanitize_slides(snapshot)
+        end
+        json(conn, %{presentation: safe})
       {:error, reason} -> conn |> put_status(status_for(reason)) |> json(%{error: format_error(reason)})
+    end
+  end
+
+  defp sanitize_slides(snapshot) do
+    slides =
+      (snapshot[:slides] || snapshot["slides"] || [])
+      |> Enum.map(fn slide ->
+        content = slide["content"] || %{}
+        case slide["slide_type"] do
+          "quiz" ->
+            answers = (content["answers"] || []) |> Enum.map(&Map.delete(&1, "is_correct"))
+            Map.put(slide, "content", Map.put(content, "answers", answers))
+          _ -> slide
+        end
+      end)
+    case snapshot do
+      %{} = s -> Map.put(s, :slides, slides)
+      _ -> Map.put(snapshot, "slides", slides)
     end
   end
 

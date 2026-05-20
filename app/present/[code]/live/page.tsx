@@ -47,6 +47,7 @@ export default function PresentationLive() {
   const [allResponses, setAllResponses] = useState<SlideResponse[]>([]);
   const [qnaQuestions, setQnaQuestions] = useState<QnaQuestion[]>([]);
   const [newQnaQuestion, setNewQnaQuestion] = useState("");
+  const [revealedAnswers, setRevealedAnswers] = useState<Record<string, string[]>>({}); // slideId -> correct answer ids
 
   const participantId = participantSession?.participantId || "";
   const channelRef = useRef<ReturnType<typeof subscribeToPresentation> | null>(null);
@@ -149,6 +150,9 @@ export default function PresentationLive() {
         },
         onQnaUpdated: (data) => {
           setQnaQuestions((data.questions || []) as QnaQuestion[]);
+        },
+        onQuizRevealed: (data) => {
+          setRevealedAnswers((prev) => ({ ...prev, [data.slide_id]: data.correct_answers }));
         },
         onPresentationEnded: () => {
           router.push("/present");
@@ -401,15 +405,22 @@ export default function PresentationLive() {
         submitted={submitted}
         newQnaQuestion={newQnaQuestion}
         channelJoined={channelJoined}
+        revealedAnswers={revealedAnswers}
+        onRevealQuiz={() => {
+          const slide = slides[currentIndex];
+          if (!slide || !channelRef.current) return;
+          const correctIds = (slide.content.answers || [])
+            .filter((a) => a.is_correct)
+            .map((a) => a.id);
+          void channelRef.current.revealQuizAnswers(slide.id, correctIds);
+        }}
         onReconnect={() => {
           if (channelRef.current) {
             channelRef.current.disconnect();
             channelRef.current = null;
           }
-          // Re-subscribe by toggling loading briefly
           setChannelJoined(false);
           setChannelError(null);
-          // Re-run channel subscription effect by re-mounting
           window.location.reload();
         }}
         setResponse={setResponse}

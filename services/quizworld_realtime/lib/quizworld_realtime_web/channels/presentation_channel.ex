@@ -17,7 +17,10 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
           |> assign(:participant_id, payload["participant_id"])
           |> assign(:participant_token, payload["participant_token"])
 
-        {:ok, %{presentation: snapshot}, socket}
+        # Strip is_correct from quiz answers for non-presenters
+        safe_snapshot = sanitize_snapshot_for_role(snapshot, role)
+
+        {:ok, %{presentation: safe_snapshot}, socket}
 
       {:error, _reason} ->
         {:error, %{reason: "presentation_not_found"}}
@@ -79,6 +82,19 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     end
   end
 
+  def handle_in("quiz:reveal", payload, socket) do
+    # Host broadcasts correct answers for the current quiz slide
+    case ensure_presenter(socket, payload) do
+      :ok ->
+        slide_id = payload["slide_id"]
+        correct_answers = payload["correct_answers"] || []
+        broadcast!(socket, "quiz:revealed", %{slide_id: slide_id, correct_answers: correct_answers})
+        {:reply, :ok, socket}
+      {:error, reason} ->
+        {:reply, {:error, %{reason: to_string(reason)}}, socket}
+    end
+  end
+
   def handle_in("presentation:end", payload, socket) do
     presentation_id = socket.assigns.presentation_id
 
@@ -101,11 +117,49 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
   defp transition(socket, callback, :slide) do
     case callback.() do
       {:ok, snapshot} ->
-        broadcast!(socket, "slide:changed", %{presentation: snapshot})
+        # Send full snapshot to presenter, sanitized to participants
+        role = socket.assigns[:role] || :viewer
+        safe_snapshot = sanitize_snapshot_for_role(snapshot, role)
+        broadcast_from!(socket, "slide:changed", %{presentation: sanitize_snapshot_for_role(snapshot, :participant)})
+        push(socket, "slide:changed", %{presentation: safe_snapshot})
         {:reply, :ok, socket}
 
       {:error, reason} ->
         {:reply, {:error, %{reason: to_string(reason)}}, socket}
+    end
+  end
+
+  # Strip is_correct from quiz answers for participants/viewers
+  defp sanitize_snapshot_for_role(snapshot, :presenter), do: snapshot
+  defp sanitize_snapshot_for_role(snapshot, _role) do
+    slides =
+      (snapshot[:slides] || snapshot["slides"] || [])
+      |> Enum.map(fn slide ->
+        content = slide["content"] || %{}
+        sanitized_content =
+          case slide["slide_type"] do
+            "quiz" ->
+              answers =
+                (content["answers"] || [])
+                |> Enum.map(&Map.delete(&1, "is_correct"))
+              Map.put(content, "answers", answers)
+            _ -> content
+          end
+        Map.put(slide, "content", sanitized_content)
+      end)
+
+    case snapshot do
+      %{} = s -> Map.put(s, :slides, slides)
+      _ -> Map.put(snapshot, "slides", slides)
+    end
+  end
+
+  defp ensure_presenter(socket, payload) do
+    token = payload["presenter_token"] || socket.assigns[:presenter_token]
+    presentation_id = socket.assigns.presentation_id
+    case QuizworldRealtime.PresentationStore.get_live_session(presentation_id) do
+      {:ok, stored_token} when stored_token == token -> :ok
+      _ -> {:error, :not_presenter}
     end
   end
 

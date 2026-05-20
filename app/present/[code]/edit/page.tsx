@@ -221,6 +221,15 @@ export default function PresentationEditor() {
           onSelect={setActiveIndex}
           onAdd={() => setShowAddSlide(true)}
           onImport={() => setShowImportDeck(true)}
+          onReorder={(reordered) => {
+            setSlides(reordered);
+            // Keep active index pointing to the same slide after reorder
+            const activeId = slides[activeIndex]?.id;
+            if (activeId) {
+              const newIdx = reordered.findIndex((s) => s.id === activeId);
+              if (newIdx !== -1) setActiveIndex(newIdx);
+            }
+          }}
         />
 
         {activeSlide && (

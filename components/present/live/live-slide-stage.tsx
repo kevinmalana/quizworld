@@ -51,6 +51,8 @@ type LiveSlideStageProps = {
   newQnaQuestion: string;
   channelJoined?: boolean;
   onReconnect?: () => void;
+  revealedAnswers?: Record<string, string[]>;
+  onRevealQuiz?: () => void;
   setResponse: (value: string) => void;
   setScaleValue: (value: number) => void;
   setSelectedOption: (value: string | null) => void;
@@ -78,6 +80,8 @@ export function LiveSlideStage({
   newQnaQuestion,
   channelJoined = true,
   onReconnect,
+  revealedAnswers = {},
+  onRevealQuiz,
   setResponse,
   setScaleValue,
   setSelectedOption,
@@ -205,18 +209,47 @@ export function LiveSlideStage({
           <div>
             <h2 className="font-display present-slide-title is-centered">{currentSlide.title || "Quiz"}</h2>
             <div className="present-option-list present-option-list--quiz">
-              {(currentSlide.content?.answers || []).map((ans, i) => (
-                <button key={ans.id} onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id, is_correct: ans.is_correct }); }}
-                  disabled={submitted || isHost}
-                  className={submitted && ans.is_correct ? "present-quiz-option is-correct" : "present-quiz-option"}>
-                  <span className="present-answer-letter">{String.fromCharCode(65 + i)}</span>
-                  <span className="present-answer-text">{ans.text}</span>
-                  {submitted && ans.is_correct && <span className="present-correct-mark">✅</span>}
-                </button>
-              ))}
+              {(currentSlide.content?.answers || []).map((ans, i) => {
+                const revealed = revealedAnswers[currentSlide.id];
+                const isRevealed = !!revealed;
+                const isCorrect = isRevealed && revealed.includes(ans.id);
+                return (
+                  <button key={ans.id}
+                    onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id, is_correct: ans.is_correct }); }}
+                    disabled={submitted || isHost}
+                    className={[
+                      "present-quiz-option",
+                      submitted && isRevealed && isCorrect ? " is-correct" : "",
+                      submitted && isRevealed && !isCorrect ? " is-wrong" : "",
+                    ].join("")}>
+                    <span className="present-answer-letter">{String.fromCharCode(65 + i)}</span>
+                    <span className="present-answer-text">{ans.text}</span>
+                    {isRevealed && isCorrect && <span className="present-correct-mark">✅</span>}
+                    {isRevealed && !isCorrect && submitted && <span style={{ marginLeft: "auto" }}>❌</span>}
+                  </button>
+                );
+              })}
             </div>
-            {submitted && <p className="present-submitted-text">✅ Answered!</p>}
-            <p className="present-response-count">{allResponses.length} responses</p>
+            {submitted && !revealedAnswers[currentSlide.id] && (
+              <p className="present-submitted-text">✅ Answered! Waiting for host to reveal…</p>
+            )}
+            {submitted && revealedAnswers[currentSlide.id] && (
+              <p className="present-submitted-text">Results revealed!</p>
+            )}
+            {/* Host: reveal button + response count */}
+            {isHost && (
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem", justifyContent: "center", marginTop: "1rem" }}>
+                <p className="present-response-count" style={{ margin: 0 }}>{allResponses.length} responses</p>
+                {!revealedAnswers[currentSlide.id] && onRevealQuiz && (
+                  <button onClick={onRevealQuiz} className="btn btn-primary" style={{ fontSize: "0.875rem" }}>
+                    Reveal Answers
+                  </button>
+                )}
+                {revealedAnswers[currentSlide.id] && (
+                  <span style={{ color: "#38a169", fontWeight: 700, fontSize: "0.875rem" }}>✅ Answers revealed</span>
+                )}
+              </div>
+            )}
           </div>
         )}
 

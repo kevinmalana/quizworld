@@ -9,6 +9,7 @@ type PresentationCallbacks = {
   onResponseNew?: (data: { slide_id: string; responses: unknown[] }) => void;
   onQnaNew?: (data: { slide_id: string; questions: unknown[] }) => void;
   onQnaUpdated?: (data: { slide_id: string; questions: unknown[] }) => void;
+  onQuizRevealed?: (data: { slide_id: string; correct_answers: string[] }) => void;
   onPresentationEnded?: () => void;
   onError?: (message: string) => void;
   onClose?: () => void;
@@ -150,6 +151,11 @@ export function subscribeToPresentation(options: {
         return;
       }
 
+      if (msgEvent === "quiz:revealed") {
+        options.callbacks.onQuizRevealed?.(p as { slide_id: string; correct_answers: string[] });
+        return;
+      }
+
       if (msgEvent === "presentation:ended") {
         options.callbacks.onPresentationEnded?.();
         return;
@@ -219,6 +225,12 @@ export function subscribeToPresentation(options: {
         participant_token: options.participantToken || undefined,
       }, true),
     endPresentation: () => push("presentation:end", { presenter_token: options.presenterToken || undefined }, true),
+    revealQuizAnswers: (slideId: string, correctAnswers: string[]) =>
+      push("quiz:reveal", {
+        slide_id: slideId,
+        correct_answers: correctAnswers,
+        presenter_token: options.presenterToken || undefined,
+      }, true),
     disconnect: () => {
       intentionalClose = true;
       clearHeartbeat();
