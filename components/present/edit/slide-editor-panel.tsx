@@ -1,4 +1,4 @@
-import type { Slide } from "@/lib/presentation/types";
+import type { Slide, SlideType } from "@/lib/presentation/types";
 import { SLIDE_TYPES } from "./slide-types";
 import { ImageUpload } from "@/components/builder/ImageUpload";
 
@@ -7,12 +7,23 @@ type SlideEditorPanelProps = {
   slideCount: number;
   onUpdate: (updates: Partial<Slide>) => void;
   onDelete: () => void;
+  onConvertImported?: (type: SlideType) => void;
 };
 
-export function SlideEditorPanel({ slide, slideCount, onUpdate, onDelete }: SlideEditorPanelProps) {
+const INTERACTIVE_TYPES: { type: SlideType; icon: string; label: string }[] = [
+  { type: "poll", icon: "📊", label: "Poll" },
+  { type: "quiz", icon: "🏆", label: "Quiz" },
+  { type: "word_cloud", icon: "☁️", label: "Word Cloud" },
+  { type: "open_text", icon: "💬", label: "Open Text" },
+  { type: "qna", icon: "❓", label: "Q&A" },
+];
+
+export function SlideEditorPanel({ slide, slideCount, onUpdate, onDelete, onConvertImported }: SlideEditorPanelProps) {
   const updateContent = (partial: Record<string, unknown>) => {
     onUpdate({ content: { ...slide.content, ...partial } });
   };
+
+  const isImported = !!(slide.content as Record<string, unknown>)._imported;
 
   return (
     <div className="present-slide-editor-panel">
@@ -27,6 +38,31 @@ export function SlideEditorPanel({ slide, slideCount, onUpdate, onDelete }: Slid
           />
           <button onClick={onDelete} disabled={slideCount <= 1} className="present-slide-editor-delete">✕</button>
         </div>
+
+        {/* Convert imported slide banner */}
+        {isImported && onConvertImported && (
+          <div style={{
+            background: "var(--surface-alt, #f7f7f8)", border: "1px solid var(--line)",
+            borderRadius: "var(--radius-lg, 8px)", padding: "0.75rem 1rem",
+            marginBottom: "0.75rem",
+          }}>
+            <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginBottom: "0.5rem", fontWeight: 600 }}>
+              📌 This is an imported slide. Convert it to make it interactive:
+            </p>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              {INTERACTIVE_TYPES.map(({ type, icon, label }) => (
+                <button
+                  key={type}
+                  onClick={() => onConvertImported(type)}
+                  className="btn btn-secondary"
+                  style={{ fontSize: "0.75rem", padding: "0.25rem 0.625rem" }}
+                >
+                  {icon} {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {slide.slide_type === "content" && (
           <div>

@@ -13,11 +13,11 @@ type ImportedPage = {
 };
 
 type ImportDeckPanelProps = {
-  onImport: (slides: Array<{ title: string; image_url: string }>) => void;
+  onImport: (slides: Array<{ title: string; image_url: string }>, failedCount: number) => void;
   onClose: () => void;
 };
 
-type Phase = "drop" | "converting" | "rendering" | "review" | "uploading" | "error";
+type Phase = "drop" | "converting" | "rendering" | "review" | "uploading" | "done" | "error";
 
 const ACCEPTED_EXTS = [".pdf", ".pptx", ".ppt"];
 const ACCEPTED_MIME = [
@@ -36,6 +36,8 @@ export function ImportDeckPanel({ onImport, onClose }: ImportDeckPanelProps) {
   const [phase, setPhase] = useState<Phase>("drop");
   const [errorMsg, setErrorMsg] = useState("");
   const [filename, setFilename] = useState("");
+  const [conversionStep, setConversionStep] = useState(0); // 0=uploading,1=converting,2=done
+  const [importSummary, setImportSummary] = useState<{ ok: number; failed: number } | null>(null);
   const [pages, setPages] = useState<ImportedPage[]>([]);
   const [progressText, setProgressText] = useState("");
   const [isDragging, setIsDragging] = useState(false);
@@ -81,15 +83,26 @@ export function ImportDeckPanel({ onImport, onClose }: ImportDeckPanelProps) {
     // Step 1: Convert if needed
     if (ext !== ".pdf") {
       setPhase("converting");
-      setProgressText(`Converting ${file.name}…`);
+      setConversionStep(0);
+      setProgressText(`Uploading ${file.name}…`);
       try {
         const formData = new FormData();
         formData.append("file", file);
+        // Simulate progress steps since we can't stream LibreOffice
+        const stepTimer = setInterval(() => {
+          setConversionStep((prev) => {
+            if (prev < 1) { setProgressText("Converting to PDF…"); return 1; }
+            return prev;
+          });
+        }, 2000);
         const res = await fetch("/api/present/import-deck", {
           method: "POST",
           body: formData,
           signal,
         });
+        clearInterval(stepTimer);
+        setConversionStep(2);
+        setProgressText("Conversion complete — rendering pages…");
         if (!res.ok) {
           const body = await res.json().catch(() => ({})) as { error?: string };
           throw new Error(body.error || "Conversion failed.");
@@ -181,15 +194,19 @@ export function ImportDeckPanel({ onImport, onClose }: ImportDeckPanelProps) {
 
     setPhase("uploading");
     const results: Array<{ title: string; image_url: string }> = [];
+    let failedCount = 0;
+
+    // Derive a base name from the filename for slide titles
+    const baseName = filename
+      ? filename.replace(/\.(pdf|pptx|ppt)$/i, "").trim()
+      : "Slide";
 
     for (const page of selected) {
-      // Mark as uploading
       setPages((prev) =>
         prev.map((p) => (p.index === page.index ? { ...p, uploading: true } : p))
       );
 
       try {
-        // Convert data URL to blob
         const res = await fetch(page.thumbnailUrl);
         const blob = await res.blob();
 
@@ -203,7 +220,11 @@ export function ImportDeckPanel({ onImport, onClose }: ImportDeckPanelProps) {
         if (uploadError) throw uploadError;
 
         const { data } = supabase.storage.from("quiz-images").getPublicUrl(path);
-        results.push({ title: `Slide ${results.length + 1}`, image_url: data.publicUrl });
+        // Use filename-based title: "MyDeck — Slide 3 of 12"
+        results.push({
+          title: `${baseName} — Slide ${page.index + 1} of ${selected.length}`,
+          image_url: data.publicUrl,
+        });
 
         setPages((prev) =>
           prev.map((p) =>
@@ -213,7 +234,7 @@ export function ImportDeckPanel({ onImport, onClose }: ImportDeckPanelProps) {
           )
         );
       } catch (err) {
-        // Mark this page as failed but continue with others
+        failedCount++;
         setPages((prev) =>
           prev.map((p) =>
             p.index === page.index
@@ -230,7 +251,10 @@ export function ImportDeckPanel({ onImport, onClose }: ImportDeckPanelProps) {
       return;
     }
 
-    onImport(results);
+    setImportSummary({ ok: results.length, failed: failedCount });
+    setPhase("done");
+    // Short delay so user sees the summary, then hand off
+    setTimeout(() => onImport(results, failedCount), failedCount > 0 ? 0 : 800);
   }
 
   // ─── Drag & drop ─────────────────────────────────────────────────────────────
@@ -313,7 +337,18 @@ export function ImportDeckPanel({ onImport, onClose }: ImportDeckPanelProps) {
           <div className="present-deck-processing">
             <div className="present-deck-spinner" />
             <p className="present-deck-progress-label">{progressText}</p>
-            <p className="present-deck-progress-hint">Converting to PDF…</p>
+            {/* Step indicators */}
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center", marginTop: "0.75rem" }}>
+              {["Upload", "Convert", "Ready"].map((label, i) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", color: conversionStep >= i ? "var(--primary)" : "var(--muted)", fontWeight: conversionStep >= i ? 700 : 400 }}>
+                  <span style={{ width: 18, height: 18, borderRadius: "50%", background: conversionStep > i ? "var(--primary)" : conversionStep === i ? "var(--primary)" : "var(--line)", display: "inline-flex", alignItems: "center", justifyContent: "center", color: conversionStep >= i ? "#fff" : "var(--muted)", fontSize: "0.625rem", flexShrink: 0 }}>
+                    {conversionStep > i ? "✓" : i + 1}
+                  </span>
+                  {label}
+                  {i < 2 && <span style={{ color: "var(--line)", marginLeft: "0.25rem" }}>›</span>}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -427,16 +462,54 @@ export function ImportDeckPanel({ onImport, onClose }: ImportDeckPanelProps) {
           </div>
         )}
 
+        {/* ── DONE (summary before hand-off) ── */}
+        {phase === "done" && importSummary && (
+          <div style={{ textAlign: "center", padding: "1.5rem 0" }}>
+            <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>✅</div>
+            <p style={{ fontWeight: 700, fontSize: "1rem" }}>
+              {importSummary.ok} slide{importSummary.ok !== 1 ? "s" : ""} imported
+              {importSummary.failed > 0 && (
+                <span style={{ color: "var(--error, #e53e3e)", fontWeight: 600 }}>
+                  {" "}· {importSummary.failed} failed
+                </span>
+              )}
+            </p>
+            {importSummary.failed > 0 && (
+              <>
+                <p style={{ color: "var(--muted)", fontSize: "0.8125rem", marginTop: "0.25rem" }}>
+                  The failed slides were skipped. You can re-import them separately.
+                </p>
+                <button
+                  onClick={() => { setPhase("drop"); setPages([]); setFilename(""); setImportSummary(null); }}
+                  className="btn btn-secondary"
+                  style={{ marginTop: "0.75rem" }}
+                >
+                  Re-import slides
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Footer actions */}
         <div className="present-pdf-actions">
           {phase === "review" && (
-            <button
-              onClick={uploadAndImport}
-              className="btn btn-primary"
-              disabled={selectedCount === 0}
-            >
-              Import {selectedCount} slide{selectedCount !== 1 ? "s" : ""}
-            </button>
+            <>
+              <button
+                onClick={uploadAndImport}
+                className="btn btn-primary"
+                disabled={selectedCount === 0}
+              >
+                Import {selectedCount} slide{selectedCount !== 1 ? "s" : ""}
+              </button>
+              <button
+                onClick={() => { setPhase("drop"); setPages([]); setFilename(""); }}
+                className="btn btn-secondary"
+                title="Choose a different file"
+              >
+                ↩ Different file
+              </button>
+            </>
           )}
           {(phase === "drop" || phase === "review" || phase === "error") && (
             <button onClick={handleCancel} className="btn btn-secondary">

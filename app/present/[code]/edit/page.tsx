@@ -47,6 +47,7 @@ export default function PresentationEditor() {
   const [saving, setSaving] = useState(false);
   const [showAddSlide, setShowAddSlide] = useState(false);
   const [showImportDeck, setShowImportDeck] = useState(false);
+  const [importToast, setImportToast] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -87,22 +88,28 @@ export default function PresentationEditor() {
     setShowAddSlide(false);
   }, [code, slides.length]);
 
-  const importDeckSlides = useCallback((imported: Array<{ title: string; image_url: string }>) => {
+  const importDeckSlides = useCallback((imported: Array<{ title: string; image_url: string }>, failedCount: number) => {
     const baseIndex = slides.length;
     const newSlides: Slide[] = imported.map((ps, idx) => ({
       id: "temp_" + Date.now() + "_" + idx,
       presentation_id: code,
       slide_type: "content" as SlideType,
       title: ps.title,
-      content: { image_url: ps.image_url, text: "" },
+      content: { image_url: ps.image_url, text: "", _imported: true },
       order_index: baseIndex + idx,
       settings: {},
     }));
 
     setSlides(prev => [...prev, ...newSlides]);
-    setActiveIndex(baseIndex); // Select first imported slide
+    setActiveIndex(baseIndex);
     setShowImportDeck(false);
     setShowAddSlide(false);
+    if (failedCount > 0) {
+      setImportToast(`${imported.length} slide${imported.length !== 1 ? "s" : ""} imported · ${failedCount} failed (skipped)`);
+    } else {
+      setImportToast(`${imported.length} slide${imported.length !== 1 ? "s" : ""} imported`);
+    }
+    setTimeout(() => setImportToast(null), 4000);
   }, [code, slides.length]);
 
   const updateSlide = useCallback((idx: number, updates: Partial<Slide>) => {
@@ -160,6 +167,22 @@ export default function PresentationEditor() {
     router.push(`/present/${code}/live`);
   }, [code, savePresentation, router]);
 
+  const convertImportedSlide = useCallback((idx: number, toType: SlideType) => {
+    setSlides(prev => prev.map((s, i) => {
+      if (i !== idx) return s;
+      const content = s.content as Record<string, unknown>;
+      const keepImage = toType === "content";
+      return {
+        ...s,
+        slide_type: toType,
+        content: {
+          ...(keepImage && typeof content.image_url === "string" ? { image_url: content.image_url } : {}),
+          ...defaultContent(toType),
+        },
+      };
+    }));
+  }, []);
+
   if (loading) {
     return <div className="container present-editor-loading">Loading...</div>;
   }
@@ -179,12 +202,25 @@ export default function PresentationEditor() {
         onPresent={startPresenting}
       />
 
+      {/* Import toast */}
+      {importToast && (
+        <div style={{
+          position: "fixed", bottom: "1.5rem", left: "50%", transform: "translateX(-50%)",
+          background: "var(--ink)", color: "var(--bg)", padding: "0.625rem 1.25rem",
+          borderRadius: "var(--radius-xl)", fontSize: "0.875rem", fontWeight: 600,
+          zIndex: 1000, boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+        }}>
+          ✅ {importToast}
+        </div>
+      )}
+
       <div className="present-editor-layout">
         <SlideListPanel
           slides={slides}
           activeIndex={activeIndex}
           onSelect={setActiveIndex}
           onAdd={() => setShowAddSlide(true)}
+          onImport={() => setShowImportDeck(true)}
         />
 
         {activeSlide && (
@@ -193,6 +229,7 @@ export default function PresentationEditor() {
             slideCount={slides.length}
             onUpdate={(updates) => updateSlide(activeIndex, updates)}
             onDelete={() => deleteSlide(activeIndex)}
+            onConvertImported={(type) => convertImportedSlide(activeIndex, type)}
           />
         )}
       </div>
