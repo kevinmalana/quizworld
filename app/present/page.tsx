@@ -228,9 +228,7 @@ export default function PresentPage() {
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
                   <Link href={`/present/${p.id}/edit`} className="btn btn-secondary" style={{ fontSize: "0.8125rem", padding: "0.375rem 0.75rem" }}>Edit</Link>
-                  {p.status === "live" && (
-                    <Link href={`/present/${p.id}/live`} className="btn btn-primary" style={{ fontSize: "0.8125rem", padding: "0.375rem 0.75rem" }}>▶ Present</Link>
-                  )}
+                  <Link href={`/present/${p.id}/edit`} className="btn btn-primary" style={{ fontSize: "0.8125rem", padding: "0.375rem 0.75rem" }}>▶ Present</Link>
                   <button
                     onClick={() => handleDelete(p.id)}
                     disabled={deleteId === p.id}

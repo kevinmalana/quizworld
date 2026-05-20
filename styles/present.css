@@ -441,7 +441,7 @@
 }
 
 .present-slide-card {
-  padding: 3rem;
+  padding: clamp(1.25rem, 4vw, 3rem);
 }
 
 .present-slide-card--content {
@@ -464,6 +464,21 @@
   white-space: pre-wrap;
 }
 
+/* Markdown rendered content in live view */
+.present-markdown {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  text-align: left;
+}
+.present-markdown p { margin-bottom: 0.75rem; }
+.present-markdown p:last-child { margin-bottom: 0; }
+.present-markdown h1 { font-size: 1.75rem; font-weight: 900; margin-bottom: 0.75rem; font-family: var(--font-display); }
+.present-markdown h2 { font-size: 1.35rem; font-weight: 800; margin-bottom: 0.5rem; }
+.present-markdown h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.4rem; }
+.present-markdown strong { font-weight: 800; }
+.present-markdown em { font-style: italic; color: var(--ink-secondary); }
+.present-markdown code { font-family: monospace; background: var(--bg-subtle); padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.9em; }
+
 .present-word-cloud {
   display: flex;
   flex-wrap: wrap;
@@ -475,11 +490,14 @@
 .present-word-chip {
   padding: 0.55rem 1.1rem;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--accent-light), #fdf4ff);
-  color: var(--accent);
   font-weight: 900;
   box-shadow: 0 10px 30px rgba(124,58,237,0.1);
 }
+/* Cycle 4 colors for visual variety */
+.present-word-chip:nth-child(4n+1) { background: var(--accent-light); color: var(--accent); }
+.present-word-chip:nth-child(4n+2) { background: var(--secondary-light); color: var(--secondary); }
+.present-word-chip:nth-child(4n+3) { background: var(--success-light); color: var(--success); }
+.present-word-chip:nth-child(4n+0) { background: var(--warning-light); color: var(--warning); }
 
 .present-waiting-text {
   color: var(--muted);
@@ -609,24 +627,53 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  min-height: 56px;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+/* Per-answer Kahoot-style colors */
+.present-quiz-option:nth-child(4n+1) { border-color: var(--answer-a); background: var(--answer-a-surface); }
+.present-quiz-option:nth-child(4n+2) { border-color: var(--answer-b); background: var(--answer-b-surface); }
+.present-quiz-option:nth-child(4n+3) { border-color: var(--answer-c); background: var(--answer-c-surface); }
+.present-quiz-option:nth-child(4n+0) { border-color: var(--answer-d); background: var(--answer-d-surface); }
+
+.present-quiz-option:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .present-quiz-option.is-correct {
-  background: var(--accent-light);
+  background: var(--success-light) !important;
+  border-color: var(--success) !important;
+  box-shadow: 0 0 0 2px var(--success);
+}
+
+.present-quiz-option.is-wrong {
+  opacity: 0.5;
+  filter: grayscale(0.4);
 }
 
 .present-answer-letter {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--line);
+  background: rgba(0,0,0,0.08);
   display: grid;
   place-items: center;
   font-weight: 800;
+  flex-shrink: 0;
 }
 
-.present-answer-text { font-weight: 700; }
+.present-quiz-option:nth-child(4n+1) .present-answer-letter { background: var(--answer-a); color: #fff; }
+.present-quiz-option:nth-child(4n+2) .present-answer-letter { background: var(--answer-b); color: #fff; }
+.present-quiz-option:nth-child(4n+3) .present-answer-letter { background: var(--answer-c); color: #fff; }
+.present-quiz-option:nth-child(4n+0) .present-answer-letter { background: var(--answer-d); color: #fff; }
+
+.present-answer-text { font-weight: 700; flex: 1; }
 .present-correct-mark { margin-left: auto; color: var(--success); font-weight: 700; }
+
+/* Poll option min-height */
+.present-poll-option { min-height: 52px; }
 
 .present-response-count {
   color: var(--muted);

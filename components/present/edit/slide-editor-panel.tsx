@@ -4,6 +4,7 @@ import { ImageUpload } from "@/components/builder/ImageUpload";
 
 type SlideEditorPanelProps = {
   slide: Slide;
+  slideIndex: number;
   slideCount: number;
   onUpdate: (updates: Partial<Slide>) => void;
   onDelete: () => void;
@@ -18,7 +19,7 @@ const INTERACTIVE_TYPES: { type: SlideType; icon: string; label: string }[] = [
   { type: "qna", icon: "❓", label: "Q&A" },
 ];
 
-export function SlideEditorPanel({ slide, slideCount, onUpdate, onDelete, onConvertImported }: SlideEditorPanelProps) {
+export function SlideEditorPanel({ slide, slideIndex, slideCount, onUpdate, onDelete, onConvertImported }: SlideEditorPanelProps) {
   const updateContent = (partial: Record<string, unknown>) => {
     onUpdate({ content: { ...slide.content, ...partial } });
   };
@@ -36,6 +37,9 @@ export function SlideEditorPanel({ slide, slideCount, onUpdate, onDelete, onConv
             placeholder="Slide title…"
             className="present-slide-editor-title-input"
           />
+          <span style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>
+            {slideIndex + 1} / {slideCount}
+          </span>
           <button onClick={onDelete} disabled={slideCount <= 1} className="present-slide-editor-delete">✕</button>
         </div>
 

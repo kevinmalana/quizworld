@@ -45,6 +45,7 @@ export default function PresentationEditor() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
   const [showAddSlide, setShowAddSlide] = useState(false);
   const [showImportDeck, setShowImportDeck] = useState(false);
   const [importToast, setImportToast] = useState<string | null>(null);
@@ -140,6 +141,8 @@ export default function PresentationEditor() {
 
       if (error) throw error;
       setSaving(false);
+      setSavedOk(true);
+      setTimeout(() => setSavedOk(false), 2500);
       return true;
     } catch (err) {
       console.error("Save error:", err);
@@ -197,6 +200,7 @@ export default function PresentationEditor() {
         joinCode={joinCode}
         error={error}
         saving={saving}
+        savedOk={savedOk}
         onBack={() => router.push("/present")}
         onSave={savePresentation}
         onPresent={startPresenting}
@@ -235,6 +239,7 @@ export default function PresentationEditor() {
         {activeSlide && (
           <SlideEditorPanel
             slide={activeSlide}
+            slideIndex={activeIndex}
             slideCount={slides.length}
             onUpdate={(updates) => updateSlide(activeIndex, updates)}
             onDelete={() => deleteSlide(activeIndex)}
