@@ -4,10 +4,10 @@ import { SLIDE_TYPES } from "./slide-types";
 type AddSlideModalProps = {
   onClose: () => void;
   onSelect: (type: SlideType) => void;
-  onImportPdf?: () => void;
+  onImportDeck?: () => void;
 };
 
-export function AddSlideModal({ onClose, onSelect, onImportPdf }: AddSlideModalProps) {
+export function AddSlideModal({ onClose, onSelect, onImportDeck }: AddSlideModalProps) {
   return (
     <div className="present-add-slide-backdrop" onClick={onClose}>
       <div className="card present-add-slide-card" onClick={(e) => e.stopPropagation()}>
@@ -16,16 +16,16 @@ export function AddSlideModal({ onClose, onSelect, onImportPdf }: AddSlideModalP
           <button onClick={onClose} className="present-add-slide-close">✕</button>
         </div>
         
-        {/* PDF Import Option */}
-        {onImportPdf && (
-          <button 
-            onClick={onImportPdf} 
+        {/* Deck Import Option */}
+        {onImportDeck && (
+          <button
+            onClick={onImportDeck}
             className="present-pdf-import-option"
           >
-            <span className="present-add-slide-icon">📄</span>
+            <span className="present-add-slide-icon">📥</span>
             <div>
-              <div className="present-add-slide-label">Import PDF</div>
-              <div className="present-add-slide-desc">Upload PDF, each page becomes a slide</div>
+              <div className="present-add-slide-label">Import Deck</div>
+              <div className="present-add-slide-desc">PDF, PPTX or PPT — each page becomes a slide</div>
             </div>
           </button>
         )}
