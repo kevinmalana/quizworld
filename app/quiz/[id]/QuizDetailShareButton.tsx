@@ -13,10 +13,24 @@ export function QuizDetailShareButton({
 
   function handleShare() {
     const text = `Check out "${quizTitle}" on QuizWorld! ${quizUrl}`;
-    navigator.clipboard.writeText(text).then(() => {
+    const doCopy = async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // Fallback for non-secure contexts (HTTP)
+        const el = document.createElement('textarea');
+        el.value = text;
+        el.style.position = 'fixed';
+        el.style.top = '-9999px';
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {});
+    };
+    void doCopy();
   }
 
   return (

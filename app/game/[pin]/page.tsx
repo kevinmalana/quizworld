@@ -681,9 +681,32 @@ export default function GamePage() {
 
         // Record game results after Phoenix advance
         if (isLastQuestion) {
-          await supabase.rpc("finish_game_and_record_results", {
-            p_session_id: (session as { id: string }).id,
-          });
+          // Phoenix sessions use pin-based results — write a game_results row directly
+          // (finish_game_and_record_results expects a Supabase DB session id, which
+          // Phoenix sessions don't have, so we upsert the row ourselves)
+          const phoenixPlayers = (response?.session as any)?.players ?? (session as any)?.players ?? {};
+          const phoenixPlayerList = Array.isArray(phoenixPlayers) ? phoenixPlayers : Object.values(phoenixPlayers);
+          const hostUserId = user?.id;
+          if (hostUserId) {
+            const topScore = phoenixPlayerList.reduce((max: number, p: any) => Math.max(max, p.score ?? 0), 0);
+            await supabase.from('game_results').upsert({
+              pin: pin,
+              quiz_id: (session as any)?.quiz_id ?? (session as any)?.quiz?.id ?? null,
+              host_id: hostUserId,
+              player_id: hostUserId,
+              player_count: phoenixPlayerList.length,
+              score: topScore,
+              correct: phoenixPlayerList[0]?.correct ?? 0,
+              answered: phoenixPlayerList[0]?.answered ?? 0,
+              finished_at: new Date().toISOString(),
+              results: { players: phoenixPlayerList, finished_status: 'finished' },
+            }, { onConflict: 'pin,player_id', ignoreDuplicates: true }).then(({ error: grErr }) => {
+              if (grErr) console.warn('game_results upsert failed:', grErr.message);
+            });
+            // Award XP for completing a game (50 XP)
+            await supabase.rpc('increment_xp', { user_uuid: hostUserId, xp_amount: 50 })
+              .then(({ error: xpErr }) => { if (xpErr) console.warn('XP award failed:', xpErr.message); });
+          }
         }
       } else {
         if (isLastQuestion) {
@@ -692,6 +715,11 @@ export default function GamePage() {
             p_session_id: (session as { id: string }).id,
           });
           if (finishError) throw finishError;
+          // Award XP for completing a game (50 XP)
+          if (user?.id) {
+            await supabase.rpc('increment_xp', { user_uuid: user.id, xp_amount: 50 })
+              .then(({ error: xpErr }) => { if (xpErr) console.warn('XP award failed:', xpErr.message); });
+          }
         } else {
           const { error: advanceError } = await supabase.rpc("advance_game_session", {
             p_session_id: (session as { id: string }).id,
