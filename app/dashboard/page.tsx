@@ -470,28 +470,151 @@ function WelcomeBanner({ profileCreatedAt }: { profileCreatedAt: string | null }
   return (
     <div
       style={{
-        background: "var(--accent, #7c3aed)",
+        background: "linear-gradient(135deg, var(--accent, #7c3aed), #a78bfa)",
         color: "#fff",
-        padding: "0.75rem 1rem",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: "1rem",
-        flexWrap: "wrap",
+        padding: "1.75rem 1.5rem",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
-      <span>
-        👋 Welcome to QuizWorld! Start by{" "}
-        <a href="/explore" style={{ color: "#fff", textDecoration: "underline" }}>exploring quizzes</a>
-        {" "}or{" "}
-        <a href="/create" style={{ color: "#fff", textDecoration: "underline" }}>creating your first one</a>.
-      </span>
+      {/* Decorative blobs */}
+      <div
+        style={{
+          position: "absolute",
+          top: "-40px",
+          right: "-40px",
+          width: 180,
+          height: 180,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.08)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: "-30px",
+          left: "-20px",
+          width: 120,
+          height: 120,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.06)",
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Dismiss X */}
       <button
         onClick={dismiss}
-        style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.5)", color: "#fff", borderRadius: "0.25rem", padding: "0.25rem 0.75rem", cursor: "pointer", whiteSpace: "nowrap" }}
+        aria-label="Dismiss welcome banner"
+        style={{
+          position: "absolute",
+          top: "0.875rem",
+          right: "0.875rem",
+          background: "rgba(255,255,255,0.15)",
+          border: "1px solid rgba(255,255,255,0.3)",
+          color: "#fff",
+          borderRadius: "50%",
+          width: 30,
+          height: 30,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "1rem",
+          lineHeight: 1,
+          zIndex: 1,
+        }}
       >
-        Dismiss
+        ✕
       </button>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "1.25rem",
+          flexWrap: "wrap",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        {/* Left icon */}
+        <div
+          style={{
+            fontSize: "2.75rem",
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
+          👋
+        </div>
+
+        {/* Text + CTAs */}
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <h3
+            style={{
+              color: "#fff",
+              fontSize: "1.1875rem",
+              fontWeight: 800,
+              margin: "0 0 0.25rem",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            Welcome to QuizWorld!
+          </h3>
+          <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "0.875rem", margin: "0 0 1rem" }}>
+            You&apos;re all set — explore quizzes from the community or build your own in minutes.
+          </p>
+          <div
+            className="welcome-banner-actions"
+            style={{
+              display: "flex",
+              gap: "0.625rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <Link
+              href="/explore"
+              style={{
+                background: "rgba(255,255,255,0.2)",
+                border: "1px solid rgba(255,255,255,0.4)",
+                color: "#fff",
+                padding: "0.5rem 1.125rem",
+                borderRadius: "999px",
+                fontSize: "0.875rem",
+                fontWeight: 700,
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.35rem",
+              }}
+            >
+              🔍 Explore Quizzes
+            </Link>
+            <Link
+              href="/create"
+              style={{
+                background: "#fff",
+                border: "1px solid rgba(255,255,255,0.6)",
+                color: "var(--accent, #7c3aed)",
+                padding: "0.5rem 1.125rem",
+                borderRadius: "999px",
+                fontSize: "0.875rem",
+                fontWeight: 700,
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.35rem",
+              }}
+            >
+              ✏️ Create Quiz
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

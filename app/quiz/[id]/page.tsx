@@ -57,7 +57,7 @@ export default async function QuizDetailPage({ params }: PageProps) {
   const quizUrl = `https://quizworld.xyz/quiz/${quiz.id}`;
 
   return (
-    <div className="container" style={{ maxWidth: 720, paddingTop: "2rem", paddingBottom: "3rem" }}>
+    <div className="container quiz-detail-container">
       {/* Back link */}
       <Link
         href="/explore"
@@ -127,7 +127,7 @@ export default async function QuizDetailPage({ params }: PageProps) {
         </div>
 
         {/* Stats row */}
-        <div className="explore-quiz-meta" style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border)" }}>
+        <div className="explore-quiz-meta" style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--line)" }}>
           <span className="explore-quiz-meta-item">
             <span className="explore-quiz-meta-icon">📝</span>
             {questions.length} question{questions.length !== 1 ? "s" : ""}
@@ -172,7 +172,7 @@ export default async function QuizDetailPage({ params }: PageProps) {
                   padding: "0.75rem",
                   background: "var(--surface)",
                   borderRadius: "0.5rem",
-                  border: "1px solid var(--border)",
+                  border: "1px solid var(--line)",
                 }}
               >
                 <span
