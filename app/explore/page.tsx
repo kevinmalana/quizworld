@@ -85,7 +85,7 @@ const SUPER_CATEGORIES: SuperCategory[] = [
     label: "Discovery",
     emoji: "🔬",
     subcategories: [
-      "General Knowledge", "Inventions & Discoveries", "Other",
+      "General Knowledge", "Trivia", "Inventions & Discoveries", "Other",
     ],
   },
 ];

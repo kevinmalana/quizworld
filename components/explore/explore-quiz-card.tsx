@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { CATEGORY_EMOJIS, type Quiz } from "@/lib/store";
 import { ShareStudyLinkButton } from "@/components/shared/share-study-link-button";
@@ -18,6 +21,16 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
   const avatar = quiz.creator_avatar || "👤";
   const level = quiz.creator_level ?? null;
   const levelTitle = quiz.creator_level_title ?? null;
+  const [shareCopied, setShareCopied] = useState(false);
+
+  function handleShare(e: React.MouseEvent) {
+    e.preventDefault();
+    const text = `Check out "${quiz.title}" on QuizWorld! quizworld.xyz/quiz/${quiz.id}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    }).catch(() => {});
+  }
 
   return (
     <div className="card card-hover explore-quiz-card">
@@ -68,6 +81,21 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
           📖 Study
         </Link>
         <ShareStudyLinkButton quizId={quiz.id} quizTitle={quiz.title} />
+        <button
+          onClick={handleShare}
+          className="btn btn-secondary btn-compact"
+          title="Share quiz link"
+        >
+          {shareCopied ? "✅" : "📤"}
+        </button>
+      </div>
+      <div style={{ marginTop: "0.5rem", textAlign: "center" }}>
+        <Link
+          href={`/quiz/${quiz.id}`}
+          style={{ fontSize: "0.8rem", color: "var(--muted)", textDecoration: "none" }}
+        >
+          View details →
+        </Link>
       </div>
     </div>
   );

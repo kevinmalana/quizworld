@@ -18,7 +18,7 @@ import {
   WaitingLobbyPanel,
 } from "@/components/game";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import {
@@ -66,6 +66,7 @@ import {
 
 export default function GamePage() {
   const params = useParams();
+  const router = useRouter();
   const { user } = useAuth();
   const pin = params.pin as string;
 
@@ -1011,6 +1012,7 @@ export default function GamePage() {
       teams={teams}
       teamAssignments={teamAssignments}
       eliminated={eliminated}
+      onPlayAgain={() => router.push('/host')}
     />
   );
 }

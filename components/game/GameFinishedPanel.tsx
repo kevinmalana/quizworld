@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { GameNotice } from "./GameNotice";
 import { TeamLeaderboard } from "./TeamLeaderboard";
@@ -27,6 +30,7 @@ export function GameFinishedPanel({
   teams = {},
   teamAssignments = {},
   eliminated = [],
+  onPlayAgain,
 }: {
   notice: string | null;
   pin: string;
@@ -43,8 +47,21 @@ export function GameFinishedPanel({
   teams?: Record<string, Team>;
   teamAssignments?: Record<string, string>;
   eliminated?: string[];
+  onPlayAgain?: () => void;
 }) {
   const quizId = (session as GameSessionData)?.quiz_id;
+  const [shareCopied, setShareCopied] = useState(false);
+
+  // Compute final score for the share message (top score or player's own)
+  const topScore = leaderboard[0]?.score ?? 0;
+
+  function handleShareScore() {
+    const text = `I scored ${topScore.toLocaleString()} points on QuizWorld! Play at quizworld.xyz`;
+    navigator.clipboard.writeText(text).then(() => {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    }).catch(() => {});
+  }
 
   // Survival: winner = last non-eliminated player (highest scorer among alive)
   const survivalWinner = gameMode === "survival"
@@ -204,6 +221,28 @@ export function GameFinishedPanel({
             <Link href={`/report/${pin}`} className="btn btn-secondary">View Report 📊</Link>
           )}
           <Link href="/" className="btn btn-secondary">Back to Home</Link>
+        </div>
+
+        {/* Post-game CTA */}
+        <div className="game-finished-cta">
+          <hr className="game-finished-cta-divider" />
+          <h3 className="game-finished-cta-heading">What&apos;s next?</h3>
+          <div className="game-finished-cta-buttons">
+            {onPlayAgain && (
+              <button onClick={onPlayAgain} className="btn btn-primary btn-compact">
+                🔄 Play Again
+              </button>
+            )}
+            <Link href="/explore" className="btn btn-secondary btn-compact">
+              🔍 Find Another Quiz
+            </Link>
+            <Link href="/create" className="btn btn-secondary btn-compact">
+              ➕ Create Your Own
+            </Link>
+            <button onClick={handleShareScore} className="btn btn-secondary btn-compact">
+              {shareCopied ? "✅ Copied!" : "📤 Share Score"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

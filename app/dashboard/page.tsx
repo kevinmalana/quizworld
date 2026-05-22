@@ -1,10 +1,12 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
+import { OnboardingChecklist } from "@/components/shared/OnboardingChecklist";
 import {
   type GameResultRow,
   getHostedGameCount,
@@ -44,6 +46,7 @@ function DashboardPageContent() {
   const [actionNotice, setActionNotice] = useState("");
   const [actionError, setActionError] = useState("");
   const [showNameBanner, setShowNameBanner] = useState(false);
+  const [profileCreatedAt, setProfileCreatedAt] = useState<string | null>(null);
   const createdQuizId = searchParams.get("created");
   const updatedQuizId = searchParams.get("updated");
   const updatedVersion = searchParams.get("version");
@@ -91,7 +94,7 @@ function DashboardPageContent() {
             .limit(20),
           supabase
             .from("profiles")
-            .select("display_name")
+            .select("display_name, created_at")
             .eq("id", userId)
             .single(),
         ]);
@@ -123,6 +126,7 @@ function DashboardPageContent() {
         setGameResults((resultRows as GameResultRow[]) ?? []);
       }
       setShowNameBanner(!profileData?.display_name);
+      setProfileCreatedAt((profileData as { created_at?: string } | null)?.created_at ?? null);
       } catch (err) {
         console.error("Dashboard fetch error:", err);
       } finally {
@@ -284,6 +288,9 @@ function DashboardPageContent() {
 
   return (
     <div className="dashboard-shell">
+      {/* Welcome banner for new users */}
+      <WelcomeBanner profileCreatedAt={profileCreatedAt} />
+
       {/* Hero matching profile page style */}
       <div className="profile-hero">
         <div className="container profile-hero-content">
@@ -372,12 +379,11 @@ function DashboardPageContent() {
         )}
 
         {activeQuizzes.length === 0 ? (
-          <div className="card dashboard-empty-card">
-            <div className="dashboard-empty-icon">📭</div>
-            <h3 className="dashboard-empty-title">No quizzes yet</h3>
-            <p className="text-muted mb-md">Create your first quiz to get started</p>
-            <Link href="/create" className="btn btn-primary">Create Quiz</Link>
-          </div>
+          <OnboardingChecklist
+            hasDisplayName={!showNameBanner}
+            quizzesCreated={quizzes.length}
+            gamesPlayed={gameResults.length}
+          />
         ) : (
           <SectionCard
             title="Published Quizzes"
@@ -432,6 +438,60 @@ function DashboardPageContent() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+
+function WelcomeBanner({ profileCreatedAt }: { profileCreatedAt: string | null }) {
+  const [dismissed, setDismissed] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("qw_welcome_dismissed") === "1") {
+      setDismissed(true);
+    }
+  }, []);
+
+  const isNew = React.useMemo(() => {
+    if (!profileCreatedAt) return false;
+    const created = new Date(profileCreatedAt).getTime();
+    return Date.now() - created < 7 * 24 * 60 * 60 * 1000;
+  }, [profileCreatedAt]);
+
+  if (dismissed || !isNew) return null;
+
+  function dismiss() {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qw_welcome_dismissed", "1");
+    }
+    setDismissed(true);
+  }
+
+  return (
+    <div
+      style={{
+        background: "var(--accent, #7c3aed)",
+        color: "#fff",
+        padding: "0.75rem 1rem",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "1rem",
+        flexWrap: "wrap",
+      }}
+    >
+      <span>
+        👋 Welcome to QuizWorld! Start by{" "}
+        <a href="/explore" style={{ color: "#fff", textDecoration: "underline" }}>exploring quizzes</a>
+        {" "}or{" "}
+        <a href="/create" style={{ color: "#fff", textDecoration: "underline" }}>creating your first one</a>.
+      </span>
+      <button
+        onClick={dismiss}
+        style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.5)", color: "#fff", borderRadius: "0.25rem", padding: "0.25rem 0.75rem", cursor: "pointer", whiteSpace: "nowrap" }}
+      >
+        Dismiss
+      </button>
     </div>
   );
 }

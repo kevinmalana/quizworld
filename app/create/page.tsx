@@ -82,7 +82,7 @@ function CreatePageContent() {
 
       setEditingQuizId(quiz.id);
       setQuizTitle(quiz.title ?? "");
-      setQuizCategory(quiz.category ?? "Trivia");
+      setQuizCategory(quiz.category ?? "General Knowledge");
       setQuizEmoji(quiz.emoji ?? "💡");
       setIsPublic(quiz.is_public ?? true);
       setStep("builder");
