@@ -1419,6 +1419,13 @@
   cursor: pointer;
 }
 
+/* Hide on desktop — properties panel is visible in sidebar */
+@media (min-width: 768px) {
+  .builder-mobile-props-toggle {
+    display: none !important;
+  }
+}
+
 .builder-mobile-props-drawer {
   position: fixed;
   left: 0;
