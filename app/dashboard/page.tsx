@@ -379,11 +379,25 @@ function DashboardPageContent() {
         )}
 
         {activeQuizzes.length === 0 ? (
-          <OnboardingChecklist
-            hasDisplayName={!showNameBanner}
-            quizzesCreated={quizzes.length}
-            gamesPlayed={gameResults.length}
-          />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.5rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,320px)", gap: "1.5rem", alignItems: "start" }} className="dashboard-onboarding-grid">
+              <SectionCard
+                title="Published Quizzes"
+                description="Your published quizzes will appear here once you create one."
+              >
+                <div style={{ padding: "2rem", textAlign: "center", color: "var(--muted)" }}>
+                  <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>✏️</div>
+                  <p style={{ marginBottom: "1rem", fontWeight: 600 }}>No quizzes yet</p>
+                  <Link href="/create" className="btn btn-primary btn-compact">Create your first quiz</Link>
+                </div>
+              </SectionCard>
+              <OnboardingChecklist
+                hasDisplayName={!showNameBanner}
+                quizzesCreated={quizzes.length}
+                gamesPlayed={gameResults.length}
+              />
+            </div>
+          </div>
         ) : (
           <SectionCard
             title="Published Quizzes"

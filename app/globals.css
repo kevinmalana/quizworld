@@ -1056,6 +1056,15 @@ body.qw-present-live-route main {
   gap: 1rem;
 }
 
+.dashboard-onboarding-grid {
+  grid-template-columns: minmax(0,1fr) minmax(0,320px);
+}
+@media (max-width: 768px) {
+  .dashboard-onboarding-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .dashboard-version-grid {
   display: grid;
   gap: 0.75rem;
