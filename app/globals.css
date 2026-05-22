@@ -2,36 +2,36 @@
 @import "../styles/components/present-pdf.css";
 
 :root {
-  /* ── LinkedIn-Style Color System ── */
-  --bg: #f3f2ef;
-  --bg-subtle: #e9e5df;
+  /* ── QuizWorld Colors, LinkedIn Layout ── */
+  --bg: #f8f9fc;
+  --bg-subtle: #f1f3f9;
   --surface: #ffffff;
   --surface-raised: #ffffff;
 
-  --ink: #000000;
-  --ink-secondary: #38434f;
-  --muted: #666666;
-  --faint: #999999;
+  --ink: #0f172a;
+  --ink-secondary: #334155;
+  --muted: #64748b;
+  --faint: #94a3b8;
 
-  --line: #e0e0e0;
-  --line-strong: #c0c0c0;
-  --border-dark: #1d2226;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+  --border-dark: #1e293b;
 
-  /* Accent — LinkedIn Blue */
-  --accent: #0a66c2;
-  --accent-hover: #004182;
-  --accent-light: #dce6f1;
-  --accent-glow: rgba(10, 102, 194, 0.12);
+  /* Accent — Electric Violet (original) */
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-light: #ede9fe;
+  --accent-glow: rgba(124, 58, 237, 0.15);
 
-  /* Primary — LinkedIn Blue (unified) */
-  --primary: #0a66c2;
-  --primary-light: #dce6f1;
-  --primary-glow: rgba(10, 102, 194, 0.10);
+  /* Primary — Vivid Rose (original) */
+  --primary: #e11d48;
+  --primary-light: #fff1f2;
+  --primary-glow: rgba(225, 29, 72, 0.12);
 
-  /* Secondary — Dark Navy */
-  --secondary: #1d2226;
-  --secondary-light: #f3f2ef;
-  --secondary-glow: rgba(29, 34, 38, 0.08);
+  /* Secondary — Ocean Blue (original) */
+  --secondary: #2563eb;
+  --secondary-light: #eff6ff;
+  --secondary-glow: rgba(37, 99, 235, 0.12);
 
   /* Success — Emerald */
   --success: #059669;
@@ -210,12 +210,12 @@ button { font-family: inherit; }
 
 .btn-secondary {
   background: var(--surface);
-  color: var(--accent);
-  border: 1.5px solid var(--accent);
+  color: var(--ink);
+  border: 1.5px solid var(--line-strong);
   box-shadow: none;
 }
 .btn-secondary:hover {
-  background: var(--accent-light);
+  background: var(--bg-subtle);
   border-color: var(--accent);
   color: var(--accent);
   box-shadow: none;
@@ -452,7 +452,10 @@ button { font-family: inherit; }
 }
 .logo-quiz { color: var(--ink); }
 .logo-world {
-  color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .nav-primary {
