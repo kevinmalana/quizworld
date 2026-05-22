@@ -1,6 +1,6 @@
 # QuizWorld Current Agent Handoff
 
-Last verified: 2026-05-18 18:00 UTC  
+Last verified: 2026-05-22 17:00 UTC  
 Production: https://www.quizworld.xyz  
 Repo: https://github.com/kevinmalana/quizworld  
 Workspace: `/root/.openclaw/workspace/quizworld`
@@ -11,12 +11,19 @@ Workspace: `/root/.openclaw/workspace/quizworld`
 2. Run `npm run quality` before any commit
 3. Deploy: `source /root/.openclaw/secrets/deployment.env && vercel deploy --prod --token "$VERCEL_TOKEN" --yes --archive=tgz`
 
-## Current State (2026-05-19)
+## Current State (2026-05-22)
 
 ### What's Live
 - **Core:** quiz builder (manual/paste/AI), explore (paginated), study (flashcard/quickfire), host/join live games, present mode, dashboard
 - **Social layer:** friends, classrooms, trivia groups, leaderboard, achievements, public profiles `/u/[username]`
 - **Gamification:** 30-level XP system, 15 achievements (auto-unlock), day streaks, creator level badges on explore
+- **UI:** LinkedIn-style layout (square corners, flat shadows, system fonts) with original QuizWorld brand colors
+- **Explore page:** Super-categories (6 groups), trending rows (🔥/✨/🏆), collections (UI-only), Surprise Me button
+- **Quiz detail page:** `/quiz/[id]` — title/creator/stats/question preview, Play + Study buttons
+- **Post-game CTA:** Play Again / Find Another Quiz / Create Your Own / Share Score after every game
+- **Share button:** on explore cards and quiz detail page (clipboard copy)
+- **Onboarding:** 5-step checklist + dismissible welcome banner for new users on dashboard
+- **Category dropdown:** builder uses `<select>` from CATEGORY_EMOJIS — no free-text category entry
 
 ### Services
 - Phoenix health: `curl https://quizworld-xs0g.onrender.com/api/health` → `{"status":"ok","redis":true}`
@@ -25,19 +32,38 @@ Workspace: `/root/.openclaw/workspace/quizworld`
 
 ## Open Issues (priority order)
 
-1. **In-memory rate limiter** — resets on Vercel cold start. Replace `lib/rate-limit.ts` with `@upstash/ratelimit` for production multi-instance safety
-2. **`study_progress` unique constraint** — verify `(user_id, quiz_id)` unique index exists in Supabase
-3. **Group admin remove members** — only classrooms have teacher-remove, not groups
-4. **No push notifications** — friend requests, classroom joins have no real-time alerts
+1. **🔴 SECURITY: Private quiz RLS** — anon users can read `is_public=false` quizzes. Fix by running in Supabase SQL editor:
+   ```sql
+   DROP POLICY IF EXISTS "Public quizzes are viewable by everyone" ON quizzes;
+   CREATE POLICY "Public quizzes are viewable by everyone" ON quizzes
+     FOR SELECT USING (is_public = true AND archived_at IS NULL);
+   CREATE POLICY "Owners can view their own private quizzes" ON quizzes
+     FOR SELECT USING (auth.uid() = creator_id);
+   ```
+2. **🔴 SECURITY: game_results readable by anon** — game results (scores/player counts) visible without auth. Add RLS: `FOR SELECT USING (auth.uid() IS NOT NULL)`
+3. **In-memory rate limiter** — resets on Vercel cold start. Replace `lib/rate-limit.ts` with `@upstash/ratelimit` for production multi-instance safety
+4. **Collections (explore)** — hardcoded UI only. Add `collections` table when content grows past 50+ quizzes
+5. **Study checklist step** — onboarding checklist always shows Study as incomplete (no study_progress count in dashboard query)
+6. **`study_progress` unique constraint** — verify `(user_id, quiz_id)` unique index exists in Supabase
+7. **Group admin remove members** — only classrooms have teacher-remove, not groups
+8. **No push notifications** — friend requests, classroom joins have no real-time alerts
 
 ## Latest Commits
 ```
-c4f2cf0 Refactor: split live-game-panels.tsx into 14 individual component files
-04b4d9f feat: achievement auto-unlock, explore creator links, auth-only rate limiter, report auth guard
-0bbb3fd feat: assignment mark-complete, group pinned quizzes, /u/[username] public profiles
-765d08e fix: UX gaps — leave classroom/group, remove member (teacher), stale totalXp reset
-4d95931 feat: social layer — friends, classrooms, trivia groups, leaderboard, achievements
+cf86cf1 feat: category dropdown, post-game CTA, quiz detail page, share button, onboarding
+ffdb58d feat(explore): super-categories, trending rows, collections, surprise-me
+faace4b fix: hide mobile props toggle on desktop (settings wheel not clickable)
+1c93fff layout-linkedin: restore QuizWorld brand colors, keep square layout
+a6b62ea layout-linkedin: square corners, LinkedIn blue, flat shadows, system fonts
 ```
+
+## New Files (2026-05-22)
+- `app/quiz/[id]/page.tsx` — quiz detail server component
+- `app/quiz/[id]/QuizDetailShareButton.tsx` — client share button
+- `components/shared/OnboardingChecklist.tsx` — dashboard onboarding checklist
+- `components/game/GameFinishedPanel.tsx` — updated with post-game CTA
+- `components/explore/explore-quiz-card.tsx` — updated with share + detail link
+- `components/builder/BuilderToolbar.tsx` — category `<select>` dropdown
 
 ## Code Architecture (2026-05-19)
 
