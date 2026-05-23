@@ -130,6 +130,125 @@ export function LiveSlideStage({
             {currentSlide.content?.text && (
               <MarkdownContent text={currentSlide.content.text} />
             )}
+
+            {/* Interactive overlay — rendered below the image/text on hybrid slides */}
+            {currentSlide.content?.interactive && (() => {
+              const ov = currentSlide.content.interactive!;
+              return (
+                <div style={{ marginTop: "1.25rem", borderTop: "1px solid var(--line)", paddingTop: "1.25rem" }}>
+
+                  {/* Poll overlay */}
+                  {ov.type === "poll" && (
+                    <div>
+                      {ov.question && <h3 className="font-display" style={{ textAlign: "center", marginBottom: "0.75rem", fontSize: "1.1rem" }}>{ov.question}</h3>}
+                      <div className="present-option-list present-option-list--poll">
+                        {(ov.options || []).map((opt) => {
+                          const count = pollCounts[opt.id] || 0;
+                          const total = Object.values(pollCounts).reduce((s, c) => s + c, 0);
+                          const pct = total > 0 ? Math.round(count / total * 100) : 0;
+                          return (
+                            <button key={opt.id}
+                              onClick={() => { if (!submitted && !isHost) { setSelectedOption(opt.id); submitResponse({ option_id: opt.id }); } }}
+                              disabled={submitted || isHost}
+                              className={selectedOption === opt.id ? "present-poll-option is-selected" : "present-poll-option"}>
+                              {shouldShowResults && <div className="present-poll-bar" style={{ width: `${pct}%` }} />}
+                              <div className="present-poll-option-content">
+                                <span className={isHost ? "present-poll-label is-host" : "present-poll-label"}>{opt.text}</span>
+                                <span className="present-poll-result">{shouldShowResults ? `${pct}% (${count})` : "Hidden"}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {submitted && <p className="present-submitted-text">✅ Voted!</p>}
+                    </div>
+                  )}
+
+                  {/* Quiz overlay */}
+                  {ov.type === "quiz" && (
+                    <div>
+                      {ov.question && <h3 className="font-display" style={{ textAlign: "center", marginBottom: "0.75rem", fontSize: "1.1rem" }}>{ov.question}</h3>}
+                      <div className="present-option-list present-option-list--quiz">
+                        {(ov.answers || []).map((ans, i) => {
+                          const revealed = revealedAnswers[currentSlide.id];
+                          const isRevealed = !!revealed;
+                          const isCorrect = isRevealed && revealed.includes(ans.id);
+                          return (
+                            <button key={ans.id}
+                              onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id, is_correct: ans.is_correct }); }}
+                              disabled={submitted || isHost}
+                              className={["present-quiz-option", submitted && isRevealed && isCorrect ? " is-correct" : "", submitted && isRevealed && !isCorrect ? " is-wrong" : ""].join("")}>
+                              <span className="present-answer-letter">{String.fromCharCode(65 + i)}</span>
+                              <span className="present-answer-text">{ans.text}</span>
+                              {isRevealed && isCorrect && <span className="present-correct-mark">✅</span>}
+                              {isRevealed && !isCorrect && submitted && <span style={{ marginLeft: "auto" }}>❌</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {submitted && !revealedAnswers[currentSlide.id] && <p className="present-submitted-text">✅ Answered! Waiting for reveal…</p>}
+                      {isHost && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "1rem", justifyContent: "center", marginTop: "1rem" }}>
+                          <p className="present-response-count" style={{ margin: 0 }}>{allResponses.length} responses</p>
+                          {!revealedAnswers[currentSlide.id] && onRevealQuiz && (
+                            <button onClick={onRevealQuiz} className="btn btn-primary" style={{ fontSize: "0.875rem" }}>Reveal Answers</button>
+                          )}
+                          {revealedAnswers[currentSlide.id] && <span style={{ color: "#38a169", fontWeight: 700, fontSize: "0.875rem" }}>✅ Answers revealed</span>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Open text overlay */}
+                  {ov.type === "open_text" && (
+                    <div>
+                      {ov.question && <h3 className="font-display" style={{ textAlign: "center", marginBottom: "0.75rem", fontSize: "1.1rem" }}>{ov.question}</h3>}
+                      {shouldShowResults && allResponses.length > 0 && (
+                        <div className="present-response-list">
+                          {allResponses.map((r, i) => (
+                            <div key={i} className="card present-open-response">
+                              <span className="present-open-response-text">{r.response_data?.text as string}</span>
+                              <span className="present-response-author">— {r.participant_name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!submitted && !isHost && (
+                        <div className="present-response-row present-response-row--open">
+                          <input value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Type your response…" className="present-response-input"
+                            onKeyDown={(e) => { if (e.key === "Enter" && response.trim()) submitResponse({ text: response.trim() }); }} />
+                          <button onClick={() => { if (response.trim()) submitResponse({ text: response.trim() }); }} className="btn btn-primary">Submit</button>
+                        </div>
+                      )}
+                      {submitted && <p className="present-submitted-text">✅ Submitted!</p>}
+                    </div>
+                  )}
+
+                  {/* Word cloud overlay */}
+                  {ov.type === "word_cloud" && (
+                    <div>
+                      {ov.prompt && <h3 className="font-display" style={{ textAlign: "center", marginBottom: "0.75rem", fontSize: "1.1rem" }}>{ov.prompt}</h3>}
+                      {shouldShowResults && sortedWords.length > 0 ? (
+                        <div className="present-word-cloud">
+                          {sortedWords.map(([word, count]) => (
+                            <span key={word} className="present-word-chip" style={{ fontSize: `${Math.min(1 + count * 0.3, 2.8)}rem` }}>{word}</span>
+                          ))}
+                        </div>
+                      ) : <p className="present-waiting-text">{resultsHidden && isHost ? `Responses hidden · ${responseCount} received` : "Waiting for responses…"}</p>}
+                      {!submitted && !isHost && (
+                        <div className="present-response-row present-response-row--word">
+                          <input value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Type a word…" className="present-response-input"
+                            onKeyDown={(e) => { if (e.key === "Enter" && response.trim()) submitResponse({ words: response.trim() }); }} />
+                          <button onClick={() => { if (response.trim()) submitResponse({ words: response.trim() }); }} className="btn btn-primary">Submit</button>
+                        </div>
+                      )}
+                      {submitted && <p className="present-submitted-text">✅ Submitted!</p>}
+                    </div>
+                  )}
+
+                </div>
+              );
+            })()}
           </div>
         )}
 

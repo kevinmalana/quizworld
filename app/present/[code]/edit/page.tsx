@@ -51,7 +51,6 @@ export default function PresentationEditor() {
   const [showImportDeck, setShowImportDeck] = useState(false);
   const [importToast, setImportToast] = useState<string | null>(null);
   const [importedCount, setImportedCount] = useState(0); // for bulk convert banner
-  const [convertConfirm, setConvertConfirm] = useState<{ idx: number; toType: SlideType } | null>(null);
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -175,50 +174,23 @@ export default function PresentationEditor() {
     router.push(`/present/${code}/live`);
   }, [code, savePresentation, router]);
 
-  const doConvertImportedSlide = useCallback((idx: number, toType: SlideType) => {
-    setSlides(prev => prev.map((s, i) => {
-      if (i !== idx) return s;
-      const c = s.content as Record<string, unknown>;
-      const keepImage = toType === "content";
-      return {
-        ...s,
-        slide_type: toType,
-        content: {
-          ...(keepImage && typeof c.image_url === "string" ? { image_url: c.image_url } : {}),
-          ...defaultContent(toType),
-        },
-      };
-    }));
-    setConvertConfirm(null);
-  }, []);
-
-  // FIX 2: Warn before losing image when converting to non-content type
-  const convertImportedSlide = useCallback((idx: number, toType: SlideType) => {
-    const slide = slides[idx];
-    const hasImage = !!(slide?.content as Record<string, unknown>)?.image_url;
-    if (hasImage && toType !== "content") {
-      setConvertConfirm({ idx, toType });
-    } else {
-      doConvertImportedSlide(idx, toType);
-    }
-  }, [slides, doConvertImportedSlide]);
-
-  // Bulk convert all imported slides
-  const bulkConvertImported = useCallback((toType: SlideType) => {
+  // Bulk convert all imported slides — sets content.interactive overlay, keeps image
+  const bulkConvertImported = useCallback((toType: "poll" | "quiz" | "open_text" | "word_cloud" | "qna") => {
+    type OverlayOption = { id: string; text: string };
+    type OverlayAnswer = { id: string; text: string; is_correct: boolean };
+    type Overlay = { type: string; question?: string; prompt?: string; options?: OverlayOption[]; answers?: OverlayAnswer[] };
+    const defaults: Record<string, Overlay> = {
+      poll: { type: "poll", question: "", options: [{ id: "1", text: "" }, { id: "2", text: "" }] },
+      quiz: { type: "quiz", question: "", answers: [{ id: "1", text: "", is_correct: true }, { id: "2", text: "", is_correct: false }] },
+      open_text: { type: "open_text", question: "" },
+      word_cloud: { type: "word_cloud", prompt: "" },
+      qna: { type: "qna" },
+    };
     setSlides(prev => prev.map(s => {
       if (!(s.content as Record<string, unknown>)._imported) return s;
-      const c = s.content as Record<string, unknown>;
-      const keepImage = toType === "content";
-      return {
-        ...s,
-        slide_type: toType,
-        content: {
-          ...(keepImage && typeof c.image_url === "string" ? { image_url: c.image_url } : {}),
-          ...defaultContent(toType),
-        },
-      };
+      return { ...s, content: { ...s.content, interactive: defaults[toType] } } as Slide;
     }));
-    setImportedCount(0); // dismiss banner
+    setImportedCount(0);
   }, []);
 
   if (loading) {
@@ -228,7 +200,7 @@ export default function PresentationEditor() {
   const activeSlide = slides[activeIndex];
 
   const BULK_TYPES: { type: SlideType; icon: string; label: string }[] = [
-    { type: "content", icon: "📄", label: "Keep as slides" },
+    { type: "content" as const, icon: "📄", label: "Keep as content" },
     { type: "poll", icon: "📊", label: "Convert to Polls" },
     { type: "quiz", icon: "🏆", label: "Convert to Quizzes" },
     { type: "open_text", icon: "💬", label: "Convert to Open Text" },
@@ -264,7 +236,7 @@ export default function PresentationEditor() {
             {BULK_TYPES.map(({ type, icon, label }) => (
               <button
                 key={type}
-                onClick={() => bulkConvertImported(type)}
+                onClick={() => type !== "content" ? bulkConvertImported(type as "poll" | "quiz" | "open_text" | "word_cloud" | "qna") : setImportedCount(0)}
                 className="btn btn-secondary"
                 style={{ fontSize: "0.75rem", padding: "0.25rem 0.625rem" }}
               >
@@ -319,8 +291,7 @@ export default function PresentationEditor() {
                 slideCount={slides.length}
                 onUpdate={(updates) => updateSlide(activeIndex, updates)}
                 onDelete={() => deleteSlide(activeIndex)}
-                onConvertImported={(type) => convertImportedSlide(activeIndex, type)}
-              />
+                  />
             </div>
 
             {/* FIX 1: Live preview pane */}
@@ -341,55 +312,6 @@ export default function PresentationEditor() {
         )}
       </div>
 
-      {/* FIX 2: Image loss confirmation dialog */}
-      {convertConfirm && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 9999,
-          background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem",
-        }}>
-          <div className="card" style={{ maxWidth: 400, width: "100%", padding: "1.5rem" }}>
-            <h3 className="font-display" style={{ fontSize: "1rem", fontWeight: 800, marginBottom: "0.5rem" }}>
-              ⚠️ Image will be removed
-            </h3>
-            <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: "1.25rem", lineHeight: 1.5 }}>
-              Converting to <strong>{convertConfirm.toType}</strong> will remove the slide image. The image can&apos;t be recovered after converting.
-            </p>
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              <button
-                onClick={() => doConvertImportedSlide(convertConfirm.idx, convertConfirm.toType)}
-                className="btn btn-primary btn-compact"
-              >
-                Convert anyway
-              </button>
-              <button
-                onClick={() => setConvertConfirm(null)}
-                className="btn btn-secondary btn-compact"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showAddSlide && (
-        <AddSlideModal
-          onClose={() => setShowAddSlide(false)}
-          onSelect={addSlide}
-          onImportDeck={() => {
-            setShowAddSlide(false);
-            setShowImportDeck(true);
-          }}
-        />
-      )}
-
-      {showImportDeck && (
-        <ImportDeckPanel
-          onImport={importDeckSlides}
-          onClose={() => setShowImportDeck(false)}
-        />
-      )}
     </div>
   );
 }

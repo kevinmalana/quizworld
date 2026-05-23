@@ -1,11 +1,28 @@
 export type SlideType = "content" | "word_cloud" | "open_text" | "poll" | "quiz" | "scale" | "qna";
 
+// Interactive overlay — can be added to any content/imported slide
+export interface InteractiveOverlay {
+  type: "poll" | "quiz" | "open_text" | "word_cloud" | "qna" | "scale";
+  question?: string;
+  prompt?: string;
+  options?: { id: string; text: string }[];
+  answers?: { id: string; text: string; is_correct: boolean }[];
+  time_limit?: number;
+  points?: number;
+  min?: number;
+  max?: number;
+  min_label?: string;
+  max_label?: string;
+  moderated?: boolean;
+}
+
 export interface SlideContent {
   // content
   text?: string;
   image_url?: string;
   video_url?: string;
   _imported?: boolean; // marks slides created via deck import; stripped on save
+  interactive?: InteractiveOverlay; // overlay interactive component on top of content/image slide
 
   // word_cloud
   prompt?: string;
