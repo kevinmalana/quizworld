@@ -208,7 +208,7 @@ export default function HomePage() {
             <div className="home-cta-pattern" />
             <div className="home-cta-content">
               <h2 className="font-display home-cta-title">Ready to make learning epic?</h2>
-              <p className="home-cta-desc">Turn any topic into a live multiplayer quiz in minutes. Start free, no credit card required.</p>
+              <p className="home-cta-desc">Turn any topic into a live multiplayer quiz in minutes. Start playing today.</p>
               <div className="home-cta-actions">
                 <Link href="/host" className="btn btn-lg home-cta-btn-primary">Host a Game</Link>
                 <Link href="/create" className="btn btn-lg home-cta-btn-secondary">Create a Quiz</Link>
