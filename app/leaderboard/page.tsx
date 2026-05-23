@@ -33,7 +33,7 @@ function LeaderboardRow({ entry, rank, isMe, showWeekly }: { entry: LeaderboardE
   return (
     <div className={podiumClass} style={isMe ? { border: "2px solid var(--accent)" } : {}}>
       <div className="leaderboard-rank">{medal}</div>
-      <div className="leaderboard-avatar">{entry.avatar || "👤"}</div>
+      {(entry.avatar||"👤").startsWith("http") ? <img src={entry.avatar} alt={entry.display_name||entry.username} className="leaderboard-avatar" style={{borderRadius:"50%",objectFit:"cover"}} /> : <div className="leaderboard-avatar">{entry.avatar||"👤"}</div>}
       <div className="leaderboard-info">
         <div className="leaderboard-name">{entry.display_name || entry.username} {isMe && <span className="leaderboard-you-tag">← You</span>}</div>
         <div className="leaderboard-handle">
@@ -163,7 +163,7 @@ export default function LeaderboardPage() {
                     <div className="leaderboard-podium-medal">
                       {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"}
                     </div>
-                    <div className="leaderboard-podium-avatar">{entry.avatar || "👤"}</div>
+                    {(entry.avatar||"👤").startsWith("http") ? <img src={entry.avatar} alt={entry.display_name||entry.username} className="leaderboard-podium-avatar" style={{borderRadius:"50%",objectFit:"cover"}} /> : <div className="leaderboard-podium-avatar">{entry.avatar||"👤"}</div>}
                     <div className="leaderboard-podium-name">{entry.display_name || entry.username}</div>
                     <span className="social-level-badge">⭐ Lv {lv.level}</span>
                     <div className="leaderboard-podium-xp">{entry.total_xp.toLocaleString()} XP</div>

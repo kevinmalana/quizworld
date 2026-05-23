@@ -99,7 +99,11 @@ export default async function QuizDetailPage({ params }: PageProps) {
 
             {/* Creator */}
             <div className="explore-quiz-creator" style={{ marginTop: "0.5rem" }}>
-              <span className="explore-quiz-creator-avatar">{creatorAvatar}</span>
+              {creatorAvatar.startsWith('http') ? (
+                <img src={creatorAvatar} alt={creatorName} className="explore-quiz-creator-avatar" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <span className="explore-quiz-creator-avatar">{creatorAvatar}</span>
+              )}
               <div className="explore-quiz-creator-info">
                 <span className="explore-quiz-creator-name">
                   {creatorUsername ? (
@@ -146,8 +150,8 @@ export default async function QuizDetailPage({ params }: PageProps) {
 
         {/* CTA buttons */}
         <div className="explore-quiz-actions" style={{ marginTop: "1.25rem" }}>
-          <Link href={`/join`} className="btn btn-primary">
-            ▶ Play Now
+          <Link href={`/host?quiz=${quiz.id}`} className="btn btn-primary">
+            🎮 Host Game
           </Link>
           <Link href={`/study/${quiz.id}`} className="btn btn-secondary">
             📖 Study Mode
@@ -202,8 +206,8 @@ export default async function QuizDetailPage({ params }: PageProps) {
         <Link href="/explore" className="btn btn-secondary">
           ← Back to Explore
         </Link>
-        <Link href={`/join`} className="btn btn-primary">
-          ▶ Play Now
+        <Link href={`/host?quiz=${quiz.id}`} className="btn btn-primary">
+          🎮 Host Game
         </Link>
       </div>
     </div>

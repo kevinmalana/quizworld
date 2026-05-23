@@ -85,3 +85,34 @@
 .leaderboard-row--me .leaderboard-name {
   color: var(--accent);
 }
+
+/* ─── Mobile responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .leaderboard-table {
+    font-size: 0.875rem;
+  }
+
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 0.6rem 0.5rem;
+  }
+
+  .leaderboard-avatar {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 1rem !important;
+  }
+
+  .leaderboard-username {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .leaderboard-rank-badge {
+    display: none;
+  }
+}

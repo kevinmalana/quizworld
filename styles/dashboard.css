@@ -221,3 +221,34 @@
 .admin-health-value { font-weight: 700; }
 .admin-health-value--ok    { color: var(--success); }
 .admin-health-value--error { color: var(--primary); }
+
+/* ─── Mobile responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dashboard-metric-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dashboard-quiz-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .dashboard-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-card {
+    padding: 1rem;
+  }
+}

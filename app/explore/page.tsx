@@ -103,6 +103,7 @@ type Collection = {
   gradientTo: string;
 };
 
+// Collections now use live category counts — quizCount is overridden at render time
 const COLLECTIONS: Collection[] = [
   {
     emoji: "🌍",
@@ -779,13 +780,17 @@ function ExplorePageContent() {
                 gap: "1rem",
               }}
             >
-              {COLLECTIONS.map((col) => (
-                <CollectionCard
-                  key={col.title}
-                  collection={col}
-                  onCategorySelect={(cat) => setActiveCategory(cat)}
-                />
-              ))}
+              {COLLECTIONS.map((col) => {
+                const liveCatCount = quizzes.filter(q => q.category === col.category).length;
+                const liveCount = liveCatCount > 0 ? liveCatCount : col.quizCount;
+                return (
+                  <CollectionCard
+                    key={col.title}
+                    collection={{ ...col, quizCount: liveCount }}
+                    onCategorySelect={(cat) => setActiveCategory(cat)}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
