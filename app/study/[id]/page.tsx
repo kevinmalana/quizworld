@@ -223,7 +223,14 @@ export default function StudyPage() {
   };
 
   if (loading) return <StudyLoadingState message="Loading quiz..." />;
-  if (!quiz)   return <StudyLoadingState message="Quiz not found" />;
+  if (!quiz)   return (
+    <div className="container" style={{ textAlign: "center", padding: "4rem 1rem" }}>
+      <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔍</div>
+      <h2 className="font-display" style={{ marginBottom: "0.5rem" }}>Quiz not found</h2>
+      <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>This quiz may have been removed or made private.</p>
+      <a href="/explore" className="btn btn-primary">Browse Quizzes</a>
+    </div>
+  );
 
   if (sessionResult) {
     return (

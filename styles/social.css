@@ -794,3 +794,49 @@
   .u-profile-avatar { width: 60px; height: 60px; font-size: 2rem; }
   .u-profile-hero__content { gap: 1rem; }
 }
+
+/* ─── Mobile responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .social-shell {
+    padding-top: 1.5rem;
+    padding-bottom: 3rem;
+  }
+
+  .social-header {
+    gap: 0.5rem;
+  }
+
+  .social-friend-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .social-friend-actions {
+    width: 100%;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .social-friend-actions .btn {
+    flex: 1;
+    text-align: center;
+  }
+
+  .social-search-row {
+    flex-direction: column;
+  }
+
+  .social-search-row .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .social-level-badge {
+    font-size: 0.7rem;
+  }
+
+  .social-empty-icon {
+    font-size: 2.5rem;
+  }
+}

@@ -252,6 +252,13 @@ function HostPageContent() {
 
       if (!fullQuiz) throw new Error("Quiz not found.");
 
+      const qCount = Array.isArray(fullQuiz.questions) ? fullQuiz.questions.length : 0;
+      if (qCount === 0) {
+        setError("This quiz has no questions. Add some questions before hosting.");
+        setLaunching(false);
+        return;
+      }
+
       // Track recent
       try {
         const recent = JSON.parse(localStorage.getItem("qw_recent_hosted") || "[]") as string[];

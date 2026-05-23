@@ -438,6 +438,18 @@ function CreatePageContent() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [saveDraftToSupabase, addQuestion]);
 
+  // ── Unsaved changes guard (browser close/refresh) ──
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (draftState === "dirty") {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [draftState]);
+
   // ── Confetti state (#14) ──
   const [showConfetti, setShowConfetti] = useState(false);
 

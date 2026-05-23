@@ -467,3 +467,31 @@
   color: var(--muted);
   margin-bottom: 1.5rem;
 }
+
+/* ─── Mobile responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .report-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .report-question-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .report-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .report-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .report-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
