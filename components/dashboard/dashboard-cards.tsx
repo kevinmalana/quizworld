@@ -106,12 +106,17 @@ export function ArchivedQuizCard({ quiz, actioningQuizId, onArchive }: { quiz: D
 }
 
 function QuizCardHeader({ quiz }: { quiz: DashboardQuizRow }) {
+  const qCount = quiz.questions?.[0]?.count ?? 0;
   return (
     <div className="dashboard-card-header">
       <div className="dashboard-card-icon" style={{ background: `${quiz.color}15` }}>{quiz.emoji || "📝"}</div>
       <div className="dashboard-card-body">
         <div className="dashboard-card-title">{quiz.title}</div>
-        <div className="dashboard-card-meta">{quiz.questions?.[0]?.count ?? 0} questions · {(quiz.plays ?? 0).toLocaleString()} plays</div>
+        <div className="dashboard-card-meta">
+          {qCount === 0
+            ? <span style={{ color: "var(--warning, #f59e0b)", fontWeight: 700 }}>⚠️ No questions — add some before hosting</span>
+            : <>{qCount} question{qCount !== 1 ? "s" : ""} · {(quiz.plays ?? 0).toLocaleString()} plays</>}
+        </div>
       </div>
       <div className={quiz.is_public ? "dashboard-visibility-pill is-public" : "dashboard-visibility-pill"}>{quiz.is_public ? "Public" : "Private"}</div>
     </div>

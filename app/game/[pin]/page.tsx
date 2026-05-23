@@ -446,6 +446,16 @@ export default function GamePage() {
     };
   }, [loadSession, phoenixChannelConnected]);
 
+  // Show reconnecting notice when WS drops mid-game
+  useEffect(() => {
+    if (!isPhoenixGameEngine) return;
+    if (!phoenixChannelConnected && !loading && gameStatus !== "finished") {
+      setNotice("🔄 Reconnecting to game server...");
+    } else if (phoenixChannelConnected) {
+      setNotice((prev) => prev === "🔄 Reconnecting to game server..." ? null : prev);
+    }
+  }, [phoenixChannelConnected, loading, gameStatus]);
+
   // Feature 6: Update streaks when reveal happens
   useEffect(() => {
     if (gameStatus !== "reveal" || !currentAnswers.length) return;

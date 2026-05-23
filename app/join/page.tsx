@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { writePlayerSession } from "@/lib/player-session";
+import { writePlayerSession, readPlayerSession } from "@/lib/player-session";
 import { fetchPhoenixSession, joinPhoenixSession } from "@/lib/game-engine/client";
 import {
   isPhoenixGameEngine,
@@ -34,6 +34,15 @@ function JoinForm() {
     initialPin ? initialPin.toUpperCase().split("").slice(0, 6).concat(Array(6).fill("")).slice(0, 6) : Array(6).fill("")
   );
   const digitRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Re-join: if player already has a valid session for this PIN, go straight to game
+  useEffect(() => {
+    if (!initialPin) return;
+    const existing = readPlayerSession(initialPin.toUpperCase());
+    if (existing?.playerId && existing?.playerToken) {
+      router.replace(`/game/${initialPin.toUpperCase()}`);
+    }
+  }, [initialPin, router]);
 
   if (liveGameEngineMisconfigured) {
     return (
