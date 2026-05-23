@@ -58,7 +58,11 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
       <h3 className="font-display explore-quiz-title">{quiz.title}</h3>
 
       <div className="explore-quiz-creator">
-        <span className="explore-quiz-creator-avatar">{avatar}</span>
+        {avatar.startsWith('http') ? (
+          <img src={avatar} alt={displayName || 'creator'} className="explore-quiz-creator-avatar" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+        ) : (
+          <span className="explore-quiz-creator-avatar">{avatar}</span>
+        )}
         <div className="explore-quiz-creator-info">
           <span className="explore-quiz-creator-name">
             {username ? (
