@@ -300,7 +300,7 @@ function CollectionCard({
             padding: "0.2rem 0.55rem",
           }}
         >
-          {collection.quizCount} quizzes
+          {collection.quizCount} {collection.quizCount === 1 ? 'quiz' : 'quizzes'}
         </span>
         <span
           style={{
