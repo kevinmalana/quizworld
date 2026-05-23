@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CATEGORY_EMOJIS } from "@/lib/store";
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
@@ -47,19 +47,14 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   Other: "Miscellaneous topics",
 };
 
+// Top 6 by actual quiz count in DB — keeps the homepage focused
 const categories = [
   "General Knowledge",
   "Science & Nature",
   "History",
-  "Pop Culture",
-  "Sports",
   "Geography",
+  "Sports",
   "Music",
-  "Movies",
-  "Technology",
-  "Food & Drink",
-  "Animals",
-  "Video Games",
 ];
 
 const categories_list = categories.map((label) => ({
@@ -76,6 +71,20 @@ const STEPS = [
 
 export default function HomePage() {
   const [pin, setPin] = useState("");
+  const [stats, setStats] = useState<{ quizzes: number; questions: number } | null>(null);
+
+  useEffect(() => {
+    // Fetch live stats for social proof
+    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/get_homepage_stats`;
+    // Fallback: just fetch quiz count directly
+    fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/quizzes?is_public=eq.true&archived_at=is.null&select=id`,
+      { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "", Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""}`, Prefer: "count=exact", Range: "0-0" } }
+    ).then(r => {
+      const count = parseInt(r.headers.get("content-range")?.split("/")[1] || "0");
+      if (count > 0) setStats({ quizzes: count, questions: count * 10 });
+    }).catch(() => {});
+  }, []);
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,14 +147,30 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Stats bar — social proof */}
+      {stats && (
+        <div style={{
+          background: "var(--surface)",
+          borderTop: "1px solid var(--line)",
+          borderBottom: "1px solid var(--line)",
+          padding: "1rem 0",
+        }}>
+          <div className="container" style={{ display: "flex", justifyContent: "center", gap: "3rem", flexWrap: "wrap" }}>
+            <StatPill emoji="🧠" value={`${stats.quizzes}+`} label="quizzes" />
+            <StatPill emoji="❓" value={`${(stats.quizzes * 10).toLocaleString()}+`} label="questions" />
+            <StatPill emoji="🌍" value="28" label="categories" />
+          </div>
+        </div>
+      )}
+
       <section className="page-section home-section home-section-surface">
         <div className="container">
           <div className="home-section-header">
             <h2 className="font-display home-section-title">Pick a topic</h2>
-            <p className="home-section-desc">Thousands of quizzes across every subject</p>
+            <p className="home-section-desc">Browse our most popular categories or <Link href="/explore" style={{ color: "var(--accent)" }}>explore all 28 topics →</Link></p>
           </div>
 
-          <div className="grid-4">
+          <div className="grid-3">
             {categories_list.map((c) => (
               <Link key={c.label} href={`/explore?category=${c.label}`} className="card card-hover home-category-card">
                 <span className="home-category-emoji">{c.emoji}</span>
@@ -183,7 +208,7 @@ export default function HomePage() {
             <div className="home-cta-pattern" />
             <div className="home-cta-content">
               <h2 className="font-display home-cta-title">Ready to make learning epic?</h2>
-              <p className="home-cta-desc">Turn any lesson into a multiplayer game show in minutes. Free forever.</p>
+              <p className="home-cta-desc">Turn any topic into a live multiplayer quiz in minutes. Start free, no credit card required.</p>
               <div className="home-cta-actions">
                 <Link href="/host" className="btn btn-lg home-cta-btn-primary">Host a Game</Link>
                 <Link href="/create" className="btn btn-lg home-cta-btn-secondary">Create a Quiz</Link>
@@ -192,6 +217,17 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+
+function StatPill({ emoji, value, label }: { emoji: string; value: string; label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+      <span style={{ fontSize: "1.25rem" }}>{emoji}</span>
+      <span className="font-display" style={{ fontSize: "1.25rem", fontWeight: 900, color: "var(--ink)" }}>{value}</span>
+      <span style={{ fontSize: "0.875rem", color: "var(--muted)" }}>{label}</span>
     </div>
   );
 }
