@@ -42,28 +42,6 @@ defmodule QuizworldRealtime.StateStore do
     _ -> {:error, :not_found}
   end
 
-  def persist_snapshot(snapshot) do
-    case Process.whereis(QuizworldRealtime.Redis) do
-      nil ->
-        :ok
-
-      _pid ->
-        payload = Jason.encode!(snapshot)
-
-        Redix.command(QuizworldRealtime.Redis, [
-          "SET",
-          key(snapshot.pin),
-          payload,
-          "EX",
-          Integer.to_string(@ttl_seconds)
-        ])
-
-        :ok
-    end
-  rescue
-    _ -> :ok
-  end
-
   def delete_snapshot(pin) do
     case Process.whereis(QuizworldRealtime.Redis) do
       nil ->

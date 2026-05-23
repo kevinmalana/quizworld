@@ -1050,7 +1050,10 @@ export default function GamePage() {
       teams={teams}
       teamAssignments={teamAssignments}
       eliminated={eliminated}
-      onPlayAgain={() => router.push('/host')}
+      onPlayAgain={() => {
+        const quizId = (session as any)?.quiz_id ?? (session as any)?.quiz?.id;
+        router.push(quizId ? `/host?quiz=${quizId}` : '/host');
+      }}
     />
   );
 }

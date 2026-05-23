@@ -8,6 +8,7 @@ defmodule QuizworldRealtime.Application do
     children =
       [
         {Phoenix.PubSub, name: QuizworldRealtime.PubSub},
+        QuizworldRealtime.Presence,
         {Registry, keys: :unique, name: QuizworldRealtime.GameRegistry},
         {DynamicSupervisor, strategy: :one_for_one, name: QuizworldRealtime.GameSupervisor}
       ] ++ redis_child() ++ [QuizworldRealtimeWeb.Endpoint]

@@ -11,6 +11,14 @@ secret_key_base =
       "dev-only-secret-key-base-replace-me-dev-only-secret-key-base"
     end
 
+session_signing_salt =
+  System.get_env("SESSION_SIGNING_SALT") ||
+    if config_env() == :prod do
+      raise "SESSION_SIGNING_SALT is required in production"
+    else
+      "qw-fallback-salt-change-in-prod"
+    end
+
 redis_url = System.get_env("REDIS_URL")
 supabase_url = System.get_env("SUPABASE_URL")
 supabase_service_role_key = System.get_env("SUPABASE_SERVICE_ROLE_KEY")

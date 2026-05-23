@@ -157,6 +157,24 @@ function JoinForm() {
           router.push(`/game/${pin}`);
           return;
         }
+
+        // Surface Phoenix-specific error messages clearly
+        const reason = (response as any)?.reason;
+        if (reason === "game_full") {
+          setError("This game is full (200 players max). Ask the host to start a new session.");
+          setJoining(false);
+          return;
+        }
+        if (reason === "nickname_taken") {
+          setError("That nickname is already taken. Choose a different one.");
+          setJoining(false);
+          return;
+        }
+        if (reason === "session_closed") {
+          setError("This game has already started. Ask the host to start a new session.");
+          setJoining(false);
+          return;
+        }
       } else {
         const { data, error } = await supabase
           .rpc("join_game_session", {

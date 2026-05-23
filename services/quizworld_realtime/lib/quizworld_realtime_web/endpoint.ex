@@ -4,13 +4,13 @@ defmodule QuizworldRealtimeWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_quizworld_realtime_key",
-    signing_salt: "v9salt"
+    signing_salt: {System, :get_env, ["SESSION_SIGNING_SALT", "qw-fallback-salt-change-in-prod"]}
   ]
 
   plug Plug.Static,
     at: "/",
     from: :quizworld_realtime,
-    gzip: false,
+    gzip: true,
     only: ~w(css game.css)
 
   socket "/live", Phoenix.LiveView.Socket,

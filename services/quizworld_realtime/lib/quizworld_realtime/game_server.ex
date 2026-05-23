@@ -8,6 +8,8 @@ defmodule QuizworldRealtime.GameServer do
   @waiting_cleanup_ms :timer.hours(2)
   @active_cleanup_ms :timer.hours(1)
   @finished_cleanup_ms :timer.minutes(15)
+  # Auto-advance after 15s on reveal if host doesn't respond
+  @auto_advance_ms 15_000
 
   def start_link(attrs) do
     GenServer.start_link(__MODULE__, attrs, name: via(pin_for(attrs)))
@@ -103,9 +105,27 @@ defmodule QuizworldRealtime.GameServer do
   end
 
   @impl true
+  # Question timer fired — auto-reveal
   def handle_info({:question_timeout, question_index}, game) do
     if game.status == "active" and game.current_question_index == question_index do
       case Game.reveal_current_question(game, Game.host_token(game)) do
+        {:ok, next_game} ->
+          next_game
+          |> prepare_next_game(game)
+          |> noreply_transition()
+
+        {:error, _reason} ->
+          {:noreply, game}
+      end
+    else
+      {:noreply, game}
+    end
+  end
+
+  # Auto-advance timer fired after reveal — prevents game freeze if host disconnects
+  def handle_info({:auto_advance, question_index}, game) do
+    if game.status == "reveal" and game.current_question_index == question_index do
+      case Game.advance(game, Game.host_token(game)) do
         {:ok, next_game} ->
           next_game
           |> prepare_next_game(game)
@@ -191,6 +211,7 @@ defmodule QuizworldRealtime.GameServer do
 
     next_game
     |> schedule_question_timer()
+    |> schedule_auto_advance_timer()
     |> schedule_cleanup_timer()
   end
 
@@ -209,6 +230,15 @@ defmodule QuizworldRealtime.GameServer do
   defp schedule_question_timer(%Game{} = game) do
     Game.with_question_timer_ref(game, nil)
   end
+
+  # Schedule auto-advance: fires @auto_advance_ms after reveal
+  # Prevents game from freezing if host disconnects mid-game
+  defp schedule_auto_advance_timer(%Game{status: "reveal", current_question_index: index} = game) do
+    timer_ref = Process.send_after(self(), {:auto_advance, index}, @auto_advance_ms)
+    %{game | question_timer_ref: timer_ref}
+  end
+
+  defp schedule_auto_advance_timer(%Game{} = game), do: game
 
   defp schedule_cleanup_timer(%Game{status: status} = game) do
     timeout_ms =
