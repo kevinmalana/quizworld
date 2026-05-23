@@ -90,6 +90,13 @@ function JoinForm() {
   const handlePinSubmit = async () => {
     const p = digits.join("").toUpperCase();
     if (p.length !== 6) { setError("Enter the full 6-character PIN"); return; }
+
+    // Smart routing: if code looks like a presentation code (mostly letters), redirect
+    const isPresentation = /^[A-Z]{3}/.test(p);
+    if (isPresentation) {
+      router.push(`/present/join?code=${p}`);
+      return;
+    }
     
     setError("");
     setJoining(true);
@@ -262,7 +269,7 @@ function JoinForm() {
       <div className="card join-card">
         <div className="join-icon">🎮</div>
         <h2 className="font-display join-title">Join a Game</h2>
-        <p className="join-subtitle">Enter the 6-character PIN</p>
+        <p className="join-subtitle">Enter a game PIN or presentation code</p>
 
         <div className="join-pin-row">
           {digits.map((d, i) => (

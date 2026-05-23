@@ -72,9 +72,18 @@ const STEPS = [
 export default function HomePage() {
   const [pin, setPin] = useState("");
 
+  // Smart routing: detect presentation code (6-char alpha) vs game PIN (numeric)
+  const looksLikePresentation = (code: string) => /^[A-Z]{2,}/.test(code) && code.length >= 4;
+
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin.trim()) window.location.href = `/join?pin=${pin}`;
+    const trimmed = pin.trim();
+    if (!trimmed) return;
+    if (looksLikePresentation(trimmed)) {
+      window.location.href = `/present/join?code=${trimmed}`;
+    } else {
+      window.location.href = `/join?pin=${trimmed}`;
+    }
   };
 
   return (
@@ -112,18 +121,20 @@ export default function HomePage() {
             <div className="animate-slide-up anim-delay-1">
               <div className="card-elevated home-join-card">
                 <div className="home-join-icon">🎮</div>
-                <h2 className="font-display home-join-title">Ready to play?</h2>
-                <p className="home-join-subtitle">Enter a game PIN to join instantly</p>
+                <h2 className="font-display home-join-title">Ready to join?</h2>
+                <p className="home-join-subtitle">Enter a game PIN or presentation code</p>
                 <form onSubmit={handleJoin}>
                   <input
                     type="text"
-                    placeholder="Game PIN"
+                    placeholder="Game PIN or Presentation Code"
                     className="input-pin mb-sm"
                     value={pin}
                     onChange={(e) => setPin(e.target.value.toUpperCase())}
                     maxLength={8}
                   />
-                  <button type="submit" className="btn btn-accent btn-lg btn-full">Enter Game</button>
+                  <button type="submit" className="btn btn-accent btn-lg btn-full">
+                    {looksLikePresentation(pin) ? "Join Presentation →" : "Enter Game"}
+                  </button>
                 </form>
                 <p className="home-join-hint">No account needed</p>
                 <Link href="/present/join" className="home-join-present">🎤 Join a Presentation</Link>
