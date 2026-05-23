@@ -157,6 +157,9 @@ export default function PresentationLive() {
         onPresentationEnded: () => {
           router.push("/present");
         },
+        onPresenterDisconnected: (msg) => {
+          setChannelError(msg);
+        },
         onError: (msg) => {
           console.error("Presentation channel error:", msg);
           setChannelJoined(false);

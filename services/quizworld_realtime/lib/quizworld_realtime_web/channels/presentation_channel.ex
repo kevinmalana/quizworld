@@ -2,6 +2,10 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
   use QuizworldRealtimeWeb, :channel
 
   alias QuizworldRealtime.Presentations
+  alias QuizworldRealtime.Presence
+
+  # If presenter disconnects, participants get a notice after this many ms
+  @presenter_reconnect_grace_ms 10_000
 
   @impl true
   def join("presentation:" <> presentation_id, payload, socket) do
@@ -17,14 +21,71 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
           |> assign(:participant_id, payload["participant_id"])
           |> assign(:participant_token, payload["participant_token"])
 
-        # Strip is_correct from quiz answers for non-presenters
-        safe_snapshot = sanitize_snapshot_for_role(snapshot, role)
+        # Track presence so participants/presenters know who's connected
+        send(self(), {:after_join, payload, role})
 
+        safe_snapshot = sanitize_snapshot_for_role(snapshot, role)
         {:ok, %{presentation: safe_snapshot}, socket}
 
       {:error, _reason} ->
         {:error, %{reason: "presentation_not_found"}}
     end
+  end
+
+  @impl true
+  def handle_info({:after_join, payload, role}, socket) do
+    identity =
+      case role do
+        :presenter -> "presenter"
+        :participant -> payload["participant_id"] || "participant"
+        _ -> "viewer-#{:rand.uniform(99_999)}"
+      end
+
+    {:ok, _} = Presence.track(socket, identity, %{
+      role: to_string(role),
+      online_at: DateTime.utc_now() |> DateTime.to_unix()
+    })
+
+    push(socket, "presence_state", Presence.list(socket))
+    {:noreply, socket}
+  end
+
+  # Presence diff — broadcast updated connected list to everyone
+  def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
+    push(socket, "presence_state", Presence.list(socket))
+
+    # Check if presenter is still connected — if not, warn participants
+    connected = Presence.list(socket)
+    presenter_online = Enum.any?(connected, fn {_id, %{metas: metas}} ->
+      Enum.any?(metas, &(&1.role == "presenter"))
+    end)
+
+    unless presenter_online do
+      send(self(), {:presenter_disconnected, DateTime.utc_now()})
+    end
+
+    {:noreply, socket}
+  end
+
+  # Presenter disconnected — notify participants after grace period
+  def handle_info({:presenter_disconnected, _at}, socket) do
+    Process.send_after(self(), :check_presenter_still_gone, @presenter_reconnect_grace_ms)
+    {:noreply, socket}
+  end
+
+  def handle_info(:check_presenter_still_gone, socket) do
+    connected = Presence.list(socket)
+    presenter_online = Enum.any?(connected, fn {_id, %{metas: metas}} ->
+      Enum.any?(metas, &(&1.role == "presenter"))
+    end)
+
+    unless presenter_online do
+      broadcast!(socket, "presenter:disconnected", %{
+        message: "The presenter has disconnected. Waiting for them to reconnect..."
+      })
+    end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -83,7 +144,6 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
   end
 
   def handle_in("quiz:reveal", payload, socket) do
-    # Host broadcasts correct answers for the current quiz slide
     case ensure_presenter(socket, payload) do
       :ok ->
         slide_id = payload["slide_id"]
@@ -117,7 +177,6 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
   defp transition(socket, callback, :slide) do
     case callback.() do
       {:ok, snapshot} ->
-        # Send full snapshot to presenter, sanitized to participants
         role = socket.assigns[:role] || :viewer
         safe_snapshot = sanitize_snapshot_for_role(snapshot, role)
         broadcast_from!(socket, "slide:changed", %{presentation: sanitize_snapshot_for_role(snapshot, :participant)})
@@ -129,7 +188,6 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     end
   end
 
-  # Strip is_correct from quiz answers for participants/viewers
   defp sanitize_snapshot_for_role(snapshot, :presenter), do: snapshot
   defp sanitize_snapshot_for_role(snapshot, _role) do
     slides =

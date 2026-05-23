@@ -11,6 +11,7 @@ type PresentationCallbacks = {
   onQnaUpdated?: (data: { slide_id: string; questions: unknown[] }) => void;
   onQuizRevealed?: (data: { slide_id: string; correct_answers: string[] }) => void;
   onPresentationEnded?: () => void;
+  onPresenterDisconnected?: (message: string) => void;
   onError?: (message: string) => void;
   onClose?: () => void;
 };
@@ -158,6 +159,18 @@ export function subscribeToPresentation(options: {
 
       if (msgEvent === "presentation:ended") {
         options.callbacks.onPresentationEnded?.();
+        return;
+      }
+
+      if (msgEvent === "presenter:disconnected") {
+        const p = payload as { message?: string };
+        options.callbacks.onPresenterDisconnected?.(p.message || "The presenter has disconnected.");
+        return;
+      }
+
+      if (msgEvent === "presenter:disconnected") {
+        const p = payload as { message?: string };
+        options.callbacks.onPresenterDisconnected?.(p.message || "The presenter has disconnected.");
         return;
       }
 
