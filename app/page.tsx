@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { CATEGORY_EMOJIS } from "@/lib/store";
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
@@ -71,20 +71,6 @@ const STEPS = [
 
 export default function HomePage() {
   const [pin, setPin] = useState("");
-  const [stats, setStats] = useState<{ quizzes: number; questions: number } | null>(null);
-
-  useEffect(() => {
-    // Fetch live stats for social proof
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/get_homepage_stats`;
-    // Fallback: just fetch quiz count directly
-    fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/quizzes?is_public=eq.true&archived_at=is.null&select=id`,
-      { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "", Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""}`, Prefer: "count=exact", Range: "0-0" } }
-    ).then(r => {
-      const count = parseInt(r.headers.get("content-range")?.split("/")[1] || "0");
-      if (count > 0) setStats({ quizzes: count, questions: count * 10 });
-    }).catch(() => {});
-  }, []);
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,21 +133,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Stats bar — social proof */}
-      {stats && (
-        <div style={{
-          background: "var(--surface)",
-          borderTop: "1px solid var(--line)",
-          borderBottom: "1px solid var(--line)",
-          padding: "1rem 0",
-        }}>
-          <div className="container" style={{ display: "flex", justifyContent: "center", gap: "3rem", flexWrap: "wrap" }}>
-            <StatPill emoji="🧠" value={`${stats.quizzes}+`} label="quizzes" />
-            <StatPill emoji="❓" value={`${(stats.quizzes * 10).toLocaleString()}+`} label="questions" />
-            <StatPill emoji="🌍" value="28" label="categories" />
-          </div>
-        </div>
-      )}
+      {/* Stats bar removed — will add back once numbers are more impressive */}
 
       <section className="page-section home-section home-section-surface">
         <div className="container">
