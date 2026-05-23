@@ -10,6 +10,7 @@ import { defaultContent } from "@/components/present/edit/slide-types";
 import { EditorTopbar } from "@/components/present/edit/editor-topbar";
 import { SlideListPanel } from "@/components/present/edit/slide-list-panel";
 import { SlideEditorPanel } from "@/components/present/edit/slide-editor-panel";
+import { SlidePreview } from "@/components/present/edit/slide-preview";
 import { AddSlideModal } from "@/components/present/edit/add-slide-modal";
 import { ImportDeckPanel } from "@/components/present/edit/import-deck-panel";
 
@@ -49,6 +50,8 @@ export default function PresentationEditor() {
   const [showAddSlide, setShowAddSlide] = useState(false);
   const [showImportDeck, setShowImportDeck] = useState(false);
   const [importToast, setImportToast] = useState<string | null>(null);
+  const [importedCount, setImportedCount] = useState(0); // for bulk convert banner
+  const [convertConfirm, setConvertConfirm] = useState<{ idx: number; toType: SlideType } | null>(null);
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -95,7 +98,8 @@ export default function PresentationEditor() {
       id: "temp_" + Date.now() + "_" + idx,
       presentation_id: code,
       slide_type: "content" as SlideType,
-      title: ps.title,
+      // FIX 3: Clean title — 'Slide N' not verbose filename
+      title: `Slide ${baseIndex + idx + 1}`,
       content: { image_url: ps.image_url, text: "", _imported: true },
       order_index: baseIndex + idx,
       settings: {},
@@ -103,6 +107,7 @@ export default function PresentationEditor() {
 
     setSlides(prev => [...prev, ...newSlides]);
     setActiveIndex(baseIndex);
+    setImportedCount(imported.length); // FIX 4: show bulk convert banner
     setShowImportDeck(false);
     setShowAddSlide(false);
     if (failedCount > 0) {
@@ -170,20 +175,50 @@ export default function PresentationEditor() {
     router.push(`/present/${code}/live`);
   }, [code, savePresentation, router]);
 
-  const convertImportedSlide = useCallback((idx: number, toType: SlideType) => {
+  const doConvertImportedSlide = useCallback((idx: number, toType: SlideType) => {
     setSlides(prev => prev.map((s, i) => {
       if (i !== idx) return s;
-      const content = s.content as Record<string, unknown>;
+      const c = s.content as Record<string, unknown>;
       const keepImage = toType === "content";
       return {
         ...s,
         slide_type: toType,
         content: {
-          ...(keepImage && typeof content.image_url === "string" ? { image_url: content.image_url } : {}),
+          ...(keepImage && typeof c.image_url === "string" ? { image_url: c.image_url } : {}),
           ...defaultContent(toType),
         },
       };
     }));
+    setConvertConfirm(null);
+  }, []);
+
+  // FIX 2: Warn before losing image when converting to non-content type
+  const convertImportedSlide = useCallback((idx: number, toType: SlideType) => {
+    const slide = slides[idx];
+    const hasImage = !!(slide?.content as Record<string, unknown>)?.image_url;
+    if (hasImage && toType !== "content") {
+      setConvertConfirm({ idx, toType });
+    } else {
+      doConvertImportedSlide(idx, toType);
+    }
+  }, [slides, doConvertImportedSlide]);
+
+  // Bulk convert all imported slides
+  const bulkConvertImported = useCallback((toType: SlideType) => {
+    setSlides(prev => prev.map(s => {
+      if (!(s.content as Record<string, unknown>)._imported) return s;
+      const c = s.content as Record<string, unknown>;
+      const keepImage = toType === "content";
+      return {
+        ...s,
+        slide_type: toType,
+        content: {
+          ...(keepImage && typeof c.image_url === "string" ? { image_url: c.image_url } : {}),
+          ...defaultContent(toType),
+        },
+      };
+    }));
+    setImportedCount(0); // dismiss banner
   }, []);
 
   if (loading) {
@@ -191,6 +226,13 @@ export default function PresentationEditor() {
   }
 
   const activeSlide = slides[activeIndex];
+
+  const BULK_TYPES: { type: SlideType; icon: string; label: string }[] = [
+    { type: "content", icon: "📄", label: "Keep as slides" },
+    { type: "poll", icon: "📊", label: "Convert to Polls" },
+    { type: "quiz", icon: "🏆", label: "Convert to Quizzes" },
+    { type: "open_text", icon: "💬", label: "Convert to Open Text" },
+  ];
 
   return (
     <div className="present-editor-shell">
@@ -205,6 +247,37 @@ export default function PresentationEditor() {
         onSave={savePresentation}
         onPresent={startPresenting}
       />
+
+      {/* FIX 4: Bulk convert banner — shows after import */}
+      {importedCount > 0 && (
+        <div style={{
+          background: "var(--accent-light, #f0ecff)",
+          borderBottom: "1px solid var(--accent-line, #ddd6fe)",
+          padding: "0.625rem 1rem",
+          display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap",
+          fontSize: "0.8125rem",
+        }}>
+          <span style={{ fontWeight: 700, color: "var(--accent)" }}>
+            ✅ {importedCount} slide{importedCount !== 1 ? "s" : ""} imported. Make them interactive:
+          </span>
+          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+            {BULK_TYPES.map(({ type, icon, label }) => (
+              <button
+                key={type}
+                onClick={() => bulkConvertImported(type)}
+                className="btn btn-secondary"
+                style={{ fontSize: "0.75rem", padding: "0.25rem 0.625rem" }}
+              >
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setImportedCount(0)}
+            style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "0.875rem" }}
+          >✕</button>
+        </div>
+      )}
 
       {/* Import toast */}
       {importToast && (
@@ -227,7 +300,6 @@ export default function PresentationEditor() {
           onImport={() => setShowImportDeck(true)}
           onReorder={(reordered) => {
             setSlides(reordered);
-            // Keep active index pointing to the same slide after reorder
             const activeId = slides[activeIndex]?.id;
             if (activeId) {
               const newIdx = reordered.findIndex((s) => s.id === activeId);
@@ -236,17 +308,70 @@ export default function PresentationEditor() {
           }}
         />
 
+        {/* Editor + Preview split */}
         {activeSlide && (
-          <SlideEditorPanel
-            slide={activeSlide}
-            slideIndex={activeIndex}
-            slideCount={slides.length}
-            onUpdate={(updates) => updateSlide(activeIndex, updates)}
-            onDelete={() => deleteSlide(activeIndex)}
-            onConvertImported={(type) => convertImportedSlide(activeIndex, type)}
-          />
+          <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+            {/* Edit panel */}
+            <div style={{ flex: "0 0 360px", overflowY: "auto", borderRight: "1px solid var(--line)" }}>
+              <SlideEditorPanel
+                slide={activeSlide}
+                slideIndex={activeIndex}
+                slideCount={slides.length}
+                onUpdate={(updates) => updateSlide(activeIndex, updates)}
+                onDelete={() => deleteSlide(activeIndex)}
+                onConvertImported={(type) => convertImportedSlide(activeIndex, type)}
+              />
+            </div>
+
+            {/* FIX 1: Live preview pane */}
+            <div style={{
+              flex: 1, padding: "1.5rem", overflowY: "auto",
+              background: "var(--bg-subtle, #0a0a0d)",
+              display: "flex", flexDirection: "column", gap: "0.75rem",
+            }}>
+              <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Audience Preview
+              </div>
+              <SlidePreview slide={activeSlide} />
+              <p style={{ fontSize: "0.7rem", color: "var(--muted)", textAlign: "center" }}>
+                This is exactly what your audience sees during the presentation
+              </p>
+            </div>
+          </div>
         )}
       </div>
+
+      {/* FIX 2: Image loss confirmation dialog */}
+      {convertConfirm && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem",
+        }}>
+          <div className="card" style={{ maxWidth: 400, width: "100%", padding: "1.5rem" }}>
+            <h3 className="font-display" style={{ fontSize: "1rem", fontWeight: 800, marginBottom: "0.5rem" }}>
+              ⚠️ Image will be removed
+            </h3>
+            <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: "1.25rem", lineHeight: 1.5 }}>
+              Converting to <strong>{convertConfirm.toType}</strong> will remove the slide image. The image can&apos;t be recovered after converting.
+            </p>
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button
+                onClick={() => doConvertImportedSlide(convertConfirm.idx, convertConfirm.toType)}
+                className="btn btn-primary btn-compact"
+              >
+                Convert anyway
+              </button>
+              <button
+                onClick={() => setConvertConfirm(null)}
+                className="btn btn-secondary btn-compact"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddSlide && (
         <AddSlideModal
