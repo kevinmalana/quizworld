@@ -39,6 +39,9 @@ type SortableSlideItemProps = {
 function SortableSlideItem({ slide, index, isActive, onSelect }: SortableSlideItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id });
 
+  const imageUrl = (slide.content as Record<string, unknown>).image_url as string | null | undefined;
+  const isImported = !!(slide.content as Record<string, unknown>)._imported;
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -62,15 +65,31 @@ function SortableSlideItem({ slide, index, isActive, onSelect }: SortableSlideIt
       >
         ⠿
       </span>
+
+      {/* FIX 2: Thumbnail for image slides */}
+      {imageUrl ? (
+        <div
+          onClick={onSelect}
+          style={{
+            width: 48, height: 34, flexShrink: 0, marginRight: "0.4rem",
+            borderRadius: 4, overflow: "hidden", border: "1px solid var(--line)",
+            background: "var(--bg-subtle)", cursor: "pointer",
+          }}
+        >
+          <img
+            src={imageUrl}
+            alt={`Slide ${index + 1}`}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        </div>
+      ) : null}
+
       {/* Click area for selection */}
       <div onClick={onSelect} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
         <div className="present-slide-thumb-index">#{index + 1}</div>
         <div className="present-slide-thumb-label">
           {SLIDE_TYPES.find((s) => s.type === slide.slide_type)?.icon}{" "}
-          {slide.title || slide.slide_type}
-          {!!(slide.content as Record<string, unknown>)._imported && (
-            <span style={{ fontSize: "0.6rem", color: "var(--muted)", marginLeft: "0.25rem" }}>IMG</span>
-          )}
+          {slide.title || (isImported ? "Imported slide" : slide.slide_type)}
         </div>
       </div>
     </div>
