@@ -146,6 +146,9 @@ export default function PresentPage() {
             onKeyDown={(e) => { if (e.key === "Enter") void handleCreateFromImport(); }}
           />
           {importError && <p style={{ color: "var(--primary)", fontSize: "0.8125rem", fontWeight: 600, marginTop: "0.5rem" }}>{importError}</p>}
+          {!importTitle.trim() && !importError && (
+            <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: "0.5rem" }}>A title is required to create the presentation</p>
+          )}
           <button onClick={handleCreateFromImport} disabled={importCreating || !importTitle.trim()} className="btn btn-primary btn-lg" style={{ width: "100%", marginTop: "1rem" }}>
             {importCreating ? "Creating…" : "Create Presentation →"}
           </button>
@@ -177,6 +180,9 @@ export default function PresentPage() {
             onKeyDown={(e) => { if (e.key === "Enter") void handleCreate(); }}
           />
           {createError && <p style={{ color: "var(--primary)", fontSize: "0.8125rem", fontWeight: 600, marginTop: "0.25rem" }}>{createError}</p>}
+          {!title.trim() && !createError && (
+            <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: "0.25rem" }}>Enter a title to enable Create</p>
+          )}
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button onClick={handleCreate} disabled={creating || !title.trim()} className="btn btn-primary">
