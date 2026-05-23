@@ -104,6 +104,15 @@ export default function LoginPage() {
           <button type="submit" disabled={loading} className="btn btn-primary btn-full">
             {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
           </button>
+
+          {isSignUp && (
+            <p style={{ fontSize: "0.75rem", color: "var(--muted)", textAlign: "center", marginTop: "0.75rem", lineHeight: 1.5 }}>
+              By creating an account, you agree to our{" "}
+              <a href="/terms" style={{ color: "var(--accent)" }}>Terms of Service</a>
+              {" "}and{" "}
+              <a href="/privacy" style={{ color: "var(--accent)" }}>Privacy Policy</a>.
+            </p>
+          )}
         </form>
 
         <p className="login-toggle">

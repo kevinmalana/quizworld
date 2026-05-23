@@ -82,6 +82,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {children}
             </ErrorBoundary>
           </main>
+          <footer style={{
+            borderTop: "1px solid var(--line)",
+            padding: "1.5rem 1rem",
+            textAlign: "center",
+            fontSize: "0.8125rem",
+            color: "var(--muted)",
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "0.25rem 1.25rem",
+          }}>
+            <span>© {new Date().getFullYear()} QuizWorld</span>
+            <a href="/terms" style={{ color: "var(--muted)", textDecoration: "none" }}>Terms of Service</a>
+            <a href="/privacy" style={{ color: "var(--muted)", textDecoration: "none" }}>Privacy Policy</a>
+            <a href="mailto:support@quizworld.xyz" style={{ color: "var(--muted)", textDecoration: "none" }}>Contact</a>
+          </footer>
         </AuthProvider>
       </body>
     </html>

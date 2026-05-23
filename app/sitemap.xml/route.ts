@@ -4,7 +4,7 @@ export async function GET() {
   const baseUrl = "https://www.quizworld.xyz";
 
   // Static pages
-  const staticPages = ["", "/explore", "/study", "/join"];
+  const staticPages = ["", "/explore", "/study", "/join", "/terms", "/privacy"];
 
   // Fetch public quizzes for dynamic URLs
   let quizPages: string[] = [];
