@@ -25,7 +25,7 @@ export default async function QuizDetailPage({ params }: PageProps) {
   const { data: profile } = quiz.creator_id
     ? await supabase
         .from("profiles")
-        .select("display_name, avatar_url, level, level_title, username")
+        .select("display_name, avatar, total_xp, username")
         .eq("id", quiz.creator_id)
         .single()
     : { data: null };
@@ -38,11 +38,11 @@ export default async function QuizDetailPage({ params }: PageProps) {
   const previewQuestions = questions.slice(0, 3);
   const creatorName =
     (profile as { display_name?: string } | null)?.display_name || "Anonymous";
-  const creatorAvatar =
-    (profile as { avatar_url?: string } | null)?.avatar_url || "👤";
-  const creatorLevel = (profile as { level?: number } | null)?.level ?? null;
-  const creatorLevelTitle =
-    (profile as { level_title?: string } | null)?.level_title ?? null;
+  const rawAvatar = (profile as { avatar?: string } | null)?.avatar || "👤";
+  const creatorAvatar = rawAvatar;
+  const totalXp = (profile as { total_xp?: number } | null)?.total_xp ?? 0;
+  const creatorLevel = totalXp > 0 ? Math.floor(Math.sqrt(totalXp / 100)) : null;
+  const creatorLevelTitle = creatorLevel !== null && creatorLevel >= 10 ? "Expert" : creatorLevel !== null && creatorLevel >= 5 ? "Regular" : null;
   const creatorUsername =
     (profile as { username?: string } | null)?.username ?? null;
 
