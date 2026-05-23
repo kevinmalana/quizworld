@@ -99,7 +99,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span>© {new Date().getFullYear()} QuizWorld</span>
             <a href="/terms" style={{ color: "var(--muted)", textDecoration: "none" }}>Terms of Service</a>
             <a href="/privacy" style={{ color: "var(--muted)", textDecoration: "none" }}>Privacy Policy</a>
-            <a href="/contact" style={{ color: "var(--muted)", textDecoration: "none" }}>Contact</a>
           </footer>
         </AuthProvider>
       </body>
