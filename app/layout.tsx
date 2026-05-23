@@ -16,6 +16,7 @@ import "../styles/friends.css";
 import { Navigation } from "@/components/navigation";
 import { AuthProvider } from "@/components/supabase-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { CookieBanner } from "@/components/cookie-banner";
 
 export const metadata: Metadata = {
   title: {
@@ -82,6 +83,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {children}
             </ErrorBoundary>
           </main>
+          <CookieBanner />
           <footer style={{
             borderTop: "1px solid var(--line)",
             padding: "1.5rem 1rem",
@@ -97,7 +99,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span>© {new Date().getFullYear()} QuizWorld</span>
             <a href="/terms" style={{ color: "var(--muted)", textDecoration: "none" }}>Terms of Service</a>
             <a href="/privacy" style={{ color: "var(--muted)", textDecoration: "none" }}>Privacy Policy</a>
-            <a href="mailto:support@quizworld.xyz" style={{ color: "var(--muted)", textDecoration: "none" }}>Contact</a>
+            <a href="/contact" style={{ color: "var(--muted)", textDecoration: "none" }}>Contact</a>
           </footer>
         </AuthProvider>
       </body>
