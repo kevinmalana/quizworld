@@ -491,6 +491,8 @@ function ExplorePageContent() {
   const { user } = useAuth();
   const categoryParam = searchParams.get("category");
   const [quizzes, setQuizzes] = useState<QuizWithCreator[]>([]);
+  const [searchResults, setSearchResults] = useState<QuizWithCreator[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState(
     categoryParam && CATEGORY_LIST.includes(categoryParam) ? categoryParam : "All"
@@ -590,6 +592,30 @@ function ExplorePageContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // When user types a search term, query the full DB — don't just filter the loaded page
+  useEffect(() => {
+    const term = search.trim();
+    if (!term) { setSearchResults(null); return; }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      const { data } = await supabase
+        .from("quizzes")
+        .select("*, questions(count)")
+        .eq("is_public", true)
+        .is("archived_at", null)
+        .ilike("title", `%${term}%`)
+        .order("plays", { ascending: false })
+        .limit(50);
+      if (cancelled) return;
+      setSearchResults(data ?? []);
+      setSearchLoading(false);
+    }, 300);
+
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [search]);
+
   function handleLoadMore() {
     const next = page + 1;
     setPage(next);
@@ -624,12 +650,15 @@ function ExplorePageContent() {
   const hasActiveFilter = activeCategory !== "All" || search.trim().length > 0;
 
   const filtered = useMemo(() => {
-    let result = quizzes.filter((q) => {
+    // When searching: use live DB results (full catalog), not just the loaded page
+    const base = search.trim() && searchResults !== null ? searchResults : quizzes;
+
+    let result = base.filter((q) => {
       const matchCat = activeCategory === "All" || q.category === activeCategory;
       const matchSearch =
         !search.trim() ||
         q.title.toLowerCase().includes(search.toLowerCase()) ||
-        q.category.toLowerCase().includes(search.toLowerCase());
+        (q.category ?? "").toLowerCase().includes(search.toLowerCase());
       return matchCat && matchSearch;
     });
 
@@ -648,7 +677,7 @@ function ExplorePageContent() {
     }
 
     return result;
-  }, [quizzes, search, activeCategory, sortMode]);
+  }, [quizzes, searchResults, search, activeCategory, sortMode]);
 
   // Trending sections derived from all loaded quizzes
   const trendingThisWeek = useMemo(() => {
@@ -676,7 +705,9 @@ function ExplorePageContent() {
     return [...quizzes].sort((a, b) => b.plays - a.plays).slice(0, 6);
   }, [quizzes]);
 
-  const catalogDescription = hasActiveFilter
+  const catalogDescription = searchLoading
+    ? "Searching across all quizzes…"
+    : hasActiveFilter
     ? `${filtered.length} quiz${filtered.length !== 1 ? "zes" : ""} matching your filters`
     : `All ${filtered.length} public quiz${filtered.length !== 1 ? "zes" : ""}`;
 
