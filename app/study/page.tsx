@@ -82,7 +82,7 @@ type QuizRow = {
   questions?: { count: number }[];
 };
 
-const CATALOG_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
+const CATALOG_CACHE_MAX_AGE_MS = 1000 * 60 * 5; // 5 minutes — always fresh
 
 // ─── XP & Level helpers ────────────────────────────────────────────────────────
 
@@ -289,7 +289,7 @@ function XpHistorySparkline({ sessions }: { sessions: StudySessionRow[] }) {
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function StudyListPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [quizzes, setQuizzes] = useState<QuizRow[]>([]);
   const [progress, setProgress] = useState<StudyProgressRow[]>([]);
   const [sessions, setSessions] = useState<StudySessionRow[]>([]);
@@ -300,6 +300,8 @@ export default function StudyListPage() {
   const catalogCacheKey = `qw_study_catalog_${user?.id ?? "public"}_v1`;
 
   useEffect(() => {
+    // Don’t run until auth is fully resolved
+    if (authLoading) return;
     let ignore = false;
 
     async function fetchData() {
@@ -311,8 +313,8 @@ export default function StudyListPage() {
         .from("quizzes")
         .select("id, title, emoji, color, category, questions(count)")
         .is("archived_at", null)
-        .order("created_at", { ascending: false })
-        .limit(50);
+        .order("created_at", { ascending: false });
+        // No .limit() — load full catalog
 
       const { data: quizData, error: quizError } = user
         ? await quizQuery.or(`is_public.eq.true,creator_id.eq.${user.id}`)
@@ -387,7 +389,7 @@ export default function StudyListPage() {
 
     fetchData();
     return () => { ignore = true; };
-  }, [catalogCacheKey, user?.id]);
+  }, [catalogCacheKey, user?.id, authLoading]);
 
   const progressByQuizId = useMemo(
     () => new Map(progress.map((entry) => [entry.quiz_id, entry])),

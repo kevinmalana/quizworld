@@ -35,15 +35,17 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!user) {
-      setStats({
-        quizCount: 0,
-        totalPlays: 0,
-        studiedCount: 0,
-        hostedGames: 0,
-        playersReached: 0,
-        bestHostedScore: 0,
-      });
-      setLoading(false);
+      if (!authLoading) {
+        setStats({
+          quizCount: 0,
+          totalPlays: 0,
+          studiedCount: 0,
+          hostedGames: 0,
+          playersReached: 0,
+          bestHostedScore: 0,
+        });
+        setLoading(false);
+      }
       return;
     }
 
@@ -102,7 +104,7 @@ export default function ProfilePage() {
     return () => {
       ignore = true;
     };
-  }, [user?.id]);
+  }, [user?.id, authLoading]);
 
   const performanceInsights = useMemo(() => getProfileInsights(stats), [stats]);
 

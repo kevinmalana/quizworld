@@ -60,8 +60,11 @@ function HostPageContent() {
 
   useEffect(() => {
     if (!user) {
-      setQuizzes([]);
-      setSelectedQuiz(null);
+      // Wait for auth to resolve before clearing state
+      if (!authLoading) {
+        setQuizzes([]);
+        setSelectedQuiz(null);
+      }
       return;
     }
 
@@ -97,7 +100,7 @@ function HostPageContent() {
     return () => {
       ignore = true;
     };
-  }, [preSelectedQuiz, user?.id]);
+  }, [preSelectedQuiz, user?.id, authLoading]);
 
   const handleLaunch = async () => {
     if (!user) {
