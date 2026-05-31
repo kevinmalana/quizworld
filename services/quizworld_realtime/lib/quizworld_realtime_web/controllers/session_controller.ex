@@ -172,6 +172,7 @@ defmodule QuizworldRealtimeWeb.SessionController do
   defp format_error(:bad_answer), do: "Answer does not belong to the current question."
   defp format_error(:answer_window_closed), do: "Answer window has closed."
   defp format_error(:already_answered), do: "Your answer is already locked in."
+  defp format_error(:eliminated), do: "You have been eliminated from this game."
   defp format_error(reason), do: to_string(reason)
 
   defp blank?(value), do: value |> to_string() |> String.trim() == ""
