@@ -531,8 +531,10 @@ export default function GamePage() {
       return;
     }
 
+    // In survival mode, eliminated players can't answer — use aliveCount not players.length
+    const expectedAnswers = gameMode === "survival" ? aliveCount : players.length;
     const everyoneAnswered =
-      players.length > 0 && currentAnswers.length >= players.length;
+      expectedAnswers > 0 && currentAnswers.length >= expectedAnswers;
     const shouldReveal =
       players.length > 0 && (everyoneAnswered || timeLeft <= 0);
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/supabase-provider";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { HostIcon } from "@/components/shared/host-icon";
 import { calcLevel } from "@/components/study/study-session-panels";
@@ -30,6 +31,7 @@ type Tab = "overview" | "edit" | "account";
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("overview");
   const [stats, setStats] = useState<ProfileStats>({ quizCount: 0, totalPlays: 0, studiedCount: 0, hostedGames: 0, playersReached: 0, bestHostedScore: 0, friendCount: 0, classroomCount: 0 });
@@ -145,8 +147,16 @@ export default function ProfilePage() {
     if (!error) setNewPassword("");
   }
 
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (!authLoading && !user) {
+      sessionStorage.setItem("qw_post_login_redirect", "/profile");
+      router.push("/login");
+    }
+  }, [authLoading, user, router]);
+
   if (authLoading || loading) return <div className="container loading-panel">Loading...</div>;
-  if (!user) return <div className="container loading-panel"><p className="text-muted">Sign in to view your profile.</p></div>;
+  if (!user) return <div className="container loading-panel">Loading...</div>;
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: "overview", label: "Overview", icon: "📊" },

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { CATEGORY_EMOJIS } from "@/lib/store";
-import { ShareStudyLinkButton } from "@/components/shared/share-study-link-button";
 
 export type StudyQuizCardQuiz = {
   id: string;
@@ -43,7 +42,22 @@ export function AvailableStudyQuizCard({ quiz }: { quiz: StudyQuizCardQuiz }) {
         <button className="btn btn-primary study-quiz-card__button">
           Study Now
         </button>
-        <ShareStudyLinkButton quizId={quiz.id} quizTitle={quiz.title} compact />
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            const url = `https://www.quizworld.xyz/quiz/${quiz.id}`;
+            const shareData = { title: quiz.title, text: `Check out "${quiz.title}" on QuizWorld!`, url };
+            if (typeof navigator.share === "function" && navigator.canShare?.(shareData)) {
+              navigator.share(shareData).catch(() => {});
+            } else {
+              navigator.clipboard.writeText(url).catch(() => {});
+            }
+          }}
+          className="btn btn-secondary btn-compact"
+          title="Share quiz"
+        >
+          📤 Share
+        </button>
       </div>
     </Link>
   );
@@ -91,7 +105,22 @@ export function ContinueStudyQuizCard({ quiz, progress }: { quiz: StudyQuizCardQ
         <Link href={`/study/${quiz.id}`} className="btn btn-secondary study-quiz-card__button" onClick={(e) => e.stopPropagation()}>
           Study Again
         </Link>
-        <ShareStudyLinkButton quizId={quiz.id} quizTitle={quiz.title} compact />
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            const url = `https://www.quizworld.xyz/quiz/${quiz.id}`;
+            const shareData = { title: quiz.title, text: `Check out "${quiz.title}" on QuizWorld!`, url };
+            if (typeof navigator.share === "function" && navigator.canShare?.(shareData)) {
+              navigator.share(shareData).catch(() => {});
+            } else {
+              navigator.clipboard.writeText(url).catch(() => {});
+            }
+          }}
+          className="btn btn-secondary btn-compact"
+          title="Share quiz"
+        >
+          📤 Share
+        </button>
       </div>
       {progress?.last_studied && (
         <div className="study-quiz-card__last-studied">

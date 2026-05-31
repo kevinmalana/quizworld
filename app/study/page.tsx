@@ -103,8 +103,7 @@ export default function StudyListPage() {
           .from("study_sessions")
           .select("id, xp_earned, correct, total, study_mode, duration_secs, created_at")
           .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(50),
+          .order("created_at", { ascending: false }),
         supabase
           .from("profiles")
           .select("*")

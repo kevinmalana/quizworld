@@ -32,7 +32,7 @@ const CREATE_DRAFT_KEY = "qw_create_draft_v9";
 function CreatePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   // ── Core state ──
   const [step, setStep] = useState<PageStep>("source");

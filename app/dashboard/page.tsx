@@ -142,19 +142,16 @@ function DashboardPageContent() {
     };
   }, [user, authLoading]);
 
-  if (authLoading || loading) return <LoadingPanel />;
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (!authLoading && !user) {
+      sessionStorage.setItem("qw_post_login_redirect", "/dashboard");
+      router.push("/login");
+    }
+  }, [authLoading, user, router]);
 
-  if (!user) {
-    return (
-      <StatusPanel
-        icon="🔐"
-        title="Sign In Required"
-        message="Sign in to manage the quizzes attached to your account."
-        actionHref="/login"
-        actionLabel="Sign In"
-      />
-    );
-  }
+  if (authLoading || loading) return <LoadingPanel />;
+  if (!user) return <LoadingPanel />;
 
   const hostedGames = getHostedGameCount(gameResults);
   const hostedPlayers = getTotalHostedPlayers(gameResults);
