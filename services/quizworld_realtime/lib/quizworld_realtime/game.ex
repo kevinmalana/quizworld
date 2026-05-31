@@ -395,7 +395,8 @@ defmodule QuizworldRealtime.Game do
          :ok <- ensure_status(game, "reveal") do
       last_question_index = length(game.questions) - 1
 
-      # Survival: end game if 1 or 0 players remain alive
+      # Survival: end game if fewer than 2 players remain alive
+      # (need at least 2 alive to keep competing — 1 remaining = that player wins)
       alive_count =
         if game.game_mode == "survival" do
           game.players
@@ -407,7 +408,7 @@ defmodule QuizworldRealtime.Game do
         end
 
       if game.current_question_index >= last_question_index or
-           (game.game_mode == "survival" and alive_count <= 1) do
+           (game.game_mode == "survival" and alive_count < 2) do
         {:ok, touch(%{game | status: "finished", question_started_at: nil})}
       else
         {:ok,

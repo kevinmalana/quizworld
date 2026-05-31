@@ -89,19 +89,20 @@ export function WaitingLobbyPanel({
         {isHost && (
           <>
             {gameMode === "survival" && players.length < 2 && players.length > 0 && (
-              <div className="game-lobby-warning">⚠️ Survival works best with 3+ players</div>
+              <div className="game-lobby-warning">⚠️ Survival needs at least 2 players</div>
             )}
             {gameMode === "team" && players.length < 2 && players.length > 0 && (
               <div className="game-lobby-warning">⚠️ Team Battle needs at least 2 players</div>
             )}
             <button
               onClick={onStart}
-              disabled={players.length === 0 || (gameMode === "team" && players.length < 2)}
+              disabled={players.length === 0 || (gameMode === "team" && players.length < 2) || (gameMode === "survival" && players.length < 2)}
               className="btn btn-primary btn-lg"
               style={{ width: "100%" }}
             >
               {players.length === 0 ? "Waiting for players..."
                 : gameMode === "team" && players.length < 2 ? "Need 2+ players for Team Battle"
+                : gameMode === "survival" && players.length < 2 ? "Need 2+ players for Survival"
                 : "Start Game 🚀"}
             </button>
           </>
