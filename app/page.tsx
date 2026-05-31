@@ -72,8 +72,10 @@ const STEPS = [
 export default function HomePage() {
   const [pin, setPin] = useState("");
 
-  // Smart routing: detect presentation code (6-char alpha) vs game PIN (numeric)
-  const looksLikePresentation = (code: string) => /^[A-Z]{2,}/.test(code) && code.length >= 4;
+  // Presentation codes are purely alphabetic (e.g. ABCDEF).
+  // Game PINs are purely numeric (e.g. 482910).
+  // This prevents a numeric game PIN from ever being mistaken for a presentation code.
+  const looksLikePresentation = (code: string) => /^[A-Za-z]+$/.test(code.trim()) && code.trim().length >= 4;
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,7 +128,7 @@ export default function HomePage() {
                 <form onSubmit={handleJoin}>
                   <input
                     type="text"
-                    placeholder="Game PIN or Presentation Code"
+                    placeholder="6-digit Game PIN or Presentation Code"
                     className="input-pin mb-sm"
                     value={pin}
                     onChange={(e) => setPin(e.target.value.toUpperCase())}

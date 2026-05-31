@@ -89,10 +89,10 @@ function JoinForm() {
 
   const handlePinSubmit = async () => {
     const p = digits.join("").toUpperCase();
-    if (p.length !== 6) { setError("Enter the full 6-character PIN"); return; }
+    if (p.length !== 6) { setError("Enter the full 6-digit PIN"); return; }
 
-    // Smart routing: if code looks like a presentation code (mostly letters), redirect
-    const isPresentation = /^[A-Z]{3}/.test(p);
+    // Presentation codes are all-alpha; game PINs are all-numeric.
+    const isPresentation = /^[A-Za-z]+$/.test(p);
     if (isPresentation) {
       router.push(`/present/join?code=${p}`);
       return;
@@ -269,7 +269,7 @@ function JoinForm() {
       <div className="card join-card">
         <div className="join-icon">🎮</div>
         <h2 className="font-display join-title">Join a Game</h2>
-        <p className="join-subtitle">Enter a game PIN or presentation code</p>
+        <p className="join-subtitle">Enter your 6-digit game PIN</p>
 
         <div className="join-pin-row">
           {digits.map((d, i) => (
@@ -277,7 +277,8 @@ function JoinForm() {
               key={i}
               ref={(el) => { digitRefs.current[i] = el; }}
               type="text"
-              inputMode="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               maxLength={1}
               value={d}
               onChange={(e) => handleDigitChange(i, e.target.value)}
