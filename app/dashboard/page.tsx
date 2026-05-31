@@ -91,8 +91,11 @@ function DashboardPageContent() {
 
   useEffect(() => {
     if (!user) {
-      setQuizzes([]);
-      setLoading(false);
+      // Don't clear state while auth is still resolving
+      if (!authLoading) {
+        setQuizzes([]);
+        setLoading(false);
+      }
       return;
     }
 
@@ -165,7 +168,7 @@ function DashboardPageContent() {
     return () => {
       ignore = true;
     };
-  }, [user]);
+  }, [user, authLoading]);
 
   if (authLoading || loading) {
     return <div className="container" style={{ paddingTop: "4rem", textAlign: "center" }}>Loading...</div>;
