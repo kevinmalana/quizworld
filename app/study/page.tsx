@@ -45,7 +45,7 @@ type QuizRow = {
 };
 
 export default function StudyListPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [quizzes, setQuizzes] = useState<QuizRow[]>([]);
   const [progress, setProgress] = useState<StudyProgressRow[]>([]);
   const [sessions, setSessions] = useState<StudySessionRow[]>([]);
@@ -56,6 +56,7 @@ export default function StudyListPage() {
   const [activeCategory, setActiveCategory] = useState("All");
 
   useEffect(() => {
+    if (authLoading) return;
     let ignore = false;
 
     async function fetchData() {
@@ -67,7 +68,7 @@ export default function StudyListPage() {
         .select("id, title, emoji, color, category, questions(count)")
         .is("archived_at", null)
         .order("created_at", { ascending: false })
-        .limit(50);
+        // No limit — fetch full catalog
 
       const { data: quizData, error: qError } = user
         ? await quizQuery.or(`is_public.eq.true,creator_id.eq.${user.id}`)
@@ -130,7 +131,7 @@ export default function StudyListPage() {
 
     fetchData();
     return () => { ignore = true; };
-  }, [user?.id]);
+  }, [user?.id, authLoading]);
 
   const progressByQuizId = useMemo(
     () => new Map(progress.map((entry) => [entry.quiz_id, entry])),

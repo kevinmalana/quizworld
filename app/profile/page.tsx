@@ -45,7 +45,7 @@ export default function ProfilePage() {
   const [passwordMsg, setPasswordMsg] = useState("");
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
+    if (!user) { if (!authLoading) setLoading(false); return; }
     const userId = user.id;
     let ignore = false;
     async function load() {
@@ -80,7 +80,7 @@ export default function ProfilePage() {
     }
     load();
     return () => { ignore = true; };
-  }, [user?.id]);
+  }, [user?.id, authLoading]);
 
   async function handleSaveProfile() {
     if (!user) return;

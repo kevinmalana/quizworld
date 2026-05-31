@@ -169,8 +169,7 @@ function HostPageContent() {
         .select("id, title, emoji, color, category, plays, creator_id, questions(count)")
         .or(`is_public.eq.true,creator_id.eq.${user!.id}`)
         .is("archived_at", null)
-        .order("plays", { ascending: false })
-        .limit(100);
+        .order("plays", { ascending: false });
 
       if (!data) return;
 
@@ -224,11 +223,11 @@ function HostPageContent() {
   }, [recentQuizIds, myQuizzes, publicQuizzes]);
 
   const filteredPublic = useMemo(() => {
-    if (!search.trim()) return publicQuizzes.slice(0, 20);
+    if (!search.trim()) return publicQuizzes;
     const q = search.toLowerCase();
     return publicQuizzes.filter(quiz =>
       quiz.title.toLowerCase().includes(q) || quiz.category.toLowerCase().includes(q)
-    ).slice(0, 20);
+    );
   }, [publicQuizzes, search]);
 
   const activeList = section === "mine" ? myQuizzes

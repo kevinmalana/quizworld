@@ -53,8 +53,10 @@ function DashboardPageContent() {
 
   useEffect(() => {
     if (!user) {
-      setQuizzes([]);
-      setLoading(false);
+      if (!authLoading) {
+        setQuizzes([]);
+        setLoading(false);
+      }
       return;
     }
 
@@ -138,7 +140,7 @@ function DashboardPageContent() {
     return () => {
       ignore = true;
     };
-  }, [user]);
+  }, [user, authLoading]);
 
   if (authLoading || loading) return <LoadingPanel />;
 
