@@ -315,6 +315,16 @@
   font-weight: 800;
   margin-bottom: 0.5rem;
 }
+.game-lobby-mode-pill {
+  display: inline-block;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
 .game-lobby-pin-area {
   display: flex;
   align-items: center;

@@ -428,6 +428,11 @@ function HostPageContent() {
             </div>
             <button className="btn btn-secondary btn-compact" onClick={() => setSelectedId(null)}>Change</button>
           </div>
+          {gameMode !== "classic" && (
+            <div className="host-selected-mode-badge">
+              {gameMode === "survival" ? "💀 Survival Mode" : "👥 Team Battle"}
+            </div>
+          )}
         </div>
       ) : (
         <div className="card host-empty-selection">
@@ -523,7 +528,7 @@ function HostPageContent() {
             disabled={launching}
             className="btn btn-primary btn-lg btn-full"
           >
-            {launching ? "Starting game..." : `Launch "${selectedQuiz.title}" 🚀`}
+            {launching ? "Starting game..." : `Launch "${selectedQuiz.title}" ${gameMode === "survival" ? "💀" : gameMode === "team" ? "👥" : "🚀"}`}
           </button>
           {launching && <p className="host-launch-hint">Setting up live lobby...</p>}
         </div>

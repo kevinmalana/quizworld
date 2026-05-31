@@ -38,6 +38,11 @@ export function WaitingLobbyPanel({
       <div className="card game-lobby-card">
         <div className="game-lobby-icon">🎮</div>
         <h1 className="font-display game-lobby-title">{isHost ? "Waiting for players…" : "Waiting for host…"}</h1>
+        {gameMode !== "classic" && (
+          <div className="game-lobby-mode-pill">
+            {gameMode === "survival" ? "💀 Survival Mode" : "👥 Team Battle"}
+          </div>
+        )}
 
         <div className="game-lobby-pin-area lobby-pin-qr">
           <div>
