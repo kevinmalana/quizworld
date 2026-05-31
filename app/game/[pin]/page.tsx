@@ -624,35 +624,43 @@ export default function GamePage() {
     if (aiSummary || aiSummaryLoading) return;
     setAiSummaryLoading(true);
     try {
-      const summaryData = {
-        quiz_title: (session as any)?.quiz?.title || 'Quiz',
+      const totalAnswers = players.length > 0
+        ? players.reduce((s, p) => s + (playerCorrectCounts[p.id] ?? 0), 0)
+        : 0;
+      const avgAccuracy = players.length > 0 && totalQuestions > 0
+        ? Math.round(totalAnswers / (players.length * totalQuestions) * 100)
+        : 0;
+      const teamList = Object.values(teams).sort((a, b) => b.score - a.score);
+      const gameData = {
+        game_mode: gameMode,
+        quiz_title: (session as any)?.quiz?.title || "Quiz",
         total_players: players.length,
         total_questions: totalQuestions,
         avg_score: players.length > 0 ? Math.round(players.reduce((s, p) => s + (p.score ?? 0), 0) / players.length) : 0,
+        avg_accuracy: avgAccuracy,
         leaderboard: leaderboard.slice(0, 5).map(p => ({ nickname: p.nickname, score: p.score ?? 0, correct: playerCorrectCounts[p.id] ?? 0 })),
         question_stats: questionHistory.map(qh => ({
           text: qh.text,
-          correct_pct: qh.responses ? Math.round(qh.responses.filter(r => r.is_correct).length / qh.responses.length * 100) : 0,
-          avg_time: qh.responses ? Math.round(qh.responses.reduce((s, r) => s + r.response_time_ms, 0) / qh.responses.length / 1000 * 10) / 10 : 0,
+          correct_pct: qh.responses?.length ? Math.round(qh.responses.filter(r => r.is_correct).length / qh.responses.length * 100) : 0,
+          avg_time: qh.responses?.length ? Math.round(qh.responses.reduce((s, r) => s + r.response_time_ms, 0) / qh.responses.length / 100) / 10 : 0,
         })),
+        // Game mode specific
+        eliminated: gameMode === "survival" ? eliminated : [],
+        teams: gameMode === "team" ? teamList.map(t => ({ name: t.name, emoji: t.emoji, score: t.score })) : [],
       };
-      const res = await fetch('/api/ai-source-draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourceText: `Analyze this quiz game result and provide 3-4 short insights for the host. Be concise and actionable.\n\nGame data: ${JSON.stringify(summaryData)}`,
-          sourceTitle: 'Quiz Analytics',
-          questionCount: 1,
-        }),
+      const res = await fetch("/api/ai-game-insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameData }),
       });
-      const data = await res.json();
-      if (data.draft?.title) setAiSummary(data.draft.title);
-      else setAiSummary('AI analysis unavailable right now.');
+      const data = await res.json() as { insights?: string; error?: string };
+      if (data.insights) setAiSummary(data.insights);
+      else setAiSummary(data.error || "AI analysis unavailable right now.");
     } catch {
-      setAiSummary('Could not generate AI summary.');
+      setAiSummary("Could not generate AI summary.");
     }
     setAiSummaryLoading(false);
-  }, [aiSummary, aiSummaryLoading, session, players, totalQuestions, leaderboard, playerCorrectCounts, questionHistory]);
+  }, [aiSummary, aiSummaryLoading, session, players, totalQuestions, leaderboard, playerCorrectCounts, questionHistory, gameMode, eliminated, teams]);
 
   const currentPlayer = playerSession?.playerId
     ? players.find((player) => player.id === playerSession.playerId) ?? null

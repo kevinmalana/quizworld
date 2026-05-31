@@ -207,7 +207,8 @@ export default function ReportPage() {
     const rows = [["Player", "Question", "Answer", "Correct", "Points", "Response Time (ms)"]];
     for (const q of breakdown) {
       for (const r of q.responses) {
-        rows.push([r.nickname, q.text, r.answer_id, r.is_correct ? "Yes" : "No", String(r.points_awarded), String(r.response_time_ms)]);
+        const answerText = q.distribution.find(d => d.answer_id === r.answer_id)?.text ?? r.answer_id;
+        rows.push([r.nickname, q.text, answerText, r.is_correct ? "Yes" : "No", String(r.points_awarded), String(r.response_time_ms)]);
       }
     }
     const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -421,7 +422,7 @@ export default function ReportPage() {
                 <span className="report-player-avatar">{player.avatar || "🎮"}</span>
                 <div className="report-player-info">
                   <div className="report-player-name">{player.nickname}</div>
-                  {acc && <div className="report-player-accuracy">{acc.correct}/{acc.total} correct ({Math.round(acc.correct / acc.total * 100)}%)</div>}
+                  {acc && acc.total > 0 && <div className="report-player-accuracy">{acc.correct}/{acc.total} correct ({Math.round(acc.correct / acc.total * 100)}%)</div>}
                 </div>
                 <span className="report-player-score">{player.score.toLocaleString()} pts</span>
               </div>

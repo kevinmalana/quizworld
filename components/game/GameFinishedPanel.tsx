@@ -215,7 +215,11 @@ export function GameFinishedPanel({
             {aiSummary && (
               <div className="game-ai-result">
                 <div className="game-ai-result-label">🧠 AI Insights</div>
-                <div className="game-ai-result-text">{aiSummary}</div>
+                <div className="game-ai-result-text">
+                  {aiSummary.split("\n").map((line, i) => (
+                    <p key={i} style={{ margin: "0.25rem 0" }}>{line}</p>
+                  ))}
+                </div>
               </div>
             )}
           </div>
