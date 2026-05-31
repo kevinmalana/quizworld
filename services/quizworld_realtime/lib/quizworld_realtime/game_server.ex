@@ -156,6 +156,7 @@ defmodule QuizworldRealtime.GameServer do
     next_game = prepare_next_game(next_game, current_game)
     snapshot = persist_snapshot(next_game)
     sync_finished_game(next_game)
+    broadcast_update(next_game, snapshot)
     {:reply, {:ok, snapshot}, next_game}
   end
 
@@ -163,6 +164,7 @@ defmodule QuizworldRealtime.GameServer do
     next_game = prepare_next_game(next_game, current_game)
     snapshot = persist_snapshot(next_game)
     sync_finished_game(next_game)
+    broadcast_update(next_game, snapshot)
     {:reply, {:ok, snapshot, player_token}, next_game}
   end
 
@@ -170,6 +172,7 @@ defmodule QuizworldRealtime.GameServer do
     next_game = prepare_next_game(next_game, current_game)
     snapshot = persist_snapshot(next_game)
     sync_finished_game(next_game)
+    broadcast_update(next_game, snapshot)
     {:reply, {:ok, snapshot, player_token, player_id}, next_game}
   end
 
@@ -182,6 +185,14 @@ defmodule QuizworldRealtime.GameServer do
   end
 
   defp sync_finished_game(_game), do: :ok
+
+  defp broadcast_update(game, snapshot) do
+    Phoenix.PubSub.broadcast(
+      QuizworldRealtime.PubSub,
+      Games.topic(game.pin),
+      {:session_updated, snapshot}
+    )
+  end
 
   defp noreply_transition(next_game) do
     snapshot = persist_snapshot(next_game)
