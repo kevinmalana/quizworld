@@ -269,7 +269,7 @@ function JoinForm() {
       <div className="card join-card">
         <div className="join-icon">🎮</div>
         <h2 className="font-display join-title">Join a Game</h2>
-        <p className="join-subtitle">Enter your 6-digit game PIN</p>
+        <p className="join-subtitle">Enter your 6-character game PIN</p>
 
         <div className="join-pin-row">
           {digits.map((d, i) => (
@@ -277,8 +277,8 @@ function JoinForm() {
               key={i}
               ref={(el) => { digitRefs.current[i] = el; }}
               type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
+              inputMode="text"
+              pattern="[A-Z0-9]*"
               maxLength={1}
               value={d}
               onChange={(e) => handleDigitChange(i, e.target.value)}

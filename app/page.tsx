@@ -128,7 +128,7 @@ export default function HomePage() {
                 <form onSubmit={handleJoin}>
                   <input
                     type="text"
-                    placeholder="6-digit Game PIN or Presentation Code"
+                    placeholder="Game PIN or Presentation Code"
                     className="input-pin mb-sm"
                     value={pin}
                     onChange={(e) => setPin(e.target.value.toUpperCase())}
