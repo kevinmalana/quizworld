@@ -74,7 +74,8 @@ function HostPageContent() {
         .select("*, questions(*, answers(*))")
         .or(`is_public.eq.true,creator_id.eq.${userId}`)
         .is("archived_at", null)
-        .limit(50);
+        .order("created_at", { ascending: false })
+        .limit(500);
 
       if (ignore) return;
 

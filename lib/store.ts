@@ -535,6 +535,7 @@ export function uid(): string {
 export const CATEGORY_COLORS: Record<string, string> = {
   "Art & Literature": "#e879f9",
   Entertainment: "#f97316",
+  "General Knowledge": "#6366f1",
   Geography: "#22c55e",
   History: "#eab308",
   Languages: "#06b6d4",
@@ -546,6 +547,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
 export const CATEGORY_EMOJIS: Record<string, string> = {
   "Art & Literature": "🎨",
   Entertainment: "🎬",
+  "General Knowledge": "🌐",
   Geography: "🌍",
   History: "📜",
   Languages: "💬",

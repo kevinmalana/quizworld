@@ -14,7 +14,7 @@ import { buildExploreCategoryHref, getValidExploreCategory } from "@/lib/explore
 
 const CATEGORY_LIST = ["All", ...Object.keys(CATEGORY_COLORS)];
 const PUBLIC_EXPLORE_CACHE_KEY = "qw_public_explore_catalog_v1";
-const CATALOG_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
+const CATALOG_CACHE_MAX_AGE_MS = 1000 * 60 * 5; // 5 minutes (was 12 hours)
 
 type SortMode = "popular" | "newest" | "az" | "za";
 
