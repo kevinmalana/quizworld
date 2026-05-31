@@ -89,10 +89,11 @@ function JoinForm() {
 
   const handlePinSubmit = async () => {
     const p = digits.join("").toUpperCase();
-    if (p.length !== 6) { setError("Enter the full 6-digit PIN"); return; }
+    if (p.length !== 6) { setError("Enter the full 6-character PIN"); return; }
 
-    // Presentation codes are all-alpha; game PINs are all-numeric.
-    const isPresentation = /^[A-Za-z]+$/.test(p);
+    // Only check for presentation code if the user typed the PIN manually.
+    // If it came from a QR code (?pin= URL param) it is always a game PIN.
+    const isPresentation = !initialPin && /^[A-Za-z]+$/.test(p);
     if (isPresentation) {
       router.push(`/present/join?code=${p}`);
       return;

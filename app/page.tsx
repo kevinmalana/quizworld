@@ -75,17 +75,14 @@ export default function HomePage() {
   // Presentation codes are purely alphabetic (e.g. ABCDEF).
   // Game PINs are purely numeric (e.g. 482910).
   // This prevents a numeric game PIN from ever being mistaken for a presentation code.
-  const looksLikePresentation = (code: string) => /^[A-Za-z]+$/.test(code.trim()) && code.trim().length >= 4;
-
+    // Always send to /join — the join page handles routing to presentation if needed.
+  // We cannot reliably detect game PIN vs presentation code on the homepage
+  // because both can be all-alpha (17% of game PINs are).
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = pin.trim();
     if (!trimmed) return;
-    if (looksLikePresentation(trimmed)) {
-      window.location.href = `/present/join?code=${trimmed}`;
-    } else {
-      window.location.href = `/join?pin=${trimmed}`;
-    }
+    window.location.href = `/join?pin=${trimmed}`;
   };
 
   return (
@@ -135,7 +132,7 @@ export default function HomePage() {
                     maxLength={8}
                   />
                   <button type="submit" className="btn btn-accent btn-lg btn-full">
-                    {looksLikePresentation(pin) ? "Join Presentation →" : "Enter Game"}
+                    Enter Game
                   </button>
                 </form>
                 <p className="home-join-hint">No account needed</p>
