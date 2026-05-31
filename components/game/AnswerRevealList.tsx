@@ -13,7 +13,7 @@ export function AnswerRevealList({
             {answer.is_correct ? "✅" : `${String.fromCharCode(65 + index)}.`} {answer.text}
             {answer.image_url && <img src={answer.image_url} alt="" className="game-reveal-img" />}
           </span>
-          <span className="game-reveal-votes">{answer.count} vote{answer.count !== 1 ? "s" : ""}</span>
+          <span className="game-reveal-count">{answer.count} answer{answer.count !== 1 ? "s" : ""}</span>
         </div>
       ))}
     </div>
