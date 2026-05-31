@@ -467,8 +467,24 @@ export default function GamePage() {
       }
       return next;
     });
-    // Feature 12: Play correct/wrong sound
-    if (ownAnswer) { ownAnswer.is_correct ? playCorrect() : playWrong(); }
+    // Feature 12: Play correct/wrong sound + show feedback flash on reveal
+    if (ownAnswer) {
+      const correct = ownAnswer.is_correct;
+      correct ? playCorrect() : playWrong();
+      // Show correct/wrong flash NOW that Phoenix has confirmed the answer
+      setAnswerFeedback(correct ? "correct" : "wrong");
+      window.setTimeout(() => setAnswerFeedback(null), 1200);
+      // Score pop on correct
+      if (correct) {
+        const tl = typeof ownAnswer.response_time_ms === "number"
+          ? Math.max(0, ((currentQuestion?.time_limit ?? 20) * 1000 - ownAnswer.response_time_ms) / 1000)
+          : 0;
+        const timeFraction = Math.min(1, tl / Math.max(currentQuestion?.time_limit ?? 20, 1));
+        const pts = Math.round(500 + timeFraction * 500);
+        setScorePop(pts);
+        window.setTimeout(() => setScorePop(null), 1500);
+      }
+    }
   }, [gameStatus]);
 
   // Feature 12: Tick sound in last 5 seconds
@@ -770,19 +786,9 @@ export default function GamePage() {
     setNotice(null);
     setSelectedAnswer(answer.id);
 
-    // Immediate visual feedback — look up the full answer from currentQuestion to get is_correct
-    const fullAnswer = currentQuestion.answers?.find((a) => a.id === answer.id);
-    const isCorrect = fullAnswer?.is_correct === true;
-    setAnswerFeedback(isCorrect ? "correct" : "wrong");
-    window.setTimeout(() => setAnswerFeedback(null), 800);
-
-    // Score pop on correct answer
-    if (isCorrect && timeLeft > 0) {
-      const timeFraction = Math.min(1, timeLeft / Math.max(currentQuestion.time_limit ?? 20, 1));
-      const pts = Math.round(500 + timeFraction * 500);
-      setScorePop(pts);
-      window.setTimeout(() => setScorePop(null), 1200);
-    }
+    // Don't show correct/wrong flash on click — Phoenix strips is_correct during "active"
+    // phase for security, so fullAnswer.is_correct is always undefined here.
+    // Correct/wrong feedback fires in the reveal-phase useEffect once Phoenix sends the result.
 
     const questionStartedAt = (session as { question_started_at?: string }).question_started_at;
     const questionStart = questionStartedAt
@@ -883,8 +889,8 @@ export default function GamePage() {
       <div className="container game-container">
         {/* Answer feedback flash overlay */}
         {answerFeedback && (
-          <div className={`game-feedback-overlay ${answerFeedback === "correct" ? "is-correct" : "is-wrong"}`}>
-            <div className="game-feedback-icon">{answerFeedback === "correct" ? "✅" : "❌"}</div>
+          <div className={`game-feedback-overlay ${answerFeedback === "correct" ? "is-correct" : answerFeedback === "wrong" ? "is-wrong" : "is-pending"}`}>
+            <div className="game-feedback-icon">{answerFeedback === "correct" ? "✅" : answerFeedback === "wrong" ? "❌" : "✓"}</div>
           </div>
         )}
         {/* Score pop */}

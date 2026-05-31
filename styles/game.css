@@ -151,6 +151,7 @@
 }
 .game-feedback-overlay.is-correct { background: rgba(34, 197, 94, 0.2); }
 .game-feedback-overlay.is-wrong   { background: rgba(239, 68, 68, 0.18); }
+.game-feedback-overlay.is-pending { background: rgba(99, 102, 241, 0.15); }
 .game-feedback-icon {
   font-size: 5rem;
   line-height: 1;
