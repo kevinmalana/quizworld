@@ -101,8 +101,7 @@ Host: Start → active → (auto-reveal on timer) → reveal → advance → ...
 **Categories:**
 - Valid categories defined in `lib/store.ts` → `CATEGORY_COLORS` and `CATEGORY_EMOJIS`
 - `General Knowledge` IS a valid category (added 2026-05-31)
-- DB has CHECK constraint enforcing valid categories (`supabase/migrations/20260531_v96_category_enforcement.sql`)
-- `normalise_category()` Postgres function maps unknown categories to "Trivia"
+- DB has **no** category CHECK constraint — `CATEGORY_COLORS` in `lib/store.ts` is the source of truth (40+ categories)
 
 **Catalog queries:**
 - No `.limit()` on quiz catalog fetches in explore, host, study pages — full catalog always fetched
@@ -139,9 +138,6 @@ Host: Start → active → (auto-reveal on timer) → reveal → advance → ...
 ---
 
 ## Known Issues / Pending Work
-
-### Requires Supabase SQL Editor
-- `supabase/migrations/20260531_v96_category_enforcement.sql` — category CHECK constraint + `normalise_category()` RPC. Apply this if not already done.
 
 ### Security
 - Private quiz RLS: anon users can still read `is_public=false` quizzes (pre-existing issue, add RLS policy)
