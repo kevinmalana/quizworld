@@ -10,6 +10,7 @@ export function ActiveHostDashboard({
   teams = {},
   teamAssignments = {},
   gameMode = "classic",
+  aliveCount,
 }: {
   currentAnswers: CurrentAnswer[];
   players: GamePlayer[];
@@ -18,15 +19,20 @@ export function ActiveHostDashboard({
   teams?: Record<string, Team>;
   teamAssignments?: Record<string, string>;
   gameMode?: string;
+  aliveCount?: number;
 }) {
   const answered = currentAnswers.length;
   const correct = currentAnswers.filter((a) => a.is_correct).length;
   const accuracy = answered > 0 ? Math.round((correct / answered) * 100) : 0;
+  // In survival, only count alive players in the denominator
+  const expectedAnswers = gameMode === "survival" && aliveCount !== undefined
+    ? aliveCount
+    : players.length;
 
   return (
     <div className="card game-host-dashboard">
       <div className="game-host-metrics">
-        <HostMetric value={`${answered}/${players.length}`} label="Answered" color="var(--accent)" />
+        <HostMetric value={`${answered}/${expectedAnswers}`} label="Answered" color="var(--accent)" />
         <HostMetric
           value={`${accuracy}%`}
           label="Accuracy"

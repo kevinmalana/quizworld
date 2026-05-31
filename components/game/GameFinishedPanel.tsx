@@ -30,6 +30,7 @@ export function GameFinishedPanel({
   teams = {},
   teamAssignments = {},
   eliminated = [],
+  myTeamId,
   onPlayAgain,
 }: {
   notice: string | null;
@@ -47,6 +48,7 @@ export function GameFinishedPanel({
   teams?: Record<string, Team>;
   teamAssignments?: Record<string, string>;
   eliminated?: string[];
+  myTeamId?: string | null;
   onPlayAgain?: () => void;
 }) {
   const quizId = (session as GameSessionData)?.quiz_id;
@@ -56,7 +58,13 @@ export function GameFinishedPanel({
   const topScore = leaderboard[0]?.score ?? 0;
 
   function handleShareScore() {
-    const text = `I scored ${topScore.toLocaleString()} points on QuizWorld! Play at quizworld.xyz`;
+    const shareScore = gameMode === "team" && myTeamId && teams[myTeamId]
+      ? teams[myTeamId].score
+      : topScore;
+    const shareMsg = gameMode === "team" && myTeamId && teams[myTeamId]
+      ? `My team scored ${shareScore.toLocaleString()} points on QuizWorld! Play at quizworld.xyz`
+      : `I scored ${shareScore.toLocaleString()} points on QuizWorld! Play at quizworld.xyz`;
+    const text = shareMsg;
     navigator.clipboard.writeText(text).then(() => {
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);
@@ -150,7 +158,7 @@ export function GameFinishedPanel({
               const rank = ranks[slotIndex];
               return (
                 <div key={team.id} className="game-podium-slot">
-                  <div className="game-podium-medal">{['🥈','🥇','🥉'][rank]}</div>
+                  <div className="game-podium-medal">{['🥈','🥇','🥉'][slotIndex]}</div>
                   <div className="game-podium-avatar" style={{ fontSize: "2rem" }}>{team.emoji}</div>
                   <div className="game-podium-name">{team.name}</div>
                   <div
@@ -191,7 +199,7 @@ export function GameFinishedPanel({
 
         {/* Team Battle: team + member breakdown */}
         {gameMode === "team" && (
-          <TeamLeaderboard teams={teams} players={leaderboard} teamAssignments={teamAssignments} />
+          <TeamLeaderboard teams={teams} players={leaderboard} teamAssignments={teamAssignments} myTeamId={myTeamId} />
         )}
 
         {isHost && (

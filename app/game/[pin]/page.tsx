@@ -929,9 +929,11 @@ export default function GamePage() {
             <span className="game-question-label">
               {currentQuestionIndexLabel(session)}
             </span>
-            <span className={timeLeft <= 5 ? "game-timer is-critical" : "game-timer is-normal"}>
-              {timeLeft}s
-            </span>
+            {!isEliminated && (
+              <span className={timeLeft <= 5 ? "game-timer is-critical" : "game-timer is-normal"}>
+                {timeLeft}s
+              </span>
+            )}
           </div>
           <h2 className="font-display game-question-title">
             {currentQuestion.text}
@@ -960,6 +962,7 @@ export default function GamePage() {
             gameMode={gameMode}
             teams={teams}
             teamAssignments={teamAssignments}
+            aliveCount={aliveCount}
           />
         ) : !playerSessionReady || !currentPlayer ? (
           <SpectatorPanel />
@@ -1028,15 +1031,29 @@ export default function GamePage() {
 
           {/* Mode-specific reveal panels */}
           {gameMode === "survival" && (
-            <SurvivalStatusBar
-              aliveCount={aliveCount}
-              totalPlayers={players.length}
-              eliminated={eliminated}
-              myPlayerId={playerSession?.playerId ?? null}
-            />
+            <>
+              <SurvivalStatusBar
+                aliveCount={aliveCount}
+                totalPlayers={players.length}
+                eliminated={eliminated}
+                myPlayerId={playerSession?.playerId ?? null}
+              />
+              {eliminated.length > 0 && (
+                <div className="survival-eliminated-list">
+                  <span className="survival-eliminated-list-label">💨 Eliminated:</span>
+                  {players
+                    .filter(p => eliminated.includes(p.id))
+                    .map(p => (
+                      <span key={p.id} className="survival-eliminated-chip">
+                        {p.avatar || "🎮"} {p.nickname}
+                      </span>
+                    ))}
+                </div>
+              )}
+            </>
           )}
           {gameMode === "team" && Object.keys(teams).length > 0 ? (
-            <TeamLeaderboard teams={teams} players={players} teamAssignments={teamAssignments} />
+            <TeamLeaderboard teams={teams} players={players} teamAssignments={teamAssignments} myTeamId={myTeamId} />
           ) : (
             <LeaderboardList
               leaderboard={leaderboard}
@@ -1079,6 +1096,7 @@ export default function GamePage() {
       teams={teams}
       teamAssignments={teamAssignments}
       eliminated={eliminated}
+      myTeamId={myTeamId}
       onPlayAgain={() => {
         const quizId = (session as any)?.quiz_id ?? (session as any)?.quiz?.id;
         router.push(quizId ? `/host?quiz=${quizId}` : '/host');

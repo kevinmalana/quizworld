@@ -17,8 +17,12 @@ export function SurvivalStatusBar({
         <div className="survival-eliminated-banner">
           <span className="survival-eliminated-icon">💀</span>
           <div>
-            <div className="survival-eliminated-title">You&apos;re Eliminated!</div>
-            <div className="survival-eliminated-sub">Watch the remaining players fight it out</div>
+            <div className="survival-eliminated-title">You&apos;re Out!</div>
+            <div className="survival-eliminated-sub">
+              {aliveCount > 0
+                ? `${aliveCount} player${aliveCount !== 1 ? "s" : ""} still fighting — watch the action!`
+                : "Everyone's been eliminated!"}
+            </div>
           </div>
         </div>
       ) : (
