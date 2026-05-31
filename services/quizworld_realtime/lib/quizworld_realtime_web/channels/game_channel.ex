@@ -96,9 +96,16 @@ defmodule QuizworldRealtimeWeb.GameChannel do
     {:noreply, socket}
   end
 
-  defp transition(_pin, callback, socket) do
+  defp transition(pin, callback, socket) do
     case callback.() do
-      {:ok, snapshot} -> {:reply, {:ok, %{session: snapshot}}, socket}
+      {:ok, snapshot} ->
+        # Broadcast to all subscribers so every connected client gets the update
+        Phoenix.PubSub.broadcast(
+          QuizworldRealtime.PubSub,
+          Games.topic(pin),
+          {:session_updated, snapshot}
+        )
+        {:reply, {:ok, %{session: snapshot}}, socket}
       {:error, reason} -> {:reply, {:error, %{reason: to_string(reason)}}, socket}
     end
   end
