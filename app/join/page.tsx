@@ -167,23 +167,11 @@ function JoinForm() {
           return;
         }
 
-        // Surface Phoenix-specific error messages clearly
-        const reason = (response as any)?.reason;
-        if (reason === "game_full") {
-          setError("This game is full (200 players max). Ask the host to start a new session.");
-          setJoining(false);
-          return;
-        }
-        if (reason === "nickname_taken") {
-          setError("That nickname is already taken. Choose a different one.");
-          setJoining(false);
-          return;
-        }
-        if (reason === "session_closed") {
-          setError("This game has already started. Ask the host to start a new session.");
-          setJoining(false);
-          return;
-        }
+        // joinPhoenixSession throws on non-2xx — if we get here the response was
+        // a 2xx but missing player credentials (shouldn't happen, treat as error)
+        setError("Could not join this game right now. Please try again.");
+        setJoining(false);
+        return;
       } else {
         const { data, error } = await supabase
           .rpc("join_game_session", {
@@ -208,14 +196,19 @@ function JoinForm() {
       setError("Could not join this game right now. Please try again.");
     } catch (error: any) {
       console.error("Join game error:", error);
+      const msg = error?.message ?? "";
       setError(
-        error?.message === "Game is not accepting new players."
+        msg === "Game is not accepting new players." || msg === "Session not found."
           ? "This game is no longer accepting new players."
-          : error?.message === "Nickname is required."
+          : msg === "Nickname is required."
             ? "Enter a nickname."
-            : error?.message === "That nickname is already taken in this game."
+            : msg === "That nickname is already taken in this game."
               ? "That nickname is already taken. Choose a different one."
-            : "Could not join this game right now. Please try again."
+              : msg === "This game is full."
+                ? "This game is full. Ask the host to start a new session."
+                : msg
+                  ? msg  // show actual Phoenix error message
+                  : "Could not join this game right now. Please try again."
       );
     }
 
