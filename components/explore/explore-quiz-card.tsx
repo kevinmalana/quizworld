@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CATEGORY_EMOJIS, type Quiz } from "@/lib/store";
-import { ShareStudyLinkButton } from "@/components/shared/share-study-link-button";
 import { HostIcon } from "@/components/shared/host-icon";
 
 export type QuizWithCreator = Quiz & {
@@ -102,7 +101,6 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
         <Link href={`/study/${quiz.id}`} className="btn btn-secondary btn-compact">
           📖 Study
         </Link>
-        <ShareStudyLinkButton quizId={quiz.id} quizTitle={quiz.title} />
         <button
           onClick={handleShare}
           className="btn btn-secondary btn-compact"
