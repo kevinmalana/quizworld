@@ -37,7 +37,7 @@ export function WaitingLobbyPanel({
       <GameNotice notice={notice} maxWidth={640} />
       <div className="card game-lobby-card">
         <div className="game-lobby-icon">🎮</div>
-        <h1 className="font-display game-lobby-title">Waiting for host...</h1>
+        <h1 className="font-display game-lobby-title">{isHost ? "Waiting for players…" : "Waiting for host…"}</h1>
 
         <div className="game-lobby-pin-area lobby-pin-qr">
           <div>
