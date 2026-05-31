@@ -25,25 +25,29 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
 
   function handleShare(e: React.MouseEvent) {
     e.preventDefault();
-    const text = `Check out "${quiz.title}" on QuizWorld! quizworld.xyz/quiz/${quiz.id}`;
-    const doCopy = async () => {
+    const url = `https://www.quizworld.xyz/quiz/${quiz.id}`;
+    const shareData = { title: quiz.title, text: `Check out "${quiz.title}" on QuizWorld!`, url };
+    const doShare = async () => {
+      // Use native share sheet on mobile if available
+      if (typeof navigator.share === "function" && navigator.canShare?.(shareData)) {
+        try { await navigator.share(shareData); return; } catch { /* user dismissed — no feedback needed */ return; }
+      }
+      // Fall back to clipboard copy
       try {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(url);
       } catch {
-        // Fallback for non-secure contexts (HTTP)
-        const el = document.createElement('textarea');
-        el.value = text;
-        el.style.position = 'fixed';
-        el.style.top = '-9999px';
+        const el = document.createElement("textarea");
+        el.value = url;
+        el.style.cssText = "position:fixed;top:-9999px;left:-9999px";
         document.body.appendChild(el);
         el.select();
-        document.execCommand('copy');
+        document.execCommand("copy");
         document.body.removeChild(el);
       }
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);
     };
-    void doCopy();
+    void doShare();
   }
 
   return (
@@ -102,9 +106,9 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
         <button
           onClick={handleShare}
           className="btn btn-secondary btn-compact"
-          title="Share quiz link"
+          title={shareCopied ? "Link copied!" : "Share quiz link"}
         >
-          {shareCopied ? "✅" : "📤"}
+          {shareCopied ? "✅ Copied" : "📤 Share"}
         </button>
       </div>
       <div style={{ marginTop: "0.5rem", textAlign: "center" }}>
