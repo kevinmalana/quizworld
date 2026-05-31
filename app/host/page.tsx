@@ -155,6 +155,14 @@ function HostPageContent() {
   const [selectedId, setSelectedId] = useState<string | null>(preSelectedId);
   const [search, setSearch] = useState("");
   const [launching, setLaunching] = useState(false);
+  const [launchSeconds, setLaunchSeconds] = useState(0);
+
+  // Tick a counter while launching so the splash can show progress messages
+  useEffect(() => {
+    if (!launching) { setLaunchSeconds(0); return; }
+    const t = setInterval(() => setLaunchSeconds((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [launching]);
   const [error, setError] = useState("");
   const [section, setSection] = useState<"mine" | "recent" | "public">("mine");
   const [gameMode, setGameMode] = useState("classic");
@@ -239,6 +247,7 @@ function HostPageContent() {
   async function handleLaunch() {
     if (!user || !selectedId) return;
     setLaunching(true);
+    setLaunchSeconds(0);
     setError("");
 
     try {
@@ -301,6 +310,56 @@ function HostPageContent() {
   // ── Guard states ─────────────────────────────────────────────────────────
 
   if (authLoading) return <div className="container report-status">Loading...</div>;
+
+  // ── Launch splash overlay ────────────────────────────────────────────────
+  if (launching) {
+    const messages = [
+      "Connecting to game server…",
+      "Waking up the game engine…",
+      "Loading quiz questions…",
+      "Setting up your lobby…",
+      "Almost ready…",
+    ];
+    const msg = messages[Math.min(Math.floor(launchSeconds / 3), messages.length - 1)];
+    const isSlow = launchSeconds >= 6;
+    return (
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "var(--bg)",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: "1.5rem",
+        padding: "2rem",
+      }}>
+        {/* Spinner */}
+        <div style={{
+          width: 72, height: 72, borderRadius: "50%",
+          border: "5px solid var(--line)",
+          borderTopColor: "var(--accent)",
+          animation: "spin 0.9s linear infinite",
+        }} />
+        <style>{"@keyframes spin { to { transform: rotate(360deg); } }"}</style>
+        <div style={{ textAlign: "center", maxWidth: 320 }}>
+          <p style={{ fontWeight: 700, fontSize: "1.125rem", color: "var(--ink)", marginBottom: "0.5rem" }}>
+            {msg}
+          </p>
+          {isSlow && (
+            <p style={{ fontSize: "0.875rem", color: "var(--muted)", lineHeight: 1.5 }}>
+              The game server is cold-starting — this takes up to 30 seconds on first launch. Hang tight!
+            </p>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.5rem" }}>
+          {messages.map((_, i) => (
+            <div key={i} style={{
+              width: 8, height: 8, borderRadius: "50%",
+              background: i <= Math.floor(launchSeconds / 3) ? "var(--accent)" : "var(--line)",
+              transition: "background 0.3s",
+            }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (liveGameEngineMisconfigured || legacySupabaseGameEngine) {
     return (
