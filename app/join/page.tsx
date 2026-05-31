@@ -40,6 +40,7 @@ function JoinForm() {
     if (!initialPin) return;
     const existing = readPlayerSession(initialPin.toUpperCase());
     if (existing?.playerId && existing?.playerToken) {
+      setJoining(true); // show spinner during redirect
       router.replace(`/game/${initialPin.toUpperCase()}`);
     }
   }, [initialPin, router]);

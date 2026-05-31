@@ -405,7 +405,7 @@ function HostPageContent() {
             disabled={launching}
             className="btn btn-primary btn-lg host-launch-btn--header"
           >
-            {launching ? "Starting..." : "Launch 🚀"}
+            {launching ? "Starting..." : `Launch ${gameMode === "survival" ? "💀" : gameMode === "team" ? "👥" : "🚀"}`}
           </button>
         )}
       </div>
