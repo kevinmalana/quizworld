@@ -1,93 +1,195 @@
 # QuizWorld Current Agent Handoff
 
-Last verified: 2026-05-22 17:00 UTC  
-Production: https://www.quizworld.xyz  
-Repo: https://github.com/kevinmalana/quizworld  
-Workspace: `/root/.openclaw/workspace/quizworld`
+**Last updated:** 2026-05-31  
+**Production:** https://www.quizworld.xyz  
+**Repo:** https://github.com/kevinmalana/quizworld (branch: `main`)  
+**Workspace:** `/root/.openclaw/workspace/quizworld`  
+**Dead snapshot (DO NOT USE):** `/root/.openclaw/workspace/quizworld_v12_push`
+
+---
 
 ## Quick Start
 
-1. Read `docs/ENGINEERING_HANDBOOK.md` — full architecture, schema, conventions
-2. Run `npm run quality` before any commit
-3. Deploy: `source /root/.openclaw/secrets/deployment.env && vercel deploy --prod --token "$VERCEL_TOKEN" --yes --archive=tgz`
+1. Read this file fully before touching anything.
+2. All work goes in `/root/.openclaw/workspace/quizworld` on `main`.
+3. Deploy frontend: `source /root/.openclaw/secrets/deployment.env && vercel deploy --prod --token "$VERCEL_TOKEN" --yes --archive=tgz`
+4. Deploy Phoenix: push to GitHub → Render auto-deploys from `services/quizworld_realtime/` (Root Directory set in Render dashboard).
+5. Run `npm run build` locally before deploying — never deploy a broken build.
 
-## Current State (2026-05-22)
+---
 
-### What's Live
-- **Core:** quiz builder (manual/paste/AI), explore (paginated), study (flashcard/quickfire), host/join live games, present mode, dashboard
-- **Social layer:** friends, classrooms, trivia groups, leaderboard, achievements, public profiles `/u/[username]`
-- **Gamification:** 30-level XP system, 15 achievements (auto-unlock), day streaks, creator level badges on explore
-- **UI:** LinkedIn-style layout (square corners, flat shadows, system fonts) with original QuizWorld brand colors
-- **Explore page:** Super-categories (6 groups), trending rows (🔥/✨/🏆), collections (UI-only), Surprise Me button
-- **Quiz detail page:** `/quiz/[id]` — title/creator/stats/question preview, Play + Study buttons
-- **Post-game CTA:** Play Again / Find Another Quiz / Create Your Own / Share Score after every game
-- **Share button:** on explore cards and quiz detail page (clipboard copy)
-- **Onboarding:** 5-step checklist + dismissible welcome banner for new users on dashboard
-- **Category dropdown:** builder uses `<select>` from CATEGORY_EMOJIS — no free-text category entry
+## Stack
 
-### Services
-- Phoenix health: `curl https://quizworld-xs0g.onrender.com/api/health` → `{"status":"ok","redis":true}`
-- Supabase: `tqmygnkwkjtkteguemya.supabase.co`
-- Service role key: `/root/.openclaw/workspace/quizworld/.env.local`
+| Layer | Tech | URL / Location |
+|---|---|---|
+| Frontend | Next.js 15 on Vercel | www.quizworld.xyz |
+| Game Engine | Phoenix (Elixir) on Render | quizworld-xs0g.onrender.com |
+| Database/Auth | Supabase | tqmygnkwkjtkteguemya.supabase.co |
+| Cache | Redis (on Render) | — |
 
-## Open Issues (priority order)
+---
 
-1. **🔴 SECURITY: Private quiz RLS** — anon users can read `is_public=false` quizzes. Fix by running in Supabase SQL editor:
-   ```sql
-   DROP POLICY IF EXISTS "Public quizzes are viewable by everyone" ON quizzes;
-   CREATE POLICY "Public quizzes are viewable by everyone" ON quizzes
-     FOR SELECT USING (is_public = true AND archived_at IS NULL);
-   CREATE POLICY "Owners can view their own private quizzes" ON quizzes
-     FOR SELECT USING (auth.uid() = creator_id);
-   ```
-2. **🔴 SECURITY: game_results readable by anon** — game results (scores/player counts) visible without auth. Add RLS: `FOR SELECT USING (auth.uid() IS NOT NULL)`
-3. **In-memory rate limiter** — resets on Vercel cold start. Replace `lib/rate-limit.ts` with `@upstash/ratelimit` for production multi-instance safety
-4. **Collections (explore)** — hardcoded UI only. Add `collections` table when content grows past 50+ quizzes
-5. **Study checklist step** — onboarding checklist always shows Study as incomplete (no study_progress count in dashboard query)
-6. **`study_progress` unique constraint** — verify `(user_id, quiz_id)` unique index exists in Supabase
-7. **Group admin remove members** — only classrooms have teacher-remove, not groups
-8. **No push notifications** — friend requests, classroom joins have no real-time alerts
+## Secrets & Credentials
 
-## Latest Commits
-```
-cf86cf1 feat: category dropdown, post-game CTA, quiz detail page, share button, onboarding
-ffdb58d feat(explore): super-categories, trending rows, collections, surprise-me
-faace4b fix: hide mobile props toggle on desktop (settings wheel not clickable)
-1c93fff layout-linkedin: restore QuizWorld brand colors, keep square layout
-a6b62ea layout-linkedin: square corners, LinkedIn blue, flat shadows, system fonts
-```
+| File | Contains |
+|---|---|
+| `/root/.openclaw/secrets/deployment.env` | `VERCEL_TOKEN` |
+| `/root/.openclaw/secrets/gh_token.txt` | GitHub personal access token |
+| `/root/.openclaw/workspace/quizworld/.env.local` | All env vars (Supabase, AI keys, Phoenix URL) |
 
-## New Files (2026-05-22)
-- `app/quiz/[id]/page.tsx` — quiz detail server component
-- `app/quiz/[id]/QuizDetailShareButton.tsx` — client share button
-- `components/shared/OnboardingChecklist.tsx` — dashboard onboarding checklist
-- `components/game/GameFinishedPanel.tsx` — updated with post-game CTA
-- `components/explore/explore-quiz-card.tsx` — updated with share + detail link
-- `components/builder/BuilderToolbar.tsx` — category `<select>` dropdown
-
-## Code Architecture (2026-05-19)
-
-### Components Structure
-- `components/game/` — 14 individual component files (refactored from 1 monolith)
-  - Import via `from "@/components/game"` (index.ts re-exports all)
-  - Largest: `GameFinishedPanel.tsx` (244 lines), `WaitingLobbyPanel.tsx` (118 lines)
-  - Smallest: `GameNotice.tsx` (11 lines)
-- `app/game/[pin]/page.tsx` — still monolithic (1022 lines)
-  - **Warning:** Contains 25+ useState hooks, multiple useEffects
-  - State logic is tightly coupled to render
-  - Further extraction requires extensive testing
-  - Recommend: leave as-is unless adding game features
-
-## Quality Baseline
-- TypeScript: clean
-- Phoenix: 44/44 tests passing
-- `npm run quality`: inline_styles=130, any_count=43
-- E2E: 108 tests passing (production)
-
-## Deploy Pattern
+**Deploy commands:**
 ```bash
-GH_TOKEN=$(tr -d '\n' < /root/.openclaw/secrets/gh_token.txt)
-git push "https://x-access-token:${GH_TOKEN}@github.com/kevinmalana/quizworld.git" HEAD:main
+# Push to GitHub
+GH_TOKEN=$(cat /root/.openclaw/secrets/gh_token.txt | tr -d '\n')
+git push "https://x-access-token:${GH_TOKEN}@github.com/kevinmalana/quizworld.git" main
+
+# Deploy frontend to Vercel
 source /root/.openclaw/secrets/deployment.env
 vercel deploy --prod --token "$VERCEL_TOKEN" --yes --archive=tgz
 ```
+
+---
+
+## Architecture: Game Engine (Phoenix)
+
+**CRITICAL — read before touching game code:**
+
+- All game state lives **in-memory** in Phoenix GenServer processes (not Supabase).
+- Game results are persisted to Supabase via `ResultSync.persist_finished_game/1` when game finishes.
+- Phoenix PIN format: **6-character alphanumeric** from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (~17% chance all-alpha).
+- The `/join` page handles this: if `initialPin` came from URL param (QR scan), skip presentation routing check entirely.
+
+**Game flow:**
+```
+Host: /host → select quiz + mode → Launch → /game/[pin] (waiting)
+Player: /join?pin=XXXX → nickname → /game/[pin] (waiting)
+Host: Start → active → (auto-reveal on timer) → reveal → advance → ... → finished
+```
+
+**State broadcast:**
+- Every state change (join, start, answer, reveal, advance) broadcasts `{:session_updated, snapshot}` via PubSub to all connected clients.
+- Both `GameServer.reply_with_transition` (REST) AND `GameChannel.transition/3` (WebSocket) broadcast.
+- Frontend subscribes via `subscribeToPhoenixTopic` (WebSocket) AND polls via `loadSession` on reconnect.
+- Staleness guard in `applySessionSnapshot`: drops snapshots with older `updated_at` than current state.
+
+**Game modes:**
+- `classic` — standard, all players answer every question
+- `survival` — wrong answer = eliminated; `alive_count < 2` ends game (1 remaining = winner)
+  - Minimum 2 players to start (lobby blocks start otherwise)
+  - `everyoneAnswered` uses `aliveCount` not `players.length` (eliminated can't answer)
+  - Host "Answered X/Y" denominator uses `aliveCount` in survival
+  - Timer hidden for eliminated players
+  - Eliminated list shown at reveal phase
+- `team` — players auto-assigned to 2-4 teams by round-robin on game start
+
+**Render deployment:**
+- Service: `quizworld-xs0g.onrender.com`
+- Root Directory in Render dashboard: `services/quizworld_realtime` ← **MUST be set or build fails**
+- Auto-deploys on push to GitHub `main`
+- Health check: `GET /api/health` → `{"status":"ok","service":"quizworld_realtime","redis":true}`
+
+---
+
+## Architecture: Frontend (Next.js)
+
+**Key patterns:**
+- Auth: Supabase Auth via `useAuth()` hook from `components/supabase-provider.tsx`
+- All pages that need auth: destructure `const { user, loading: authLoading } = useAuth()` and gate on `authLoading` before showing UI or redirecting.
+- Protected pages redirect to `/login` when `!user && !authLoading` and set `sessionStorage.setItem("qw_post_login_redirect", path)` first.
+- Google OAuth: passes `?next=` param in `redirectTo` so callback route redirects correctly post-auth.
+
+**Categories:**
+- Valid categories defined in `lib/store.ts` → `CATEGORY_COLORS` and `CATEGORY_EMOJIS`
+- `General Knowledge` IS a valid category (added 2026-05-31)
+- DB has CHECK constraint enforcing valid categories (`supabase/migrations/20260531_v96_category_enforcement.sql`)
+- `normalise_category()` Postgres function maps unknown categories to "Trivia"
+
+**Catalog queries:**
+- No `.limit()` on quiz catalog fetches in explore, host, study pages — full catalog always fetched
+- Explore search uses live DB `ilike` query (300ms debounce) — NOT client-side filter of loaded page
+- Study sessions query also has no limit
+
+**AI features:**
+- Quiz generation: `POST /api/ai-source-draft` — uses Groq `llama-3.3-70b-versatile`
+- Game insights: `POST /api/ai-game-insights` — dedicated route, returns bullet-point insights aware of game mode
+- Model set via `QUIZWORLD_AI_MODEL` env var (Vercel + `.env.local`)
+
+---
+
+## Join/Routing Rules
+
+| PIN type | Where it goes |
+|---|---|
+| URL param (`/join?pin=XXXX`) | Always game — skip presentation check |
+| Typed manually, all-alpha | `/present/join` (presentation) |
+| Typed manually, has digits | `/join` → game |
+| Homepage enter | Always `/join` — no routing guess |
+
+**Why:** ~17% of Phoenix PINs are all-alpha. Homepage previously misdirected these to presentation join.
+
+---
+
+## Report & AI Insights
+
+- **Report page** (`/report/[pin]`): host-only (checks `host_id === user.id`)
+- **3 tabs:** Overview (stats + mode-specific summary + podium), By Question (answer distribution, difficulty, quality score), Players (ranked list with accuracy)
+- **Export CSV:** includes answer text (not answer ID)
+- **AI Insights:** calls `/api/ai-game-insights` with full game context including mode, eliminated list, team scores. Returns 4 bullet-point insights. Rendered as separate `<p>` tags.
+
+---
+
+## Known Issues / Pending Work
+
+### Requires Supabase SQL Editor
+- `supabase/migrations/20260531_v96_category_enforcement.sql` — category CHECK constraint + `normalise_category()` RPC. Apply this if not already done.
+
+### Security
+- Private quiz RLS: anon users can still read `is_public=false` quizzes (pre-existing issue, add RLS policy)
+- `game_results` readable by anon (pre-existing issue)
+
+### Not Built Yet
+- Contact page (`/contact`)
+- Profile image upload (emoji picker only)
+- `support@quizworld.xyz` email (needs Cloudflare Email Routing)
+- Collections (explore) — hardcoded UI only
+- Push notifications for friend requests / classroom joins
+- Live AUD/INR exchange rate (ISRO autopilot)
+
+---
+
+## Smoke Test Checklist (run after any major deploy)
+
+```
+[ ] Homepage loads, Enter Game → /join
+[ ] /explore loads quizzes, search finds quizzes including newly created ones
+[ ] /create → AI from topic generates 10 questions
+[ ] /host → select quiz, select survival mode, launch button shows 💀
+[ ] QR scan → /join?pin=XXXX stays on join page (NOT presentation)
+[ ] Join game → enter nickname → /game/[pin] lobby shows mode pill
+[ ] Start survival with 2 players → wrong answer → eliminated screen shows after reveal
+[ ] Team mode podium: gold medal is centre, silver left, bronze right
+[ ] /report/[pin] → host only, AI Insights shows bullet points with mode context
+[ ] Google OAuth → redirects back to originating page (not always /dashboard)
+```
+
+---
+
+## Migrations Applied (cumulative, 2026-05-31)
+
+In addition to all prior migrations, apply:
+1. `supabase/migrations/20260531_v96_category_enforcement.sql` — category constraint + normalise_category()
+
+All other migrations from `supabase_setup.sql` baseline + `v92` through `v95` must be applied first (see `OPENCLAW_DEPLOY_HANDOVER.md`).
+
+---
+
+## Latest Significant Changes (2026-05-31)
+
+See `AUDIT_REPORT.md` for the full bug list. Key architectural changes:
+
+- Phoenix `game_channel.ex` `transition/3` now broadcasts to PubSub (was host-only reply)
+- Phoenix `game_server.ex` `reply_with_transition` now broadcasts to PubSub (was caller-only reply)
+- Survival: `alive_count < 2` ends game (was `<= 1`, ended too early)
+- Join page: `initialPin` guard prevents QR pins routing to presentation
+- New API route: `app/api/ai-game-insights/route.ts`
+- `lib/store.ts`: `General Knowledge` added to `CATEGORY_COLORS` / `CATEGORY_EMOJIS`
