@@ -461,13 +461,20 @@ export default function GamePage() {
   }, [loadSession, phoenixChannelConnected]);
 
   // Show reconnecting notice when WS drops mid-game
+  // Use a delay so we don't flash the notice during normal initial connection
   useEffect(() => {
     if (!isPhoenixGameEngine) return;
-    if (!phoenixChannelConnected && !loading && gameStatus !== "finished") {
-      setNotice("🔄 Reconnecting to game server...");
-    } else if (phoenixChannelConnected) {
+    if (phoenixChannelConnected) {
+      // Connected — clear the notice if it was showing
       setNotice((prev) => prev === "🔄 Reconnecting to game server..." ? null : prev);
+      return;
     }
+    if (loading || gameStatus === "finished") return;
+    // Only show after 4 seconds of no connection — avoids false alarm on page load
+    const timer = setTimeout(() => {
+      setNotice("🔄 Reconnecting to game server...");
+    }, 4000);
+    return () => clearTimeout(timer);
   }, [phoenixChannelConnected, loading, gameStatus]);
 
   // Feature 6: Update streaks when reveal happens
