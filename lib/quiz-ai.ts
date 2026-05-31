@@ -87,13 +87,14 @@ export function validateAIQuizDraft(input: unknown): AIQuizDraft {
     throw new Error("AI response did not include any questions.");
   }
 
-  const questions = rawQuestions.map((question, index) => {
-    if (!question || typeof question !== "object") {
-      throw new Error(`Question ${index + 1} is malformed.`);
-    }
+  const questions = rawQuestions.reduce<AIQuestionDraft[]>((acc, question, index) => {
+    // Skip malformed questions instead of throwing — one bad question shouldn't kill the whole batch
+    if (!question || typeof question !== "object") return acc;
 
     const q = question as Record<string, unknown>;
     const text = typeof q.text === "string" ? q.text.trim() : "";
+    if (!text) return acc; // skip blank questions
+
     const rawType = typeof q.question_type === "string" ? q.question_type : "multiple_choice";
     const questionType: AIQuestionDraft["question_type"] =
       rawType === "true_false" ? "true_false" : "multiple_choice";
@@ -110,36 +111,19 @@ export function validateAIQuizDraft(input: unknown): AIQuizDraft {
     const rawAnswers = Array.isArray(q.answers) ? q.answers : [];
     const rawCitations = Array.isArray(q.citations) ? q.citations : [];
 
-    if (!text) {
-      throw new Error(`Question ${index + 1} is missing text.`);
-    }
+    if (rawAnswers.length < 2) return acc; // skip questions with too few answers
 
-    if (rawAnswers.length < 2 || rawAnswers.length > 4) {
-      throw new Error(`Question ${index + 1} must have between two and four answers.`);
-    }
-
-    const answers = rawAnswers.map((answer, answerIndex) => {
-      if (!answer || typeof answer !== "object") {
-        throw new Error(`Question ${index + 1}, answer ${answerIndex + 1} is malformed.`);
-      }
-
+    const answers = rawAnswers.reduce<{ text: string; is_correct: boolean }[]>((ansAcc, answer) => {
+      if (!answer || typeof answer !== "object") return ansAcc;
       const a = answer as Record<string, unknown>;
       const answerText = typeof a.text === "string" ? a.text.trim() : "";
-      const isCorrect = Boolean(a.is_correct);
+      if (!answerText) return ansAcc;
+      ansAcc.push({ text: answerText, is_correct: Boolean(a.is_correct) });
+      return ansAcc;
+    }, []);
 
-      if (!answerText) {
-        throw new Error(`Question ${index + 1}, answer ${answerIndex + 1} is blank.`);
-      }
-
-      return {
-        text: answerText,
-        is_correct: isCorrect,
-      };
-    });
-
-    if (answers.filter((answer) => answer.is_correct).length !== 1) {
-      throw new Error(`Question ${index + 1} must have exactly one correct answer.`);
-    }
+    if (answers.length < 2) return acc;
+    if (answers.filter((a) => a.is_correct).length !== 1) return acc; // must have exactly one correct
 
     const citations = rawCitations
       .filter((citation) => citation && typeof citation === "object")
@@ -153,7 +137,7 @@ export function validateAIQuizDraft(input: unknown): AIQuizDraft {
       })
       .filter((citation) => citation.snippet);
 
-    return {
+    acc.push({
       text,
       question_type: questionType,
       time_limit: normalizeTimeLimit(timeLimit),
@@ -164,8 +148,9 @@ export function validateAIQuizDraft(input: unknown): AIQuizDraft {
       explanation,
       answers,
       citations,
-    };
-  });
+    });
+    return acc;
+  }, []);
 
   return {
     title,
@@ -275,7 +260,7 @@ function questionTypeInstruction(types: { mc: boolean; tf: boolean }): string {
   if (types.tf) {
     return "Generate only true_false questions. Every question must have question_type \"true_false\" with exactly 2 answers (True/False).";
   }
-  return "Generate only multiple_choice questions. Every question must have question_type \"multiple_choice\" with exactly 4 answers.";
+  return "Generate only multiple_choice questions. Every question must have question_type \"multiple_choice\" with EXACTLY 4 answers — 1 marked is_correct: true and 3 marked is_correct: false.";
 }
 
 // ── Main prompt builder ──────────────────────────────────────
