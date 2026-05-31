@@ -71,6 +71,7 @@ export default function GamePage() {
   const pin = params.pin as string;
 
   const [session, setSession] = useState<Record<string, unknown> | null>(null);
+  const sessionRef = useRef<Record<string, unknown> | null>(null); // always tracks latest session for staleness checks
   const [players, setPlayers] = useState<GamePlayer[]>([]);
   const [currentAnswers, setCurrentAnswers] = useState<CurrentAnswer[]>([]);
   const [questionHistory, setQuestionHistory] = useState<QuestionHistoryEntry[]>([]);
@@ -158,6 +159,18 @@ export default function GamePage() {
         points_awarded?: number;
       }[]
     ) => {
+      // Staleness guard: never apply an older snapshot over a newer one.
+      // Prevents REST responses from racing against WS broadcasts and overwriting fresher state.
+      const incomingUpdatedAt = (rawSession as { updated_at?: string }).updated_at;
+      const currentUpdatedAt = (sessionRef.current as { updated_at?: string } | null)?.updated_at;
+      if (
+        incomingUpdatedAt &&
+        currentUpdatedAt &&
+        incomingUpdatedAt < currentUpdatedAt
+      ) {
+        return; // Drop stale snapshot
+      }
+
       const normalizedSession = (
         isPhoenixGameEngine
           ? normalizePhoenixSession(rawSession)
@@ -180,6 +193,7 @@ export default function GamePage() {
           : []);
 
       setSession(normalizedSession as Record<string, unknown>);
+      sessionRef.current = normalizedSession as Record<string, unknown>;
       setPlayers(nextPlayers);
       setCurrentAnswers(nextAnswers);
       setGameStatus(((normalizedSession.status as string) ?? "waiting") as GameStatus);
