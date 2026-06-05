@@ -4,9 +4,9 @@ import { extractTextFromFile, FileExtractionError } from "@/lib/file-extract";
 import type { AIGenerationOptions, AIDifficultyPreset, AITonePreset } from "@/lib/quiz-ai";
 import { DEFAULT_AI_OPTIONS } from "@/lib/quiz-ai";
 
-export type AIQuestionCount = 5 | 10 | 20 | 30 | 50;
+export type AIQuestionCount = 5 | 10 | 20 | 30 | 50 | 65;
 
-const QUESTION_COUNTS: AIQuestionCount[] = [5, 10, 20, 30, 50];
+const QUESTION_COUNTS: AIQuestionCount[] = [5, 10, 20, 30, 50, 65];
 
 type SourceModalProps = {
   sourceType: SourceType;

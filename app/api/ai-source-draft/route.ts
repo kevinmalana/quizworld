@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     const sourceText = body.sourceText?.trim() ?? "";
     const sourceTitle = body.sourceTitle?.trim() ?? "";
     const sourceLabel = body.sourceLabel?.trim() ?? "Source material";
-    const questionCount = Math.min(50, Math.max(5, Number(body.questionCount) || 10));
+    const questionCount = Math.min(65, Math.max(5, Number(body.questionCount) || 10));
     const aiOptions = body.aiOptions ?? DEFAULT_AI_OPTIONS;
     const sourceMode = body.sourceMode ?? "paste";
 
