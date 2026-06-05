@@ -55,7 +55,7 @@ function CreatePageContent() {
   // ── AI state ──
   const [aiTopic, setAiTopic] = useState("");
   const [aiUrl, setAiUrl] = useState("");
-  const [aiCount, setAiCount] = useState<AIQuestionCount>(5);
+  const [aiCount, setAiCount] = useState<AIQuestionCount>(10);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [pasteText, setPasteText] = useState("");
