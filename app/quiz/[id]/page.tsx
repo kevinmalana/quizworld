@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
@@ -6,6 +7,41 @@ import { QuizDetailShareButton } from "./QuizDetailShareButton";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: quiz } = await supabase
+    .from("quizzes")
+    .select("title, category, questions(id)")
+    .eq("id", id)
+    .eq("is_public", true)
+    .single();
+
+  if (!quiz) return { title: "Quiz Not Found" };
+
+  const qCount = Array.isArray(quiz.questions) ? quiz.questions.length : 0;
+  const category = quiz.category as string | null;
+  const title = quiz.title as string;
+  const pageTitle = `${title} — Free ${category ? category + " " : ""}Quiz (${qCount} Questions)`;
+  const description = `Test your knowledge with this free ${qCount}-question quiz on ${title}. Play live with friends or study solo on QuizWorld.`;
+
+  return {
+    title: pageTitle,
+    description,
+    openGraph: {
+      title: pageTitle,
+      description,
+      url: `https://www.quizworld.xyz/quiz/${id}`,
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: pageTitle,
+      description,
+    },
+  };
 }
 
 export default async function QuizDetailPage({ params }: PageProps) {

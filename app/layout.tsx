@@ -20,10 +20,10 @@ import { CookieBanner } from "@/components/cookie-banner";
 
 export const metadata: Metadata = {
   title: {
-    default: "QuizWorld — Live Quizzes That Feel Like Game Night",
+    default: "QuizWorld — Free Live Quiz Platform for Classrooms & Trivia Nights",
     template: "%s | QuizWorld",
   },
-  description: "Host live quiz sessions, join games with friends, or study with AI-powered quizzes. Play anytime, anywhere.",
+  description: "Free Kahoot alternative with unlimited questions. Host live multiplayer quizzes, create AWS practice exams, run classroom games or trivia nights. No app download needed — join by PIN.",
   metadataBase: new URL("https://www.quizworld.xyz"),
   icons: {
     icon: "/favicon.svg",
