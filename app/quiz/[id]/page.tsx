@@ -43,6 +43,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const pageTitle = `${title} — Free ${category ? category + " " : ""}Quiz (${qCount} Questions)`;
   const description = `Test your knowledge with this free ${qCount}-question quiz on ${title}. Play live with friends or study solo on QuizWorld.`;
   const canonicalUrl = `https://www.quizworld.xyz/quiz/${slug}`;
+  const emoji = CATEGORY_EMOJIS[category ?? ""] || "🧠";
+  const ogImageUrl = `https://www.quizworld.xyz/api/og?title=${encodeURIComponent(title)}&category=${encodeURIComponent(category || "")}&count=${qCount}&emoji=${encodeURIComponent(emoji)}`;
 
   return {
     title: pageTitle,
@@ -53,11 +55,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       url: canonicalUrl,
       type: "website",
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       card: "summary_large_image",
       title: pageTitle,
       description,
+      images: [ogImageUrl],
     },
   };
 }
@@ -111,8 +115,34 @@ export default async function QuizDetailPage({ params }: PageProps) {
 
   const quizUrl = `https://quizworld.xyz/quiz/${slug || quiz.id}`;
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Quiz",
+    "name": quiz.title as string,
+    "description": `Free ${quiz.category ?? ""} quiz with ${questions.length} questions on QuizWorld`,
+    "url": `https://www.quizworld.xyz/quiz/${slug || quiz.id}`,
+    "educationalLevel": "general",
+    "about": {
+      "@type": "Thing",
+      "name": quiz.category as string,
+    },
+    "provider": {
+      "@type": "Organization",
+      "name": "QuizWorld",
+      "url": "https://www.quizworld.xyz",
+    },
+    "hasPart": questions.slice(0, 5).map((q) => ({
+      "@type": "Question",
+      "name": q.text,
+    })),
+  };
+
   return (
     <div className="container quiz-detail-container">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Back link */}
       <Link
         href="/explore"
