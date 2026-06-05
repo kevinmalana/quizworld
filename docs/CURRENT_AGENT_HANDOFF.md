@@ -1,10 +1,10 @@
 # QuizWorld Current Agent Handoff
 
-**Last updated:** 2026-05-31  
-**Production:** https://www.quizworld.xyz  
-**Repo:** https://github.com/kevinmalana/quizworld (branch: `main`)  
-**Workspace:** `/root/.openclaw/workspace/quizworld`  
-**Dead snapshot (DO NOT USE):** `/root/.openclaw/workspace/quizworld_v12_push`
+**Last updated:** 2026-06-05
+**Production:** https://www.quizworld.xyz
+**Repo:** https://github.com/kevinmalana/quizworld (branch: `main`)
+**Workspace:** `/root/.openclaw/workspace/quizworld_v12_push/quizworld` ← current working copy
+**Dead snapshot (DO NOT USE):** `/root/.openclaw/workspace/quizworld` (older)
 
 ---
 
@@ -157,15 +157,24 @@ Host: Start → active → (auto-reveal on timer) → reveal → advance → ...
 
 ```
 [ ] Homepage loads, Enter Game → /join
-[ ] /explore loads quizzes, search finds quizzes including newly created ones
-[ ] /create → AI from topic generates 10 questions
+[ ] /explore loads quizzes, search finds quizzes
+[ ] /explore — clicking Study on a quiz loads the study page correctly (no "quiz not found")
+[ ] /quiz/<slug> loads quiz detail page with correct title/metadata (e.g. /quiz/ancient-rome)
+[ ] /quiz/<uuid> redirects 301 → /quiz/<slug>
+[ ] /study/<slug> loads study page correctly
+[ ] /study/<uuid> redirects 301 → /study/<slug>
+[ ] /explore/history loads category page with quizzes
+[ ] /aws-practice-test loads landing page
+[ ] /kahoot-alternative loads landing page
+[ ] /create → AI from topic, question count picker shows 5/10/20/30/50/65
+[ ] /create → AI generates 65 questions when 65 selected
 [ ] /host → select quiz, select survival mode, launch button shows 💀
 [ ] QR scan → /join?pin=XXXX stays on join page (NOT presentation)
 [ ] Join game → enter nickname → /game/[pin] lobby shows mode pill
 [ ] Start survival with 2 players → wrong answer → eliminated screen shows after reveal
-[ ] Team mode podium: gold medal is centre, silver left, bronze right
-[ ] /report/[pin] → host only, AI Insights shows bullet points with mode context
-[ ] Google OAuth → redirects back to originating page (not always /dashboard)
+[ ] /report/[pin] → host only, AI Insights shows bullet points
+[ ] Google OAuth → redirects back to originating page
+[ ] View source of /quiz/<slug> — confirm title tag contains quiz name (not "Loading...")
 ```
 
 ---
@@ -176,6 +185,51 @@ In addition to all prior migrations, apply:
 1. `supabase/migrations/20260531_v96_category_enforcement.sql` — category constraint + normalise_category()
 
 All other migrations from `supabase_setup.sql` baseline + `v92` through `v95` must be applied first (see `OPENCLAW_DEPLOY_HANDOVER.md`).
+
+---
+
+## Latest Significant Changes (2026-06-05)
+
+### SEO Overhaul
+- **Slug URLs:** `quizzes` table now has a `slug` column. All 160 existing quizzes have slugs generated (e.g. `ancient-rome`, `premier-league-2024`). New quizzes auto-get a slug via Postgres trigger.
+- **UUID → slug redirect:** `/quiz/[id]` and `/study/[id]` detect UUID params and 301 redirect to slug URL. Both routes also accept slugs directly.
+- **Dynamic metadata:** `generateMetadata` on `/quiz/[id]` and `/study/[id]` — each quiz page has unique title, description, canonical URL based on actual quiz title/category/question count.
+- **JSON-LD structured data:** Quiz schema markup on every `/quiz/[id]` page for Google rich results.
+- **Dynamic OG images:** `/api/og` edge route generates per-quiz gradient OG card (title, emoji, category, question count). Used in OpenGraph metadata for quiz pages.
+- **Category landing pages:** `/explore/[category]` — 20 server-rendered category pages (e.g. `/explore/science-and-nature`, `/explore/history`). Each has SEO-optimised metadata and quiz grid.
+- **High-traffic landing pages:** `/aws-practice-test` and `/kahoot-alternative` — dedicated SEO pages targeting high-volume search terms.
+- **`/quiz` landing page:** Top quizzes grid, rankable for "free online quizzes".
+- **Sitemap updated:** Now includes `/quiz`, `/explore/{category}` × 20, `/aws-practice-test`, `/kahoot-alternative`, plus `lastmod` dates on all quiz pages.
+- **Homepage description:** Keyword-rich (Kahoot alternative, AWS, certification, classroom, trivia, join by PIN). Title kept as "Live Quizzes That Feel Like Game Night".
+- **ISR caching:** `export const revalidate = 3600` on `/quiz/[id]` and `/study/[id]` — pages cached at Vercel edge for 1 hour.
+
+### AI Question Count Expanded
+- AI quiz generator now supports **5 / 10 / 20 / 30 / 50 / 65** questions (was 3/5/8/10).
+- 65Q added specifically for AWS/cert exam packs (AWS exams have exactly 65 questions).
+- Server-side cap raised from `Math.min(10,...)` to `Math.min(65,...)`.
+- Default changed from 5 → 10.
+- `AIQuestionCount` type and `QuestionCountPicker` component both updated in `components/builder/CreateSourceModals.tsx`.
+
+### Bug Fixes
+- **Study page "quiz not found":** `StudyPageClient` was fetching by `.eq("id", quizId)` but after UUID→slug redirect, `quizId` was a slug string. Fixed: now detects UUID vs slug and queries accordingly.
+- **Explore card links:** Now use `quiz.slug || quiz.id` for all `/quiz/` and `/study/` links — no redirect round-trip.
+- **`slug` field added to `Quiz` interface** in `lib/store.ts`.
+- **`@dnd-kit` deps installed** — was missing from remote, blocking builds.
+
+### DB Changes (apply in Supabase SQL editor)
+- Migration: `supabase/migrations/20260605_quiz_slugs.sql`
+  - Adds `slug TEXT` column to `quizzes`
+  - Unique partial index on slug
+  - Backfills slugs for all existing quizzes
+  - Trigger: `quiz_slug_trigger` — auto-generates slug on INSERT
+- **Status:** ✅ Applied to production (verified: `SELECT COUNT(*) FROM quizzes WHERE slug IS NULL` = 0)
+
+### Pending / Not Built
+- AWS practice exam quizzes (CLF-C02, SAA-C03, DVA-C02) — seeder script at `scripts/seed-aws-quizzes.js`, needs `SUPABASE_SERVICE_ROLE_KEY` to run
+- Contact page
+- Profile image upload
+- `support@quizworld.xyz` email
+- Collections (explore) — hardcoded UI only
 
 ---
 
