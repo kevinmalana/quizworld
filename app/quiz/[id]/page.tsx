@@ -5,6 +5,8 @@ import { createClient } from "@/utils/supabase/server";
 import { CATEGORY_EMOJIS } from "@/lib/store";
 import { QuizDetailShareButton } from "./QuizDetailShareButton";
 
+export const revalidate = 3600;
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
