@@ -11,7 +11,7 @@ export type DashboardQuizRow = {
   plays: number | null;
   is_public: boolean;
   archived_at: string | null;
-  questions?: { count: number }[];
+  questions?: { id: string }[];
 };
 
 export function DashboardNotice({ message, tone }: { message: string; tone: "success" | "primary" }) {
@@ -106,7 +106,7 @@ export function ArchivedQuizCard({ quiz, actioningQuizId, onArchive }: { quiz: D
 }
 
 function QuizCardHeader({ quiz }: { quiz: DashboardQuizRow }) {
-  const qCount = quiz.questions?.[0]?.count ?? 0;
+  const qCount = quiz.questions?.length ?? 0;
   return (
     <div className="dashboard-card-header">
       <div className="dashboard-card-icon" style={{ background: `${quiz.color}15` }}>{quiz.emoji || "📝"}</div>

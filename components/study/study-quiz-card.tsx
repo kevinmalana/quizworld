@@ -7,7 +7,7 @@ export type StudyQuizCardQuiz = {
   emoji: string | null;
   color: string | null;
   category: string;
-  questions?: { count: number }[];
+  questions?: { id: string }[];
 };
 
 export type StudyQuizProgress = {
@@ -24,7 +24,7 @@ function StudyQuizIcon({ quiz }: { quiz: StudyQuizCardQuiz }) {
 }
 
 export function AvailableStudyQuizCard({ quiz }: { quiz: StudyQuizCardQuiz }) {
-  const questionCount = quiz.questions?.[0]?.count ?? 0;
+  const questionCount = quiz.questions?.length ?? 0;
 
   return (
     <Link
@@ -64,7 +64,7 @@ export function AvailableStudyQuizCard({ quiz }: { quiz: StudyQuizCardQuiz }) {
 }
 
 export function ContinueStudyQuizCard({ quiz, progress }: { quiz: StudyQuizCardQuiz; progress?: StudyQuizProgress }) {
-  const questionCount = quiz.questions?.[0]?.count ?? 0;
+  const questionCount = quiz.questions?.length ?? 0;
   const mastery = progress?.mastery ?? 0;
   const masteryColor = mastery >= 80 ? "var(--success)" : mastery >= 50 ? "#eab308" : "var(--primary)";
 

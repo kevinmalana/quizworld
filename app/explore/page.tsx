@@ -602,7 +602,7 @@ function ExplorePageContent() {
       setSearchLoading(true);
       const { data } = await supabase
         .from("quizzes")
-        .select("*, questions(count)")
+        .select("*, questions(id)")
         .eq("is_public", true)
         .is("archived_at", null)
         .ilike("title", `%${term}%`)

@@ -174,7 +174,7 @@ function HostPageContent() {
       // Load quiz summaries only (no question data — loaded at launch time)
       const { data } = await supabase
         .from("quizzes")
-        .select("id, title, emoji, color, category, plays, creator_id, questions(count)")
+        .select("id, title, emoji, color, category, plays, creator_id, questions(id)")
         .or(`is_public.eq.true,creator_id.eq.${user!.id}`)
         .is("archived_at", null)
         .order("plays", { ascending: false });
@@ -192,7 +192,7 @@ function HostPageContent() {
           emoji: q.emoji,
           color: q.color,
           category: q.category,
-          question_count: (q.questions as unknown as { count: number }[])?.[0]?.count ?? 0,
+          question_count: Array.isArray(q.questions) ? q.questions.length : 0,
           plays: q.plays ?? 0,
           is_mine: isMine,
         };

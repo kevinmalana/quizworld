@@ -41,7 +41,7 @@ type QuizRow = {
   emoji: string | null;
   color: string | null;
   category: string;
-  questions?: { count: number }[];
+  questions?: { id: string }[];
 };
 
 export default function StudyListPage() {
@@ -65,7 +65,7 @@ export default function StudyListPage() {
 
       const quizQuery = supabase
         .from("quizzes")
-        .select("id, title, emoji, color, category, questions(count)")
+        .select("id, title, emoji, color, category, questions(id)")
         .is("archived_at", null)
         .order("created_at", { ascending: false })
         // No limit — fetch full catalog

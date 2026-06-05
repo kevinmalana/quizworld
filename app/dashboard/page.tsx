@@ -75,7 +75,7 @@ function DashboardPageContent() {
         await Promise.all([
           supabase
             .from("quizzes")
-            .select("id, title, emoji, color, plays, is_public, archived_at, questions(count)")
+            .select("id, title, emoji, color, plays, is_public, archived_at, questions(id)")
             .eq("creator_id", userId)
             .order("created_at", { ascending: false }),
           supabase
