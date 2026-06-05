@@ -17,6 +17,7 @@ export interface Question {
 
 export interface Quiz {
   id: string;
+  slug?: string | null;
   title: string;
   category: string;
   emoji: string;

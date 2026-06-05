@@ -22,6 +22,8 @@ export default function StudyPageClient() {
   const { user } = useAuth();
   const quizId   = params.id as string;
 
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   const [quiz, setQuiz]               = useState<StudyQuiz | null>(null);
   const [loading, setLoading]         = useState(true);
   const [mode, setMode]               = useState<StudyMode>("choose");
@@ -43,12 +45,10 @@ export default function StudyPageClient() {
 
   useEffect(() => {
     async function fetchQuiz() {
-      const { data, error } = await supabase
-        .from("quizzes")
-        .select("*, questions(*, answers(*))")
-        .eq("id", quizId)
-        .is("archived_at", null)
-        .single();
+      const query = UUID_RE.test(quizId)
+        ? supabase.from("quizzes").select("*, questions(*, answers(*))").eq("id", quizId).is("archived_at", null).single()
+        : supabase.from("quizzes").select("*, questions(*, answers(*))").eq("slug", quizId).is("archived_at", null).single();
+      const { data, error } = await query;
 
       if (data) {
         const sorted = [...(data.questions ?? [])].sort(

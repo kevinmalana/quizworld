@@ -15,6 +15,7 @@ export type QuizWithCreator = Quiz & {
 };
 
 export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
+  const identifier = quiz.slug || quiz.id;
   const displayName = quiz.creator_display_name || quiz.creator_name || null;
   const username = quiz.creator_username || null;
   const avatar = quiz.creator_avatar || "👤";
@@ -24,7 +25,7 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
 
   function handleShare(e: React.MouseEvent) {
     e.preventDefault();
-    const url = `https://www.quizworld.xyz/quiz/${quiz.id}`;
+    const url = `https://www.quizworld.xyz/quiz/${identifier}`;
     const shareData = { title: quiz.title, text: `Check out "${quiz.title}" on QuizWorld!`, url };
     const doShare = async () => {
       // Use native share sheet on mobile if available
@@ -98,7 +99,7 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
         <Link href={`/host?quiz=${quiz.id}`} className="btn btn-primary btn-compact explore-quiz-action-host">
           <HostIcon size={14} /> Host
         </Link>
-        <Link href={`/study/${quiz.id}`} className="btn btn-secondary btn-compact">
+        <Link href={`/study/${identifier}`} className="btn btn-secondary btn-compact">
           📖 Study
         </Link>
         <button
@@ -111,7 +112,7 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
       </div>
       <div style={{ marginTop: "0.5rem", textAlign: "center" }}>
         <Link
-          href={`/quiz/${quiz.id}`}
+          href={`/quiz/${identifier}`}
           style={{ fontSize: "0.8rem", color: "var(--muted)", textDecoration: "none" }}
         >
           View details →
