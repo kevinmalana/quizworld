@@ -3,40 +3,55 @@ import { NextResponse } from "next/server";
 export async function GET() {
   const baseUrl = "https://www.quizworld.xyz";
 
-  // Static pages
-  const staticPages = ["", "/explore", "/study", "/join", "/terms", "/privacy"];
+  const staticPages = [
+    { path: "", priority: "1.0", changefreq: "daily" },
+    { path: "/explore", priority: "0.9", changefreq: "daily" },
+    { path: "/study", priority: "0.8", changefreq: "weekly" },
+    { path: "/join", priority: "0.7", changefreq: "monthly" },
+    { path: "/terms", priority: "0.3", changefreq: "monthly" },
+    { path: "/privacy", priority: "0.3", changefreq: "monthly" },
+  ];
 
-  // Fetch public quizzes for dynamic URLs
-  let quizPages: string[] = [];
+  let quizPages: { path: string; priority: string; changefreq: string }[] = [];
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/quizzes?is_public=eq.true&archived_at=is.null&select=id`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/quizzes?is_public=eq.true&archived_at=is.null&select=id,slug,updated_at`,
       {
         headers: {
           apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""}`,
         },
-        next: { revalidate: 3600 }, // Revalidate every hour
+        next: { revalidate: 3600 },
       }
     );
     if (res.ok) {
-      const quizzes = (await res.json()) as Array<{ id: string }>;
-      quizPages = quizzes.map((q) => `/study/${q.id}`);
+      const quizzes = (await res.json()) as Array<{ id: string; slug: string | null; updated_at: string }>;
+      quizPages = quizzes.flatMap((q) => {
+        const identifier = q.slug || q.id;
+        const lastmod = q.updated_at ? `\n    <lastmod>${q.updated_at.split("T")[0]}</lastmod>` : "";
+        return [
+          { path: `/quiz/${identifier}`, priority: "0.8", changefreq: "weekly", lastmod },
+          { path: `/study/${identifier}`, priority: "0.8", changefreq: "weekly", lastmod },
+        ];
+      });
     }
   } catch {
     // Continue with static pages only
   }
 
-  const allPages = [...staticPages, ...quizPages];
+  const allPages = [
+    ...staticPages.map((p) => ({ ...p, lastmod: "" })),
+    ...quizPages,
+  ];
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${allPages
   .map(
-    (path) => `  <url>
-    <loc>${baseUrl}${path}</loc>
-    <changefreq>${path === "" ? "daily" : "weekly"}</changefreq>
-    <priority>${path === "" ? "1.0" : "0.7"}</priority>
+    (p) => `  <url>
+    <loc>${baseUrl}${p.path}</loc>${(p as { lastmod?: string }).lastmod || ""}
+    <changefreq>${p.changefreq}</changefreq>
+    <priority>${p.priority}</priority>
   </url>`
   )
   .join("\n")}

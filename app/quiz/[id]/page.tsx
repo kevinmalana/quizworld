@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { CATEGORY_EMOJIS } from "@/lib/store";
 import { QuizDetailShareButton } from "./QuizDetailShareButton";
@@ -9,31 +9,49 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function fetchQuiz(supabase: Awaited<ReturnType<typeof createClient>>, idOrSlug: string) {
+  if (UUID_RE.test(idOrSlug)) {
+    return supabase.from("quizzes").select("*, questions(*)").eq("id", idOrSlug).eq("is_public", true).single();
+  }
+  return supabase.from("quizzes").select("*, questions(*)").eq("slug", idOrSlug).eq("is_public", true).single();
+}
+
+async function fetchQuizMeta(supabase: Awaited<ReturnType<typeof createClient>>, idOrSlug: string) {
+  if (UUID_RE.test(idOrSlug)) {
+    return supabase.from("quizzes").select("id, slug, title, category, questions(id)").eq("id", idOrSlug).eq("is_public", true).single();
+  }
+  return supabase.from("quizzes").select("id, slug, title, category, questions(id)").eq("slug", idOrSlug).eq("is_public", true).single();
+}
+
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const supabase = await createClient();
-  const { data: quiz } = await supabase
-    .from("quizzes")
-    .select("title, category, questions(id)")
-    .eq("id", id)
-    .eq("is_public", true)
-    .single();
+  const { data: quiz } = await fetchQuizMeta(supabase, id);
 
   if (!quiz) return { title: "Quiz Not Found" };
 
   const qCount = Array.isArray(quiz.questions) ? quiz.questions.length : 0;
   const category = quiz.category as string | null;
   const title = quiz.title as string;
+  const slug = (quiz.slug as string | null) || quiz.id;
   const pageTitle = `${title} — Free ${category ? category + " " : ""}Quiz (${qCount} Questions)`;
   const description = `Test your knowledge with this free ${qCount}-question quiz on ${title}. Play live with friends or study solo on QuizWorld.`;
+  const canonicalUrl = `https://www.quizworld.xyz/quiz/${slug}`;
 
   return {
     title: pageTitle,
     description,
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title: pageTitle,
       description,
-      url: `https://www.quizworld.xyz/quiz/${id}`,
+      url: canonicalUrl,
       type: "website",
     },
     twitter: {
@@ -48,14 +66,15 @@ export default async function QuizDetailPage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: quiz } = await supabase
-    .from("quizzes")
-    .select("*, questions(*)")
-    .eq("id", id)
-    .eq("is_public", true)
-    .single();
+  const { data: quiz } = await fetchQuiz(supabase, id);
 
   if (!quiz) notFound();
+
+  // 301 redirect: if accessed by UUID and a slug exists, redirect to slug URL
+  const slug = quiz.slug as string | null;
+  if (UUID_RE.test(id) && slug) {
+    redirect(`/quiz/${slug}`);
+  }
 
   // Fetch creator profile
   const { data: profile } = quiz.creator_id
@@ -90,7 +109,7 @@ export default async function QuizDetailPage({ params }: PageProps) {
       })
     : null;
 
-  const quizUrl = `https://quizworld.xyz/quiz/${quiz.id}`;
+  const quizUrl = `https://quizworld.xyz/quiz/${slug || quiz.id}`;
 
   return (
     <div className="container quiz-detail-container">
