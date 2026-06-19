@@ -1,13 +1,8 @@
 import { test, expect, request } from '@playwright/test';
 
 /**
- * Security E2E Tests — verifies the 2026-06-19 security fixes
- *
- * Covers:
- * - import-pdf API requires authentication (was: anyone could upload)
- * - user_achievements RLS restricts anon access (was: no RLS)
- * - lookup_game_by_pin RPC works for join flow (was: direct table read)
- * - Profiles/public data is accessible but sensitive fields are scoped
+ * Security tests: import-pdf auth, RLS, join RPC, auth guards, headers.
+ * Added 2026-06-19.
  */
 
 const BASE = 'https://www.quizworld.xyz';
