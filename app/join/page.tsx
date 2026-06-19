@@ -121,13 +121,11 @@ function JoinForm() {
       }
 
       const { data: session } = await supabase
-        .from("game_sessions")
-        .select("*")
-        .eq("pin", p)
+        .rpc("lookup_game_by_pin", { p_pin: p })
         .single();
 
       if (session) {
-        if (session.status !== "waiting") {
+        if ((session as { status: string }).status !== "waiting") {
           setError("This game has already started.");
           setJoining(false);
           return;
