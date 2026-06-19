@@ -1,4 +1,4 @@
-import { uid, type Question } from "@/lib/store";
+import { uid, type Question } from "@/lib/shared";
 
 export type AIQuestionCitation = {
   snippet: string;

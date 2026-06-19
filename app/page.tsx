@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CATEGORY_EMOJIS } from "@/lib/store";
+import { CATEGORY_EMOJIS } from "@/lib/shared";
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   "General Knowledge": "Test your smarts",

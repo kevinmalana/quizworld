@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CATEGORY_EMOJIS, type Quiz } from "@/lib/store";
+import { CATEGORY_EMOJIS, type Quiz } from "@/lib/shared";
 import { HostIcon } from "@/components/shared/host-icon";
 
 export type QuizWithCreator = Quiz & {

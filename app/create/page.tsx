@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
-import { uid } from "@/lib/store";
+import { uid } from "@/lib/shared";
 import { parseImportedQuestions } from "@/lib/quiz-import";
 import type { AIGenerationOptions } from "@/lib/quiz-ai";
 import { DEFAULT_AI_OPTIONS } from "@/lib/quiz-ai";

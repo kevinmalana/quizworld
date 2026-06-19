@@ -1,5 +1,5 @@
 import type { AIQuizDraft } from "@/lib/quiz-ai";
-import { uid } from "@/lib/store";
+import { uid } from "@/lib/shared";
 import type { QuestionData } from "@/components/builder/QuestionCard";
 
 export function makeBlankQuestion(): QuestionData {

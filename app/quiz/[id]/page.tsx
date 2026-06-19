@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { CATEGORY_EMOJIS } from "@/lib/store";
+import { CATEGORY_EMOJIS } from "@/lib/shared";
 import { QuizDetailShareButton } from "./QuizDetailShareButton";
 
 export const revalidate = 3600;

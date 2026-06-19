@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { HostIcon } from "@/components/shared/host-icon";
-import { CATEGORY_EMOJIS } from "@/lib/store";
+import { CATEGORY_EMOJIS } from "@/lib/shared";
 import { createPhoenixSession } from "@/lib/game-engine/client";
 import {
   isPhoenixGameEngine,

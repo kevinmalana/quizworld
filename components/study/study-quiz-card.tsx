@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CATEGORY_EMOJIS } from "@/lib/store";
+import { CATEGORY_EMOJIS } from "@/lib/shared";
 
 export type StudyQuizCardQuiz = {
   id: string;

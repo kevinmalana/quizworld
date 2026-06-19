@@ -1,7 +1,7 @@
 import {
   uid,
   type Question,
-} from "@/lib/store";
+} from "@/lib/shared";
 
 const TIME_OPTIONS = [10, 20, 30, 60];
 const POINT_OPTIONS = [500, 1000, 2000];

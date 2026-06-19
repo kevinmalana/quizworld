@@ -8,7 +8,7 @@ import { useAuth } from "@/components/supabase-provider";
 import { SectionCard } from "@/components/section-card";
 import { calcLevel } from "@/components/study/study-session-panels";
 
-import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/store";
+import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/shared";
 import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/explore-quiz-card";
 
 const CATEGORY_LIST = ["All", ...Object.keys(CATEGORY_COLORS)];

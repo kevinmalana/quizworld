@@ -1,6 +1,6 @@
 "use client";
 
-import { CATEGORY_EMOJIS } from "@/lib/store";
+import { CATEGORY_EMOJIS } from "@/lib/shared";
 
 const CATEGORIES = Object.keys(CATEGORY_EMOJIS);
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CATEGORY_EMOJIS } from "@/lib/store";
+import { CATEGORY_EMOJIS } from "@/lib/shared";
 
 export const metadata: Metadata = {
   title: "Free Online Quizzes — Play Live or Study | QuizWorld",

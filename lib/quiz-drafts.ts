@@ -1,4 +1,4 @@
-import type { Question } from "@/lib/store";
+import type { Question } from "@/lib/shared";
 
 export type QuizDraftRow = {
   id: string;
