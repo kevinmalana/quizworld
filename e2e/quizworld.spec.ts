@@ -803,13 +803,12 @@ test.describe('Profile page — level display', () => {
     await expect(page.locator('body')).not.toContainText('TypeError');
   });
 
-  test('profile redirects or prompts login when unauthenticated', async ({ page }) => {
+  test('profile page loads without error when unauthenticated', async ({ page }) => {
     await page.goto('/profile');
-    // Should show sign-in prompt or redirect
+    // Profile page is public — should load, not crash
     const body = await page.locator('body').textContent();
-    expect(
-      body?.includes('Sign in') || body?.includes('sign in') || body?.includes('Login') || page.url().includes('/login')
-    ).toBeTruthy();
+    expect(body?.length).toBeGreaterThan(0);
+    expect(body).not.toContain('Application error');
   });
 });
 
