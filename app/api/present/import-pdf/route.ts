@@ -1,20 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 
 export async function POST(request: NextRequest) {
-  // Initialize Supabase inside the handler to avoid build-time errors
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
   try {
+    // Verify authentication — use the authenticated user's id, not client-supplied
+    const ssr = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return request.cookies.getAll(); },
+          setAll() { /* no-op */ },
+        },
+      }
+    );
+    const { data: { session } } = await ssr.auth.getSession();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+    const userId = session.user.id;
+
+    // Service-role client for storage operations
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    const userId = formData.get("userId") as string;
 
-    if (!file || !userId) {
-      return NextResponse.json({ error: "Missing file or userId" }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: "Missing file" }, { status: 400 });
     }
 
     if (!file.name.toLowerCase().endsWith(".pdf")) {
