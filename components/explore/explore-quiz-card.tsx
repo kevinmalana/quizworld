@@ -99,6 +99,9 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
         <Link href={`/host?quiz=${quiz.id}`} className="btn btn-primary btn-compact explore-quiz-action-host">
           <HostIcon size={14} /> Host
         </Link>
+        <Link href={`/solo/${quiz.id}`} className="btn btn-accent btn-compact">
+          ▶ Play
+        </Link>
         <Link href={`/study/${identifier}`} className="btn btn-secondary btn-compact">
           📖 Study
         </Link>

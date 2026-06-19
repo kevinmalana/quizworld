@@ -240,6 +240,9 @@ export default async function QuizDetailPage({ params }: PageProps) {
           <Link href={`/host?quiz=${quiz.id}`} className="btn btn-primary">
             🎮 Host Game
           </Link>
+          <Link href={`/solo/${quiz.id}`} className="btn btn-accent">
+            ▶️ Play Solo
+          </Link>
           <Link href={`/study/${quiz.id}`} className="btn btn-secondary">
             📖 Study Mode
           </Link>
