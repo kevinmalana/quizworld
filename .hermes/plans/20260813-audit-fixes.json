@@ -1,0 +1,351 @@
+{
+  "id": "quizworld-audit-fix-20260813",
+  "created_at": "2026-08-13T16:36:45.583228Z",
+  "scope": "QuizWorld security, performance, and reliability fixes",
+  "items": [
+    {
+      "id": "fix-01",
+      "severity": "critical",
+      "title": "Lock down game_results RLS + secure /report route",
+      "files": [
+        "supabase/migrations/20260813_restore_host_only_results.sql (new)",
+        "app/report/[pin]/page.tsx",
+        "app/api/reports/[pin]/route.ts (new)"
+      ],
+      "goal": "Restore `auth.uid() = host_id` SELECT policy on game_results; add server-side /api/reports/[pin] route that gates via Supabase auth session.",
+      "steps": [
+        "1. Create migration that DROPs `game_results public read` and recreates `game_results read own host results`.",
+        "2. Create migration that DROPs `players public read` and `player_answers public read` \u2014 recreate with host-only or member-of-game policies.",
+        "3. If /report page still needs SOME public-readable data (e.g., post-game recap that's shareable), design and add a separate `game_recaps` table with public SELECT.",
+        "4. Add `app/api/reports/[pin]/route.ts` that uses `createServerClient` + checks session.user.id matches game_results.host_id.",
+        "5. Refactor `app/report/[pin]/page.tsx` to call `/api/reports/[pin]` instead of direct supabase."
+      ],
+      "verify": [
+        "Anon user with valid PIN \u2192 /api/reports/[pin] returns 403.",
+        "Host user \u2192 200 with full report.",
+        "Non-host authed user \u2192 403.",
+        "Run npm run typecheck + npm run build."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-02",
+      "severity": "critical",
+      "title": "Add auth + rate-limit to /api/present/import-deck",
+      "files": [
+        "app/api/present/import-deck/route.ts"
+      ],
+      "goal": "Require Supabase auth + apply same rate-limit used in /api/ai-source-draft + cap upload size.",
+      "steps": [
+        "1. Add `checkRateLimit` call (15/min per user).",
+        "2. Add `auth.getSession()` check (mirror import-pdf pattern).",
+        "3. Reduce MAX_SIZE to 25MB.",
+        "4. Sanitize filename before EXEC to LibreOffice (it's passed as a path argument so already safe, but check).",
+        "5. Add `randomize input filename` to avoid path-traversal paranoia.",
+        "6. Limit conversion timeout to 30s (down from 60s) to free workers faster."
+      ],
+      "verify": [
+        "Anon POST \u2192 401.",
+        "Logged-in POST \u2192 200 with file or 400 with error.",
+        "Rate-limit fires after 15 in 60s."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-03",
+      "severity": "high",
+      "title": "Add auth + rate-limit to all writes on /api/import-pdf (defensive)",
+      "files": [
+        "app/api/present/import-pdf/route.ts"
+      ],
+      "goal": "Add `checkRateLimit` to /api/present/import-pdf so spamming PDFs is bounded.",
+      "steps": [
+        "1. Add `checkRateLimit(request, { maxRequests: 10, windowMs: 60_000 })`."
+      ],
+      "verify": [
+        "Anon POST \u2192 401.",
+        "Logged-in 10th POST within 60s \u2192 429."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-04",
+      "severity": "high",
+      "title": "Limit /study to bounded query (200 items + pagination)",
+      "files": [
+        "app/study/page.tsx"
+      ],
+      "goal": "Stop loading the entire catalog; cap at 200 most-recent with a 'load more' flow.",
+      "steps": [
+        "1. Add `.limit(200)` to quizQuery.",
+        "2. If returned == 200, show a `Load more` button that fetches the next page (cursor-based on created_at).",
+        "3. Show count label 'Showing 200 latest \u2014 Load more for older'."
+      ],
+      "verify": [
+        "Visit /study with mock 5000 quizzes in DB \u2192 only 200 fetched.",
+        "Type-check + build clean."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-05",
+      "severity": "high",
+      "title": "Limit /admin/loadAll() to bounded queries",
+      "files": [
+        "app/admin/page.tsx"
+      ],
+      "goal": "Cap quiz/profile queries to 500 most-recent.",
+      "steps": [
+        "1. Add `.limit(500)` to both profiles and quizzes queries.",
+        "2. Show counts in UI ('showing 500 most recent of N total') if count > 500.",
+        "3. Add 'Most played' and 'Search by username/title' tabs to navigate within the cap."
+      ],
+      "verify": [
+        "Visual: numbers don't go off the rails with 5000 quizzes."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-06",
+      "severity": "high",
+      "title": "Add 9 missing database indexes",
+      "files": [
+        "supabase/migrations/20260813_add_indexes.sql (new)"
+      ],
+      "goal": "Speed up /dashboard, /explore, /report, /join, /classrooms.",
+      "steps": [
+        "1. Write migration with 8 indexes (see Part B recommendation).",
+        "2. Apply via Supabase SQL editor (or use mcp__supabase__apply_migration).",
+        "3. Verify via EXPLAIN ANALYZE before/after on key queries."
+      ],
+      "verify": [
+        "EXPLAIN on /explore main query: Index Scan using idx_quizzes_plays_desc.",
+        "EXPLAIN on /join RPC: Index Scan using idx_game_sessions_pin."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-07",
+      "severity": "medium",
+      "title": "Fix Map.fetch! crash in Phoenix reveal_current_question",
+      "files": [
+        "services/quizworld_realtime/lib/quizworld_realtime/game.ex"
+      ],
+      "goal": "When a question has no is_correct answer, return {:error, :no_correct_answer} instead of crashing the GenServer.",
+      "steps": [
+        "1. Replace `Map.fetch!(\"id\")` with case statement returning {:error, :no_correct_answer} on nil.",
+        "2. Update caller (game_server.ex) to ignore {:error, :no_correct_answer} and keep current state.",
+        "3. Add log warning for visibility."
+      ],
+      "verify": [
+        "Local mix test: malformed question data doesn't crash.",
+        "Compiles with --warnings-as-errors."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-08",
+      "severity": "medium",
+      "title": "Add Phoenix task supervision for result_sync",
+      "files": [
+        "services/quizworld_realtime/lib/quizworld_realtime/application.ex",
+        "services/quizworld_realtime/lib/quizworld_realtime/result_sync.ex"
+      ],
+      "goal": "Replace `Task.start/1` with `Task.Supervisor.async_nolink` so failures are visible + can be retried.",
+      "steps": [
+        "1. Add Task.Supervisor to children() in application.ex.",
+        "2. Add ResultSync.persist/2 that does the same work but raises on persistent failure.",
+        "3. Switch game_server.ex sync_finished_game to use Task.Supervisor with proper supervisor name.",
+        "4. Optional: add retry with exponential backoff.",
+        "5. Add a Prometheus counter / Logger metric for sync_success/failure."
+      ],
+      "verify": [
+        "mix test still passes.",
+        "Supabase outage simulation: task visible in supervisor; retry on recovery."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-09",
+      "severity": "medium",
+      "title": "Mobile PIN digit duplication fix in /join",
+      "files": [
+        "app/join/page.tsx"
+      ],
+      "goal": "Stop mobile autocorrect/swipe-typing from producing duplicate digits.",
+      "steps": [
+        "1. Replace handleDigitChange with onInput + always-clear-on-render.",
+        "2. Add a hidden single-input fallback OR a robust multi-cell that handles paste.",
+        "3. Use inputMode='numeric' but allow alphanumeric.",
+        "4. Test on iOS Safari + Android Chrome."
+      ],
+      "verify": [
+        "Type 'ABC123' on mobile \u2192 produces [\"A\",\"B\",\"C\",\"1\",\"2\",\"3\"] only.",
+        "No duplicates."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-10",
+      "severity": "medium",
+      "title": "Server-side /explore category filter",
+      "files": [
+        "app/explore/page.tsx"
+      ],
+      "goal": "Make category filter actually filter, with pagination preserved.",
+      "steps": [
+        "1. Move activeCategory into the fetchPage query.",
+        "2. Use `useEffect` deps including `[activeCategory, sortMode]`.",
+        "3. Reset page=0 on category change.",
+        "4. If category+search yields 0 results on server, show empty state."
+      ],
+      "verify": [
+        "Visit /explore, select 'Mathematics' \u2192 returns ONLY math quizzes.",
+        "Pagination works within filtered category."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-11",
+      "severity": "medium",
+      "title": "Add CSP header via next.config + Vercel edge",
+      "files": [
+        "next.config.mjs",
+        "vercel.json"
+      ],
+      "goal": "Set Content-Security-Policy at the response level.",
+      "steps": [
+        "1. Add CSP header in next.config.mjs (frame-src 'self', script-src 'self' 'unsafe-inline', etc.).",
+        "2. Test with curl -sI https://www.quizworld.xyz after deploy.",
+        "3. Be careful not to break Supabase WebSocket connections or auth callbacks."
+      ],
+      "verify": [
+        "curl -sI shows Content-Security-Policy header.",
+        "App doesn't break in browser."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-12",
+      "severity": "medium",
+      "title": "Add E2E tests for game_results RLS + import-deck auth",
+      "files": [
+        "e2e/security.spec.ts",
+        "e2e/security-extra.spec.ts (new)"
+      ],
+      "goal": "Lock in the fixes from fix-01 and fix-02 with regression tests.",
+      "steps": [
+        "1. Add 4 new test.describe blocks: game_results RLS, player_answers RLS, /report anon access, /api/present/import-deck auth.",
+        "2. Run the full suite."
+      ],
+      "verify": [
+        "All new tests pass.",
+        "Existing tests still pass."
+      ],
+      "deps": [
+        "fix-01",
+        "fix-02"
+      ]
+    },
+    {
+      "id": "fix-13",
+      "severity": "low",
+      "title": "Increase host-session TTL + age indicator + add ad-hoc helpers",
+      "files": [
+        "lib/host-session.ts",
+        "lib/host-session-age.ts (new)",
+        "app/game/[pin]/page.tsx"
+      ],
+      "goal": "12h TTL for long classroom sessions; show the host how long their session has been live.",
+      "steps": [
+        "1. Change HOST_SESSION_TTL_MS to 12h.",
+        "2. Add a helper that returns session age from sessionStorage timestamp.",
+        "3. In host panel, show 'Live for Xh Ym' badge.",
+        "4. Add renew-on-action: rewrite sessionStorage on each successful reveal/advance."
+      ],
+      "verify": [
+        "Visual: time-since-launch visible in host UI.",
+        "Long classroom scenario: session survives 6h."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-14",
+      "severity": "low",
+      "title": "Sign-in CTA when AI endpoints 401 + fix opaque error",
+      "files": [
+        "app/create/page.tsx"
+      ],
+      "goal": "If user not logged in, AI generation should show a clear 'Sign in to use AI quiz generation' prompt instead of 'AI generation failed'.",
+      "steps": [
+        "1. Pre-check `user?.id` before calling /api/ai-source-draft.",
+        "2. If null, show sign-in CTA inline.",
+        "3. Server-side keep 401 as-is (defense-in-depth)."
+      ],
+      "verify": [
+        "Logged-out user clicks Generate \u2192 'Sign in' button visible.",
+        "Logged-in user \u2192 existing flow."
+      ],
+      "deps": []
+    },
+    {
+      "id": "fix-15",
+      "severity": "low",
+      "title": "Add /api/ai-game-insights to rate limit",
+      "files": [
+        "lib/rate-limit.ts"
+      ],
+      "goal": "Cap /api/ai-game-insights at 10/min per user.",
+      "steps": [
+        "1. Add `{ maxRequests: 10, windowMs: 60_000 }` to ROUTE_LIMITS for /api/ai-game-insights."
+      ],
+      "verify": [
+        "11th call within 60s \u2192 429."
+      ],
+      "deps": []
+    }
+  ],
+  "status": "in_progress",
+  "phases": [
+    {
+      "name": "1 \u2014 security",
+      "items": [
+        "fix-01",
+        "fix-02",
+        "fix-03",
+        "fix-12"
+      ]
+    },
+    {
+      "name": "2 \u2014 perf & scaling",
+      "items": [
+        "fix-04",
+        "fix-05",
+        "fix-06"
+      ]
+    },
+    {
+      "name": "3 \u2014 reliability",
+      "items": [
+        "fix-07",
+        "fix-08"
+      ]
+    },
+    {
+      "name": "4 \u2014 UX",
+      "items": [
+        "fix-09",
+        "fix-10",
+        "fix-13",
+        "fix-14"
+      ]
+    },
+    {
+      "name": "5 \u2014 hardening",
+      "items": [
+        "fix-11",
+        "fix-15"
+      ]
+    }
+  ]
+}

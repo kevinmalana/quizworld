@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate-limit: bound per-user request rate (added 2026-08-13).
+    // PDF upload is bounded but not CPU-intensive — 10/min per user is generous.
+    const rateLimitResponse = await checkRateLimit(request);
+    if (rateLimitResponse) return rateLimitResponse;
+
     // Verify authentication — use the authenticated user's id, not client-supplied
     const ssr = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

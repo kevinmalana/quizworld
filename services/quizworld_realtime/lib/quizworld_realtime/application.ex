@@ -10,7 +10,12 @@ defmodule QuizworldRealtime.Application do
         {Phoenix.PubSub, name: QuizworldRealtime.PubSub},
         QuizworldRealtime.Presence,
         {Registry, keys: :unique, name: QuizworldRealtime.GameRegistry},
-        {DynamicSupervisor, strategy: :one_for_one, name: QuizworldRealtime.GameSupervisor}
+        {DynamicSupervisor, strategy: :one_for_one, name: QuizworldRealtime.GameSupervisor},
+        # 2026-08-13: Task.Supervisor for background sync tasks.
+        # Previously `Task.start/1` was used for result-sync, which is fire-and-forget
+        # with no monitoring. With Task.Supervisor + Logger.metadata, failures are
+        # visible in process listings and we can add retries/metrics later.
+        {Task.Supervisor, name: QuizworldRealtime.TaskSupervisor}
       ] ++ redis_child() ++ [QuizworldRealtimeWeb.Endpoint]
 
     opts = [strategy: :one_for_one, name: QuizworldRealtime.Supervisor]

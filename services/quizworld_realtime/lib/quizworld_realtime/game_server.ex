@@ -180,8 +180,13 @@ defmodule QuizworldRealtime.GameServer do
     {:reply, {:error, reason}, game}
   end
 
+  # 2026-08-13: Switched from `Task.start/1` (fire-and-forget) to supervised task.
+  # Failures are now visible; we can later add retries here without restructuring.
   defp sync_finished_game(%Game{status: "finished"} = game) do
-    Task.start(fn -> QuizworldRealtime.ResultSync.persist_finished_game(game) end)
+    Task.Supervisor.start_child(
+      QuizworldRealtime.TaskSupervisor,
+      fn -> QuizworldRealtime.ResultSync.persist_finished_game(game) end
+    )
   end
 
   defp sync_finished_game(_game), do: :ok

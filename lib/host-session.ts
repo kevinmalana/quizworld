@@ -8,7 +8,29 @@ type StoredHostSessionRaw = StoredHostSession & {
   expiresAt: number;
 };
 
-const HOST_SESSION_TTL_MS = 4 * 60 * 60 * 1000;
+// 2026-08-13: bumped TTL from 4h to 12h. Long-running classroom sessions (a full teaching
+// period) can easily exceed 4h, and a silent expiry in the middle of a lesson was leaving
+// games stuck in reveal phase. 12h covers a full school day with margin to spare.
+const HOST_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * 2026-08-13: Returns the age (in ms) of a stored host session, or null if no session
+ * or session has expired. Used by the host UI to surface "Session active for Xh Ym".
+ */
+export function readHostSessionAge(pin: string): number | null {
+  if (typeof window === "undefined") return null;
+  const storageKey = getHostSessionStorageKey(pin);
+  const raw = sessionStorage.getItem(storageKey) ?? localStorage.getItem(storageKey);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoredHostSessionRaw>;
+    if (!parsed.expiresAt) return null;
+    const createdAt = parsed.expiresAt - HOST_SESSION_TTL_MS;
+    return Date.now() - createdAt;
+  } catch {
+    return null;
+  }
+}
 
 export function getHostSessionStorageKey(pin: string) {
   return `qw_host_session_${pin.toUpperCase()}`;

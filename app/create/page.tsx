@@ -198,40 +198,53 @@ function CreatePageContent() {
   }, []);
 
   const handleAiGenerate = useCallback(async () => {
-    const topic = aiTopic.trim();
-    if (!topic || topic.length < 5) return;
-    setAiLoading(true);
-    setAiError("");
-    try {
-      // Pad short topics to meet the 200-char minimum for source text
-      const sourceText = topic.length < 200
-        ? `Topic: ${topic}.\n\nGenerate quiz questions about this topic. Include relevant facts, key concepts, and important details that would make good educational quiz questions. The questions should test knowledge about ${topic}.`
-        : topic;
-      const res = await fetch("/api/ai-source-draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceText, sourceTitle: topic.slice(0, 60), questionCount: aiCount, aiOptions, sourceMode: "topic" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "AI generation failed");
-      const generated = aiDraftToQuestionData(data.draft);
-      setQuestions(generated);
-      setQuizTitle(data.draft.title || aiTopic.slice(0, 60));
-      setActiveIndex(0);
-      setStep("builder");
-    } catch (err: any) {
-      setAiError(err.message || "Something went wrong");
-    } finally {
-      setAiLoading(false);
-    }
-  }, [aiTopic, aiCount, aiOptions]);
+        const topic = aiTopic.trim();
+        if (!topic || topic.length < 5) return;
+        // 2026-08-13: Pre-flight auth check. Without this, logged-out users click
+        // "Generate", the server returns 401 "Sign in to use AI features", and
+        // the front-end catch block shows "AI generation failed" — which is a
+        // terrible UX. Now we detect the missing session BEFORE firing the request.
+        if (!user) {
+          setAiError("Sign in to use AI quiz generation.");
+          return;
+        }
+        setAiLoading(true);
+        setAiError("");
+        try {
+          // Pad short topics to meet the 200-char minimum for source text
+          const sourceText = topic.length < 200
+            ? `Topic: ${topic}.\n\nGenerate quiz questions about this topic. Include relevant facts, key concepts, and important details that would make good educational quiz questions. The questions should test knowledge about ${topic}.`
+            : topic;
+          const res = await fetch("/api/ai-source-draft", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sourceText, sourceTitle: topic.slice(0, 60), questionCount: aiCount, aiOptions, sourceMode: "topic" }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "AI generation failed");
+          const generated = aiDraftToQuestionData(data.draft);
+          setQuestions(generated);
+          setQuizTitle(data.draft.title || aiTopic.slice(0, 60));
+          setActiveIndex(0);
+          setStep("builder");
+        } catch (err: any) {
+          setAiError(err.message || "Something went wrong");
+        } finally {
+          setAiLoading(false);
+        }
+      }, [aiTopic, aiCount, aiOptions, user]);
 
   const handlePasteImport = useCallback(async () => {
-    if (!pasteText.trim()) return;
-    setAiError("");
-
-    // Try regex parsing first (structured format)
-    const parsed = parseImportedQuestions(pasteText);
+        if (!pasteText.trim()) return;
+        // 2026-08-13: same auth pre-flight as handleAiGenerate — see comment there.
+        if (!user) {
+          setAiError("Sign in to use AI quiz generation.");
+          return;
+        }
+        setAiError("");
+    
+        // Try regex parsing first (structured format)
+        const parsed = parseImportedQuestions(pasteText);
     if (parsed.questions && parsed.questions.length > 0) {
       const generated = parsed.questions.map((q: any) => legacyToQuestionData(q));
       setQuestions(generated);
@@ -271,10 +284,15 @@ function CreatePageContent() {
     } finally {
       setAiLoading(false);
     }
-  }, [pasteText, aiCount, aiOptions]);
+  }, [pasteText, aiCount, aiOptions, user]);
 
   const handleUrlFetch = useCallback(async () => {
     if (!aiUrl.trim()) return;
+    // 2026-08-13: same auth pre-flight as handleAiGenerate / handlePasteImport.
+    if (!user) {
+      setAiError("Sign in to use AI quiz generation.");
+      return;
+    }
     setAiLoading(true);
     setAiError("");
     try {
@@ -307,7 +325,7 @@ function CreatePageContent() {
     } finally {
       setAiLoading(false);
     }
-  }, [aiUrl, aiCount, aiOptions]);
+  }, [aiUrl, aiCount, aiOptions, user]);
 
   // ── AI Enrichment ──
   const handleEnrich = useCallback(async () => {

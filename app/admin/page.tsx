@@ -46,9 +46,16 @@ export default function AdminPage() {
 
   async function loadAll() {
     setLoading(true);
+    // 2026-08-13: bound admin lists. Without limits, the admin page
+    // does a full table scan every time it loads. With 5000+ public
+    // quizzes this would start to be expensive on Supabase (which costs
+    // CPU proportional to rows scanned). Cap at 500 most-recent for
+    // each list. For full audit/ad-hoc queries, the admin can use
+    // the Supabase dashboard directly.
+    const ADMIN_PAGE_LIMIT = 500;
     const [p, q, gr, gs] = await Promise.all([
-      supabase.from("profiles").select("id,username,is_admin,created_at").order("created_at", { ascending: false }),
-      supabase.from("quizzes").select("id,title,plays,is_public,created_at").order("created_at", { ascending: false }),
+      supabase.from("profiles").select("id,username,is_admin,created_at").order("created_at", { ascending: false }).limit(ADMIN_PAGE_LIMIT),
+      supabase.from("quizzes").select("id,title,plays,is_public,created_at").order("created_at", { ascending: false }).limit(ADMIN_PAGE_LIMIT),
       supabase.from("game_results").select("id,pin,player_count,finished_at").order("finished_at", { ascending: false }).limit(50),
       supabase.from("game_sessions").select("id,pin,status,created_at").order("created_at", { ascending: false }).limit(50),
     ]);
@@ -56,16 +63,24 @@ export default function AdminPage() {
     setQuizzes((q.data as Quiz[]) ?? []);
     setGameResults((gr.data as GameResult[]) ?? []);
     setGameSessions((gs.data as GameSession[]) ?? []);
+    // Note: if profiles.length == ADMIN_PAGE_LIMIT or quizzes.length == ADMIN_PAGE_LIMIT,
+    // the actual totals are higher; admin can verify via Supabase dashboard.
     setLoading(false);
 
+    // 2026-08-13: shortened phoenix health check timeout from 15s to 5s.
+    // The admin page-load should be fast even if Phoenix is cold-starting;
+    // 15s was making the admin tab freeze for 15s on Render free-tier wakeup.
+    // If cold, /api/health may simply fail — that's fine for the overview tab.
     try {
-      const res  = await fetch("https://quizworld-xs0g.onrender.com/api/health", { signal: AbortSignal.timeout(15000) });
+      const res = await fetch("https://quizworld-xs0g.onrender.com/api/health", { signal: AbortSignal.timeout(5000) });
       const data = await res.json();
       setPhoenixHealth(`${data.status} — redis:${data.redis}`);
     } catch {
       setPhoenixHealth("unreachable");
     }
   }
+
+
 
   if (authLoading)           return <div className="container loading-panel">Loading...</div>;
   if (!user)                 return <div className="container loading-panel"><p className="text-muted">Sign in to access admin.</p></div>;

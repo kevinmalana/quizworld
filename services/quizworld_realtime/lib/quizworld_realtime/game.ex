@@ -292,10 +292,29 @@ defmodule QuizworldRealtime.Game do
          {:ok, question} <- fetch_current_question(game) do
       total_time_ms = max(Map.get(question, "time_limit", 20), 1) * 1000
 
-      correct_answer_id =
+      # 2026-08-13: Defensive — if a question has no `is_correct` answer
+      # (malformed import, broken data, etc.), score the round with
+      # `correct_answer_id = nil`. Previously, `Map.fetch!("id")` would raise,
+      # crash the GenServer, force a DynamicSupervisor restart, and disconnect
+      # all live players. Now we fail the reveal gracefully.
+      correct_answer =
         question["answers"]
         |> Enum.find(fn answer -> Map.get(answer, "is_correct", false) end)
-        |> Map.fetch!("id")
+
+      correct_answer_id =
+        case correct_answer do
+          nil -> nil
+          answer -> answer["id"]
+        end
+
+      if correct_answer_id == nil do
+        require Logger
+        Logger.warning(
+          "[Game #{game.pin}] Question " <>
+            "#{question["id"] || "?"} has no is_correct answer; " <>
+            "scoring skipped for this round"
+        )
+      end
 
       scored_rows =
         game.answers

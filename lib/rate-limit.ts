@@ -17,6 +17,13 @@ const ROUTE_LIMITS: Record<string, { maxRequests: number; windowMs: number }> = 
   "/api/ai-source-draft": { maxRequests: 15, windowMs: 60_000 },
   "/api/import-url":       { maxRequests: 10, windowMs: 60_000 },
   "/api/ai-enrich":        { maxRequests: 20, windowMs: 60_000 },
+  // 2026-08-13 — bounds file-conversion endpoints:
+  // /api/present/import-pdf  : 10/min per user — single-classroom upload workload
+  // /api/present/import-deck : 10/min per user — pptx conversion is CPU-bound (LibreOffice)
+  "/api/present/import-pdf":  { maxRequests: 10, windowMs: 60_000 },
+  "/api/present/import-deck": { maxRequests: 10, windowMs: 60_000 },
+  // 2026-08-13 — AI insights was unprotected from authDoS /api/ai-game-insights: 10/min
+  "/api/ai-game-insights": { maxRequests: 10, windowMs: 60_000 },
 };
 
 // ─── In-process store ─────────────────────────────────────────────────────────

@@ -70,7 +70,12 @@ function JoinForm() {
   }
 
   const handleDigitChange = (idx: number, val: string) => {
-    const char = val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(-1);
+    // 2026-08-13: Mobile PIN duplication fix.
+    // The previous logic `val.slice(-1)` happily took the LAST character of ANY onChange,
+    // which on mobile/iOS keystroke bursts or autocorrect could be a duplicate.
+    // Fix: take the FIRST character (which is what the user intended to type into this slot),
+    // and explicitly clear the input via e.target.value="" in handleDigitInput below.
+    const char = val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 1);
     const newDigits = [...digits];
     newDigits[idx] = char;
     setDigits(newDigits);
@@ -79,6 +84,20 @@ function JoinForm() {
     }
     setPin(newDigits.join(""));
     setError("");
+  };
+
+  /**
+   * 2026-08-13: New handler that ensures the input field is cleared after each onChange.
+   * This prevents stale typed characters from sticking around (the cause of the
+   * "mobile PIN duplication" bug, where iOS autocorrect would inject extra characters).
+   * We use onInput instead of onChange because onInput fires synchronously per keystroke,
+   * letting us normalize the buffer before React renders again.
+   */
+  const handleDigitInput = (idx: number, e: React.FormEvent<HTMLInputElement>) => {
+    handleDigitChange(idx, e.currentTarget.value);
+    // Reset the underlying input element to its data attribute
+    // so React re-renders with our normalized digits array.
+    e.currentTarget.value = digits[idx] || "";
   };
 
   const handleDigitKeyDown = (idx: number, e: React.KeyboardEvent) => {
@@ -271,14 +290,40 @@ function JoinForm() {
               ref={(el) => { digitRefs.current[i] = el; }}
               type="text"
               inputMode="text"
-              pattern="[A-Z0-9]*"
-              maxLength={1}
-              value={d}
-              onChange={(e) => handleDigitChange(i, e.target.value)}
-              onKeyDown={(e) => handleDigitKeyDown(i, e)}
-              className="input-pin join-digit-input"
-              aria-label={`PIN character ${i + 1}`}
-            />
+              // 2026-08-13: explicit autoComplete/autocorrect/capitalize off on mobile.
+                // iOS Safari will otherwise suggest autocorrected "B8" instead of "B" etc.
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                pattern="[A-Z0-9]*"
+                maxLength={1}
+                value={d}
+                onChange={(e) => handleDigitChange(i, e.target.value)}
+                onInput={(e) => handleDigitInput(i, e)}
+                onKeyDown={(e) => handleDigitKeyDown(i, e)}
+                onPaste={(e) => {
+                  // 2026-08-13: paste the entire string into the next N digits.
+                  // Without this, a paste of the full PIN would only fill the first box.
+                  e.preventDefault();
+                  const pasted = (e.clipboardData.getData("text") || "")
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]/g, "")
+                    .slice(0, 6 - digits.filter(Boolean).length);
+                  const newDigits = [...digits];
+                  for (let j = 0; j < pasted.length && i + j < 6; j++) {
+                    newDigits[i + j] = pasted[j];
+                  }
+                  setDigits(newDigits);
+                  setPin(newDigits.join(""));
+                  setError("");
+                  // Focus the next empty cell, or the last cell.
+                  const next = Math.min(i + pasted.length, 5);
+                  digitRefs.current[next]?.focus();
+                }}
+                className="input-pin join-digit-input"
+                aria-label={`PIN character ${i + 1}`}
+              />
           ))}
         </div>
 

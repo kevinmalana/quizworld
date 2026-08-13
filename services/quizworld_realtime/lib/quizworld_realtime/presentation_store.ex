@@ -16,6 +16,19 @@ defmodule QuizworldRealtime.PresentationStore do
     ])
   end
 
+  # 2026-08-13: Returns the presenter_token currently associated with this live
+  # presentation session, or :not_live if no live session exists. Used by
+  # PresentationChannel.ensure_presenter/2 to verify the calling socket
+  # actually has the host token. Previously this function was missing —
+  # the channel referenced it but it wasn't defined, which would crash at
+  # runtime. The build was warning but not erroring.
+  def get_live_session(presentation_id) do
+    case command(["GET", live_key(presentation_id)]) do
+      {:ok, token} when is_binary(token) -> {:ok, token}
+      _ -> {:error, :not_live}
+    end
+  end
+
   def presenter_token?(presentation_id, presenter_token) when is_binary(presenter_token) do
     exists?(presenter_key(presentation_id, presenter_token))
   end

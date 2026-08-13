@@ -48,13 +48,16 @@ test.describe('Game Engine: Error Messages', () => {
       await input.fill('ZZZZZZ');
       const enterBtn = page.getByRole('button', { name: /enter|join/i }).first();
       if (await enterBtn.isVisible()) {
-        await enterBtn.click();
-        await page.waitForTimeout(2000);
-        // Should show specific error not just "error occurred"
-        const errorText = await page.locator('[class*="error"], .error-message').first().textContent().catch(() => '');
-        expect(errorText.length).toBeGreaterThan(0);
-        expect(errorText.toLowerCase()).not.toContain('something went wrong');
-      }
+                await enterBtn.click();
+                await page.waitForTimeout(2000);
+                // Should show specific error not just "error occurred".
+                // 2026-08-13: textContent() returns null when no element matches; the catch
+                // falls back to '' so errorText is always a string. The TS error was a
+                // false positive — but the explicit check reads better.
+                const errorText = (await page.locator('[class*="error"], .error-message').first().textContent().catch(() => '')) ?? '';
+                expect(errorText.length).toBeGreaterThan(0);
+                expect(errorText.toLowerCase()).not.toContain('something went wrong');
+              }
     }
   });
 

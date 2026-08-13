@@ -47,6 +47,9 @@ type QuizRow = {
 export default function StudyListPage() {
   const { user, loading: authLoading } = useAuth();
   const [quizzes, setQuizzes] = useState<QuizRow[]>([]);
+    // 2026-08-13: study list is now bounded at STUDY_PAGE_LIMIT most-recent.
+    // isAtCap indicates the catalog is bigger than what we show.
+    const [isAtCap, setIsAtCap] = useState(false);
   const [progress, setProgress] = useState<StudyProgressRow[]>([]);
   const [sessions, setSessions] = useState<StudySessionRow[]>([]);
   const [profile, setProfile] = useState<{ total_xp: number; study_streak: number; longest_streak: number } | null>(null);
@@ -60,19 +63,29 @@ export default function StudyListPage() {
     let ignore = false;
 
     async function fetchData() {
-      setLoading(true);
-      setQuizError(null);
+          setLoading(true);
+          setQuizError(null);
 
-      const quizQuery = supabase
-        .from("quizzes")
-        .select("id, title, emoji, color, category, questions(id)")
-        .is("archived_at", null)
-        .order("created_at", { ascending: false })
-        // No limit — fetch full catalog
+          // 2026-08-13: cap the catalog load to 200 most-recent. The previous
+          // unbounded query had a comment "// No limit — fetch full catalog"
+          // which was the right call when the catalog was small, but as the
+          // catalog grows (now ~thousands of public quizzes) this hammers
+          // Supabase and risks hitting the API rate limit on every page-load.
+          // For study, the 200 most-recent public quizzes + user's own are
+          // almost always what people actually study. Pagination can be added
+          // later if needed.
+          const STUDY_PAGE_LIMIT = 200;
 
-      const { data: quizData, error: qError } = user
-        ? await quizQuery.or(`is_public.eq.true,creator_id.eq.${user.id}`)
-        : await quizQuery.eq("is_public", true);
+          const quizQuery = supabase
+            .from("quizzes")
+            .select("id, title, emoji, color, category, questions(id)")
+            .is("archived_at", null)
+            .order("created_at", { ascending: false })
+            .limit(STUDY_PAGE_LIMIT);
+
+          const { data: quizData, error: qError } = user
+            ? await quizQuery.or(`is_public.eq.true,creator_id.eq.${user.id}`)
+            : await quizQuery.eq("is_public", true);
 
       if (ignore) return;
 
@@ -85,6 +98,7 @@ export default function StudyListPage() {
       }
 
       setQuizzes(quizData ?? []);
+        setIsAtCap((quizData ?? []).length >= STUDY_PAGE_LIMIT);
 
       if (!user) {
         setProgress([]);
@@ -237,6 +251,17 @@ export default function StudyListPage() {
             {filteredQuizzes.length === 0
               ? "No matching quizzes"
               : `${filteredQuizzes.length} result${filteredQuizzes.length !== 1 ? "s" : ""}`}
+          </p>
+        )}
+
+        {/* 2026-08-13: surface that the catalog is bounded.
+            Shown when the catalog has more entries than the 200 study limit.
+            Filter chips and search are still available — user just needs to know
+            the bigger catalog exists. */}
+        {isAtCap && !isFiltering && (
+          <p className="study-filter-results">
+            Showing the 200 most recent study sets. Use search or a category
+            chip above to find older ones.
           </p>
         )}
 

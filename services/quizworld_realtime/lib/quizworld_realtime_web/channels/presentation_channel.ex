@@ -89,6 +89,12 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
   end
 
   @impl true
+  def handle_info({:presentation_updated, snapshot}, socket) do
+    push(socket, "presentation:update", %{presentation: snapshot})
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_in("slide:next", payload, socket) do
     transition(socket, fn -> Presentations.next_slide(socket.assigns.presentation_id, presenter_token(socket, payload)) end, :slide)
   end
@@ -168,12 +174,7 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     end
   end
 
-  @impl true
-  def handle_info({:presentation_updated, snapshot}, socket) do
-    push(socket, "presentation:update", %{presentation: snapshot})
-    {:noreply, socket}
-  end
-
+  
   defp transition(socket, callback, :slide) do
     case callback.() do
       {:ok, snapshot} ->

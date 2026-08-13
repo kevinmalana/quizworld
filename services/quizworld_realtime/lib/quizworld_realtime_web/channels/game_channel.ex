@@ -22,9 +22,9 @@ defmodule QuizworldRealtimeWeb.GameChannel do
 
   @impl true
   def handle_info({:after_join, payload}, socket) do
-    pin = socket.assigns.pin
-    player_id = Map.get(payload, "player_id", "spectator")
-    nickname = Map.get(payload, "nickname", "")
+        _pin = socket.assigns.pin
+        player_id = Map.get(payload, "player_id", "spectator")
+        nickname = Map.get(payload, "nickname", "")
 
     {:ok, _} = Presence.track(socket, player_id, %{
       nickname: nickname,
@@ -35,6 +35,17 @@ defmodule QuizworldRealtimeWeb.GameChannel do
     {:noreply, socket}
   end
 
+  @impl true
+  def handle_info({:session_updated, snapshot}, socket) do
+    push(socket, "session:update", %{session: snapshot})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:presence_diff, _diff}, socket) do
+    push(socket, "presence_state", Presence.list(socket))
+    {:noreply, socket}
+  end
   @impl true
   def handle_in("player:join", payload, socket) do
     pin = socket.assigns.pin
@@ -85,16 +96,6 @@ defmodule QuizworldRealtimeWeb.GameChannel do
     transition(socket.assigns.pin, fn -> Games.advance(socket.assigns.pin, host_token) end, socket)
   end
 
-  @impl true
-  def handle_info({:session_updated, snapshot}, socket) do
-    push(socket, "session:update", %{session: snapshot})
-    {:noreply, socket}
-  end
-
-  def handle_info({:presence_diff, _diff}, socket) do
-    push(socket, "presence_state", Presence.list(socket))
-    {:noreply, socket}
-  end
 
   defp transition(pin, callback, socket) do
     case callback.() do

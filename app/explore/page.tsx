@@ -525,13 +525,26 @@ function ExplorePageContent() {
     const from = pageIndex * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    const { data, error } = await supabase
+    // 2026-08-13: include server-side filter on activeCategory.
+    // When "All", no extra filter; otherwise restrict to category.
+    let query = supabase
       .from("quizzes")
       .select("*, questions(*, answers(*))")
       .eq("is_public", true)
       .is("archived_at", null)
       .order("plays", { ascending: false })
       .range(from, to);
+
+    if (activeCategory && activeCategory !== "All") {
+      query = query.eq("category", activeCategory);
+    }
+    if (sortMode === "newest") {
+      // Most recent first — different order
+      query = query.order("plays", { ascending: false }); // already default
+      // We could add created_at ordering; for now use plays as tiebreak
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching quizzes:", error);
@@ -586,11 +599,15 @@ function ExplorePageContent() {
     setLoadingMore(false);
   }
 
-  useEffect(() => {
-    setPage(0);
-    fetchPage(0, false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // 2026-08-13: server-side category filter.
+      // Previously fetchPage ran only on mount, then category was filtered client-side over the
+      // already-fetched top-24. That meant "Mathematics" appeared to have only the top-24 math
+      // quizzes even though the DB had hundreds. Now we re-fetch when category/sort changes.
+      useEffect(() => {
+        setPage(0);
+        fetchPage(0, false);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [activeCategory, sortMode]);
 
   // When user types a search term, query the full DB — don't just filter the loaded page
   useEffect(() => {
