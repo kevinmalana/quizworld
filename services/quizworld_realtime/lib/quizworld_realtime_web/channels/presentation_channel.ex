@@ -11,7 +11,9 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
   def join("presentation:" <> presentation_id, payload, socket) do
     case Presentations.get_snapshot(presentation_id) do
       {:ok, snapshot} ->
-        role = role_from_payload(payload)
+        # A token in an unauthenticated WebSocket payload is not proof of
+        # presenter access. Validate it before returning an unredacted snapshot.
+        role = role_from_payload(presentation_id, payload)
 
         socket =
           socket
@@ -230,7 +232,12 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     |> Map.put_new("participant_token", socket.assigns[:participant_token])
   end
 
-  defp role_from_payload(%{"presenter_token" => token}) when is_binary(token), do: :presenter
-  defp role_from_payload(%{"participant_token" => token}) when is_binary(token), do: :participant
-  defp role_from_payload(_), do: :viewer
+  defp role_from_payload(presentation_id, %{"presenter_token" => token}) when is_binary(token) do
+    if Presentations.presenter_authorized?(presentation_id, token), do: :presenter, else: :viewer
+  end
+
+  defp role_from_payload(_presentation_id, %{"participant_token" => token}) when is_binary(token),
+    do: :participant
+
+  defp role_from_payload(_presentation_id, _payload), do: :viewer
 end

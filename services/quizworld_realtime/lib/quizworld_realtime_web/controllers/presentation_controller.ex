@@ -43,12 +43,15 @@ defmodule QuizworldRealtimeWeb.PresentationController do
   def show(conn, %{"id" => presentation_id} = params) do
     case Presentations.get_snapshot(presentation_id) do
       {:ok, snapshot} ->
-        # Strip is_correct for non-presenter REST fetches
-        safe = if params["presenter_token"] do
-          snapshot
-        else
-          sanitize_slides(snapshot)
-        end
+        # `presenter_token` arrives in an untrusted query string. Return the
+        # answer key only after verifying it belongs to this live presentation.
+        safe =
+          if Presentations.presenter_authorized?(presentation_id, params["presenter_token"]) do
+            snapshot
+          else
+            sanitize_slides(snapshot)
+          end
+
         json(conn, %{presentation: safe})
       {:error, reason} -> conn |> put_status(status_for(reason)) |> json(%{error: format_error(reason)})
     end

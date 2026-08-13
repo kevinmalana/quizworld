@@ -39,7 +39,10 @@ defmodule QuizworldRealtime.Games do
   end
 
   def reconnect_player(pin, player_id, player_token) do
-    safe_call(fn -> GameServer.reconnect_player(pin, player_id, player_token) end)
+    case call_or_restore(pin, fn -> GameServer.reconnect_player(pin, player_id, player_token) end) do
+      {:ok, snapshot} -> {:ok, snapshot}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp transition(pin, callback) do

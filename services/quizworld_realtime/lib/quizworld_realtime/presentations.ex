@@ -53,6 +53,15 @@ defmodule QuizworldRealtime.Presentations do
     end
   end
 
+  # The presentation channel calls this during WebSocket join before assigning
+  # presenter privileges. Never infer a presenter role from the mere presence
+  # of a token in an untrusted client payload.
+  def presenter_authorized?(presentation_id, presenter_token) when is_binary(presenter_token) do
+    ensure_presenter_token(presentation_id, presenter_token) == :ok
+  end
+
+  def presenter_authorized?(_presentation_id, _presenter_token), do: false
+
   defp get_snapshot_from_supabase(presentation_id) do
     with {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
@@ -283,24 +292,11 @@ defmodule QuizworldRealtime.Presentations do
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
       now = DateTime.utc_now() |> DateTime.to_iso8601()
 
-      Req.patch(
-        url: "#{base_url}#{@supabase_rest}/presentations",
-        params: %{id: "eq.#{presentation_id}"},
-        json: %{status: "finished", finished_at: now},
-        headers: headers(api_key),
-        receive_timeout: 10_000
-      )
-
-      Req.patch(
-        url: "#{base_url}#{@supabase_rest}/presentation_live_sessions",
-        params: %{presentation_id: "eq.#{presentation_id}"},
-        json: %{status: "finished", ended_at: now},
-        headers: headers(api_key),
-        receive_timeout: 10_000
-      )
-
-      PresentationStore.delete_presentation(presentation_id)
-      {:ok, :ended}
+      with {:ok, _} <- update_presentation_status(base_url, api_key, presentation_id, now),
+           {:ok, _} <- update_live_session_status(base_url, api_key, presentation_id, now) do
+        PresentationStore.delete_presentation(presentation_id)
+        {:ok, :ended}
+      end
     end
   end
 
@@ -567,6 +563,42 @@ defmodule QuizworldRealtime.Presentations do
     end
   end
 
+  defp update_presentation_status(base_url, api_key, presentation_id, now) do
+    case Req.patch(
+           url: "#{base_url}#{@supabase_rest}/presentations",
+           params: %{id: "eq.#{presentation_id}"},
+           json: %{status: "finished", finished_at: now},
+           headers: headers(api_key),
+           receive_timeout: 10_000
+         ) do
+      {:ok, %{status: status}} when status in [200, 204] -> {:ok, :updated}
+      {:ok, %{status: status, body: body}} ->
+        Logger.warning("Supabase presentation finish failed #{status}: #{inspect(body)}")
+        {:error, :update_failed}
+      {:error, reason} ->
+        Logger.warning("Supabase presentation finish error: #{inspect(reason)}")
+        {:error, :update_failed}
+    end
+  end
+
+  defp update_live_session_status(base_url, api_key, presentation_id, now) do
+    case Req.patch(
+           url: "#{base_url}#{@supabase_rest}/presentation_live_sessions",
+           params: %{presentation_id: "eq.#{presentation_id}"},
+           json: %{status: "finished", ended_at: now},
+           headers: headers(api_key),
+           receive_timeout: 10_000
+         ) do
+      {:ok, %{status: status}} when status in [200, 204] -> {:ok, :updated}
+      {:ok, %{status: status, body: body}} ->
+        Logger.warning("Supabase live session finish failed #{status}: #{inspect(body)}")
+        {:error, :update_failed}
+      {:error, reason} ->
+        Logger.warning("Supabase live session finish error: #{inspect(reason)}")
+        {:error, :update_failed}
+    end
+  end
+
   defp get_slide_responses_from_supabase(slide_id) do
     with {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
@@ -576,8 +608,16 @@ defmodule QuizworldRealtime.Presentations do
              headers: headers(api_key),
              receive_timeout: 10_000
            ) do
-        {:ok, %{status: 200, body: responses}} -> {:ok, responses}
-        _ -> {:ok, []}
+        {:ok, %{status: 200, body: responses}} ->
+          {:ok, responses}
+
+        {:ok, %{status: status, body: body}} ->
+          Logger.warning("Supabase slide responses fetch failed #{status}: #{inspect(body)}")
+          {:error, :activity_unavailable}
+
+        {:error, reason} ->
+          Logger.warning("Supabase slide responses fetch error: #{inspect(reason)}")
+          {:error, :activity_unavailable}
       end
     end
   end
@@ -606,8 +646,16 @@ defmodule QuizworldRealtime.Presentations do
              headers: headers(api_key),
              receive_timeout: 10_000
            ) do
-        {:ok, %{status: 200, body: questions}} -> {:ok, questions}
-        _ -> {:ok, []}
+        {:ok, %{status: 200, body: questions}} ->
+          {:ok, questions}
+
+        {:ok, %{status: status, body: body}} ->
+          Logger.warning("Supabase QnA fetch failed #{status}: #{inspect(body)}")
+          {:error, :activity_unavailable}
+
+        {:error, reason} ->
+          Logger.warning("Supabase QnA fetch error: #{inspect(reason)}")
+          {:error, :activity_unavailable}
       end
     end
   end

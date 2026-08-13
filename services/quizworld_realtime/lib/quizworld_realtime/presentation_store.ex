@@ -30,7 +30,14 @@ defmodule QuizworldRealtime.PresentationStore do
   end
 
   def presenter_token?(presentation_id, presenter_token) when is_binary(presenter_token) do
-    exists?(presenter_key(presentation_id, presenter_token))
+    # A valid token must belong to the currently-live presentation, not merely
+    # be an unexpired per-token cache key left behind after the presentation ends.
+    with {:ok, ^presenter_token} <- get_live_session(presentation_id),
+         true <- exists?(presenter_key(presentation_id, presenter_token)) do
+      true
+    else
+      _ -> false
+    end
   end
 
   def presenter_token?(_presentation_id, _token), do: false

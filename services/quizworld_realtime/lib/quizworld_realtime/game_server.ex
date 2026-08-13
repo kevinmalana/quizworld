@@ -51,7 +51,9 @@ defmodule QuizworldRealtime.GameServer do
   def init(%Game{} = game) do
     restored_game =
       game
+      |> restore_expired_question()
       |> schedule_question_timer()
+      |> schedule_auto_advance_timer()
       |> schedule_cleanup_timer()
 
     persist_snapshot(restored_game)
@@ -238,11 +240,45 @@ defmodule QuizworldRealtime.GameServer do
     |> schedule_cleanup_timer()
   end
 
+  # A restored game keeps its original question_started_at. Schedule only the
+  # remaining window, not a fresh full timer; otherwise a server restart lets
+  # late answers through while the browser countdown is already at zero.
+  defp restore_expired_question(%Game{status: "active", current_question_index: index} = game) do
+    case Enum.at(game.questions, index) do
+      nil ->
+        game
+
+      question ->
+        if remaining_question_time_ms(game, question) == 0 do
+          case Game.reveal_current_question(game, Game.host_token(game)) do
+            {:ok, revealed_game} -> revealed_game
+            {:error, _reason} -> game
+          end
+        else
+          game
+        end
+    end
+  end
+
+  defp restore_expired_question(%Game{} = game), do: game
+
+  defp remaining_question_time_ms(game, question) do
+    total_ms = max(Map.get(question, "time_limit", 20), 1) * 1000
+
+    elapsed_ms =
+      case game.question_started_at do
+        %DateTime{} = started_at -> max(DateTime.diff(DateTime.utc_now(), started_at, :millisecond), 0)
+        _ -> 0
+      end
+
+    max(total_ms - elapsed_ms, 0)
+  end
+
   defp schedule_question_timer(%Game{status: "active", current_question_index: index} = game) do
     question = Enum.at(game.questions, index)
 
     if question do
-      timeout_ms = max(Map.get(question, "time_limit", 20), 1) * 1000
+      timeout_ms = remaining_question_time_ms(game, question)
       timer_ref = Process.send_after(self(), {:question_timeout, index}, timeout_ms)
       Game.with_question_timer_ref(game, timer_ref)
     else

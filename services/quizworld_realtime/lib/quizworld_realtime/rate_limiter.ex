@@ -19,8 +19,12 @@ defmodule QuizworldRealtime.RateLimiter do
     # bounded limit protects against PIN brute-forcing (10s polling from
     # 200 IPs in 60s = 1200 reqs vs limit 600).
     "GET:/api/sessions/*" => {600, 60},
-    # GET /api/presentations/:id is similarly used by the live audience page.
+    # Presentation snapshots are fetched by audience clients during reconnects.
     "GET:/api/presentations/*" => {600, 60},
+    # Live audience activity is polled roughly every 2.5 seconds. Keep this
+    # higher than the snapshot cap so a classroom sharing one NAT IP remains
+    # usable, while still bounding automated abuse.
+    "GET:/api/presentations/*/slides/*/activity" => {3_000, 60},
     "POST:/api/presentations/join" => {40, 60},
     "POST:/api/presentations/*/start" => {20, 60}
   }
@@ -85,6 +89,13 @@ defmodule QuizworldRealtime.RateLimiter do
 
       method == "GET" and Regex.match?(~r|^/api/sessions/[^/]+$|, path) ->
         "GET:/api/sessions/*"
+
+      method == "GET" and Regex.match?(~r|^/api/presentations/[^/]+$|, path) ->
+        "GET:/api/presentations/*"
+
+      method == "GET" and
+          Regex.match?(~r|^/api/presentations/[^/]+/slides/[^/]+/activity$|, path) ->
+        "GET:/api/presentations/*/slides/*/activity"
 
       method == "POST" and path == "/api/presentations/join" ->
         "POST:/api/presentations/join"
