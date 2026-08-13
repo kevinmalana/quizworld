@@ -407,10 +407,17 @@ test.describe('Security: game_results RLS (fix-01)', () => {
 });
 
 test.describe('Security: import-deck API (fix-02)', () => {
-  // 2026-08-13: Skipped until the new auth check is deployed (master currently has
-  // the unguarded version). Re-enable after first deploy with fix-02.
-  test('blocks unauthenticated requests with 401', async () => {
-    test.skip(true, 'Re-enable after fix-02 (import-deck auth) deploys');
+  test('blocks unauthenticated requests with 401', async ({ request }) => {
+    const formData = new FormData();
+    formData.append('file', new Blob(['fake-deck'], { type: 'application/vnd.ms-powerpoint' }), 'test.ppt');
+
+    const r = await request.post(`${BASE}/api/present/import-deck`, {
+      multipart: formData,
+    });
+
+    expect(r.status()).toBe(401);
+    const body = await r.json();
+    expect(body.error).toMatch(/authentication|sign in/i);
   });
 
   test('limits file size to 25MB (rejects oversized)', async ({ request }) => {

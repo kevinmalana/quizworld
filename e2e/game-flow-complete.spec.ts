@@ -262,51 +262,6 @@ test.describe('Game Flow: State Management', () => {
   });
 });
 
-// ─── Refactoring Safety Tests ────────────────────────────────────────────
-
-test.describe('Game Flow: Refactoring Safety', () => {
-
-  test('all game page imports work', async ({ page }) => {
-    // If page loads, all imports work
-    const testPins = ['TEST1', 'TEST2', 'TEST3', 'TEST4', 'TEST5'];
-
-    for (const pin of testPins) {
-      await page.goto(`/game/${pin}`);
-      await page.waitForTimeout(300);
-    }
-
-    expect(true).toBe(true);
-  });
-
-  test('game state panel types are consistent', async ({ page }) => {
-    await page.goto('/game/TYPE_TEST');
-    await waitForGamePage(page);
-
-    // If page renders, types compile correctly
-    expect(true).toBe(true);
-  });
-
-  test('game component exports work', async ({ page }) => {
-    await page.goto('/game/EXPORT_TEST');
-    await waitForGamePage(page);
-
-    expect(true).toBe(true);
-  });
-
-  test('no TypeScript errors in game components', async ({ page }) => {
-    // This is a compile-time check
-    // If we get here, TS compiled successfully
-    await page.goto('/game');
-    expect(true).toBe(true);
-  });
-
-  test('game hooks are importable', async ({ page }) => {
-    await page.goto('/game/HOOK_TEST');
-    await waitForGamePage(page);
-    expect(true).toBe(true);
-  });
-});
-
 // ─── Performance Tests ───────────────────────────────────────────────────
 
 test.describe('Game Flow: Performance', () => {

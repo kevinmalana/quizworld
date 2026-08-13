@@ -1,79 +1,72 @@
-# QuizWorld Realtime
+# QuizWorld realtime backend
 
-This is the `v9` Phoenix/Elixir game engine for QuizWorld.
+Phoenix is the authoritative runtime for QuizWorld hosted multiplayer games.
 
-## Purpose
+It owns:
 
-The existing Next.js app still handles:
+- session creation and server-generated PINs
+- host and player credentials
+- player join and reconnect
+- question timing and answer locking
+- reveal, scoring and phase transitions
+- `classic`, `survival`, and `team` modes
+- Phoenix Channel updates
+- Redis recovery snapshots
+- completed-result synchronization to Supabase
 
-- marketing pages
-- Supabase auth
-- quiz authoring
-- dashboard, study, and profile flows
+## Requirements
 
-This service is the new authoritative runtime for live multiplayer sessions:
-
-- host-controlled game sessions
-- anonymous player join
-- server-generated PIN creation for Phoenix-hosted sessions
-- server-generated player identity and player token issuance
-- server-side answer locking
-- server-owned question timeout and auto-reveal
-- server-side reveal and scoring
-- Phoenix Channels for realtime fan-out
-- optional LiveView game screen under `/live/game/:pin`
-- optional Redis snapshot persistence
-- end-of-game result write-back to Supabase
-
-The LiveView surface is intended to feel like a dedicated game stage, with a host deck, player join card, animated leaderboard, round timer, reveal state, and final results view.
-
-## Local Requirements
-
-- Elixir
-- Erlang/OTP
-- Phoenix dependencies via `mix deps.get`
-
-These tools are not installed in the current workspace, so this service was scaffolded manually and should be verified in an Elixir-capable environment.
-
-## Key Files
-
-- `mix.exs`
-- `config/runtime.exs`
-- `lib/quizworld_realtime/application.ex`
-- `lib/quizworld_realtime/games.ex`
-- `lib/quizworld_realtime/game_server.ex`
-- `lib/quizworld_realtime_web/channels/game_channel.ex`
-- `lib/quizworld_realtime_web/live/game_live/show.ex`
+- Elixir 1.17
+- Erlang/OTP 27
+- Phoenix dependencies from `mix deps.get`
+- Redis in production for restart recovery
 
 ## Environment
 
-```bash
-PORT=4100
-PHX_HOST=localhost
-SECRET_KEY_BASE=replace-me
-REDIS_URL=redis://localhost:6379/0
-ALLOWED_ORIGINS=http://localhost:3000,https://www.quizworld.xyz
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-```
+See the repository's `.env.phoenix.example`.
 
-## Run
+Required in production:
+
+- `SECRET_KEY_BASE`
+- `SESSION_SIGNING_SALT`
+- `PHX_HOST`
+- `ALLOWED_ORIGINS`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `REDIS_URL`
+
+`PORT` defaults to `4100` locally and is supplied by Render in production.
+
+## Run locally
 
 ```bash
 mix deps.get
 mix phx.server
 ```
 
-## Current Runtime Notes
+## Verify
 
-- Phoenix currently enforces `classic` mode only. Other modes should stay hidden until implemented server-side.
-- The service now includes a small `ExUnit` test suite under `test/`.
-- Redis is still optional for single-node development, but multi-node production should not be treated as safe without shared realtime state.
+```bash
+mix format --check-formatted
+MIX_ENV=test mix compile --warnings-as-errors
+MIX_ENV=test mix test
+```
 
-## API Surface
+## Runtime model
+
+Each active PIN has a `GameServer` process. Accepted transitions flow through one commit point in `GameServer`, which prepares timers, creates the public snapshot, stores recovery state and publishes one `session:update` event.
+
+`Games` restores missing processes from Redis and calls `GameServer`. Controllers and channels translate transport input/output; they do not own game rules or republish transitions.
+
+## Endpoints
 
 - `GET /api/health`
 - `POST /api/sessions`
 - `GET /api/sessions/:pin`
-- Channel topic: `game:<PIN>`
-- LiveView route: `/live/game/:pin`
+- session action routes under `/api/sessions/:pin/*`
+- Phoenix Channel topic `game:<PIN>`
+- optional LiveView stage `/live/game/:pin`
+
+## Production
+
+Render uses the repository's `render.yaml` with `services/quizworld_realtime` as the root directory. Secret values are managed in Render and must not be committed.

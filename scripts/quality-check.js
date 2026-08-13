@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 const { execSync } = require("node:child_process");
-const { existsSync } = require("node:fs");
+const { existsSync, readFileSync, readdirSync } = require("node:fs");
+const { join } = require("node:path");
+const ts = require("typescript");
 
 function sh(command) {
   return execSync(command, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -13,27 +15,22 @@ function count(command) {
 }
 
 const limits = {
-  // inlineStyles baseline 536 on origin/main (limit 218 was aspirational).
-  // Raised 2026-08-13 to reflect current on-disk reality; refactor improved −35.
-  // 2026-08-13 audit: raised to 575 for fixes that added a few inline style attributes
-  // (e.g., game/[pin] page already at 1121+); baseline measured just before audit fixes.
-  inlineStyles: 575,
-  // anyCount baseline 49 on origin/main (limit 45 was too tight; the rg pattern matches
-  // the English word "any" in copy and comments too). Refactor improved −12.
-  // Consider tightening the rg pattern in a follow-up to match real `as any` / `: any` only.
-  // 2026-08-13 audit: 62 currently — fixes introduced some additional `any` casts while waiting
-  // for proper types. Future work should tighten.
-  anyCount: 65,
+  // Ratchets: these values match the audited baseline. Refactors should lower
+  // them; feature work must not raise them without an explicit review.
+  inlineStyles: 571,
+  typeEscapes: 18,
+  fixedE2EWaits: 75,
+  literalTrueAssertions: 0,
   routeFiles: {
-    "app/game/[pin]/page.tsx": 1130, // 2026-08-13 — raised from 1025 — pre-existing 1121, refactor (in stash) is the real fix; audit measured 1120
-    "app/create/page.tsx": 625, // 2026-08-13 — raised from 600 — audit added 3 small auth pre-flight checks (+18)
-    "app/dashboard/page.tsx": 700, // raised 2026-08-13 — QuizWorld refactor extracted dashboard-manager; on-disk is 534, room left for game-results visualisation work
-    "app/present/[code]/live/page.tsx": 500, // raised 2026-08-13 — presentation live route (444) + presenter mode features
-    "app/profile/page.tsx": 460, // raised 2026-08-13 — pre-existing 429 (above 420 limit); no refactor touched it
-    "app/report/[pin]/page.tsx": 460, // raised 2026-08-13 — pre-existing 435 (above 430 limit); no refactor touched it
-    "app/explore/page.tsx": 1050, // 2026-08-13 — raised from 345 (was already pre-existing at 1025 before audit); limit should drop after refactor (useExploreFeed + components)
-    "app/join/page.tsx": 360, // 2026-08-13 — raised from 340 to accommodate PIN paste handler + mobile-duplication fixes (+44)
-    "app/host/page.tsx": 580, // refactored: 546 -> 533 (Phoenix-driven host flow); modest further headroom for game-mode selector
+    "app/game/[pin]/page.tsx": 1120,
+    "app/create/page.tsx": 618,
+    "app/dashboard/page.tsx": 641,
+    "app/present/[code]/live/page.tsx": 457,
+    "app/profile/page.tsx": 429,
+    "app/report/[pin]/page.tsx": 441,
+    "app/explore/page.tsx": 1025,
+    "app/join/page.tsx": 350,
+    "app/host/page.tsx": 542,
   },
 };
 
@@ -44,9 +41,81 @@ if (inlineStyles > limits.inlineStyles) {
   failures.push(`Inline style count increased: ${inlineStyles} > ${limits.inlineStyles}. Move styling into CSS/classes or shared components.`);
 }
 
-const anyCount = count("rg -n '\\bany\\b|as any|: any' app components lib --glob '*.{ts,tsx}' | wc -l");
-if (anyCount > limits.anyCount) {
-  failures.push(`Type escape count increased: ${anyCount} > ${limits.anyCount}. Add typed adapters instead of new any usage.`);
+const typeEscapes = count("rg -n '(^|[^[:alnum:]_])(as any|: any\\b|<any>)' app components lib --glob '*.{ts,tsx}' | wc -l");
+if (typeEscapes > limits.typeEscapes) {
+  failures.push(`Type escape count increased: ${typeEscapes} > ${limits.typeEscapes}. Add a concrete type instead.`);
+}
+
+const fixedE2EWaits = count("rg -n 'waitForTimeout\\(' e2e --glob '*.spec.ts' | wc -l");
+if (fixedE2EWaits > limits.fixedE2EWaits) {
+  failures.push(`Fixed E2E wait count increased: ${fixedE2EWaits} > ${limits.fixedE2EWaits}. Wait on observable state instead.`);
+}
+
+const literalTrueAssertions = count("rg -n 'expect\\(true\\)\\.toBe\\(true\\)' e2e --glob '*.spec.ts' | wc -l");
+if (literalTrueAssertions > limits.literalTrueAssertions) {
+  failures.push(`Found ${literalTrueAssertions} literal true E2E assertions. Assert user-visible behaviour instead.`);
+}
+
+const vacuousAssertionPatterns = [
+  { pattern: /expect\(page\.locator\(["']body["']\)\)\.toBeVisible/g, label: "body-only visibility" },
+  { pattern: /expect\((?:page\.url\(\)|url)\)\.toBeDefined/g, label: "URL-is-defined" },
+  { pattern: /expect\(bodyText\)\.toBeDefined/g, label: "body-text-is-defined" },
+];
+
+const e2eFiles = readdirSync("e2e")
+  .filter((file) => file.endsWith(".spec.ts"))
+  .map((file) => join("e2e", file));
+
+let activeE2ETests = 0;
+let assertionlessE2ETests = 0;
+let vacuousE2EAssertions = 0;
+
+for (const file of e2eFiles) {
+  const sourceText = readFileSync(file, "utf8");
+  const sourceFile = ts.createSourceFile(file, sourceText, ts.ScriptTarget.Latest, true);
+
+  for (const { pattern, label } of vacuousAssertionPatterns) {
+    const matches = sourceText.match(pattern) ?? [];
+    vacuousE2EAssertions += matches.length;
+    if (matches.length > 0) {
+      failures.push(`${file} contains ${matches.length} ${label} assertion(s). Assert concrete behaviour instead.`);
+    }
+  }
+
+  function visit(node) {
+    const isActiveTest =
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "test";
+
+    if (isActiveTest) {
+      activeE2ETests += 1;
+      const body = node.arguments[1];
+      let hasAssertion = false;
+
+      function findAssertion(child) {
+        if (
+          ts.isCallExpression(child) &&
+          ts.isIdentifier(child.expression) &&
+          child.expression.text.startsWith("expect")
+        ) {
+          hasAssertion = true;
+        }
+        ts.forEachChild(child, findAssertion);
+      }
+
+      if (body) findAssertion(body);
+      if (!hasAssertion) {
+        assertionlessE2ETests += 1;
+        const line = sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1;
+        failures.push(`${file}:${line} has an active test with no assertion or expect* assertion helper.`);
+      }
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
 }
 
 for (const [file, maxLines] of Object.entries(limits.routeFiles)) {
@@ -70,4 +139,8 @@ if (failures.length) {
 }
 
 console.log("Quality guard passed.");
-console.log(`inline_styles=${inlineStyles} any_count=${anyCount}`);
+console.log(
+  `inline_styles=${inlineStyles} type_escapes=${typeEscapes} fixed_e2e_waits=${fixedE2EWaits} ` +
+    `active_e2e_tests=${activeE2ETests} assertionless_e2e_tests=${assertionlessE2ETests} ` +
+    `vacuous_e2e_assertions=${vacuousE2EAssertions} literal_true_assertions=${literalTrueAssertions}`
+);

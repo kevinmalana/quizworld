@@ -32,60 +32,14 @@ test.describe('Study Engine: Availability', () => {
 test.describe('Study Engine: Quiz Detail', () => {
   test('quiz detail page loads from explore', async ({ page }) => {
     await page.goto('/explore');
-    await page.waitForTimeout(2000);
+    const detailsLink = page.getByRole('link', { name: 'View details →' }).first();
+    await expect(detailsLink).toBeVisible({ timeout: 10_000 });
 
-    // Click first quiz if available
-    const quizCard = page.getByRole('heading', { level: 3 }).first();
-    const hasQuiz = await quizCard.isVisible().catch(() => false);
+    const destination = await detailsLink.getAttribute('href');
+    expect(destination).toMatch(/^\/quiz\/[a-zA-Z0-9-]+$/);
 
-    if (hasQuiz) {
-      await quizCard.click();
-      await page.waitForTimeout(1000);
-
-      // Should be on quiz detail, study page, or still on explore (modal)
-      const url = page.url();
-      expect(url).toBeDefined();
-    } else {
-      // No quizzes available - that's valid
-      expect(true).toBe(true);
-    }
-  });
-});
-
-test.describe('Study Engine: Components', () => {
-  test('study-session-panels components exist', async ({ page }) => {
-    // Verify the component files compile by loading study page
-    await page.goto('/study');
-    await page.waitForTimeout(1000);
-    expect(true).toBe(true);
-  });
-
-  test('flashcard mode available', async ({ page }) => {
-    // Would need a quiz with study mode enabled
-    // For now, verify route structure
-    await page.goto('/explore');
-    expect(true).toBe(true);
-  });
-
-  test('quickfire mode available', async ({ page }) => {
-    await page.goto('/explore');
-    expect(true).toBe(true);
-  });
-});
-
-test.describe('Study Engine: Refactoring Safety', () => {
-  test('study components import correctly', async ({ page }) => {
-    // If page loads, imports work
-    const routes = ['/study', '/explore'];
-    for (const route of routes) {
-      await page.goto(route);
-      await page.waitForTimeout(500);
-    }
-    expect(true).toBe(true);
-  });
-
-  test('study session types are consistent', async ({ page }) => {
-    await page.goto('/study');
-    expect(true).toBe(true);
+    await detailsLink.click();
+    await expect(page).toHaveURL(new RegExp(`${destination!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
   });
 });

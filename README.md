@@ -1,84 +1,95 @@
 # QuizWorld
 
-https://www.quizworld.xyz · `github.com/kevinmalana/quizworld`
+QuizWorld is a multiplayer quiz app. A host selects a quiz and receives a PIN; players join from their phones. The product also includes quiz authoring, AI-assisted imports, study modes, interactive presentations and social features.
 
----
+Production: https://www.quizworld.xyz
 
-## What it is
+## System map
 
-A live multiplayer quiz app. Host picks a quiz, gets a PIN, players join on their phones. Real-time questions and scoring. Like Kahoot but free.
-
-Also has: quiz builder (manual, paste, AI-generated, PDF import), study mode (flashcard/quickfire), presentation mode, social features (friends/classrooms/groups/leaderboard/achievements).
-
----
-
-## Architecture
-
-```
-Browser → Vercel (Next.js 16, static + SSR) → Supabase (Postgres, Auth)
-         ↘ Render (Phoenix/Elixir) ──────────── WebSocket live game state
+```text
+Browser
+  ├─ Vercel / Next.js       website, auth UI, authoring, study and social features
+  ├─ Render / Phoenix       live-game state, timers, scoring and WebSockets
+  └─ Supabase               Postgres, authentication, storage and durable results
+                             ↕
+                           Redis
+                     Phoenix recovery snapshots
 ```
 
-- **Frontend:** Next.js 16 on Vercel. All UI, auth, quiz builder, study, social pages.
-- **Game engine:** Phoenix on Render (`quizworld-xs0g.onrender.com`). All real-time game state lives in GenServer memory. Results persisted to Supabase when a game finishes.
-- **Database:** Supabase (`tqmygnkwkjtkteguemya.supabase.co`). Postgres + Auth + Storage + Realtime.
+`CONTEXT.md` defines the product terms and runtime ownership rules. Architecture decisions are recorded in `docs/adr/`.
 
----
+## Local development
 
-## Deploy
+Requirements:
 
-### Frontend (Vercel)
-Deployed via CLI, not GitHub auto-deploy:
+- Node.js 20+
+- npm
+- Elixir 1.17 and Erlang/OTP 27 for the realtime backend
+
+Frontend:
 
 ```bash
-cd /root/.openclaw/workspace/quizworld
-npm run build             # must pass
-source /root/.openclaw/secrets/deployment.env
-vercel deploy --prod --token "$VERCEL_TOKEN" --yes --archive=tgz
+cp .env.example .env.local
+npm ci
+npm run dev
 ```
 
-### Game Engine (Render)
-Auto-deploys from GitHub `main` → `services/quizworld_realtime/`. Root Directory must be set in Render dashboard.
-
-### Database (Supabase)
-Schema changes are run manually in the Supabase SQL Editor. Baseline in `supabase_setup.sql`, migrations in `supabase/migrations/`.
-
----
-
-## Secrets
-
-| File | Contents |
-|------|----------|
-| `/root/.openclaw/secrets/deployment.env` | `VERCEL_TOKEN` |
-| `/root/.openclaw/secrets/gh_token.txt` | GitHub PAT |
-| `/root/.openclaw/workspace/quizworld/.env.local` | Supabase keys, AI keys, Phoenix URL |
-
----
-
-## Key decisions / gotchas
-
-### Phoenix PIN format
-6-char alphanumeric from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`. ~17% chance of being all-alpha. The join page routes all-alpha PINs to presentation mode unless the PIN came from a URL param (QR scan).
-
-### Game modes
-- **classic** — standard, everyone answers every question
-- **survival** — wrong answer = eliminated. Ends when `alive_count < 2`.
-- **team** — players auto-assigned to 2-4 teams round-robin on start
-
-### Study page bug (fixed Jun 5)
-Was querying by `.eq("id", quizId)` but `quizId` was a slug after the UUID→slug redirect. Now detects UUID vs slug.
-
-### Slug URLs (Jun 5)
-`quizzes.slug` column. Trigger auto-generates on INSERT. UUID params 301 redirect to slug.
-
-### Dead snapshot
-`/root/.openclaw/workspace/quizworld_v12_push` — ignore it, never deploy from it.
-
----
-
-## Running tests
+Phoenix backend:
 
 ```bash
-npx playwright test              # all E2E against production
-npx playwright test e2e/security.spec.ts  # security tests only
+cd services/quizworld_realtime
+mix deps.get
+mix phx.server
+```
+
+Use `.env.phoenix.example` as the list of backend variables. Do not commit credentials.
+
+## Verification
+
+```bash
+npm run quality
+npm run typecheck
+npm run build
+npm run check:phoenix
+npm run test:e2e
+```
+
+`npm run check` runs the quality guard, typecheck, production build and Phoenix checks. Browser tests are separate because they are slower and some currently exercise deployed dependencies.
+
+## Deployment
+
+### Frontend
+
+Vercel's Git integration deploys `main` to `quizworld.xyz`. GitHub Actions verifies the code but does not perform a second Vercel deployment. See ADR 0001.
+
+### Live-game backend
+
+Render deploys `services/quizworld_realtime` using `render.yaml`. Phoenix is authoritative for hosted multiplayer games. See ADR 0002.
+
+Required production variables are declared in the Render blueprint as dashboard-managed values. Redis is required for restart recovery.
+
+### Database
+
+Supabase changes are reviewed as SQL migrations under `supabase/migrations/` and applied separately from application deployment. `supabase_setup.sql` is a historical bootstrap, not proof that production has every later migration.
+
+Before applying SQL, verify the target schema and the migration's assumptions. Do not paste an old aggregate SQL bundle into production without review.
+
+## Live-game notes
+
+- PINs contain six characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`.
+- Modes: `classic`, `survival`, and `team`.
+- Phoenix broadcasts snapshots through `game:<PIN>` channels.
+- Redis stores recovery snapshots for active games.
+- Supabase stores durable quiz data and completed results.
+
+## Repository layout
+
+```text
+app/                         Next.js routes
+components/                  UI modules
+lib/game-engine/             Phoenix browser adapter
+services/quizworld_realtime/ Phoenix application
+e2e/                         Playwright behaviour and production-integration checks
+supabase/migrations/         ordered database changes
+docs/adr/                    architecture decisions
 ```

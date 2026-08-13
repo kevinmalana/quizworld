@@ -1,99 +1,89 @@
-# Architecture Reference
+# QuizWorld engineering handbook
 
-## Database (Supabase)
+Read `CONTEXT.md` first. It defines the domain terms and runtime ownership rules. Decisions that should not be reversed casually live in `docs/adr/`.
 
-### Tables
+## Data ownership
 
-| Table | Purpose | RLS |
-|-------|---------|-----|
-| `quizzes` | Quiz catalog (public) | SELECT: public. INSERT/UPDATE/DELETE: authenticated creator |
-| `questions` | Quiz questions | SELECT: public. Write: authenticated creator |
-| `answers` | Answer choices per question | SELECT: public |
-| `profiles` | User profiles | SELECT: public. Write: owner only |
-| `game_sessions` | Live/historical game sessions | SELECT: anon (game page needs it). Write: host only |
-| `players` | Players in a game session | SELECT: host. Write: via `join_game_session` RPC (SECURITY DEFINER) |
-| `player_answers` | Submitted answers | Write: via `submit_player_answer` RPC. SELECT: host |
-| `user_achievements` | Per-user achievements | SELECT: owner only (`auth.uid() = user_id`). INSERT: owner only |
-| `achievements` | Achievement catalog | SELECT: public |
+### Supabase
 
-### Key RPCs
+Supabase owns durable application data:
 
-| RPC | Access | Purpose |
-|-----|--------|---------|
-| `join_game_session(session_id, nickname, avatar)` | anon | Joins a game, returns `player_token` |
-| `submit_player_answer(player_id, player_token, question_id, answer_id, time_taken)` | anon | Submit answer during game |
-| `lookup_game_by_pin(p_pin)` | anon | Look up game metadata by PIN (replaces direct table read) |
+- quizzes, questions and answers
+- profiles and authentication
+- study progress and social data
+- presentation records
+- completed game results
 
-### Security fixes applied (2026-06-19)
+Row-level security and RPC access must be reviewed against the actual production schema before migrations are applied.
 
-- `import-pdf` API now requires Supabase auth (was: anyone could upload with arbitrary userId)
-- `user_achievements` RLS enabled, old permissive policies dropped
-- `lookup_game_by_pin` RPC created — join page uses this instead of direct `game_sessions` read
+Important public entry points include PIN lookup and server-controlled join/answer flows. Direct anonymous table access should not be added when a narrow RPC can expose only the required fields.
 
----
+### Phoenix and Redis
 
-## Game Engine (Phoenix)
+Phoenix owns active multiplayer games:
 
-### Live game state
+- host commands
+- player join and reconnect
+- question timing
+- answer locking
+- reveal and scoring
+- `classic`, `survival`, and `team` mode state
+- WebSocket publication
 
-All game state lives in Phoenix GenServer memory. Nothing in Supabase until game ends.
+Redis stores recovery snapshots. Phoenix can run locally without Redis, but production restart recovery depends on it.
 
-State broadcasts: every change (join, start, answer, reveal, advance) broadcasts `{:session_updated, snapshot}` via PubSub to all connected clients. Both REST (`GameServer.reply_with_transition`) and WebSocket (`GameChannel.transition/3`) broadcast.
+Every accepted transition is persisted and published once from `GameServer`. Controllers, `Games` and channels return the transition result; they do not publish it again.
 
-Frontend subscribes via `subscribeToPhoenixTopic` (WebSocket) and polls via `loadSession` on reconnect.
+### Next.js
 
-Staleness guard: `applySessionSnapshot` drops snapshots with older `updated_at` than current state.
+Next.js owns the browser experience, authoring, study modes, presentations and social pages. The live-game browser client requests Phoenix commands and renders authoritative snapshots.
 
-### Survival mode specifics
+The category colour and emoji maps live in `lib/shared.ts`.
 
-- `aliveCount` (not `players.length`) for answer tracking denominator
-- Timer hidden for eliminated players
-- Eliminated list shown at reveal
-- Minimum 2 players to start
+## Authentication
 
----
+Frontend auth is provided by `useAuth()` from `components/supabase-provider.tsx`.
 
-## Frontend (Next.js 16)
+Use the loading state before deciding whether a user is signed in. Protected browser actions should preserve an intended return path when redirecting to login.
 
-### Auth
+Phoenix host creation verifies a Supabase bearer token. Host and player session credentials are server-issued and must not be trusted merely because a client supplied a value.
 
-Supabase Auth via `useAuth()` hook from `components/supabase-provider.tsx`. Pattern:
+## Live-game client
 
-```
-const { user, loading: authLoading } = useAuth();
-if (authLoading) return <Loading />;
-if (!user) redirect to /login;
-```
+Relevant modules:
 
-Google OAuth passes `?next=` in `redirectTo`.
+- `lib/game-engine/client.ts`: HTTP commands
+- `lib/game-engine/phoenix-socket.ts`: channel subscription and reconnect policy
+- `lib/game/session-normalizers.ts`: snapshot normalization
+- `app/game/[pin]/page.tsx`: current orchestration and rendering route
 
-### AI features
+The game route still contains a deprecated Supabase live-game adapter. Do not add new behaviour to that adapter. Its removal requires explicit confirmation that it is not an active rollback path.
 
-- Quiz generation: `POST /api/ai-source-draft` → Groq `llama-3.3-70b-versatile`
-- Supports 5/10/20/30/50/65 questions (65 for AWS exam packs)
-- Game insights: `POST /api/ai-game-insights`
+## AI features
 
-### Categories
+Quiz generation uses `POST /api/ai-source-draft`. Provider URL, model and API key come from environment variables; `.env.example` is the current configuration reference.
 
-Source of truth: `CATEGORY_COLORS` / `CATEGORY_EMOJIS` in `lib/store.ts`. No DB CHECK constraint.
+Supported generated question counts are 5, 10, 20, 30, 50 and 65.
 
----
+## Testing
 
-## Schema migrations
+- TypeScript and import safety: `npm run typecheck` and `npm run build`
+- Frontend quality guard: `npm run quality`
+- Phoenix: `npm run check:phoenix`
+- Browser behaviour: `npm run test:e2e`
 
-- Baseline: `supabase_setup.sql`
-- Additional: `supabase/migrations/`
-- Slugs: `supabase/migrations/20260605_quiz_slugs.sql`
+Do not add browser tests that only load a page and assert `true`. Type and import failures belong in typecheck/build. Browser tests should assert user-visible behaviour or a concrete network/security result.
 
-## E2E tests
+The current E2E suite still has production-coupled checks. The target design is:
 
-```
-e2e/
-  quizworld.spec.ts      — core pages, builder, study, explore, mobile
-  security.spec.ts       — import-pdf auth, RLS, join RPC, auth guards, headers
-  error-handling.spec.ts — error states for game, dashboard, study, join
-  game-flow-complete.spec.ts — lobby, question, answer, reveal, finished
-  game-engine.spec.ts    — Phoenix integration, mode-specific panels
-  store-integration.spec.ts — Zustand store across pages
-  ... plus achievements, classrooms, leaderboard, presentation, study
-```
+1. deterministic candidate-build tests with isolated fixtures
+2. a small, read-only post-deploy production smoke suite
+
+## Deployments
+
+- Vercel Git integration owns frontend production deployment.
+- GitHub Actions owns verification only.
+- Render owns Phoenix deployment from `services/quizworld_realtime`.
+- Supabase migrations are applied separately after schema review.
+
+Do not add a second active deployment path without replacing ADR 0001.

@@ -32,23 +32,17 @@ test.describe('Leaderboard: Display', () => {
 
   test('leaderboard tabs work', async ({ page }) => {
     await page.goto('/leaderboard');
-    await page.waitForTimeout(1000);
+    const globalTab = page.getByRole('button', { name: /Global \(All-time\)/i });
+    const weeklyTab = page.getByRole('button', { name: /This Week/i });
 
-    // Look for global/weekly tabs
-    const globalTab = page.getByRole('button', { name: /global/i });
-    const weeklyTab = page.getByRole('button', { name: /weekly/i });
+    await expect(globalTab).toBeVisible();
+    await expect(weeklyTab).toBeVisible();
+    await expect(globalTab).toHaveClass(/is-active/);
 
-    if (await globalTab.isVisible().catch(() => false)) {
-      await globalTab.click();
-      await page.waitForTimeout(300);
-    }
-
-    if (await weeklyTab.isVisible().catch(() => false)) {
-      await weeklyTab.click();
-      await page.waitForTimeout(300);
-    }
-
-    expect(true).toBe(true);
+    await weeklyTab.click();
+    await expect(weeklyTab).toHaveClass(/is-active/);
+    await expect(globalTab).not.toHaveClass(/is-active/);
+    await expect(page.getByText('Ranked by XP earned this week')).toBeVisible();
   });
 });
 
@@ -114,25 +108,6 @@ test.describe('Leaderboard: Weekly vs Global', () => {
     expect(bodyText.length).toBeGreaterThan(0);
   });
 
-  test('weekly view persists across navigation', async ({ page }) => {
-    await page.goto('/leaderboard');
-    await page.waitForTimeout(500);
-
-    // Click weekly if available
-    const weeklyTab = page.getByRole('button', { name: /weekly/i });
-    if (await weeklyTab.isVisible().catch(() => false)) {
-      await weeklyTab.click();
-      await page.waitForTimeout(300);
-    }
-
-    // Navigate away and back
-    await page.goto('/');
-    await page.waitForTimeout(300);
-    await page.goto('/leaderboard');
-    await page.waitForTimeout(500);
-
-    expect(true).toBe(true);
-  });
 });
 
 test.describe('Leaderboard: Performance', () => {
@@ -155,20 +130,5 @@ test.describe('Leaderboard: Performance', () => {
 
     const bodyText = await page.locator('body').innerText();
     expect(bodyText.length).toBeGreaterThan(0);
-  });
-});
-
-test.describe('Leaderboard: Refactoring Safety', () => {
-
-  test('leaderboard components import correctly', async ({ page }) => {
-    await page.goto('/leaderboard');
-    expect(true).toBe(true);
-  });
-
-  test('calcLevel function works correctly', async ({ page }) => {
-    // calcLevel is used in leaderboard and study pages
-    await page.goto('/leaderboard');
-    await page.waitForTimeout(500);
-    expect(true).toBe(true);
   });
 });

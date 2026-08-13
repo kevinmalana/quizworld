@@ -47,41 +47,17 @@ defmodule QuizworldRealtime.Games do
 
   defp transition(pin, callback) do
     with result <- call_or_restore(pin, callback) do
-      normalize_transition(pin, result)
+      normalize_transition(result)
     end
   end
 
-  defp normalize_transition(pin, {:ok, snapshot}) do
-    Phoenix.PubSub.broadcast(
-      QuizworldRealtime.PubSub,
-      topic(pin),
-      {:session_updated, snapshot}
-    )
+  defp normalize_transition({:ok, snapshot}), do: {:ok, snapshot}
+  defp normalize_transition({:ok, snapshot, player_token}), do: {:ok, snapshot, player_token}
 
-    {:ok, snapshot}
-  end
+  defp normalize_transition({:ok, snapshot, player_token, player_id}),
+    do: {:ok, snapshot, player_token, player_id}
 
-  defp normalize_transition(pin, {:ok, snapshot, player_token}) do
-    Phoenix.PubSub.broadcast(
-      QuizworldRealtime.PubSub,
-      topic(pin),
-      {:session_updated, snapshot}
-    )
-
-    {:ok, snapshot, player_token}
-  end
-
-  defp normalize_transition(pin, {:ok, snapshot, player_token, player_id}) do
-    Phoenix.PubSub.broadcast(
-      QuizworldRealtime.PubSub,
-      topic(pin),
-      {:session_updated, snapshot}
-    )
-
-    {:ok, snapshot, player_token, player_id}
-  end
-
-  defp normalize_transition(_pin, {:error, reason}), do: {:error, reason}
+  defp normalize_transition({:error, reason}), do: {:error, reason}
 
   defp broadcast(pin) do
     with {:ok, snapshot} <- snapshot(pin) do

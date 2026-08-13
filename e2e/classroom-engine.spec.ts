@@ -37,39 +37,3 @@ test.describe('Classroom Engine: Auth Flow', () => {
     expect(bodyText.length).toBeGreaterThan(0);
   });
 });
-
-test.describe('Classroom Engine: Components', () => {
-  test('classroom tab structure exists', async ({ page }) => {
-    // Would need authenticated session to test fully
-    // Verify route handles classroom ID
-    await page.goto('/classrooms/test-id');
-    await page.waitForTimeout(1000);
-    expect(true).toBe(true);
-  });
-
-  test('assignment components exist', async ({ page }) => {
-    await page.goto('/classrooms');
-    expect(true).toBe(true);
-  });
-
-  test('member list components exist', async ({ page }) => {
-    await page.goto('/classrooms');
-    expect(true).toBe(true);
-  });
-});
-
-test.describe('Classroom Engine: Refactoring Safety', () => {
-  test('classroom components import correctly', async ({ page }) => {
-    const routes = ['/classrooms', '/classrooms/test-id'];
-    for (const route of routes) {
-      await page.goto(route);
-      await page.waitForTimeout(500);
-    }
-    expect(true).toBe(true);
-  });
-
-  test('classroom types are consistent', async ({ page }) => {
-    await page.goto('/classrooms');
-    expect(true).toBe(true);
-  });
-});

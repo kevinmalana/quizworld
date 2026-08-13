@@ -5,8 +5,23 @@ services:
     rootDir: services/quizworld_realtime
     buildCommand: mix deps.get && mix compile
     startCommand: mix phx.server
+    healthCheckPath: /api/health
     envVars:
       - key: MIX_ENV
         value: prod
       - key: PORT
         value: 4000
+      - key: PHX_HOST
+        sync: false
+      - key: SECRET_KEY_BASE
+        sync: false
+      - key: SESSION_SIGNING_SALT
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

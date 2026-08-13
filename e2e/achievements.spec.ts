@@ -33,30 +33,22 @@ test.describe('Achievements: Display', () => {
 
   test('achievement filters work', async ({ page }) => {
     await page.goto('/achievements');
-    await page.waitForTimeout(1000);
+    const allBtn = page.getByRole('button', { name: /^All \(/ });
+    const earnedBtn = page.getByRole('button', { name: /Earned \(/ });
+    const lockedBtn = page.getByRole('button', { name: /Locked \(/ });
 
-    // Check for filter buttons
-    const allBtn = page.getByRole('button', { name: /all/i });
-    const earnedBtn = page.getByRole('button', { name: /earned/i });
-    const lockedBtn = page.getByRole('button', { name: /locked/i });
+    await expect(allBtn).toBeVisible();
+    await expect(earnedBtn).toBeVisible();
+    await expect(lockedBtn).toBeVisible();
+    await expect(allBtn).toHaveClass(/is-active/);
 
-    // Click each filter if available
-    if (await allBtn.isVisible().catch(() => false)) {
-      await allBtn.click();
-      await page.waitForTimeout(300);
-    }
+    await earnedBtn.click();
+    await expect(earnedBtn).toHaveClass(/is-active/);
+    await expect(allBtn).not.toHaveClass(/is-active/);
 
-    if (await earnedBtn.isVisible().catch(() => false)) {
-      await earnedBtn.click();
-      await page.waitForTimeout(300);
-    }
-
-    if (await lockedBtn.isVisible().catch(() => false)) {
-      await lockedBtn.click();
-      await page.waitForTimeout(300);
-    }
-
-    expect(true).toBe(true);
+    await lockedBtn.click();
+    await expect(lockedBtn).toHaveClass(/is-active/);
+    await expect(earnedBtn).not.toHaveClass(/is-active/);
   });
 });
 
@@ -79,19 +71,5 @@ test.describe('Achievements: XP Rewards', () => {
     // Achievement icons should be visible (emoji or images)
     const bodyText = await page.locator('body').innerText();
     expect(bodyText.length).toBeGreaterThan(0);
-  });
-});
-
-test.describe('Achievements: Refactoring Safety', () => {
-
-  test('achievement components import correctly', async ({ page }) => {
-    await page.goto('/achievements');
-    await page.waitForTimeout(500);
-    expect(true).toBe(true);
-  });
-
-  test('achievement types are consistent', async ({ page }) => {
-    await page.goto('/achievements');
-    expect(true).toBe(true);
   });
 });

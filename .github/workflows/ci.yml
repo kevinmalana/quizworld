@@ -22,7 +22,10 @@ jobs:
         run: npm ci
       
       - name: Type check
-        run: npx tsc --noEmit
+        run: npm run typecheck
+
+      - name: Quality guard
+        run: npm run quality
       
       - name: Build
         run: npm run build
@@ -55,18 +58,3 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'

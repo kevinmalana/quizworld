@@ -96,8 +96,6 @@ test.describe('Game Engine: Lobby Phase', () => {
     await page.waitForTimeout(3000);
     const bodyText = await page.locator('body').innerText();
     expect(bodyText.length).toBeGreaterThan(0);
-    // Either shows error, or lobby (rare), or loading
-    expect(bodyText).toBeDefined();
   });
 });
 
@@ -111,41 +109,6 @@ test.describe('Game Engine: Component Rendering', () => {
     expect(bodyText.length).toBeGreaterThan(0);
   });
 
-  test('GameProgressBar shows correct question index', async ({ page }) => {
-    // This tests the GameProgressBar component indirectly
-    await page.goto('/explore');
-    await expect(page.locator('body')).toBeVisible();
-  });
-
-  test('SurvivalStatusBar component exists in codebase', async ({ page }) => {
-    // Component existence check (compile-time)
-    await page.goto('/');
-    expect(true).toBe(true);
-  });
-
-  test('TeamScoreBar component exists in codebase', async ({ page }) => {
-    await page.goto('/');
-    expect(true).toBe(true);
-  });
-
-  test('PlayerAnswerGrid component exists in codebase', async ({ page }) => {
-    await page.goto('/');
-    expect(true).toBe(true);
-  });
-});
-
-test.describe('Game Engine: Mode-Specific Panels', () => {
-  test('survival mode badge shown in lobby', async ({ page }) => {
-    await page.goto('/host');
-    await page.waitForTimeout(1000);
-    expect(true).toBe(true);
-  });
-
-  test('team mode badge shown in lobby', async ({ page }) => {
-    await page.goto('/host');
-    await page.waitForTimeout(1000);
-    expect(true).toBe(true);
-  });
 });
 
 test.describe('Game Engine: Report Page', () => {
@@ -198,45 +161,5 @@ test.describe('Game Engine: Full Flow (integration)', () => {
 
   test.skip('full game flow: team mode', async ({ browser }) => {
     // Test team auto-assignment and score aggregation
-  });
-});
-
-// ─── Regression Tests for Refactoring ──────────────────────────────────────
-
-test.describe('Game Engine: Refactoring Safety', () => {
-  /**
-   * These tests ensure refactoring doesn't break:
-   * - Component imports
-   * - Prop types
-   * - Render behavior
-   */
-
-  test('all game components are importable', async ({ page }) => {
-    // If this test passes, all component files compile and are importable
-    // This catches import path errors from refactoring
-    await page.goto('/');
-
-    // Check that we can load pages that use game components
-    const routes = ['/game/TEST', '/report/TEST', '/host'];
-    for (const route of routes) {
-      await page.goto(route);
-      await page.waitForLoadState('networkidle');
-      // No JavaScript errors thrown
-    }
-
-    expect(true).toBe(true);
-  });
-
-  test('game state panel types are consistent', async ({ page }) => {
-    await page.goto('/game/TYPE_TEST');
-    await page.waitForLoadState('networkidle');
-    // If page loads without type error, types are consistent
-    expect(true).toBe(true);
-  });
-
-  test('Team type is exported correctly', async ({ page }) => {
-    // This is a compile-time check - if test runs, types compile
-    await page.goto('/');
-    expect(true).toBe(true);
   });
 });

@@ -1,7 +1,44 @@
 defmodule QuizworldRealtime.GamesTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias QuizworldRealtime.Games
+
+  defp question do
+    %{
+      "id" => "q1",
+      "text" => "What is 2 + 2?",
+      "time_limit" => 20,
+      "points" => 1_000,
+      "order_index" => 0,
+      "answers" => [
+        %{"id" => "a1", "text" => "4", "is_correct" => true},
+        %{"id" => "a2", "text" => "5", "is_correct" => false}
+      ]
+    }
+  end
+
+  test "a game transition publishes exactly one session update" do
+    pin = "T" <> Integer.to_string(System.unique_integer([:positive]))
+    topic = Games.topic(pin)
+    Phoenix.PubSub.subscribe(QuizworldRealtime.PubSub, topic)
+
+    assert {:ok, _snapshot, _host_token} =
+             Games.create_session(%{
+               "pin" => pin,
+               "host_id" => "host_test",
+               "quiz_id" => "quiz_test",
+               "questions" => [question()],
+               "game_mode" => "classic"
+             })
+
+    assert_receive {:session_updated, _created_snapshot}
+
+    assert {:ok, joined_snapshot, _player_token, _player_id} =
+             Games.join_player(pin, %{"nickname" => "Mia", "avatar" => "🦊"})
+
+    assert_receive {:session_updated, ^joined_snapshot}
+    refute_receive {:session_updated, ^joined_snapshot}, 100
+  end
 
   describe "topic/1" do
     test "generates a valid pubsub topic" do
@@ -42,7 +79,7 @@ defmodule QuizworldRealtime.GamesTest do
     end
 
     test "handles integer input" do
-      assert Games.sanitize_pin(123456) == "123456"
+      assert Games.sanitize_pin(123_456) == "123456"
     end
 
     test "handles nil gracefully" do

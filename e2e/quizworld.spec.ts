@@ -818,11 +818,9 @@ test.describe('Host page v2', () => {
   test('host page loads and shows sign-in prompt when unauthenticated', async ({ page }) => {
     await page.goto('/host');
     await expect(page.locator('body')).not.toContainText('Application error');
-    // Unauthenticated: show sign-in prompt
-    const body = await page.locator('body').textContent();
-    expect(
-      body?.includes('Sign In') || body?.includes('Host a Live Game') || page.url().includes('/login')
-    ).toBeTruthy();
+    await expect(page.getByRole('heading', { name: 'Host a Live Game' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign In to Host' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Browse Quizzes First' })).toBeVisible();
   });
 
   test('host page shows My Quizzes tab', async ({ page }) => {

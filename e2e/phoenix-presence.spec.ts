@@ -144,10 +144,9 @@ test.describe('Phoenix Connection: Health', () => {
 
   test('join page shows PIN input when Phoenix is configured', async ({ page }) => {
     await page.goto('/join');
-    const hasPinInput = await page.locator('input[maxlength], input[placeholder*="PIN"], input[placeholder*="pin"]').first().isVisible().catch(() => false);
-    const hasUnavailable = await page.getByRole('heading', { name: /unavailable/i }).isVisible().catch(() => false);
-    // Either PIN input OR unavailable message — never blank
-    expect(hasPinInput || hasUnavailable).toBeTruthy();
+    await expect(page.getByRole('heading', { name: 'Join a Game' })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'PIN character 1' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Enter Game' })).toBeDisabled();
   });
 
   test('game page with invalid PIN shows user-friendly error', async ({ page }) => {

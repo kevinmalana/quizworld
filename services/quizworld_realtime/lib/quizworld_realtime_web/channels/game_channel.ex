@@ -22,14 +22,15 @@ defmodule QuizworldRealtimeWeb.GameChannel do
 
   @impl true
   def handle_info({:after_join, payload}, socket) do
-        _pin = socket.assigns.pin
-        player_id = Map.get(payload, "player_id", "spectator")
-        nickname = Map.get(payload, "nickname", "")
+    _pin = socket.assigns.pin
+    player_id = Map.get(payload, "player_id", "spectator")
+    nickname = Map.get(payload, "nickname", "")
 
-    {:ok, _} = Presence.track(socket, player_id, %{
-      nickname: nickname,
-      online_at: DateTime.utc_now() |> DateTime.to_unix()
-    })
+    {:ok, _} =
+      Presence.track(socket, player_id, %{
+        nickname: nickname,
+        online_at: DateTime.utc_now() |> DateTime.to_unix()
+      })
 
     push(socket, "presence_state", Presence.list(socket))
     {:noreply, socket}
@@ -46,22 +47,37 @@ defmodule QuizworldRealtimeWeb.GameChannel do
     push(socket, "presence_state", Presence.list(socket))
     {:noreply, socket}
   end
+
   @impl true
   def handle_in("player:join", payload, socket) do
     pin = socket.assigns.pin
 
     case Games.join_player(pin, payload) do
       {:ok, snapshot, player_token, player_id} ->
-        {:reply, {:ok, %{session: snapshot, player_token: player_token, player_id: player_id}}, socket}
+        {:reply, {:ok, %{session: snapshot, player_token: player_token, player_id: player_id}},
+         socket}
 
       {:error, :game_full} ->
-        {:reply, {:error, %{reason: "game_full", message: "This game is full (200 players max). Try another session."}}, socket}
+        {:reply,
+         {:error,
+          %{
+            reason: "game_full",
+            message: "This game is full (200 players max). Try another session."
+          }}, socket}
 
       {:error, :nickname_taken} ->
-        {:reply, {:error, %{reason: "nickname_taken", message: "That nickname is already taken. Choose another."}}, socket}
+        {:reply,
+         {:error,
+          %{reason: "nickname_taken", message: "That nickname is already taken. Choose another."}},
+         socket}
 
       {:error, :session_closed} ->
-        {:reply, {:error, %{reason: "session_closed", message: "This game has already started. Ask the host to start a new session."}}, socket}
+        {:reply,
+         {:error,
+          %{
+            reason: "session_closed",
+            message: "This game has already started. Ask the host to start a new session."
+          }}, socket}
 
       {:error, reason} ->
         {:reply, {:error, %{reason: to_string(reason)}}, socket}
@@ -69,7 +85,11 @@ defmodule QuizworldRealtimeWeb.GameChannel do
   end
 
   def handle_in("host:start", %{"host_token" => host_token}, socket) do
-    transition(socket.assigns.pin, fn -> Games.start_game(socket.assigns.pin, host_token) end, socket)
+    transition(
+      socket.assigns.pin,
+      fn -> Games.start_game(socket.assigns.pin, host_token) end,
+      socket
+    )
   end
 
   def handle_in("player:answer", payload, socket) do
@@ -89,25 +109,28 @@ defmodule QuizworldRealtimeWeb.GameChannel do
   end
 
   def handle_in("host:reveal", %{"host_token" => host_token}, socket) do
-    transition(socket.assigns.pin, fn -> Games.reveal_current_question(socket.assigns.pin, host_token) end, socket)
+    transition(
+      socket.assigns.pin,
+      fn -> Games.reveal_current_question(socket.assigns.pin, host_token) end,
+      socket
+    )
   end
 
   def handle_in("host:advance", %{"host_token" => host_token}, socket) do
-    transition(socket.assigns.pin, fn -> Games.advance(socket.assigns.pin, host_token) end, socket)
+    transition(
+      socket.assigns.pin,
+      fn -> Games.advance(socket.assigns.pin, host_token) end,
+      socket
+    )
   end
 
-
-  defp transition(pin, callback, socket) do
+  defp transition(_pin, callback, socket) do
     case callback.() do
       {:ok, snapshot} ->
-        # Broadcast to all subscribers so every connected client gets the update
-        Phoenix.PubSub.broadcast(
-          QuizworldRealtime.PubSub,
-          Games.topic(pin),
-          {:session_updated, snapshot}
-        )
         {:reply, {:ok, %{session: snapshot}}, socket}
-      {:error, reason} -> {:reply, {:error, %{reason: to_string(reason)}}, socket}
+
+      {:error, reason} ->
+        {:reply, {:error, %{reason: to_string(reason)}}, socket}
     end
   end
 end
