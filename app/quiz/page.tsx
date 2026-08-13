@@ -28,13 +28,19 @@ interface QuizRow {
 }
 
 async function fetchTopQuizzes(): Promise<QuizRow[]> {
+  // 2026-08-13: skip fetching if env vars missing (CI build prerender path).
+  // Without this guard, fetch() falls back to "undefined/rest/v1/..." which hangs
+  // for 60s and crashes the build with "took more than 60 seconds".
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return [];
+  }
   try {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/quizzes?is_public=eq.true&archived_at=is.null&select=id,slug,title,category,plays,emoji,color,questions(id)&order=plays.desc&limit=12`,
       {
         headers: {
-          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""}`,
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
         },
         next: { revalidate: 3600 },
       }
