@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CATEGORY_EMOJIS } from "@/lib/shared";
 
@@ -70,19 +71,30 @@ const STEPS = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
   const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState("");
 
-  // Presentation codes are purely alphabetic (e.g. ABCDEF).
-  // Game PINs are purely numeric (e.g. 482910).
-  // This prevents a numeric game PIN from ever being mistaken for a presentation code.
-    // Always send to /join — the join page handles routing to presentation if needed.
-  // We cannot reliably detect game PIN vs presentation code on the homepage
-  // because both can be all-alpha (17% of game PINs are).
+  // Game PINs are 6-char alphanumeric (Phoenix numeric-only or presentation codes).
+  // Show an inline error instead of navigating to /join with a partial PIN that
+  // renders the page with a disabled submit and no feedback.
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = pin.trim();
-    if (!trimmed) return;
-    window.location.href = `/join?pin=${trimmed}`;
+    const trimmed = pin.trim().toUpperCase();
+    if (trimmed.length === 0) {
+      setPinError("Enter your game PIN to continue");
+      return;
+    }
+    if (trimmed.length < 6) {
+      setPinError("Game PINs are 6 characters");
+      return;
+    }
+    if (trimmed.length > 6) {
+      setPinError("Game PINs are 6 characters — anything beyond that is ignored");
+      return;
+    }
+    setPinError("");
+    router.push(`/join?pin=${trimmed}`);
   };
 
   return (
@@ -126,12 +138,23 @@ export default function HomePage() {
                   <input
                     type="text"
                     placeholder="Game PIN or Presentation Code"
-                    className="input-pin mb-sm"
+                    className={`input-pin mb-sm ${pinError ? "input-pin--error" : ""}`}
                     value={pin}
-                    onChange={(e) => setPin(e.target.value.toUpperCase())}
+                    onChange={(e) => { setPin(e.target.value.toUpperCase()); if (pinError) setPinError(""); }}
                     maxLength={8}
+                    aria-invalid={pinError ? "true" : "false"}
+                    aria-describedby={pinError ? "home-pin-error" : undefined}
                   />
-                  <button type="submit" className="btn btn-accent btn-lg btn-full">
+                  {pinError && (
+                    <p id="home-pin-error" className="home-pin-error" role="alert">
+                      {pinError}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={pin.trim().length === 0}
+                    className="btn btn-accent btn-lg btn-full"
+                  >
                     Enter Game
                   </button>
                 </form>

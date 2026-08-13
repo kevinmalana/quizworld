@@ -146,7 +146,7 @@ export default function ReportPage() {
 
       // Only the host can view the full report
       if ((data as GameResult).host_id !== user?.id) {
-        setError("You don't have permission to view this report.");
+        setError("This game report is only visible to the host who started the game.");
         setLoading(false);
         return;
       }

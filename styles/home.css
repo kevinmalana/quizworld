@@ -88,6 +88,20 @@
   text-decoration: none;
 }
 
+/* Home-page PIN form validation state */
+.home-pin-error {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--danger, #ef4444);
+  text-align: left;
+}
+
+.input-pin--error {
+  border-color: var(--danger, #ef4444);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
 /* Category dot */
 .home-category-dot {
   width: 6px;

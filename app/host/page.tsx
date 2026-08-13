@@ -60,13 +60,6 @@ const GAME_MODES: GameMode[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function generatePin(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let pin = "";
-  for (let i = 0; i < 6; i++) pin += chars[Math.floor(Math.random() * chars.length)];
-  return pin;
-}
-
 function toPhoenixQuestions(quiz: QuizFull) {
   return [...(quiz.questions ?? [])]
     .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
@@ -290,18 +283,21 @@ function HostPageContent() {
         router.push(`/game/${response.session.pin}`);
         return;
       } else {
-        const newPin = generatePin();
-        const { error: sessionError } = await supabase.from("game_sessions").insert({
-          pin: newPin, quiz_id: fullQuiz.id, host_id: user.id,
-          status: "waiting", current_question_index: -1, game_mode: gameMode,
-        });
-        if (sessionError) throw sessionError;
-        router.push(`/game/${newPin}`);
+        setError("Legacy Supabase game sessions are no longer supported from this host flow.");
         return;
       }
     } catch (err) {
       console.error("Launch error:", err);
-      setError(err instanceof Error ? err.message : "Failed to create game. Try again.");
+      const raw = err instanceof Error ? err.message : "";
+      // Treat network/transport errors and unrecognised Phoenix strings as a generic
+      // outage message; show the backend's clean message only when it looks safe.
+      const isNetworkError =
+        /failed to fetch|networkerror|load failed|timed out|timeout/i.test(raw);
+      if (isNetworkError || raw.length === 0) {
+        setError("Couldn't reach the game server. Please check your connection and try again.");
+      } else {
+        setError(raw);
+      }
     } finally {
       setLaunching(false);
     }
