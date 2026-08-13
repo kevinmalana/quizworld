@@ -237,8 +237,9 @@ test.describe('P1: AI from Topic', () => {
   test('question count selector works', async ({ page }) => {
     await page.goto('/create');
     await page.click('text=AI from Topic');
-    await page.click('button:has-text("8")');
-    await expect(page.locator('button:has-text("8")')).toBeVisible();
+    const countButton = page.locator('.builder-question-count', { hasText: '20' });
+    await countButton.click();
+    await expect(countButton).toHaveClass(/is-selected/);
   });
 
   test('generation options expose audience, difficulty, type, tone, and focus controls', async ({ page }) => {
@@ -392,10 +393,9 @@ test.describe('P2: Error Handling', () => {
 test.describe('P0: Present Page', () => {
   test('loads and shows create presentation UI or sign-in prompt', async ({ page }) => {
     await page.goto('/present');
-    const hasInput = await page.locator('input[placeholder*="title"], input[placeholder*="Title"], input[placeholder*="presentation"]').isVisible().catch(() => false);
-    const hasSignIn = await page.locator('text=Sign In, text=sign in, button:has-text("Sign")').first().isVisible().catch(() => false);
-    const hasCreate = await page.locator('text=New presentation, text=Create, text=Presentation').first().isVisible().catch(() => false);
-    expect(hasInput || hasSignIn || hasCreate).toBeTruthy();
+    await expect(page.getByRole('heading', { name: /Presentations/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByPlaceholder(/New presentation title/i)).toBeVisible();
+    await expect(page.getByRole('link', { name: /Join a presentation/i })).toBeVisible();
   });
 
   test('present/join page has code and name inputs', async ({ page }) => {

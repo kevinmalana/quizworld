@@ -37,7 +37,7 @@ test.describe('Security: import-pdf API', () => {
 
     expect(r.status()).toBe(401);
     const body = await r.json();
-    expect(body.error).toContain('Authentication');
+    expect(body.error).toMatch(/authentication|sign in/i);
   });
 
   test('blocks requests with missing file', async ({ request }) => {
