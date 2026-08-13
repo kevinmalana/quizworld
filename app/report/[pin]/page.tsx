@@ -130,27 +130,33 @@ export default function ReportPage() {
       return;
     }
     async function load() {
-      const { data, error: fetchError } = await supabase
-        .from("game_results")
-        .select("*")
-        .eq("pin", pin)
-        .single();
-
-      if (fetchError || !data) {
-        setError("Game report not found.");
+      // 2026-08-13: route through /api/reports/[pin] server-side endpoint.
+      // game_results RLS now requires auth.uid() = host_id, so the browser
+      // can no longer read results directly. The server endpoint uses the
+      // service-role client for the lookup and re-checks ownership.
+      const res = await fetch(`/api/reports/${encodeURIComponent(pin)}`);
+      if (res.status === 401) {
+        setError("Sign in to view this report.");
         setLoading(false);
         return;
       }
-
-      setResult(data as GameResult);
-
-      // Only the host can view the full report
-      if ((data as GameResult).host_id !== user?.id) {
+      if (res.status === 403) {
         setError("This game report is only visible to the host who started the game.");
         setLoading(false);
         return;
       }
-
+      if (res.status === 404) {
+        setError("Game report not found.");
+        setLoading(false);
+        return;
+      }
+      if (!res.ok) {
+        setError("Could not load the report. Please try again.");
+        setLoading(false);
+        return;
+      }
+      const { result } = await res.json();
+      setResult(result as GameResult);
       setLoading(false);
     }
     load();

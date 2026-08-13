@@ -13,6 +13,14 @@ defmodule QuizworldRealtime.RateLimiter do
     "POST:/api/sessions/*/reveal" => {60, 60},
     "POST:/api/sessions/*/advance" => {60, 60},
     "POST:/api/sessions/*/answer" => {240, 60},
+    # 2026-08-13: GET /api/sessions/:pin/show is polled every 5s by every connected
+    # player as a fallback when the WebSocket is disconnected. With many
+    # players behind a NAT (classroom), this can spike. A generous but
+    # bounded limit protects against PIN brute-forcing (10s polling from
+    # 200 IPs in 60s = 1200 reqs vs limit 600).
+    "GET:/api/sessions/*" => {600, 60},
+    # GET /api/presentations/:id is similarly used by the live audience page.
+    "GET:/api/presentations/*" => {600, 60},
     "POST:/api/presentations/join" => {40, 60},
     "POST:/api/presentations/*/start" => {20, 60}
   }
@@ -74,6 +82,9 @@ defmodule QuizworldRealtime.RateLimiter do
 
       method == "POST" and Regex.match?(~r|^/api/sessions/[^/]+/answer$|, path) ->
         "POST:/api/sessions/*/answer"
+
+      method == "GET" and Regex.match?(~r|^/api/sessions/[^/]+$|, path) ->
+        "GET:/api/sessions/*"
 
       method == "POST" and path == "/api/presentations/join" ->
         "POST:/api/presentations/join"

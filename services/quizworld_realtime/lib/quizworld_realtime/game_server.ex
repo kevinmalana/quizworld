@@ -15,27 +15,34 @@ defmodule QuizworldRealtime.GameServer do
     GenServer.start_link(__MODULE__, attrs, name: via(pin_for(attrs)))
   end
 
-  def snapshot(pin), do: GenServer.call(via(pin), :snapshot)
-  def host_token(pin), do: GenServer.call(via(pin), :host_token)
-  def join_player(pin, player), do: GenServer.call(via(pin), {:join_player, player})
-  def start_game(pin, host_token), do: GenServer.call(via(pin), {:start_game, host_token})
+  # 2026-08-13: explicit per-call timeouts. The default GenServer.call timeout
+  # is 5s — too long for /answer which must return before the client retries,
+  # and too short for /start where Redis-backed state hydrate may take longer.
+  def snapshot(pin), do: GenServer.call(via(pin), :snapshot, 3_000)
+  def host_token(pin), do: GenServer.call(via(pin), :host_token, 1_000)
+  def join_player(pin, player), do: GenServer.call(via(pin), {:join_player, player}, 3_000)
+  def start_game(pin, host_token), do: GenServer.call(via(pin), {:start_game, host_token}, 5_000)
 
   def reconnect_player(pin, player_id, player_token),
-    do: GenServer.call(via(pin), {:reconnect_player, player_id, player_token})
+    do: GenServer.call(via(pin), {:reconnect_player, player_id, player_token}, 3_000)
 
+  # Tight timeout for answer submissions — once a user submits, the client has
+  # moved on. If we miss the window, the next REST poll will pick up the answer
+  # from the snapshot, and the user sees their answer counted (just delayed).
   def submit_answer(pin, player_id, player_token, answer_id, response_time_ms) do
     GenServer.call(
       via(pin),
-      {:submit_answer, player_id, player_token, answer_id, response_time_ms}
+      {:submit_answer, player_id, player_token, answer_id, response_time_ms},
+      2_000
     )
   end
 
   def reveal_current_question(pin, host_token) do
-    GenServer.call(via(pin), {:reveal_current_question, host_token})
+    GenServer.call(via(pin), {:reveal_current_question, host_token}, 5_000)
   end
 
   def advance(pin, host_token) do
-    GenServer.call(via(pin), {:advance, host_token})
+    GenServer.call(via(pin), {:advance, host_token}, 5_000)
   end
 
   def via(pin), do: {:via, Registry, {QuizworldRealtime.GameRegistry, pin}}
