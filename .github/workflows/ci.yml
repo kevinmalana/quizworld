@@ -38,7 +38,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: npx playwright install --with-deps chromium
       
-      - name: Run production E2E smoke tests
+      - name: Run production E2E tests
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: npx playwright test
         env:

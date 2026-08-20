@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { subscribeToPhoenixTopic } from "@/lib/game-engine/phoenix-socket";
 
 type PhoenixGameChannelOptions = {
-  enabled: boolean;
   pin: string;
   onSnapshot: (session: Record<string, unknown>) => void;
   loadSnapshot: () => Promise<void> | void;
@@ -17,7 +16,6 @@ function sessionFromPayload(payload: unknown) {
 }
 
 export function usePhoenixGameChannel({
-  enabled,
   pin,
   onSnapshot,
   loadSnapshot,
@@ -25,11 +23,6 @@ export function usePhoenixGameChannel({
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    if (!enabled) {
-      setConnected(false);
-      return;
-    }
-
     let stopped = false;
 
     const handleSnapshot = (payload: unknown) => {
@@ -55,17 +48,15 @@ export function usePhoenixGameChannel({
       stopped = true;
       unsubscribe();
     };
-  }, [enabled, onSnapshot, pin]);
+  }, [onSnapshot, pin]);
 
   useEffect(() => {
-    if (!enabled) return;
-
     const fallbackInterval = window.setInterval(() => {
       if (!connected) void loadSnapshot();
     }, FALLBACK_INTERVAL_MS);
 
     return () => window.clearInterval(fallbackInterval);
-  }, [connected, enabled, loadSnapshot]);
+  }, [connected, loadSnapshot]);
 
   return connected;
 }

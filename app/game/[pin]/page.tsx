@@ -400,7 +400,6 @@ export default function GamePage() {
   }, [(session as { id?: string })?.id, loadSession]);
 
   const phoenixChannelConnected = usePhoenixGameChannel({
-    enabled: isPhoenixGameEngine,
     pin,
     onSnapshot: applySessionSnapshot,
     loadSnapshot: loadSession,

@@ -113,6 +113,7 @@ The live-game browser interface is intentionally split by responsibility:
 
 - `lib/game-engine/client.ts` — Phoenix HTTP commands
 - `lib/game-engine/phoenix-socket.ts` — low-level channel connection and reconnect policy
+- `lib/game/use-phoenix-game-channel.ts` — subscription state and disconnected fallback polling
 - `lib/game/session-normalizers.ts` — snapshot normalization and revision checks
 - `lib/game/game-analytics.ts` — derived leaderboard and achievement calculations
 - `lib/shared.ts` — canonical category colour and emoji mappings
