@@ -15,26 +15,33 @@ import { CreateSourceModals, type AIQuestionCount } from "@/components/builder/C
 import { PublishLoginPrompt } from "@/components/builder/PublishLoginPrompt";
 import {
   aiDraftToQuestionData,
+  canPublishQuiz,
   isQuestionComplete,
   legacyToQuestionData,
   makeBlankQuestion,
   makeTrueFalseQuestion,
   questionsToPublishPayload,
 } from "@/lib/builder/question-factory";
-
-// ─── Types ──────────────────────────────────────────────────────────────────────
+import {
+  buildDraftFingerprint,
+  buildDraftSavePayload,
+  getLifecycleHref,
+  getQuizLifecycleIntent,
+  normalizePublishResult,
+} from "@/lib/quiz-lifecycle";
+import { useQuizAuthoringRecovery, type RecoveredQuizAuthoringState } from "@/lib/builder/use-quiz-authoring-recovery";
 
 type PageStep = "source" | "builder";
 const CREATE_DRAFT_KEY = "qw_create_draft_v9";
-
-// ─── Main page ────────────────────────────────────────────────────────────────
-
 function CreatePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+  const draftParam = searchParams.get("draft");
+  const quizParam = searchParams.get("quiz");
+  const versionParam = searchParams.get("version");
+  const duplicateParam = searchParams.get("duplicate") === "1";
 
-  // ── Core state ──
   const [step, setStep] = useState<PageStep>("source");
   const [sourceType, setSourceType] = useState<SourceType>("manual");
   const [questions, setQuestions] = useState<QuestionData[]>([makeBlankQuestion()]);
@@ -45,14 +52,13 @@ function CreatePageContent() {
   const [isPublic, setIsPublic] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
 
-  // ── Draft state ──
   const [remoteDraftId, setRemoteDraftId] = useState<string | null>(null);
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
   const [draftState, setDraftState] = useState<DraftSyncState>("idle");
+  const [loadError, setLoadError] = useState("");
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedFingerprint = useRef<string>("");
 
-  // ── AI state ──
   const [aiTopic, setAiTopic] = useState("");
   const [aiUrl, setAiUrl] = useState("");
   const [aiCount, setAiCount] = useState<AIQuestionCount>(10);
@@ -62,58 +68,34 @@ function CreatePageContent() {
   const [enriching, setEnriching] = useState(false);
   const [aiOptions, setAiOptions] = useState<AIGenerationOptions>(DEFAULT_AI_OPTIONS);
 
-  // ── Load existing quiz for editing ──
-  useEffect(() => {
-    const quizParam = searchParams.get("quiz");
-    const draftParam = searchParams.get("draft");
-    if (!quizParam || draftParam) return;
+  const applyRecoveredState = useCallback((state: RecoveredQuizAuthoringState) => {
+    setRemoteDraftId(state.remoteDraftId);
+    setEditingQuizId(state.editingQuizId);
+    setQuizTitle(state.title);
+    setQuizCategory(state.category);
+    setQuizEmoji(state.emoji);
+    setIsPublic(state.isPublic);
+    setSourceType(state.sourceType);
+    setQuestions(state.questions);
+    setActiveIndex(0);
+    setStep("builder");
+    setDraftState(state.draftState);
+    lastSavedFingerprint.current = state.markAsSaved
+      ? buildDraftFingerprint({ ...state, editingQuizId: state.editingQuizId })
+      : "";
+  }, []);
 
-    let ignore = false;
-    async function loadQuiz() {
-      const { data: quiz, error } = await supabase
-        .from("quizzes")
-        .select("*, questions(*, answers(*))")
-        .eq("id", quizParam)
-        .single();
-
-      if (ignore || error || !quiz) return;
-
-      const sorted = [...(quiz.questions ?? [])].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
-
-      setEditingQuizId(quiz.id);
-      setQuizTitle(quiz.title ?? "");
-      setQuizCategory(quiz.category ?? "General Knowledge");
-      setQuizEmoji(quiz.emoji ?? "💡");
-      setIsPublic(quiz.is_public ?? true);
-      setStep("builder");
-      setQuestions(
-        sorted.map((q: any) => ({
-          id: q.id || uid(),
-          text: q.text ?? "",
-          type: q.question_type === "true_false" ? "true_false" : q.question_type === "poll" ? "poll" : "multiple_choice",
-          imageUrl: q.image_url ?? "",
-          timeLimit: q.time_limit ?? 20,
-          points: q.points ?? 1000,
-          explanation: q.explanation ?? "",
-          answers: [...(q.answers ?? [])]
-            .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
-            .map((a: any) => ({
-              id: a.id || uid(),
-              text: a.text ?? "",
-              imageUrl: a.image_url ?? "",
-              isCorrect: a.is_correct ?? false,
-            })),
-        })) ?? [makeBlankQuestion()]
-      );
-      setActiveIndex(0);
-    }
-    loadQuiz();
-    return () => { ignore = true; };
-  }, [searchParams]);
+  useQuizAuthoringRecovery({
+    authLoading, userId: user?.id ?? null,
+    draftParam, quizParam, versionParam, duplicateParam, router,
+    storageKey: CREATE_DRAFT_KEY,
+    currentDraft: { title: quizTitle, category: quizCategory, emoji: quizEmoji, isPublic, sourceType, questions },
+    makeBlankQuestion, onRecover: applyRecoveredState, onLoadError: setLoadError,
+  });
 
   // ── Derived ──
   const readyCount = questions.filter(isQuestionComplete).length;
-  const canPublish = quizTitle.trim().length > 0 && readyCount > 0;
+  const canPublish = canPublishQuiz(quizTitle, questions);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   // ── Restore saved quiz state after login ──
@@ -140,12 +122,14 @@ function CreatePageContent() {
     const q = makeBlankQuestion();
     setQuestions((prev) => [...prev, q]);
     setActiveIndex(questions.length);
+    setDraftState("dirty");
   }, [questions.length]);
 
   const addTrueFalse = useCallback(() => {
     const q = makeTrueFalseQuestion();
     setQuestions((prev) => [...prev, q]);
     setActiveIndex(questions.length);
+    setDraftState("dirty");
   }, [questions.length]);
 
   const updateQuestion = useCallback((idx: number, q: QuestionData) => {
@@ -168,6 +152,7 @@ function CreatePageContent() {
     if (questions.length <= 1) return;
     setQuestions((prev) => prev.filter((_, i) => i !== idx));
     setActiveIndex((prev) => Math.min(prev, questions.length - 2));
+    setDraftState("dirty");
   }, [questions.length]);
 
   const duplicateQuestion = useCallback((idx: number) => {
@@ -175,6 +160,7 @@ function CreatePageContent() {
     q.answers = q.answers.map((a) => ({ ...a, id: uid() }));
     setQuestions((prev) => [...prev.slice(0, idx + 1), q, ...prev.slice(idx + 1)]);
     setActiveIndex(idx + 1);
+    setDraftState("dirty");
   }, [questions]);
 
   const reorderQuestions = useCallback((from: number, to: number) => {
@@ -227,6 +213,7 @@ function CreatePageContent() {
           setQuizTitle(data.draft.title || aiTopic.slice(0, 60));
           setActiveIndex(0);
           setStep("builder");
+          setDraftState("dirty");
         } catch (err: any) {
           setAiError(err.message || "Something went wrong");
         } finally {
@@ -250,6 +237,7 @@ function CreatePageContent() {
       setQuestions(generated);
       setActiveIndex(0);
       setStep("builder");
+      setDraftState("dirty");
       return;
     }
 
@@ -279,6 +267,7 @@ function CreatePageContent() {
       setQuizTitle(data.draft.title || "Quiz from pasted text");
       setActiveIndex(0);
       setStep("builder");
+      setDraftState("dirty");
     } catch (err: any) {
       setAiError(err.message || "Something went wrong");
     } finally {
@@ -320,6 +309,7 @@ function CreatePageContent() {
       setQuizTitle(aiData.draft.title || aiUrl.slice(0, 60));
       setActiveIndex(0);
       setStep("builder");
+      setDraftState("dirty");
     } catch (err: any) {
       setAiError(err.message || "Something went wrong");
     } finally {
@@ -364,6 +354,7 @@ function CreatePageContent() {
           };
         })
       );
+      setDraftState("dirty");
     } catch (err: any) {
       setAiError(err.message || "Enrichment failed");
     } finally {
@@ -372,59 +363,44 @@ function CreatePageContent() {
   }, [questions]);
 
   // ── Draft persistence ──
-  const saveDraftToSupabase = useCallback(async (mode: "auto" | "manual") => {
+  const saveDraftToSupabase = useCallback(async (_mode: "auto" | "manual") => {
     if (!user) return;
-    const fingerprint = JSON.stringify({ title: quizTitle, category: quizCategory, questions: questions.map(q => ({ text: q.text, answers: q.answers.map(a => ({ text: a.text, isCorrect: a.isCorrect })) })) });
-    if (fingerprint === lastSavedFingerprint.current) return;
+    const fingerprint = buildDraftFingerprint({
+      title: quizTitle,
+      category: quizCategory,
+      emoji: quizEmoji,
+      isPublic,
+      sourceType,
+      editingQuizId,
+      questions,
+    });
+    if (remoteDraftId && fingerprint === lastSavedFingerprint.current) return;
 
     setDraftState("saving");
     try {
-      const draftPayload = {
+      const { data, error } = await supabase.rpc("save_quiz_draft", buildDraftSavePayload({
+        draftId: remoteDraftId,
+        quizId: editingQuizId,
         title: quizTitle,
         category: quizCategory,
         emoji: quizEmoji,
         color: "",
-        is_public: isPublic,
-        source_type: sourceType,
-        owner_id: user.id,
-        updated_at: new Date().toISOString(),
-      };
-
-      let draftId = remoteDraftId;
-      if (draftId) {
-        await supabase.from("quiz_drafts").update(draftPayload).eq("id", draftId).eq("owner_id", user.id);
-      } else {
-        const { data, error } = await supabase.from("quiz_drafts").insert(draftPayload).select("id, updated_at").single();
-        if (error) throw error;
-        draftId = data.id;
-        setRemoteDraftId(draftId);
-      }
-
-      // Save questions
-      if (draftId) {
-        await supabase.from("quiz_draft_questions").delete().eq("draft_id", draftId);
-        for (let i = 0; i < questions.length; i++) {
-          const q = questions[i];
-          const { data: insertedQ } = await supabase.from("quiz_draft_questions").insert({
-            draft_id: draftId, text: q.text, image_url: q.imageUrl || null, time_limit: q.timeLimit, points: q.points, order_index: i, question_type: q.type || "multiple_choice", explanation: q.explanation || null,
-          }).select("id").single();
-          if (insertedQ) {
-            await supabase.from("quiz_draft_answers").insert(
-              q.answers.map((a, ai) => ({
-                question_id: insertedQ.id, text: a.text, image_url: a.imageUrl || null, is_correct: a.isCorrect, order_index: ai,
-              }))
-            );
-          }
-        }
-      }
+        isPublic,
+        sourceType,
+        questions,
+      }));
+      if (error) throw error;
+      if (typeof data !== "string" || !data) throw new Error("Draft save did not return a draft id.");
 
       lastSavedFingerprint.current = fingerprint;
+      setRemoteDraftId(data);
       setDraftState("saved");
+      if (draftParam !== data) router.replace(`/create?draft=${encodeURIComponent(data)}`);
     } catch (err) {
       console.error("Draft save error:", err);
       setDraftState("error");
     }
-  }, [user, quizTitle, quizCategory, quizEmoji, isPublic, sourceType, questions, remoteDraftId]);
+  }, [user, quizTitle, quizCategory, quizEmoji, isPublic, sourceType, questions, remoteDraftId, editingQuizId, draftParam, router]);
 
   // Auto-save on changes
   useEffect(() => {
@@ -492,7 +468,7 @@ function CreatePageContent() {
         p_emoji: quizEmoji,
         p_color: "",
         p_is_public: isPublic,
-        p_questions: questionsToPublishPayload(questions.filter(isQuestionComplete)),
+        p_questions: questionsToPublishPayload(questions),
       };
 
       let result;
@@ -504,14 +480,23 @@ function CreatePageContent() {
 
       if (result.error) throw result.error;
 
-      const createdId = result.data;
+      const published = normalizePublishResult(result.data, editingQuizId);
       if (remoteDraftId && user) {
-        await supabase.from("quiz_drafts").update({ quiz_id: createdId, updated_at: new Date().toISOString() }).eq("id", remoteDraftId).eq("owner_id", user.id);
+        const { error: linkError } = await supabase
+          .from("quiz_drafts")
+          .update({ quiz_id: published.quizId, updated_at: new Date().toISOString() })
+          .eq("id", remoteDraftId)
+          .eq("owner_id", user.id);
+        if (linkError) console.error("Published quiz, but could not link its draft:", linkError);
       }
 
       // Confetti! (#14)
+      sessionStorage.removeItem(CREATE_DRAFT_KEY);
       setShowConfetti(true);
-      setTimeout(() => { router.push("/dashboard"); }, 1500);
+      const dashboardParams = new URLSearchParams();
+      dashboardParams.set(published.lifecycle, published.quizId);
+      if (published.versionNumber !== null) dashboardParams.set("version", String(published.versionNumber));
+      setTimeout(() => { router.push(`/dashboard?${dashboardParams.toString()}`); }, 1500);
     } catch (err) {
       console.error("Publish error:", err);
       setDraftState("error");
@@ -523,11 +508,24 @@ function CreatePageContent() {
     return (
       <PublishLoginPrompt
         onSignIn={() => {
-          sessionStorage.setItem("qw_post_login_redirect", "/create");
+          const intent = getQuizLifecycleIntent(searchParams);
+          sessionStorage.setItem("qw_post_login_redirect", getLifecycleHref(intent));
           router.push("/login");
         }}
         onKeepEditing={() => setShowLoginPrompt(false)}
       />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="container" style={{ paddingTop: "3rem" }}>
+        <div className="card" role="alert">
+          <h2 className="font-display">Could not open this quiz</h2>
+          <p className="text-muted">{loadError}</p>
+          <button className="btn btn-primary" onClick={() => router.push("/dashboard")}>Back to dashboard</button>
+        </div>
+      </div>
     );
   }
 

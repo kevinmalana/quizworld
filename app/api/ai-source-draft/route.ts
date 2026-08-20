@@ -4,6 +4,7 @@ import {
   sanitizeJsonString,
   validateAIQuizDraft,
   detectDuplicateQuestions,
+  findUngroundedQuestionIndices,
   DEFAULT_AI_OPTIONS,
   type AIGenerationOptions,
 } from "@/lib/quiz-ai";
@@ -92,7 +93,9 @@ export async function POST(request: Request) {
             content: `You are a quiz author for educational and entertainment use.
 
 HARD RULES:
-- Every question MUST be answerable from the source text provided
+${sourceMode === "topic"
+  ? "- Use reliable general knowledge about the requested topic"
+  : "- Every question MUST be answerable from the source text provided\n- Every citation MUST be an exact quote from the source text"}
 - The correct answer MUST be factually accurate
 - Each wrong answer (distractor) MUST be plausible — a real person might pick it
 - Never generate two questions that test the same fact or concept
@@ -147,6 +150,22 @@ OUTPUT: Valid JSON only. No markdown fences. No commentary outside JSON.`,
 
     const parsed = JSON.parse(sanitizeJsonString(content));
     const draft = validateAIQuizDraft(parsed);
+
+    // Prompt instructions are not a trust boundary. For source-backed modes,
+    // verify that each retained question includes an exact citation from the
+    // submitted source rather than accepting invented support from the model.
+    if (sourceMode !== "topic") {
+      const ungroundedIndices = findUngroundedQuestionIndices(draft.questions, sourceText);
+      if (ungroundedIndices.length > 0) {
+        draft.questions = draft.questions.filter((_, index) => !ungroundedIndices.includes(index));
+      }
+      if (draft.questions.length === 0) {
+        return NextResponse.json(
+          { error: "AI could not ground its questions in the source material. Add clearer source text and try again." },
+          { status: 422 }
+        );
+      }
+    }
 
     // Remove duplicate questions
     const duplicateIndices = detectDuplicateQuestions(draft.questions);

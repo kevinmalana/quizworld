@@ -34,8 +34,8 @@ export function makeTrueFalseQuestion(): QuestionData {
 
 export function isQuestionComplete(question: QuestionData): boolean {
   if (!question.text.trim()) return false;
-  const filled = question.answers.filter((answer) => answer.text.trim());
-  if (filled.length < 2) return false;
+  if (question.answers.length < 2) return false;
+  if (question.answers.some((answer) => !answer.text.trim())) return false;
   if (
     question.type !== "poll" &&
     question.answers.filter((answer) => answer.isCorrect && answer.text.trim()).length !== 1
@@ -45,9 +45,13 @@ export function isQuestionComplete(question: QuestionData): boolean {
   return true;
 }
 
+export function canPublishQuiz(title: string, questions: QuestionData[]): boolean {
+  return Boolean(title.trim()) && questions.length > 0 && questions.every(isQuestionComplete);
+}
+
 export function questionsToPublishPayload(questions: QuestionData[]) {
   return questions.map((question) => ({
-    text: question.text,
+    text: question.text.trim(),
     image_url: question.imageUrl || "",
     video_url: question.videoUrl || "",
     time_limit: question.timeLimit,
@@ -55,7 +59,7 @@ export function questionsToPublishPayload(questions: QuestionData[]) {
     question_type: question.type || "multiple_choice",
     explanation: question.explanation || "",
     answers: question.answers.map((answer) => ({
-      text: answer.text,
+      text: answer.text.trim(),
       image_url: answer.imageUrl || "",
       is_correct: answer.isCorrect,
     })),

@@ -203,6 +203,29 @@ export function detectDuplicateQuestions(questions: AIQuestionDraft[]): number[]
   return [...new Set(duplicates)];
 }
 
+/**
+ * Return source-backed questions whose citations do not quote the supplied
+ * material. Whitespace and casing are normalized, but the words must still be
+ * an exact contiguous excerpt.
+ */
+export function findUngroundedQuestionIndices(
+  questions: AIQuestionDraft[],
+  sourceText: string,
+): number[] {
+  const normalizedSource = normalizeGroundingText(sourceText);
+  return questions.flatMap((question, index) => {
+    const hasExactCitation = question.citations.some((citation) => {
+      const snippet = normalizeGroundingText(citation.snippet);
+      return Boolean(snippet) && normalizedSource.includes(snippet);
+    });
+    return hasExactCitation ? [] : [index];
+  });
+}
+
+function normalizeGroundingText(value: string): string {
+  return value.toLocaleLowerCase().replace(/\s+/g, " ").trim();
+}
+
 const STOP_WORDS = new Set([
   "the", "and", "for", "are", "but", "not", "you", "all", "can", "has", "her", "was", "one",
   "our", "out", "this", "that", "with", "have", "from", "they", "been", "said", "each",

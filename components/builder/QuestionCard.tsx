@@ -51,8 +51,8 @@ function uid() {
 function getIssues(q: QuestionData): string[] {
   const issues: string[] = [];
   if (!q.text.trim()) issues.push("Add a question");
-  const filled = q.answers.filter((a) => a.text.trim()).length;
-  if (filled < 2) issues.push("Need 2+ answers");
+  if (q.answers.length < 2) issues.push("Need 2+ answers");
+  else if (q.answers.some((answer) => !answer.text.trim())) issues.push("Complete all answers");
   if (q.type !== "poll" && q.answers.filter((a) => a.isCorrect && a.text.trim()).length !== 1) issues.push("Pick correct answer");
   return issues;
 }

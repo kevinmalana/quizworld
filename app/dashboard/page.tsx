@@ -162,7 +162,6 @@ function DashboardPageContent() {
 
   async function updateArchiveState(quizId: string, archived: boolean) {
     if (!user) return;
-
     setActioningQuizId(quizId);
     setActionError("");
     setActionNotice("");
@@ -177,6 +176,7 @@ function DashboardPageContent() {
 
     if (error) {
       console.error("Error updating archive state:", error);
+      setActionError(archived ? "Could not archive this quiz." : "Could not restore this quiz.");
       setActioningQuizId(null);
       return;
     }
