@@ -9,10 +9,17 @@ defmodule QuizworldRealtime.ResultSync do
          {:ok, body} <- build_body(game),
          {:ok, response} <- request(base_url, service_role_key, body) do
       case response.status do
-        200 -> :ok
-        204 -> :ok
+        200 ->
+          :ok
+
+        204 ->
+          :ok
+
         status ->
-          Logger.warning("Supabase result sync returned status #{status}: #{inspect(response.body)}")
+          Logger.warning(
+            "Supabase result sync returned status #{status}: #{inspect(response.body)}"
+          )
+
           {:error, :unexpected_status}
       end
     else
@@ -58,7 +65,8 @@ defmodule QuizworldRealtime.ResultSync do
          # Game mode data
          game_mode: game.game_mode || "classic",
          eliminated: MapSet.to_list(game.eliminated || MapSet.new()),
-         teams: Enum.into(game.teams || %{}, %{}, fn {k, v} -> {k, Map.drop(v, [:__struct__])} end),
+         teams:
+           Enum.into(game.teams || %{}, %{}, fn {k, v} -> {k, Map.drop(v, [:__struct__])} end),
          team_assignments: game.team_assignments || %{},
          question_breakdown: question_breakdown
        },
@@ -98,11 +106,13 @@ defmodule QuizworldRealtime.ResultSync do
         end)
 
       correct_count = Enum.count(responses, & &1.is_correct)
-      avg_response_time = if total_responses > 0 do
-        round(Enum.sum(Enum.map(responses, & &1.response_time_ms)) / total_responses)
-      else
-        0
-      end
+
+      avg_response_time =
+        if total_responses > 0 do
+          round(Enum.sum(Enum.map(responses, & &1.response_time_ms)) / total_responses)
+        else
+          0
+        end
 
       # Answer distribution
       distribution =
@@ -120,11 +130,13 @@ defmodule QuizworldRealtime.ResultSync do
 
       # Difficulty classification
       accuracy = if(total_responses > 0, do: correct_count / total_responses, else: 0)
-      difficulty = cond do
-        accuracy >= 0.8 -> "easy"
-        accuracy >= 0.5 -> "medium"
-        true -> "hard"
-      end
+
+      difficulty =
+        cond do
+          accuracy >= 0.8 -> "easy"
+          accuracy >= 0.5 -> "medium"
+          true -> "hard"
+        end
 
       %{
         index: index,
@@ -135,7 +147,8 @@ defmodule QuizworldRealtime.ResultSync do
         points: question["points"] || 1000,
         total_responses: total_responses,
         correct_count: correct_count,
-        accuracy_pct: if(total_responses > 0, do: round(correct_count / total_responses * 100), else: 0),
+        accuracy_pct:
+          if(total_responses > 0, do: round(correct_count / total_responses * 100), else: 0),
         avg_response_time_ms: avg_response_time,
         difficulty: difficulty,
         distribution: distribution,

@@ -571,10 +571,13 @@ defmodule QuizworldRealtime.Presentations do
            headers: headers(api_key),
            receive_timeout: 10_000
          ) do
-      {:ok, %{status: status}} when status in [200, 204] -> {:ok, :updated}
+      {:ok, %{status: status}} when status in [200, 204] ->
+        {:ok, :updated}
+
       {:ok, %{status: status, body: body}} ->
         Logger.warning("Supabase presentation finish failed #{status}: #{inspect(body)}")
         {:error, :update_failed}
+
       {:error, reason} ->
         Logger.warning("Supabase presentation finish error: #{inspect(reason)}")
         {:error, :update_failed}
@@ -589,10 +592,13 @@ defmodule QuizworldRealtime.Presentations do
            headers: headers(api_key),
            receive_timeout: 10_000
          ) do
-      {:ok, %{status: status}} when status in [200, 204] -> {:ok, :updated}
+      {:ok, %{status: status}} when status in [200, 204] ->
+        {:ok, :updated}
+
       {:ok, %{status: status, body: body}} ->
         Logger.warning("Supabase live session finish failed #{status}: #{inspect(body)}")
         {:error, :update_failed}
+
       {:error, reason} ->
         Logger.warning("Supabase live session finish error: #{inspect(reason)}")
         {:error, :update_failed}

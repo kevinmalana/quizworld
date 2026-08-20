@@ -6,7 +6,9 @@ defmodule QuizworldRealtimeWeb.Plugs.CORS do
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    allowed_origins = Application.get_env(:quizworld_realtime, :allowed_origins, ["http://localhost:3000"])
+    allowed_origins =
+      Application.get_env(:quizworld_realtime, :allowed_origins, ["http://localhost:3000"])
+
     origin = get_req_header(conn, "origin") |> List.first()
 
     conn =

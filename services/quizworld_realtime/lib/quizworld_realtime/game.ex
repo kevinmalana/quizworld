@@ -207,6 +207,7 @@ defmodule QuizworldRealtime.Game do
 
       true ->
         game_with_mode = init_game_mode(game)
+
         {:ok,
          touch(%{
            game_with_mode
@@ -228,26 +229,29 @@ defmodule QuizworldRealtime.Game do
   # Assign players to 2-4 balanced teams by round-robin
   defp assign_teams(%__MODULE__{} = game, player_ids) do
     team_defs = [
-      %{id: "red",    name: "Red Team",    color: "#ef4444", emoji: "🔴"},
-      %{id: "blue",   name: "Blue Team",   color: "#3b82f6", emoji: "🔵"},
-      %{id: "green",  name: "Green Team",  color: "#22c55e", emoji: "🟢"},
+      %{id: "red", name: "Red Team", color: "#ef4444", emoji: "🔴"},
+      %{id: "blue", name: "Blue Team", color: "#3b82f6", emoji: "🔵"},
+      %{id: "green", name: "Green Team", color: "#22c55e", emoji: "🟢"},
       %{id: "yellow", name: "Yellow Team", color: "#eab308", emoji: "🟡"}
     ]
 
     # Use 2 teams for small games (<8 players), up to 4 for larger
-    team_count = cond do
-      length(player_ids) >= 16 -> 4
-      length(player_ids) >= 8  -> 3
-      true                     -> 2
-    end
+    team_count =
+      cond do
+        length(player_ids) >= 16 -> 4
+        length(player_ids) >= 8 -> 3
+        true -> 2
+      end
 
     active_teams = Enum.take(team_defs, team_count)
 
-    teams = Enum.into(active_teams, %{}, fn t ->
-      {t.id, Map.put(t, :score, 0)}
-    end)
+    teams =
+      Enum.into(active_teams, %{}, fn t ->
+        {t.id, Map.put(t, :score, 0)}
+      end)
 
-    team_assignments = player_ids
+    team_assignments =
+      player_ids
       |> Enum.with_index()
       |> Enum.into(%{}, fn {pid, idx} ->
         team = Enum.at(active_teams, rem(idx, team_count))
@@ -257,7 +261,13 @@ defmodule QuizworldRealtime.Game do
     %{game | teams: teams, team_assignments: team_assignments}
   end
 
-  def submit_answer(%__MODULE__{} = game, player_id, player_token, answer_id, _client_response_time_ms) do
+  def submit_answer(
+        %__MODULE__{} = game,
+        player_id,
+        player_token,
+        answer_id,
+        _client_response_time_ms
+      ) do
     with :ok <- ensure_active(game),
          :ok <- ensure_not_eliminated(game, player_id),
          :ok <- ensure_player_token(game, player_id, player_token),
@@ -320,6 +330,7 @@ defmodule QuizworldRealtime.Game do
 
       if correct_answer_id == nil do
         require Logger
+
         Logger.warning(
           "[Game #{game.pin}] Question " <>
             "#{question["id"] || "?"} has no is_correct answer; " <>
@@ -372,10 +383,13 @@ defmodule QuizworldRealtime.Game do
       next_eliminated =
         if game.game_mode == "survival" do
           alive_pids = Map.keys(game.players) |> Enum.reject(&MapSet.member?(game.eliminated, &1))
-          newly_eliminated = Enum.filter(alive_pids, fn pid ->
-            row = Map.get(scored_rows, pid)
-            row == nil or !row.is_correct
-          end)
+
+          newly_eliminated =
+            Enum.filter(alive_pids, fn pid ->
+              row = Map.get(scored_rows, pid)
+              row == nil or !row.is_correct
+            end)
+
           MapSet.union(game.eliminated, MapSet.new(newly_eliminated))
         else
           game.eliminated
@@ -387,6 +401,7 @@ defmodule QuizworldRealtime.Game do
           round_points_by_team =
             Enum.reduce(scored_rows, %{}, fn {pid, row}, acc ->
               team_id = Map.get(game.team_assignments, pid)
+
               if team_id do
                 Map.update(acc, team_id, row.points_awarded, &(&1 + row.points_awarded))
               else
@@ -521,7 +536,10 @@ defmodule QuizworldRealtime.Game do
     if Map.has_key?(players, player_id), do: :ok, else: {:error, :unknown_player}
   end
 
-  defp ensure_not_eliminated(%__MODULE__{game_mode: "survival", eliminated: eliminated}, player_id) do
+  defp ensure_not_eliminated(
+         %__MODULE__{game_mode: "survival", eliminated: eliminated},
+         player_id
+       ) do
     if MapSet.member?(eliminated, player_id), do: {:error, :eliminated}, else: :ok
   end
 

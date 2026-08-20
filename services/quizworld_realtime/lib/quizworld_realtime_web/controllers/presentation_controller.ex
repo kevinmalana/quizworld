@@ -16,13 +16,17 @@ defmodule QuizworldRealtimeWeb.PresentationController do
         end
 
       {:error, :missing_bearer_token} ->
-        conn |> put_status(:unauthorized) |> json(%{error: "Authorization bearer token is required"})
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: "Authorization bearer token is required"})
 
       {:error, :invalid_bearer_token} ->
         conn |> put_status(:unauthorized) |> json(%{error: "Authorization token is invalid"})
 
       {:error, _reason} ->
-        conn |> put_status(:unauthorized) |> json(%{error: "Authorization token could not be verified"})
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: "Authorization token could not be verified"})
     end
   end
 
@@ -34,8 +38,11 @@ defmodule QuizworldRealtimeWeb.PresentationController do
       conn |> put_status(:unprocessable_entity) |> json(%{error: "join_code is required"})
     else
       case Presentations.join_by_code(join_code, participant_name) do
-        {:ok, payload} -> json(conn, payload)
-        {:error, reason} -> conn |> put_status(status_for(reason)) |> json(%{error: format_error(reason)})
+        {:ok, payload} ->
+          json(conn, payload)
+
+        {:error, reason} ->
+          conn |> put_status(status_for(reason)) |> json(%{error: format_error(reason)})
       end
     end
   end
@@ -53,7 +60,9 @@ defmodule QuizworldRealtimeWeb.PresentationController do
           end
 
         json(conn, %{presentation: safe})
-      {:error, reason} -> conn |> put_status(status_for(reason)) |> json(%{error: format_error(reason)})
+
+      {:error, reason} ->
+        conn |> put_status(status_for(reason)) |> json(%{error: format_error(reason)})
     end
   end
 
@@ -62,13 +71,17 @@ defmodule QuizworldRealtimeWeb.PresentationController do
       (snapshot[:slides] || snapshot["slides"] || [])
       |> Enum.map(fn slide ->
         content = slide["content"] || %{}
+
         case slide["slide_type"] do
           "quiz" ->
             answers = (content["answers"] || []) |> Enum.map(&Map.delete(&1, "is_correct"))
             Map.put(slide, "content", Map.put(content, "answers", answers))
-          _ -> slide
+
+          _ ->
+            slide
         end
       end)
+
     case snapshot do
       %{} = s -> Map.put(s, :slides, slides)
       _ -> Map.put(snapshot, "slides", slides)
@@ -79,8 +92,11 @@ defmodule QuizworldRealtimeWeb.PresentationController do
     auth_payload = Map.take(params, ["presenter_token", "participant_id", "participant_token"])
 
     case Presentations.slide_activity(presentation_id, slide_id, auth_payload) do
-      {:ok, activity} -> json(conn, activity)
-      {:error, reason} -> conn |> put_status(status_for(reason)) |> json(%{error: format_error(reason)})
+      {:ok, activity} ->
+        json(conn, activity)
+
+      {:error, reason} ->
+        conn |> put_status(status_for(reason)) |> json(%{error: format_error(reason)})
     end
   end
 

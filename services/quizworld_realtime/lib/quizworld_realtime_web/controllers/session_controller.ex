@@ -141,8 +141,12 @@ defmodule QuizworldRealtimeWeb.SessionController do
     else
       response_time_ms =
         case params["response_time_ms"] do
-          nil -> 0
-          value when is_integer(value) -> value
+          nil ->
+            0
+
+          value when is_integer(value) ->
+            value
+
           value ->
             case Integer.parse(to_string(value)) do
               {parsed, _rest} -> parsed

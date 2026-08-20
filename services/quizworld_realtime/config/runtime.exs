@@ -24,7 +24,10 @@ supabase_url = System.get_env("SUPABASE_URL")
 supabase_service_role_key = System.get_env("SUPABASE_SERVICE_ROLE_KEY")
 
 allowed_origins =
-  System.get_env("ALLOWED_ORIGINS", "https://www.quizworld.xyz,https://quizworld.xyz,http://localhost:3000")
+  System.get_env(
+    "ALLOWED_ORIGINS",
+    "https://www.quizworld.xyz,https://quizworld.xyz,http://localhost:3000"
+  )
   |> String.split(",", trim: true)
 
 config :quizworld_realtime,
