@@ -21,6 +21,8 @@ test("presentation security migration can be safely retried", () => {
 });
 
 test("presentation activity tables revoke direct browser roles", () => {
+  assert.match(sql, /DROP POLICY IF EXISTS "Presentations public read live" ON public\.presentations/);
+  assert.match(sql, /REVOKE SELECT ON TABLE public\.presentations FROM anon/);
   assert.match(sql, /REVOKE ALL ON TABLE public\.slide_responses FROM anon, authenticated/);
   assert.match(sql, /REVOKE ALL ON TABLE public\.qna_questions FROM anon, authenticated/);
 });

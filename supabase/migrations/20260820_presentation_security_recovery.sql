@@ -24,12 +24,14 @@ CREATE TABLE IF NOT EXISTS public.qna_question_upvotes (
   PRIMARY KEY (question_id, participant_id)
 );
 
+ALTER TABLE public.presentations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.slides ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.slide_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.qna_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.qna_question_upvotes ENABLE ROW LEVEL SECURITY;
 
 -- Remove the original anonymous answer-key and participant-data exposure.
+DROP POLICY IF EXISTS "Presentations public read live" ON public.presentations;
 DROP POLICY IF EXISTS "Slides public read" ON public.slides;
 DROP POLICY IF EXISTS "Responses insert" ON public.slide_responses;
 DROP POLICY IF EXISTS "Responses read" ON public.slide_responses;
@@ -68,6 +70,7 @@ DROP POLICY IF EXISTS "QnA upvotes no direct client access" ON public.qna_questi
 CREATE POLICY "QnA upvotes no direct client access" ON public.qna_question_upvotes
   FOR ALL USING (false) WITH CHECK (false);
 
+REVOKE SELECT ON TABLE public.presentations FROM anon;
 REVOKE ALL ON TABLE public.slide_responses FROM anon, authenticated;
 REVOKE ALL ON TABLE public.qna_questions FROM anon, authenticated;
 REVOKE ALL ON TABLE public.qna_question_upvotes FROM anon, authenticated;
