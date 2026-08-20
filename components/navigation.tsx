@@ -57,7 +57,7 @@ export function Navigation() {
             <span className="logo-world">World</span>
           </Link>
 
-          <nav className="nav-primary">
+          <nav className="nav-primary" aria-label="Primary navigation">
             <Link href="/join" className={`nav-item ${pathname === "/join" ? "active" : ""}`}>
               <span>🎮</span>
               <span>Join</span>
@@ -78,8 +78,8 @@ export function Navigation() {
               <span>🎤</span>
               <span>Present</span>
             </Link>
-            <Link href="/create" className={`nav-item nav-item-create ${pathname === "/create" ? "active" : ""}`}>
-              <span>+</span>
+            <Link href="/create/activity" className={`nav-item nav-item-create ${pathname === "/create/activity" ? "active" : ""}`}>
+              <span aria-hidden="true">+</span>
               <span>Create</span>
             </Link>
           </nav>
@@ -140,7 +140,7 @@ export function Navigation() {
               <Link href="/groups" className="mobile-link">🎯 Trivia Groups</Link>
               <Link href="/achievements" className="mobile-link">🏅 Achievements</Link>
               <Link href="/present" className="mobile-link">🎤 Present</Link>
-              <Link href="/create" className="mobile-link">✨ Create</Link>
+              <Link href="/create/activity" className="mobile-link">✨ Create</Link>
               <Link href="/host" className="mobile-link"><span style={{display:"inline-flex",alignItems:"center",gap:"0.4rem"}}><HostIcon size={16} /> Host</span></Link>
               {user ? (
                 <>

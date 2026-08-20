@@ -15,6 +15,7 @@ import { createServerClient } from "@supabase/ssr";
 
 const ROUTE_LIMITS: Record<string, { maxRequests: number; windowMs: number }> = {
   "/api/ai-source-draft": { maxRequests: 15, windowMs: 60_000 },
+  "/api/ai-presentation-draft": { maxRequests: 10, windowMs: 60_000 },
   "/api/import-url":       { maxRequests: 10, windowMs: 60_000 },
   "/api/ai-enrich":        { maxRequests: 20, windowMs: 60_000 },
   // 2026-08-13 — bounds file-conversion endpoints:

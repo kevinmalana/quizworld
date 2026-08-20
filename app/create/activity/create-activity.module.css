@@ -1,0 +1,118 @@
+.shell {
+  width: min(1120px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: clamp(2.5rem, 7vw, 5.5rem) 0 4rem;
+}
+
+.hero {
+  max-width: 760px;
+  margin: 0 auto 2.25rem;
+  text-align: center;
+}
+
+.eyebrow {
+  display: inline-flex;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--line));
+  border-radius: 999px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin: 0.85rem 0 0.75rem;
+  font-size: clamp(2rem, 5vw, 3.35rem);
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+}
+
+.hero > p:last-child {
+  color: var(--muted);
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  line-height: 1.65;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  display: flex;
+  min-height: 320px;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: 0 14px 38px rgba(23, 18, 46, 0.07);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+  box-shadow: 0 20px 48px rgba(23, 18, 46, 0.11);
+}
+
+.icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--bg-subtle);
+  font-size: 1.65rem;
+}
+
+.card h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1.25rem;
+}
+
+.card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.card .meta {
+  margin-top: auto;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.card a {
+  min-height: 44px;
+  justify-content: center;
+}
+
+.tip {
+  margin: 1.25rem auto 0;
+  padding: 1rem 1.15rem;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.tip strong {
+  color: var(--ink);
+}
+
+@media (max-width: 820px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    min-height: auto;
+  }
+}
