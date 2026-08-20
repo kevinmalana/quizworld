@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   activityMatchesSlide,
+  normalizePresentationActivity,
   shouldShowPresentationResults,
   summarizePresentationActivity,
 } from "./runtime";
@@ -9,6 +10,20 @@ import {
 test("hidden presentation results stay hidden for hosts and audience", () => {
   assert.equal(shouldShowPresentationResults(true), false);
   assert.equal(shouldShowPresentationResults(false), true);
+});
+
+test("participant activity ignores raw rows and consumes safe aggregates and own response", () => {
+  const activity = normalizePresentationActivity({
+    responses: [{ participant_id: "other", response_data: { answer: "secret" } }],
+    response_count: 8,
+    own_response: { submitted: true },
+    aggregates: { poll_counts: { a: 5, b: 3 } },
+    questions: [],
+  }, false);
+  assert.deepEqual(activity.responses, []);
+  assert.equal(activity.responseCount, 8);
+  assert.deepEqual(activity.ownResponse, { submitted: true });
+  assert.deepEqual(activity.aggregates, { poll_counts: { a: 5, b: 3 } });
 });
 
 test("realtime activity is accepted only for the currently displayed slide", () => {

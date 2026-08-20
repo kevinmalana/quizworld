@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
@@ -14,6 +14,7 @@ import { SlideEditorPanel } from "@/components/present/edit/slide-editor-panel";
 import { SlidePreview } from "@/components/present/edit/slide-preview";
 import { AddSlideModal } from "@/components/present/edit/add-slide-modal";
 import { ImportDeckPanel } from "@/components/present/edit/import-deck-panel";
+import { useSerializedAutosave } from "@/lib/autosave/use-serialized-autosave";
 
 export default function PresentationEditor() {
   const params = useParams();
@@ -25,9 +26,7 @@ export default function PresentationEditor() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [presenting, setPresenting] = useState(false);
-  const [savedOk, setSavedOk] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [showAddSlide, setShowAddSlide] = useState(false);
   const [showImportDeck, setShowImportDeck] = useState(false);
@@ -59,17 +58,6 @@ export default function PresentationEditor() {
     }
     load();
   }, [code, router]);
-
-  useEffect(() => {
-    const warnIfDirty = (event: BeforeUnloadEvent) => {
-      if (!dirty) return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", warnIfDirty);
-    return () => window.removeEventListener("beforeunload", warnIfDirty);
-  }, [dirty]);
 
   const addSlide = useCallback((type: SlideType) => {
     const newSlide: Slide = {
@@ -126,35 +114,50 @@ export default function PresentationEditor() {
     setActiveIndex(prev => Math.min(prev, slides.length - 2));
   }, [slides.length]);
 
+  const editorValue = { title, slides };
+  const editorRevisionKey = JSON.stringify(editorValue);
+  const saveEditorValue = useCallback(async (value: typeof editorValue) => {
+    const validationError = validatePresentationSlides(value.slides);
+    if (validationError) {
+      throw new Error(validationError);
+    }
+    const { error } = await supabase.rpc("save_presentation", {
+      p_presentation_id: code,
+      p_title: value.title,
+      p_slides: value.slides,
+    });
+    if (error) throw error;
+  }, [code]);
+  const autosave = useSerializedAutosave({
+    value: editorValue,
+    revisionKey: editorRevisionKey,
+    enabled: dirty,
+    debounceMs: 1500,
+    save: saveEditorValue,
+  });
+  const saving = autosave.status === "saving";
+  const savedOk = autosave.status === "saved" && !dirty;
+  const previousAutosaveStatus = useRef(autosave.status);
+
+  useEffect(() => {
+    if (autosave.status === "saved" && previousAutosaveStatus.current !== "saved") setDirty(false);
+    if (autosave.status === "error") setError(autosave.error?.message || "Save failed.");
+    previousAutosaveStatus.current = autosave.status;
+  }, [autosave.status, autosave.error, dirty]);
+
   const savePresentation = useCallback(async () => {
     const validationError = validatePresentationSlides(slides);
-    if (validationError) {
-      setError(validationError);
-      return false;
-    }
-
-    setSaving(true);
+    if (validationError) { setError(validationError); return false; }
     setError("");
+    setDirty(true);
     try {
-      const { error } = await supabase.rpc("save_presentation", {
-        p_presentation_id: code,
-        p_title: title,
-        p_slides: slides,
-      });
-
-      if (error) throw error;
-      setSaving(false);
-      setSavedOk(true);
-      setDirty(false);
-      setTimeout(() => setSavedOk(false), 2500);
-      return true;
+      const result = await autosave.flush();
+      return result.status === "saved";
     } catch (err) {
-      console.error("Save error:", err);
       setError(err instanceof Error ? err.message : "Save failed.");
-      setSaving(false);
       return false;
     }
-  }, [code, title, slides]);
+  }, [autosave, slides]);
 
   const startPresenting = useCallback(async () => {
     if (presenting) return;

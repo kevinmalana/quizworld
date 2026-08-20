@@ -23,6 +23,7 @@ import {
 
 export type RecoveredQuizAuthoringState = {
   remoteDraftId: string | null;
+  revision: number | null;
   editingQuizId: string | null;
   title: string;
   category: string;
@@ -105,6 +106,7 @@ export function useQuizAuthoringRecovery(options: Options): void {
     if (!recovered) return;
     onRecover({
       remoteDraftId: null,
+      revision: null,
       editingQuizId: null,
       ...recovered,
       sourceType: recovered.sourceType as SourceType,
@@ -152,14 +154,14 @@ async function loadRemoteAuthoringState(
   if (intent.kind === "draft") {
     const { data: draft, error: draftError } = await supabase
       .from("quiz_drafts")
-      .select("id,quiz_id,title,category,emoji,color,is_public,source_type,updated_at")
+      .select("id,quiz_id,title,category,emoji,color,is_public,source_type,updated_at,revision")
       .eq("id", intent.id)
       .eq("owner_id", userId)
       .single();
     if (draftError) throw draftError;
     const { data: draftQuestions, error: questionsError } = await supabase
       .from("quiz_draft_questions")
-      .select("id,draft_id,text,image_url,time_limit,points,order_index,question_type,explanation")
+      .select("id,draft_id,text,image_url,video_url,shuffle_answers,time_limit,points,order_index,question_type,explanation")
       .eq("draft_id", intent.id)
       .order("order_index", { ascending: true });
     if (questionsError) throw questionsError;
@@ -176,6 +178,7 @@ async function loadRemoteAuthoringState(
     const row = draft as QuizDraftRow;
     return recoveredState({
       remoteDraftId: row.id,
+      revision: row.revision,
       editingQuizId: row.quiz_id,
       title: row.title ?? "",
       category: row.category ?? "General Knowledge",
@@ -194,7 +197,7 @@ async function loadRemoteAuthoringState(
   if (intent.kind === "edit" || intent.kind === "duplicate") {
     const { data: quiz, error } = await supabase
       .from("quizzes")
-      .select("id,title,category,emoji,color,is_public,questions(id,text,image_url,time_limit,points,order_index,question_type,explanation,answers(id,text,image_url,is_correct,order_index))")
+      .select("id,title,category,emoji,color,is_public,questions(id,text,image_url,video_url,shuffle_answers,time_limit,points,order_index,question_type,explanation,answers(id,text,image_url,is_correct,order_index))")
       .eq("id", intent.id)
       .eq("creator_id", userId)
       .single();
@@ -203,6 +206,7 @@ async function loadRemoteAuthoringState(
     const duplicate = intent.kind === "duplicate";
     return recoveredState({
       remoteDraftId: null,
+      revision: null,
       editingQuizId: duplicate ? null : row.id,
       title: duplicate ? `${row.title || "Untitled Quiz"} Copy` : row.title ?? "",
       category: row.category ?? "General Knowledge",
@@ -225,6 +229,7 @@ async function loadRemoteAuthoringState(
   const row = version as QuizVersionRow;
   return recoveredState({
     remoteDraftId: null,
+    revision: null,
     editingQuizId: row.quiz_id,
     title: row.snapshot.title ?? row.title ?? "",
     category: row.snapshot.category ?? row.category ?? "General Knowledge",

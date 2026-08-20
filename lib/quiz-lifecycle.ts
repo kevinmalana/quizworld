@@ -24,6 +24,7 @@ type DraftSaveInput = RecoverableDraft & {
   draftId: string | null;
   quizId: string | null;
   color: string;
+  expectedRevision: number | null;
 };
 
 type SearchParamsLike = {
@@ -108,6 +109,7 @@ export function buildDraftFingerprint(input: DraftFingerprintInput): string {
       type: question.type,
       imageUrl: question.imageUrl || "",
       videoUrl: question.videoUrl || "",
+      shuffleAnswers: question.shuffleAnswers ?? false,
       timeLimit: question.timeLimit,
       points: question.points,
       explanation: question.explanation || "",
@@ -123,6 +125,7 @@ export function buildDraftFingerprint(input: DraftFingerprintInput): string {
 export function buildDraftSavePayload(input: DraftSaveInput) {
   return {
     p_draft_id: input.draftId,
+    p_expected_revision: input.expectedRevision,
     p_quiz_id: input.quizId,
     p_title: input.title,
     p_category: input.category,
@@ -133,6 +136,8 @@ export function buildDraftSavePayload(input: DraftSaveInput) {
     p_questions: input.questions.map((question, questionIndex) => ({
       text: question.text,
       image_url: question.imageUrl || null,
+      video_url: question.videoUrl || null,
+      shuffle_answers: question.shuffleAnswers ?? false,
       time_limit: question.timeLimit,
       points: question.points,
       order_index: questionIndex,

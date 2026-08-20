@@ -9,6 +9,19 @@ export function activityMatchesSlide(
   return Boolean(currentSlideId && activity.slide_id === currentSlideId);
 }
 
+export function normalizePresentationActivity(body: Record<string, unknown>, presenter: boolean) {
+  const responses = presenter && Array.isArray(body.responses) ? body.responses : [];
+  return {
+    responses,
+    responseCount: typeof body.response_count === "number" ? body.response_count : responses.length,
+    ownResponse: body.own_response ?? null,
+    aggregates: body.aggregates && typeof body.aggregates === "object"
+      ? body.aggregates as Record<string, unknown>
+      : {},
+    questions: Array.isArray(body.questions) ? body.questions : [],
+  };
+}
+
 export function summarizePresentationActivity(
   slide: { content?: { options?: Array<{ id: string }> } },
   responses: Array<{ response_data?: Record<string, unknown> }>,

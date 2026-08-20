@@ -54,6 +54,7 @@ export function questionsToPublishPayload(questions: QuestionData[]) {
     text: question.text.trim(),
     image_url: question.imageUrl || "",
     video_url: question.videoUrl || "",
+    shuffle_answers: question.shuffleAnswers ?? false,
     time_limit: question.timeLimit,
     points: question.points,
     question_type: question.type || "multiple_choice",

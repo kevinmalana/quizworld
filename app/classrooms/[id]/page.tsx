@@ -411,7 +411,9 @@ export default function ClassroomDetailPage() {
       return;
     }
 
-    const { error: notificationError } = await supabase.from("notifications").insert(nudges);
+    const { data: delivery, error: notificationError } = await supabase.rpc("send_classroom_nudges", {
+      p_assignment_id: assignmentId,
+    });
     setNudgeSending(null);
     if (notificationError) {
       setMsg("Reminder delivery failed. No success was recorded; please try again.");
@@ -419,7 +421,10 @@ export default function ClassroomDetailPage() {
       return;
     }
 
-    setMsg(`📬 Reminder saved for ${nudges.length} student${nudges.length === 1 ? "" : "s"}.`);
+    const delivered = typeof delivery === "number"
+      ? delivery
+      : Number((delivery as { sent_count?: number } | null)?.sent_count ?? nudges.length);
+    setMsg(`📬 Reminder saved for ${delivered} student${delivered === 1 ? "" : "s"}.`);
     setMsgType("success");
     setTimeout(() => setMsg(""), 4000);
   }

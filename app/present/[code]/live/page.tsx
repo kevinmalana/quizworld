@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/supabase-provider";
 import type { Slide, SlideResponse, QnaQuestion } from "@/lib/presentation/types";
 import { getParticipantName } from "@/lib/presentation/types";
-import { activityMatchesSlide, summarizePresentationActivity } from "@/lib/presentation/runtime";
+import { activityMatchesSlide, normalizePresentationActivity, summarizePresentationActivity } from "@/lib/presentation/runtime";
 import { subscribeToPresentation } from "@/lib/presentation/presentation-socket";
 import {
   fetchPhoenixPresentation,
@@ -25,47 +25,36 @@ export default function PresentationLive() {
   const code = params.code as string;
   const { user } = useAuth();
 
-  const [title, setTitle] = useState("");
-  const [slides, setSlides] = useState<Slide[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isHost, setIsHost] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [title, setTitle] = useState(""); const [slides, setSlides] = useState<Slide[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0); const [isHost, setIsHost] = useState(false);
+  const [loading, setLoading] = useState(true); const [joinCode, setJoinCode] = useState<string | null>(null);
   const [presenterToken, setPresenterToken] = useState<string | null>(null);
   const [participantSession, setParticipantSession] = useState<PresentationParticipantSession | null>(null);
-  const [channelJoined, setChannelJoined] = useState(false);
-  const [channelError, setChannelError] = useState<string | null>(null);
-  const [showJoinOverlay, setShowJoinOverlay] = useState(false);
-  const [resultsHidden, setResultsHidden] = useState(false);
-  const [loadError, setLoadError] = useState("");
-  const [ended, setEnded] = useState(false);
+  const [channelJoined, setChannelJoined] = useState(false); const [channelError, setChannelError] = useState<string | null>(null);
+  const [showJoinOverlay, setShowJoinOverlay] = useState(false); const [resultsHidden, setResultsHidden] = useState(false);
+  const [loadError, setLoadError] = useState(""); const [ended, setEnded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Audience state
-  const [name, setName] = useState("");
-  const [response, setResponse] = useState("");
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [scaleValue, setScaleValue] = useState(5);
+  const [name, setName] = useState(""); const [response, setResponse] = useState("");
+  const [selectedOption, setSelectedOption] = useState<string | null>(null); const [scaleValue, setScaleValue] = useState(5);
   const [submitted, setSubmitted] = useState(false);
-  const [allResponses, setAllResponses] = useState<SlideResponse[]>([]);
-  const [qnaQuestions, setQnaQuestions] = useState<QnaQuestion[]>([]);
-  const [newQnaQuestion, setNewQnaQuestion] = useState("");
+  const [allResponses, setAllResponses] = useState<SlideResponse[]>([]); const [safeResponseCount, setSafeResponseCount] = useState(0);
+  const [safeAggregates, setSafeAggregates] = useState<Record<string, unknown>>({});
+  const [qnaQuestions, setQnaQuestions] = useState<QnaQuestion[]>([]); const [newQnaQuestion, setNewQnaQuestion] = useState("");
   const [revealedAnswers, setRevealedAnswers] = useState<Record<string, string[]>>({}); // slideId -> correct answer ids
 
-  const participantId = participantSession?.participantId || "";
-  const channelRef = useRef<ReturnType<typeof subscribeToPresentation> | null>(null);
-  const currentSlideIdRef = useRef<string | undefined>(undefined);
-  const currentSlideId = slides[currentIndex]?.id;
+  const participantId = participantSession?.participantId || ""; const currentSlideId = slides[currentIndex]?.id;
+  const channelRef = useRef<ReturnType<typeof subscribeToPresentation> | null>(null); const currentSlideIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     currentSlideIdRef.current = currentSlideId;
-    setAllResponses([]);
-    setQnaQuestions([]);
+    setAllResponses([]); setSafeResponseCount(0);
+    setSafeAggregates({}); setQnaQuestions([]);
   }, [currentSlideId]);
 
   const toggleFullscreen = useCallback(() => {
     if (typeof document === "undefined") return;
-
     if (!document.fullscreenElement) {
       void document.documentElement.requestFullscreen?.();
     } else {
@@ -87,7 +76,10 @@ export default function PresentationLive() {
       let pres: any;
 
       try {
-        const result = await fetchPhoenixPresentation(code, { presenterToken: storedPresenterToken });
+        const result = await fetchPhoenixPresentation(code, {
+          presenterToken: storedPresenterToken,
+          participantToken: storedParticipantSession?.participantToken,
+        });
         pres = result.presentation;
       } catch (err) {
         setLoadError(err instanceof Error ? err.message : "Presentation could not be loaded.");
@@ -159,7 +151,11 @@ export default function PresentationLive() {
         },
         onResponseNew: (data) => {
           if (activityMatchesSlide(currentSlideIdRef.current, data)) {
-            setAllResponses((data.responses || []) as SlideResponse[]);
+            const activity = normalizePresentationActivity(data as Record<string, unknown>, isHost);
+            setAllResponses(activity.responses as SlideResponse[]);
+            setSafeResponseCount(activity.responseCount);
+            setSafeAggregates(activity.aggregates);
+            if (!isHost && activity.ownResponse) setSubmitted(true);
           }
         },
         onQnaNew: (data) => {
@@ -273,11 +269,13 @@ export default function PresentationLive() {
         });
         if (cancelled || currentSlideIdRef.current !== slideId) return;
 
-        const responses = (activity.responses || []) as SlideResponse[];
-        const qnas = (activity.questions || []) as QnaQuestion[];
+        const normalized = normalizePresentationActivity(activity as Record<string, unknown>, isHost);
+        const responses = normalized.responses as SlideResponse[];
         setAllResponses(responses);
-        setQnaQuestions(qnas);
-        setSubmitted(responses.some((r: SlideResponse) => r.participant_id === participantId));
+        setSafeResponseCount(normalized.responseCount);
+        setSafeAggregates(normalized.aggregates);
+        setQnaQuestions(normalized.questions as QnaQuestion[]);
+        setSubmitted(Boolean(normalized.ownResponse) || responses.some((r) => r.participant_id === participantId));
       } catch (err) {
         if (!cancelled) setChannelError(err instanceof Error ? err.message : "Could not load slide activity.");
       }
@@ -292,7 +290,10 @@ export default function PresentationLive() {
     if (loading || channelJoined) return;
     const timer = window.setInterval(async () => {
       try {
-        const latest = await fetchPhoenixPresentation(code) as { presentation?: any };
+        const latest = await fetchPhoenixPresentation(code, {
+          presenterToken: isHost ? presenterToken : null,
+          participantToken: participantSession?.participantToken,
+        }) as { presentation?: any };
         const pres = latest.presentation;
         if (pres?.slides) setSlides([...(pres.slides || [])].sort((a: Slide, b: Slide) => a.order_index - b.order_index));
         if (pres?.current_slide_index !== undefined) setCurrentIndex(pres.current_slide_index);
@@ -306,8 +307,11 @@ export default function PresentationLive() {
             participantToken: participantSession?.participantToken,
           });
           if (currentSlideIdRef.current === slideId) {
-            setAllResponses((activity.responses || []) as SlideResponse[]);
-            setQnaQuestions((activity.questions || []) as QnaQuestion[]);
+            const normalized = normalizePresentationActivity(activity as Record<string, unknown>, isHost);
+            setAllResponses(normalized.responses as SlideResponse[]);
+            setSafeResponseCount(normalized.responseCount);
+            setSafeAggregates(normalized.aggregates);
+            setQnaQuestions(normalized.questions as QnaQuestion[]);
           }
         }
       } catch {
@@ -350,10 +354,14 @@ export default function PresentationLive() {
     return <PresentationLiveGuard state="empty" />;
   }
 
-  const { sortedWords, pollCounts, scaleValues, scaleAvg } = summarizePresentationActivity(currentSlide, allResponses);
+  const derived = summarizePresentationActivity(currentSlide, allResponses);
+  const sortedWords = (safeAggregates.sorted_words as typeof derived.sortedWords | undefined) ?? derived.sortedWords;
+  const pollCounts = (safeAggregates.poll_counts as typeof derived.pollCounts | undefined) ?? derived.pollCounts;
+  const scaleValues = (safeAggregates.scale_values as typeof derived.scaleValues | undefined) ?? derived.scaleValues;
+  const scaleAvg = (safeAggregates.scale_avg as number | undefined) ?? derived.scaleAvg;
 
   const joinUrl = joinCode ? presentationJoinUrl(joinCode) : "";
-  const responseCount = allResponses.length;
+  const responseCount = isHost && safeResponseCount === 0 ? allResponses.length : safeResponseCount;
 
   return (
     <div className={isHost ? "present-live-shell is-host" : "present-live-shell"}>

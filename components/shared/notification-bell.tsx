@@ -40,7 +40,7 @@ export function NotificationBell() {
   async function dismissAll() {
     const persistedIds = items.flatMap(item => item.notificationId ? [item.notificationId] : []);
     if (persistedIds.length > 0) {
-      await supabase.from("notifications").update({ read_at: new Date().toISOString() }).in("id", persistedIds);
+      await supabase.rpc("mark_notifications_read", { p_notification_ids: persistedIds });
     }
     const legacyIds = items.filter(item => !item.notificationId).map(item => item.id);
     const next = new Set([...seenIds, ...legacyIds]);
@@ -52,7 +52,7 @@ export function NotificationBell() {
 
   async function dismissOne(item: NotifItem) {
     if (item.notificationId) {
-      await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", item.notificationId);
+      await supabase.rpc("mark_notifications_read", { p_notification_ids: [item.notificationId] });
     } else {
       const next = new Set([...seenIds, item.id]);
       setSeenIds(next);

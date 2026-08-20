@@ -24,12 +24,13 @@ import {
 } from "@/lib/builder/question-factory";
 import {
   buildDraftFingerprint,
-  buildDraftSavePayload,
   getLifecycleHref,
   getQuizLifecycleIntent,
   normalizePublishResult,
 } from "@/lib/quiz-lifecycle";
 import { useQuizAuthoringRecovery, type RecoveredQuizAuthoringState } from "@/lib/builder/use-quiz-authoring-recovery";
+import { useSerializedAutosave } from "@/lib/autosave/use-serialized-autosave";
+import { saveQuizDraftV2WithConflictRecovery, type DraftClient } from "@/lib/quiz-draft-client";
 
 type PageStep = "source" | "builder";
 const CREATE_DRAFT_KEY = "qw_create_draft_v9";
@@ -53,11 +54,13 @@ function CreatePageContent() {
   const [showPreview, setShowPreview] = useState(false);
 
   const [remoteDraftId, setRemoteDraftId] = useState<string | null>(null);
+  const [, setRemoteRevision] = useState<number | null>(null);
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
   const [draftState, setDraftState] = useState<DraftSyncState>("idle");
   const [loadError, setLoadError] = useState("");
-  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedFingerprint = useRef<string>("");
+  const remoteDraftIdRef = useRef<string | null>(null);
+  const remoteRevisionRef = useRef<number | null>(null);
 
   const [aiTopic, setAiTopic] = useState("");
   const [aiUrl, setAiUrl] = useState("");
@@ -70,6 +73,9 @@ function CreatePageContent() {
 
   const applyRecoveredState = useCallback((state: RecoveredQuizAuthoringState) => {
     setRemoteDraftId(state.remoteDraftId);
+    remoteDraftIdRef.current = state.remoteDraftId;
+    setRemoteRevision(state.revision);
+    remoteRevisionRef.current = state.revision;
     setEditingQuizId(state.editingQuizId);
     setQuizTitle(state.title);
     setQuizCategory(state.category);
@@ -363,53 +369,56 @@ function CreatePageContent() {
   }, [questions]);
 
   // ── Draft persistence ──
+  const draftValue = {
+    title: quizTitle, category: quizCategory, emoji: quizEmoji, isPublic, sourceType,
+    editingQuizId, questions,
+  };
+  const draftFingerprint = buildDraftFingerprint({
+    ...draftValue,
+  });
+  const persistDraftValue = useCallback(async (value: typeof draftValue) => {
+    if (!user) throw new Error("Sign in to save this draft.");
+    const saved = await saveQuizDraftV2WithConflictRecovery({
+      client: supabase as unknown as DraftClient,
+      draftId: remoteDraftIdRef.current,
+      expectedRevision: remoteRevisionRef.current,
+      value,
+    });
+    remoteDraftIdRef.current = saved.draftId;
+    remoteRevisionRef.current = saved.revision;
+    setRemoteDraftId(saved.draftId);
+    setRemoteRevision(saved.revision);
+    lastSavedFingerprint.current = buildDraftFingerprint(value);
+  }, [user]);
+  const draftAutosave = useSerializedAutosave({
+    value: draftValue,
+    revisionKey: draftFingerprint,
+    enabled: Boolean(user && draftState === "dirty"),
+    debounceMs: 2500,
+    save: persistDraftValue,
+  });
+  const previousDraftAutosaveStatus = useRef(draftAutosave.status);
+  useEffect(() => {
+    if (draftAutosave.status === "saving") setDraftState("saving");
+    if (draftAutosave.status === "error") setDraftState("error");
+    if (draftAutosave.status === "saved" && previousDraftAutosaveStatus.current !== "saved") {
+      setDraftState("saved");
+      if (remoteDraftIdRef.current && draftParam !== remoteDraftIdRef.current) {
+        router.replace(`/create?draft=${encodeURIComponent(remoteDraftIdRef.current)}`);
+      }
+    }
+    previousDraftAutosaveStatus.current = draftAutosave.status;
+  }, [draftAutosave.status, draftParam, router]);
+
   const saveDraftToSupabase = useCallback(async (_mode: "auto" | "manual") => {
     if (!user) return;
-    const fingerprint = buildDraftFingerprint({
-      title: quizTitle,
-      category: quizCategory,
-      emoji: quizEmoji,
-      isPublic,
-      sourceType,
-      editingQuizId,
-      questions,
-    });
-    if (remoteDraftId && fingerprint === lastSavedFingerprint.current) return;
-
-    setDraftState("saving");
+    setDraftState("dirty");
     try {
-      const { data, error } = await supabase.rpc("save_quiz_draft", buildDraftSavePayload({
-        draftId: remoteDraftId,
-        quizId: editingQuizId,
-        title: quizTitle,
-        category: quizCategory,
-        emoji: quizEmoji,
-        color: "",
-        isPublic,
-        sourceType,
-        questions,
-      }));
-      if (error) throw error;
-      if (typeof data !== "string" || !data) throw new Error("Draft save did not return a draft id.");
-
-      lastSavedFingerprint.current = fingerprint;
-      setRemoteDraftId(data);
-      setDraftState("saved");
-      if (draftParam !== data) router.replace(`/create?draft=${encodeURIComponent(data)}`);
-    } catch (err) {
-      console.error("Draft save error:", err);
+      await draftAutosave.flush();
+    } catch {
       setDraftState("error");
     }
-  }, [user, quizTitle, quizCategory, quizEmoji, isPublic, sourceType, questions, remoteDraftId, editingQuizId, draftParam, router]);
-
-  // Auto-save on changes
-  useEffect(() => {
-    if (draftState !== "dirty") return;
-    if (draftTimer.current) clearTimeout(draftTimer.current);
-    draftTimer.current = setTimeout(() => { void saveDraftToSupabase("auto"); }, 2500);
-    return () => { if (draftTimer.current) clearTimeout(draftTimer.current); };
-  }, [draftState, saveDraftToSupabase]);
-
+  }, [user, draftAutosave]);
   // ── Keyboard shortcuts (#2) ──
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -431,18 +440,6 @@ function CreatePageContent() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [saveDraftToSupabase, addQuestion]);
-
-  // ── Unsaved changes guard (browser close/refresh) ──
-  useEffect(() => {
-    function handleBeforeUnload(e: BeforeUnloadEvent) {
-      if (draftState === "dirty") {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [draftState]);
 
   // ── Confetti state (#14) ──
   const [showConfetti, setShowConfetti] = useState(false);

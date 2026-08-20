@@ -106,45 +106,19 @@ export default function StudyPageClient() {
       return;
     }
     setSaving(true);
-    const mastery        = Math.round((result.correct / Math.max(result.total, 1)) * 100);
-    const now            = new Date().toISOString();
     const sessionXp      = calculateStudyXp({ mode, correct: result.correct, total: result.total }).totalXp;
     const studyMode      = mode === "review" ? "flashcard" : mode;
-
-    // 1. Upsert study_progress (mastery per quiz)
-    const { error: progressError } = await supabase.from("study_progress").upsert(
-      { user_id: user.id, quiz_id: quiz.id, questions_studied: result.total, correct: result.correct, mastery, last_studied: now },
-      { onConflict: "user_id,quiz_id" }
-    );
-    if (progressError) console.error("Error saving study progress:", progressError);
-
-    // 2. Insert study session row (XP history + sparkline source)
-    const { error: sessionError } = await supabase.from("study_sessions").insert({
-      user_id: user.id,
-      quiz_id: quiz.id,
-      xp_earned: sessionXp,
-      correct: result.correct,
-      total: result.total,
-      study_mode: studyMode,
+    const { data: completion, error: completionError } = await supabase.rpc("complete_study_session_atomic", {
+      p_quiz_id: quiz.id,
+      p_correct: result.correct,
+      p_total: result.total,
+      p_study_mode: studyMode,
+      p_xp_earned: sessionXp,
     });
-    if (sessionError) console.error("Error saving study session:", sessionError);
-
-    // 3. Increment profile XP
-    if (sessionXp > 0) {
-      const { error: xpError } = await supabase.rpc("increment_xp", { user_uuid: user.id, xp_amount: sessionXp });
-      if (xpError) console.error("Error incrementing XP:", xpError);
-      else {
-        // Fetch updated total_xp to show live level progress on result screen
-        const { data: profile } = await supabase.from("profiles").select("total_xp").eq("id", user.id).single();
-        if (profile?.total_xp !== undefined) setTotalXp(profile.total_xp);
-      }
-    }
-
-    // 4. Update daily streak
-    const { error: streakError } = await supabase.rpc("update_study_streak", { user_uuid: user.id });
-    if (streakError) console.error("Error updating streak:", streakError);
-
-    const saved = !progressError && !sessionError;
+    if (completionError) console.error("Error completing study session:", completionError);
+    const returnedXp = (completion as { total_xp?: number } | null)?.total_xp;
+    if (typeof returnedXp === "number") setTotalXp(returnedXp);
+    const saved = !completionError;
     setSaveMessage(saved ? `Progress saved · +${sessionXp} XP` : "Could not save progress this time.");
     setSaving(false);
 

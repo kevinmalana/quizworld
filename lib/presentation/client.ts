@@ -15,6 +15,25 @@ function baseUrl() {
   return url;
 }
 
+export function buildPresentationGetRequest(
+  serviceUrl: string,
+  path: string,
+  auth?: { token?: string | null; participantId?: string | null },
+) {
+  return {
+    url: `${serviceUrl}${path}`,
+    init: {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(auth?.token ? { Authorization: `Bearer ${auth.token}` } : {}),
+        ...(auth?.participantId ? { "X-Participant-Id": auth.participantId } : {}),
+      },
+      cache: "no-store" as const,
+    },
+  };
+}
+
 export function writePresenterToken(presentationId: string, token: string) {
   if (typeof window !== "undefined") localStorage.setItem(PRESENTER_TOKEN_PREFIX + presentationId, token);
 }
@@ -86,34 +105,30 @@ export async function fetchPhoenixSlideActivity(
   slideId: string,
   auth?: { presenterToken?: string | null; participantId?: string | null; participantToken?: string | null }
 ) {
-  const params = new URLSearchParams();
-  if (auth?.presenterToken) params.set("presenter_token", auth.presenterToken);
-  if (auth?.participantId) params.set("participant_id", auth.participantId);
-  if (auth?.participantToken) params.set("participant_token", auth.participantToken);
-  const query = params.toString();
-
-  const response = await fetch(`${baseUrl()}/api/presentations/${encodeURIComponent(presentationId)}/slides/${encodeURIComponent(slideId)}/activity${query ? `?${query}` : ""}`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
+  const token = auth?.presenterToken || auth?.participantToken;
+  const request = buildPresentationGetRequest(baseUrl(), `/api/presentations/${encodeURIComponent(presentationId)}/slides/${encodeURIComponent(slideId)}/activity`, {
+    token, participantId: auth?.participantId,
   });
-  const body = await response.json().catch(() => ({})) as { error?: string; responses?: unknown[]; questions?: unknown[] };
+  const response = await fetch(request.url, request.init);
+  const body = await response.json().catch(() => ({})) as {
+    error?: string;
+    responses?: unknown[];
+    response_count?: number;
+    own_response?: unknown;
+    aggregates?: Record<string, unknown>;
+    questions?: unknown[];
+  };
   if (!response.ok) throw new Error(body.error || "Could not load presentation activity.");
   return body;
 }
 
 export async function fetchPhoenixPresentation(
   presentationId: string,
-  auth?: { presenterToken?: string | null }
+  auth?: { presenterToken?: string | null; participantToken?: string | null }
 ) {
-  const params = new URLSearchParams();
-  if (auth?.presenterToken) params.set("presenter_token", auth.presenterToken);
-  const query = params.toString();
-  const response = await fetch(`${baseUrl()}/api/presentations/${encodeURIComponent(presentationId)}${query ? `?${query}` : ""}`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-  });
+  const token = auth?.presenterToken || auth?.participantToken;
+  const request = buildPresentationGetRequest(baseUrl(), `/api/presentations/${encodeURIComponent(presentationId)}`, { token });
+  const response = await fetch(request.url, request.init);
   const body = await response.json().catch(() => ({})) as { error?: string; presentation?: unknown };
   if (!response.ok) throw new Error(body.error || "Could not load presentation.");
   return body as { presentation: unknown };

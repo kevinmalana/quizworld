@@ -13,11 +13,7 @@ import {
   getRecentHostedResults,
   getTotalHostedPlayers,
 } from "@/lib/reporting/game-results";
-import {
-  questionsFromVersionSnapshot,
-  type QuizDraftRow,
-  type QuizVersionRow,
-} from "@/lib/quiz-drafts";
+import { questionsFromVersionSnapshot, type QuizDraftRow, type QuizVersionRow } from "@/lib/quiz-drafts";
 import { SectionCard } from "@/components/section-card";
 import { LoadingPanel, StatusPanel } from "@/components/shared/status-panel";
 import { MetricCard } from "@/components/shared/metric-card";
@@ -80,7 +76,7 @@ function DashboardPageContent() {
             .order("created_at", { ascending: false }),
           supabase
             .from("quiz_drafts")
-            .select("id, quiz_id, title, category, emoji, color, is_public, source_type, updated_at")
+            .select("id, quiz_id, title, category, emoji, color, is_public, source_type, updated_at, revision")
             .order("updated_at", { ascending: false })
             .limit(6),
           supabase
@@ -253,6 +249,9 @@ function DashboardPageContent() {
             text: question.text,
             time_limit: question.timeLimit,
             points: question.points,
+            image_url: question.imageUrl || null, video_url: question.videoUrl || null,
+            shuffle_answers: question.shuffleAnswers ?? false, question_type: question.type,
+            explanation: question.explanation || null,
             order_index: questionIndex,
           })
           .select("id")
@@ -263,6 +262,7 @@ function DashboardPageContent() {
         const answersPayload = question.answers.map((answer, answerIndex) => ({
           question_id: insertedQuestion.id,
           text: answer.text,
+          image_url: answer.imageUrl || null,
           is_correct: answer.isCorrect,
           order_index: answerIndex,
         }));

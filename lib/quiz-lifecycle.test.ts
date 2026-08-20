@@ -16,6 +16,8 @@ const completeQuestion = {
   timeLimit: 30,
   points: 1000,
   imageUrl: "https://example.com/question.png",
+  videoUrl: "https://example.com/video",
+  shuffleAnswers: true,
   explanation: "Paris is the capital city of France.",
   answers: [
     { id: "answer-1", text: "Paris", isCorrect: true },
@@ -79,6 +81,10 @@ test("draft fingerprints include persistence-relevant metadata", () => {
     buildDraftFingerprint({ ...base, questions: [{ ...completeQuestion, explanation: "Changed" }] }),
     original,
   );
+  assert.notEqual(
+    buildDraftFingerprint({ ...base, questions: [{ ...completeQuestion, shuffleAnswers: false }] }),
+    original,
+  );
 });
 
 test("atomic draft payload preserves question and answer authoring fields", () => {
@@ -92,10 +98,12 @@ test("atomic draft payload preserves question and answer authoring fields", () =
       color: "",
       isPublic: false,
       sourceType: "manual",
+      expectedRevision: 7,
       questions: [completeQuestion],
     }),
     {
       p_draft_id: "draft-1",
+      p_expected_revision: 7,
       p_quiz_id: "quiz-1",
       p_title: "Capitals",
       p_category: "Geography",
@@ -107,6 +115,8 @@ test("atomic draft payload preserves question and answer authoring fields", () =
         {
           text: "What is the capital of France?",
           image_url: "https://example.com/question.png",
+          video_url: "https://example.com/video",
+          shuffle_answers: true,
           time_limit: 30,
           points: 1000,
           order_index: 0,

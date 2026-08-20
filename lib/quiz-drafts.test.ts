@@ -15,6 +15,8 @@ test("draft recovery preserves rich question fields and answer order", () => {
         order_index: 0,
         question_type: "true_false",
         explanation: "Explanation",
+        video_url: "https://video.test/watch/1",
+        shuffle_answers: true,
       },
     ],
     [
@@ -32,6 +34,8 @@ test("draft recovery preserves rich question fields and answer order", () => {
       timeLimit: 30,
       points: 2000,
       explanation: "Explanation",
+      videoUrl: "https://video.test/watch/1",
+      shuffleAnswers: true,
       answers: [
         { id: "a1", text: "True", imageUrl: "true.png", isCorrect: true },
         { id: "a2", text: "False", imageUrl: "", isCorrect: false },
@@ -55,6 +59,8 @@ test("published quiz recovery sorts answers by their persisted order", () => {
         image_url: null,
         question_type: "multiple_choice",
         explanation: null,
+        video_url: "https://video.test/published",
+        shuffle_answers: true,
         time_limit: 20,
         points: 1000,
         order_index: 0,

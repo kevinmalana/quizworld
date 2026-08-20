@@ -10,6 +10,7 @@ export type QuizDraftRow = {
   is_public: boolean;
   source_type: string;
   updated_at: string;
+  revision: number;
 };
 
 export type QuizDraftQuestionRow = {
@@ -22,6 +23,8 @@ export type QuizDraftQuestionRow = {
   order_index: number;
   question_type: PersistedQuestionType;
   explanation: string | null;
+  video_url: string | null;
+  shuffle_answers: boolean;
 };
 
 export type QuizDraftAnswerRow = {
@@ -49,6 +52,8 @@ export type PublishedQuizRow = {
     order_index: number;
     question_type: PersistedQuestionType;
     explanation: string | null;
+    video_url: string | null;
+    shuffle_answers: boolean;
     answers?: Array<{
       id: string;
       text: string;
@@ -82,6 +87,8 @@ export type QuizVersionRow = {
       points?: number;
       question_type?: PersistedQuestionType;
       explanation?: string | null;
+      video_url?: string | null;
+      shuffle_answers?: boolean;
       answers?: Array<{
         text?: string;
         image_url?: string | null;
@@ -106,6 +113,8 @@ export function questionsFromDraftRows(
       timeLimit: question.time_limit,
       points: question.points,
       explanation: question.explanation ?? "",
+      videoUrl: question.video_url ?? "",
+      shuffleAnswers: question.shuffle_answers ?? false,
       answers: draftAnswers
         .filter((answer) => answer.question_id === question.id)
         .sort((a, b) => a.order_index - b.order_index)
@@ -129,6 +138,8 @@ export function questionsFromPublishedQuiz(quiz: PublishedQuizRow) {
       timeLimit: question.time_limit,
       points: question.points,
       explanation: question.explanation ?? "",
+      videoUrl: question.video_url ?? "",
+      shuffleAnswers: question.shuffle_answers ?? false,
       answers: [...(question.answers ?? [])]
         .sort((a, b) => a.order_index - b.order_index)
         .map((answer) => ({
@@ -149,6 +160,8 @@ export function questionsFromVersionSnapshot(version: QuizVersionRow) {
     timeLimit: question.time_limit ?? 20,
     points: question.points ?? 1000,
     explanation: question.explanation ?? "",
+    videoUrl: question.video_url ?? "",
+    shuffleAnswers: question.shuffle_answers ?? false,
     answers: [...(question.answers ?? [])].map((answer, answerIndex) => ({
       id: `version-answer-${version.id}-${questionIndex}-${answerIndex}`,
       text: answer.text ?? "",
