@@ -39,7 +39,9 @@ test.describe("unified creation", () => {
     await expect(page.getByText("Loading quizzes...")).toBeHidden({ timeout: 20_000 });
     const quizLink = page.locator('a[href^="/quiz/"]').first();
     await expect(quizLink).toBeVisible({ timeout: 10_000 });
-    await quizLink.click();
+    const quizHref = await quizLink.getAttribute("href");
+    expect(quizHref).toMatch(/^\/quiz\//);
+    await page.goto(quizHref!);
     await expect(page.getByRole("button", { name: /turn into presentation/i })).toBeVisible();
   });
 

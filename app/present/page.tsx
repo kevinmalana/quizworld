@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import type { AIPresentationDraft, AIInteractionDensity } from "@/lib/presentation/ai-draft";
 import { useAuth } from "@/components/supabase-provider";
@@ -25,10 +25,9 @@ function statusBadge(status: string) {
 
 export default function PresentPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const [title, setTitle] = useState("");
-  const [showAI, setShowAI] = useState(searchParams.get("mode") === "ai");
+  const [showAI, setShowAI] = useState(false);
   const [aiBrief, setAiBrief] = useState("");
   const [aiAudience, setAiAudience] = useState("");
   const [aiSlideCount, setAiSlideCount] = useState(8);
@@ -45,6 +44,12 @@ export default function PresentPage() {
   const [presentations, setPresentations] = useState<PresentationRow[]>([]);
   const [presLoading, setPresLoading] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mode") === "ai") {
+      setShowAI(true);
+    }
+  }, []);
 
   // Load existing presentations
   useEffect(() => {
