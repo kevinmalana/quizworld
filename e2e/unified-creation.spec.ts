@@ -29,6 +29,20 @@ test.describe("unified creation", () => {
     );
   });
 
+  test("quiz conversion requires authentication", async ({ request }) => {
+    const response = await request.post("/api/quizzes/not-a-quiz/convert-presentation");
+    expect(response.status()).toBe(401);
+  });
+
+  test("public quizzes can be reused as presentations", async ({ page }) => {
+    await page.goto("/explore");
+    await expect(page.getByText("Loading quizzes...")).toBeHidden({ timeout: 20_000 });
+    const quizLink = page.locator('a[href^="/quiz/"]').first();
+    await expect(quizLink).toBeVisible({ timeout: 10_000 });
+    await quizLink.click();
+    await expect(page.getByRole("button", { name: /turn into presentation/i })).toBeVisible();
+  });
+
   test("AI presentation mode explains the editable generation workflow", async ({ page }) => {
     await page.goto("/present?mode=ai");
     await expect(page.getByRole("heading", { name: /generate an interactive presentation/i })).toBeVisible();

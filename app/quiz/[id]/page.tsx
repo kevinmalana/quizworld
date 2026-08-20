@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { CATEGORY_EMOJIS } from "@/lib/shared";
 import { QuizDetailShareButton } from "./QuizDetailShareButton";
+import { QuizToPresentationButton } from "./QuizToPresentationButton";
 
 export const revalidate = 3600;
 
@@ -246,6 +247,7 @@ export default async function QuizDetailPage({ params }: PageProps) {
           <Link href={`/study/${quiz.id}`} className="btn btn-secondary">
             📖 Study Mode
           </Link>
+          <QuizToPresentationButton quizId={quiz.id as string} />
         </div>
       </div>
 
