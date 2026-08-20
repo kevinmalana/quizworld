@@ -148,6 +148,17 @@ Before changing SQL or RLS:
 
 `supabase_setup.sql` and aggregate SQL bundles are historical references, not production migration instructions. Never paste an old bundle into production.
 
+### Database recovery rollout
+
+The recovery migrations are deliberately split so application releases never depend on a schema change that has not landed yet:
+
+1. Apply `20260820140000_quizworld_recovery_compatibility.sql` through the reviewed migration workflow. It adds run-scoped presentation activity and compatible RPCs without deleting live data.
+2. Deploy Phoenix so presentation activity uses immutable live-run IDs and service-role storage access.
+3. Deploy the frontend so notifications, draft revision saves, and study completion use the new RPCs.
+4. Apply `20260820150000_quizworld_recovery_lockdown.sql` to remove legacy direct XP/streak execution and remaining public presentation reads.
+
+Do not combine these stages into a SQL Editor paste bundle. If a stage fails, stop the rollout and use a reviewed forward migration; do not delete historical activity or reset the database.
+
 ## AI source generation
 
 Quiz generation uses `POST /api/ai-source-draft`. Provider URL, model and API key come from environment variables documented in `.env.example`; do not hard-code provider configuration in the route.
@@ -182,5 +193,6 @@ CONTEXT.md                   domain and ownership glossary
 - **Frontend:** Vercel deploys GitHub `main` to `quizworld.xyz`.
 - **Realtime:** Render deploys `services/quizworld_realtime` from `main`.
 - **Database:** Supabase migrations are reviewed and applied separately.
+- **Database recovery:** apply the additive compatibility migration, then Phoenix, then frontend, and only then the final lockdown migration.
 
 For a failed application release, revert the production merge on `main` and verify both Vercel and Render health. Database rollbacks require a reviewed forward migration; never run a destructive reset against production.
