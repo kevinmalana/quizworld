@@ -1,5 +1,7 @@
 import Config
 
+config :quizworld_realtime, :game_store, QuizworldRealtime.TestGameStore
+
 config :quizworld_realtime, QuizworldRealtimeWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,

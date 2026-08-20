@@ -1,9 +1,9 @@
 defmodule QuizworldRealtime.GameServer do
-  use GenServer
+  use GenServer, restart: :transient
 
   alias QuizworldRealtime.Game
   alias QuizworldRealtime.Games
-  alias QuizworldRealtime.StateStore
+  alias QuizworldRealtime.GameStore
 
   @waiting_cleanup_ms :timer.hours(2)
   @active_cleanup_ms :timer.hours(1)
@@ -61,13 +61,25 @@ defmodule QuizworldRealtime.GameServer do
   end
 
   def init(attrs) do
-    game =
-      attrs
-      |> Game.new()
-      |> schedule_cleanup_timer()
+    instance_id = Map.get(attrs, "instance_id")
 
-    persist_snapshot(game)
-    {:ok, game}
+    case GameStore.backend().fetch_game(Map.get(attrs, "pin")) do
+      {:ok, %Game{instance_id: ^instance_id} = game} when is_binary(instance_id) ->
+        init(game)
+
+      _ ->
+        if Map.get(attrs, "restore_only", false) do
+          {:stop, :not_found}
+        else
+          game =
+            attrs
+            |> Game.new()
+            |> schedule_cleanup_timer()
+
+          persist_snapshot(game)
+          {:ok, game}
+        end
+    end
   end
 
   @impl true
@@ -92,10 +104,16 @@ defmodule QuizworldRealtime.GameServer do
         _from,
         game
       ) do
-    reply_with_transition(
-      Game.submit_answer(game, player_id, player_token, answer_id, response_time_ms),
-      game
-    )
+    result =
+      case Game.submit_answer(game, player_id, player_token, answer_id, response_time_ms) do
+        {:ok, answered_game} ->
+          maybe_reveal_completed_round(answered_game)
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+
+    reply_with_transition(result, game)
   end
 
   def handle_call({:reveal_current_question, host_token}, _from, game) do
@@ -150,7 +168,7 @@ defmodule QuizworldRealtime.GameServer do
 
   @impl true
   def handle_info(:session_cleanup, game) do
-    StateStore.delete_snapshot(game.pin)
+    GameStore.backend().delete_snapshot(game.pin)
     {:stop, :normal, game}
   end
 
@@ -159,6 +177,24 @@ defmodule QuizworldRealtime.GameServer do
     cancel_timer(game.question_timer_ref)
     cancel_timer(game.cleanup_timer_ref)
     :ok
+  end
+
+  defp maybe_reveal_completed_round(game) do
+    question = Enum.at(game.questions, game.current_question_index)
+    question_answers = if question, do: Map.get(game.answers, question["id"], %{}), else: %{}
+
+    eligible_player_count =
+      if game.game_mode == "survival" do
+        map_size(game.players) - MapSet.size(game.eliminated)
+      else
+        map_size(game.players)
+      end
+
+    if eligible_player_count > 0 and map_size(question_answers) >= eligible_player_count do
+      Game.reveal_current_question(game, Game.host_token(game))
+    else
+      {:ok, game}
+    end
   end
 
   defp reply_with_transition({:ok, next_game}, current_game) do
@@ -223,7 +259,7 @@ defmodule QuizworldRealtime.GameServer do
 
   defp persist_snapshot(game) do
     snapshot = Game.snapshot(game)
-    StateStore.persist_game(game)
+    GameStore.backend().persist_game(game)
     snapshot
   end
 

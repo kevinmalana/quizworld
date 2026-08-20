@@ -70,11 +70,8 @@ function JoinForm() {
   }
 
   const handleDigitChange = (idx: number, val: string) => {
-    // 2026-08-13: Mobile PIN duplication fix.
-    // The previous logic `val.slice(-1)` happily took the LAST character of ANY onChange,
-    // which on mobile/iOS keystroke bursts or autocorrect could be a duplicate.
-    // Fix: take the FIRST character (which is what the user intended to type into this slot),
-    // and explicitly clear the input via e.target.value="" in handleDigitInput below.
+    // Keep exactly one sanitized character per controlled input. Taking the first
+    // character avoids mobile/iOS keystroke bursts duplicating the final character.
     const char = val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 1);
     const newDigits = [...digits];
     newDigits[idx] = char;
@@ -86,19 +83,6 @@ function JoinForm() {
     setError("");
   };
 
-  /**
-   * 2026-08-13: New handler that ensures the input field is cleared after each onChange.
-   * This prevents stale typed characters from sticking around (the cause of the
-   * "mobile PIN duplication" bug, where iOS autocorrect would inject extra characters).
-   * We use onInput instead of onChange because onInput fires synchronously per keystroke,
-   * letting us normalize the buffer before React renders again.
-   */
-  const handleDigitInput = (idx: number, e: React.FormEvent<HTMLInputElement>) => {
-    handleDigitChange(idx, e.currentTarget.value);
-    // Reset the underlying input element to its data attribute
-    // so React re-renders with our normalized digits array.
-    e.currentTarget.value = digits[idx] || "";
-  };
 
   const handleDigitKeyDown = (idx: number, e: React.KeyboardEvent) => {
     if (e.key === "Backspace" && !digits[idx] && idx > 0) {
@@ -300,7 +284,6 @@ function JoinForm() {
                 maxLength={1}
                 value={d}
                 onChange={(e) => handleDigitChange(i, e.target.value)}
-                onInput={(e) => handleDigitInput(i, e)}
                 onKeyDown={(e) => handleDigitKeyDown(i, e)}
                 onPaste={(e) => {
                   // 2026-08-13: paste the entire string into the next N digits.

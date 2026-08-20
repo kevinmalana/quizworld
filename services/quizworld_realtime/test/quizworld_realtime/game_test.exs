@@ -160,6 +160,26 @@ defmodule QuizworldRealtime.GameTest do
              Game.submit_answer(game, id, token, "a2", 3_000)
   end
 
+  test "submit_answer derives response time from the server clock" do
+    game = new_game()
+    {game, token, id} = join(game, "Mia")
+    {:ok, active} = Game.start(game, Game.host_token(game))
+    started_five_seconds_ago = DateTime.add(DateTime.utc_now(), -5, :second)
+
+    assert {:ok, answered} =
+             Game.submit_answer(
+               %{active | question_started_at: started_five_seconds_ago},
+               id,
+               token,
+               "a2",
+               0
+             )
+
+    response_time = answered.answers["q1"][id].response_time_ms
+    assert response_time >= 4_900
+    assert response_time <= 5_500
+  end
+
   test "cannot answer with wrong player token" do
     game = new_game()
     {game, _token, id} = join(game, "Mia")
@@ -202,8 +222,11 @@ defmodule QuizworldRealtime.GameTest do
     {game, token_slow, id_slow} = join(game, "Slow")
 
     {:ok, game} = Game.start(game, Game.host_token(game))
-    {:ok, game} = Game.submit_answer(game, id_fast, token_fast, "a2", 1_000)
-    {:ok, game} = Game.submit_answer(game, id_slow, token_slow, "a2", 18_000)
+    fast_started_at = DateTime.add(DateTime.utc_now(), -1, :second)
+    {:ok, game} = Game.submit_answer(%{game | question_started_at: fast_started_at}, id_fast, token_fast, "a2", 99_000)
+
+    slow_started_at = DateTime.add(DateTime.utc_now(), -18, :second)
+    {:ok, game} = Game.submit_answer(%{game | question_started_at: slow_started_at}, id_slow, token_slow, "a2", 0)
 
     {:ok, revealed} = Game.reveal_current_question(game, Game.host_token(game))
     snapshot = Game.snapshot(revealed)
