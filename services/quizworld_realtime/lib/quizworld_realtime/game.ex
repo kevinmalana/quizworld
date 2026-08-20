@@ -2,6 +2,7 @@ defmodule QuizworldRealtime.Game do
   @enforce_keys [:pin, :host_id, :host_token, :quiz_id, :questions, :created_at, :updated_at]
   defstruct [
     :pin,
+    :instance_id,
     :host_id,
     :host_token,
     :quiz_id,
@@ -31,6 +32,7 @@ defmodule QuizworldRealtime.Game do
 
     %__MODULE__{
       pin: fetch_string(attrs, "pin"),
+      instance_id: Map.get(attrs, "instance_id") || token(),
       host_id: fetch_string(attrs, "host_id"),
       host_token: token(),
       quiz_id: fetch_string(attrs, "quiz_id"),
@@ -255,7 +257,7 @@ defmodule QuizworldRealtime.Game do
     %{game | teams: teams, team_assignments: team_assignments}
   end
 
-  def submit_answer(%__MODULE__{} = game, player_id, player_token, answer_id, response_time_ms) do
+  def submit_answer(%__MODULE__{} = game, player_id, player_token, answer_id, _client_response_time_ms) do
     with :ok <- ensure_active(game),
          :ok <- ensure_not_eliminated(game, player_id),
          :ok <- ensure_player_token(game, player_id, player_token),
@@ -263,10 +265,19 @@ defmodule QuizworldRealtime.Game do
          :ok <- ensure_answer_window_open(game, question),
          :ok <- ensure_answer_belongs_to_question(question, answer_id),
          :ok <- ensure_not_answered(game, question["id"], player_id) do
+      response_time_ms =
+        case game.question_started_at do
+          %DateTime{} = started_at ->
+            max(DateTime.diff(DateTime.utc_now(), started_at, :millisecond), 0)
+
+          _ ->
+            0
+        end
+
       answer_row = %{
         player_id: player_id,
         answer_id: answer_id,
-        response_time_ms: max(response_time_ms || 0, 0),
+        response_time_ms: response_time_ms,
         submitted_at: DateTime.utc_now(),
         is_correct: false,
         points_awarded: 0

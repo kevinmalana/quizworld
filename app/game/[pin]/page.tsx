@@ -38,6 +38,7 @@ import { subscribeToPhoenixTopic } from "@/lib/game-engine/phoenix-socket";
 import {
   clearPlayerSession,
   readPlayerSession,
+  shouldDiscardPlayerSession,
   type StoredPlayerSession,
 } from "@/lib/player-session";
 import {
@@ -50,6 +51,7 @@ import { extractYouTubeId } from "@/lib/media/youtube";
 import {
   getTimeLeft,
   normalizePhoenixSession,
+  shouldApplySessionSnapshot,
   sortQuizQuestions,
   type CurrentAnswer,
   type GamePlayer,
@@ -157,19 +159,12 @@ export default function GamePage() {
         answer_id: string;
         is_correct?: boolean;
         points_awarded?: number;
-      }[]
+      }[],
+      options: { allowEqual?: boolean } = {}
     ) => {
       // Staleness guard: never apply an older snapshot over a newer one.
       // Prevents REST responses from racing against WS broadcasts and overwriting fresher state.
-      const incomingUpdatedAt = (rawSession as { updated_at?: string }).updated_at;
-      const currentUpdatedAt = (sessionRef.current as { updated_at?: string } | null)?.updated_at;
-      if (
-        incomingUpdatedAt &&
-        currentUpdatedAt &&
-        incomingUpdatedAt < currentUpdatedAt
-      ) {
-        return; // Drop stale snapshot
-      }
+      if (!shouldApplySessionSnapshot(sessionRef.current, rawSession, options)) return;
 
       const normalizedSession = (
         isPhoenixGameEngine
@@ -218,7 +213,7 @@ export default function GamePage() {
     if (isPhoenixGameEngine) {
       try {
         const response = await fetchPhoenixSession(pin) as { session: Record<string, unknown> };
-        applySessionSnapshot(response.session);
+        applySessionSnapshot(response.session, undefined, { allowEqual: true });
         return;
       } catch (_error) {
         setError("Game not found. Check the PIN.");
@@ -280,7 +275,8 @@ export default function GamePage() {
         ...(normalizedSession as Record<string, unknown>),
         players: nextPlayers,
       },
-      nextAnswers
+      nextAnswers,
+      { allowEqual: true }
     );
   }, [applySessionSnapshot, pin]);
 
@@ -296,9 +292,11 @@ export default function GamePage() {
           applySessionSnapshot(response.session);
         }
       })
-      .catch(() => {
-        clearPlayerSession(pin);
-        setPlayerSession(null);
+      .catch((reconnectError) => {
+        if (shouldDiscardPlayerSession(reconnectError)) {
+          clearPlayerSession(pin);
+          setPlayerSession(null);
+        }
       });
   }, [pin, playerSession, playerSessionReady, applySessionSnapshot]);
 

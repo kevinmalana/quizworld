@@ -101,9 +101,10 @@ export function subscribeToPhoenixTopic(options: SubscribeOptions) {
         return;
       }
 
+      options.onClose?.();
+
       if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         options.onError?.("Connection lost after several attempts. Please refresh the page.");
-        options.onClose?.();
         return;
       }
 

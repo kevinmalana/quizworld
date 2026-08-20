@@ -83,6 +83,23 @@ export function getTimeLeft(question: { time_limit?: number } | null, startedAt:
   return Math.max(total - elapsed, 0);
 }
 
+export function shouldApplySessionSnapshot(
+  currentSession: Record<string, unknown> | null,
+  incomingSession: Record<string, unknown>,
+  options: { allowEqual?: boolean } = {}
+) {
+  const currentUpdatedAt = currentSession?.updated_at;
+  const incomingUpdatedAt = incomingSession.updated_at;
+
+  if (typeof currentUpdatedAt !== "string" || typeof incomingUpdatedAt !== "string") {
+    return true;
+  }
+
+  return options.allowEqual
+    ? incomingUpdatedAt >= currentUpdatedAt
+    : incomingUpdatedAt > currentUpdatedAt;
+}
+
 export function normalizePhoenixSession(rawSession: Record<string, unknown>): PhoenixSessionSnapshot {
   const quiz = (rawSession?.quiz as { questions?: GameQuestion[] }) ?? {};
   const questions = sortQuestions(quiz.questions ?? []);

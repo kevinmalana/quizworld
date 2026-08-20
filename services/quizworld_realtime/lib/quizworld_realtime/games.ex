@@ -1,7 +1,8 @@
 defmodule QuizworldRealtime.Games do
+  alias QuizworldRealtime.Game
   alias QuizworldRealtime.GameServer
+  alias QuizworldRealtime.GameStore
   alias QuizworldRealtime.Pin
-  alias QuizworldRealtime.StateStore
 
   def create_session(attrs) do
     attrs
@@ -110,8 +111,20 @@ defmodule QuizworldRealtime.Games do
   end
 
   defp restore_from_store(pin) do
-    with {:ok, game} <- StateStore.fetch_game(pin) do
-      case DynamicSupervisor.start_child(QuizworldRealtime.GameSupervisor, {GameServer, game}) do
+    with {:ok, stored_game} <- GameStore.backend().fetch_game(pin) do
+      game = ensure_instance_id(stored_game)
+      :ok = GameStore.backend().persist_game(game)
+
+      recovery_ref = %{
+        "pin" => game.pin,
+        "instance_id" => game.instance_id,
+        "restore_only" => true
+      }
+
+      case DynamicSupervisor.start_child(
+             QuizworldRealtime.GameSupervisor,
+             {GameServer, recovery_ref}
+           ) do
         {:ok, _pid} -> :ok
         {:error, {:already_started, _pid}} -> :ok
         {:error, {:already_present, _pid}} -> :ok
@@ -168,14 +181,27 @@ defmodule QuizworldRealtime.Games do
       |> String.trim()
       |> String.upcase()
 
-    if provided_pin == "" do
-      attrs
-      |> Map.put("pin", Pin.generate())
-      |> Map.put("pin_source", "server")
-    else
-      attrs
-      |> Map.put("pin", provided_pin)
-      |> Map.put("pin_source", "client")
-    end
+    attrs =
+      if provided_pin == "" do
+        attrs
+        |> Map.put("pin", Pin.generate())
+        |> Map.put("pin_source", "server")
+      else
+        attrs
+        |> Map.put("pin", provided_pin)
+        |> Map.put("pin_source", "client")
+      end
+
+    Map.put(attrs, "instance_id", instance_id())
   end
+
+  defp instance_id do
+    16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+  end
+
+  defp ensure_instance_id(%Game{instance_id: instance_id} = game)
+       when is_binary(instance_id),
+       do: game
+
+  defp ensure_instance_id(%Game{} = game), do: Map.put(game, :instance_id, instance_id())
 end

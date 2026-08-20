@@ -1,4 +1,6 @@
 defmodule QuizworldRealtime.StateStore do
+  @behaviour QuizworldRealtime.GameStore
+
   alias QuizworldRealtime.Game
 
   @ttl_seconds 21_600

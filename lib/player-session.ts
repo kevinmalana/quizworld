@@ -10,6 +10,16 @@ type StoredPlayerSessionRaw = StoredPlayerSession & {
 
 const PLAYER_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
+const DEFINITIVE_PLAYER_SESSION_ERRORS = new Set([
+  "Player session is invalid.",
+  "Player session was not found.",
+]);
+
+export function shouldDiscardPlayerSession(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return DEFINITIVE_PLAYER_SESSION_ERRORS.has(message);
+}
+
 export function getPlayerSessionStorageKey(pin: string) {
   return `qw_player_session_${pin.toUpperCase()}`;
 }
