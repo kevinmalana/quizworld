@@ -56,12 +56,15 @@ CREATE POLICY "Slides creator CRUD" ON public.slides
     )
   );
 
+DROP POLICY IF EXISTS "Responses no direct client access" ON public.slide_responses;
 CREATE POLICY "Responses no direct client access" ON public.slide_responses
   FOR ALL USING (false) WITH CHECK (false);
 
+DROP POLICY IF EXISTS "QnA no direct client access" ON public.qna_questions;
 CREATE POLICY "QnA no direct client access" ON public.qna_questions
   FOR ALL USING (false) WITH CHECK (false);
 
+DROP POLICY IF EXISTS "QnA upvotes no direct client access" ON public.qna_question_upvotes;
 CREATE POLICY "QnA upvotes no direct client access" ON public.qna_question_upvotes
   FOR ALL USING (false) WITH CHECK (false);
 
