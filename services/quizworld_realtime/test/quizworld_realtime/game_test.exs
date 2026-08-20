@@ -279,6 +279,14 @@ defmodule QuizworldRealtime.GameTest do
              Game.reconnect_player(game, "player_nobody", "any_token")
   end
 
+  test "ready_player publishes readiness in the shared lobby snapshot" do
+    game = new_game()
+    {game, token, id} = join(game, "Mia")
+
+    assert {:ok, ready_game} = Game.ready_player(game, id, token)
+    assert Game.snapshot(ready_game).ready_player_ids == [id]
+  end
+
   test "game_mode is stored in snapshot" do
     game = new_game()
     snapshot = Game.snapshot(game)

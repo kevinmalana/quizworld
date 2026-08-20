@@ -51,6 +51,7 @@ export type PhoenixSessionSnapshot = Record<string, unknown> & {
   current_question?: GameQuestion | null;
   current_answers?: CurrentAnswer[];
   question_history?: QuestionHistoryEntry[];
+  ready_player_ids?: string[];
   // Game mode extensions
   game_mode?: "classic" | "survival" | "team";
   eliminated?: string[];       // survival: list of eliminated player_ids

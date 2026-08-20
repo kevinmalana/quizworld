@@ -27,6 +27,7 @@ defmodule QuizworldRealtimeWeb.Router do
     get("/sessions/:pin", SessionController, :show)
     post("/sessions/:pin/join", SessionController, :join)
     post("/sessions/:pin/reconnect", SessionController, :reconnect)
+    post("/sessions/:pin/ready", SessionController, :ready)
     post("/sessions/:pin/start", SessionController, :start)
     post("/sessions/:pin/reveal", SessionController, :reveal)
     post("/sessions/:pin/advance", SessionController, :advance)

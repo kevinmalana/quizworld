@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { CardState, SessionResult, StudyMode, StudyQuestion } from "@/lib/study/types";
-import { checkAndGrantAchievements } from "@/lib/achievements";
+import { calculateStudyXp } from "@/lib/study/session";
 
 // ─── Level system ─────────────────────────────────────────────────────────────
 
@@ -445,10 +445,8 @@ export function StudyResultPanel({
   onBack: () => void;
 }) {
   const pct = Math.round((result.correct / Math.max(result.total, 1)) * 100);
-  const xpPerCorrect    = mode === "quickfire" ? 45 : 25;
-  const completionBonus = result.total > 0 ? 50 : 0;
-  const perfectBonus    = result.correct === result.total && result.total > 0 ? 100 : 0;
-  const sessionXp       = result.correct * xpPerCorrect + completionBonus + perfectBonus;
+  const { xpPerCorrect, correctXp, completionBonus, perfectBonus, totalXp: sessionXp } =
+    calculateStudyXp({ mode, correct: result.correct, total: result.total });
 
   return (
     <div className="container study-result-shell">
@@ -467,7 +465,7 @@ export function StudyResultPanel({
             <div className="study-xp-breakdown__rows">
               <div className="study-xp-breakdown__row">
                 <span>{result.correct} correct × {xpPerCorrect} XP</span>
-                <span>+{result.correct * xpPerCorrect}</span>
+                <span>+{correctXp}</span>
               </div>
               <div className="study-xp-breakdown__row">
                 <span>Completion bonus</span>

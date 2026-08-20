@@ -108,6 +108,20 @@ defmodule QuizworldRealtimeWeb.GameChannel do
     )
   end
 
+  def handle_in("player:ready", payload, socket) do
+    transition(
+      socket.assigns.pin,
+      fn ->
+        Games.ready_player(
+          socket.assigns.pin,
+          payload["player_id"],
+          payload["player_token"]
+        )
+      end,
+      socket
+    )
+  end
+
   def handle_in("host:reveal", %{"host_token" => host_token}, socket) do
     transition(
       socket.assigns.pin,

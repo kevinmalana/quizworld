@@ -204,6 +204,30 @@ defmodule QuizworldRealtime.GamesTest do
     refute_receive {:session_updated, ^joined_snapshot}, 100
   end
 
+  test "player readiness is persisted and broadcast to the lobby" do
+    pin = "Y" <> Integer.to_string(System.unique_integer([:positive]))
+    Phoenix.PubSub.subscribe(QuizworldRealtime.PubSub, Games.topic(pin))
+
+    assert {:ok, _snapshot, _host_token} =
+             Games.create_session(%{
+               "pin" => pin,
+               "host_id" => "host_test",
+               "quiz_id" => "quiz_test",
+               "questions" => [question()],
+               "game_mode" => "classic"
+             })
+
+    assert_receive {:session_updated, _created_snapshot}
+
+    assert {:ok, _joined, player_token, player_id} =
+             Games.join_player(pin, %{"nickname" => "Mia", "avatar" => "🦊"})
+
+    assert_receive {:session_updated, _joined_snapshot}
+    assert {:ok, ready_snapshot} = Games.ready_player(pin, player_id, player_token)
+    assert ready_snapshot.ready_player_ids == [player_id]
+    assert_receive {:session_updated, ^ready_snapshot}
+  end
+
   test "the last eligible answer reveals the round on the server" do
     pin = "A" <> Integer.to_string(System.unique_integer([:positive]))
 

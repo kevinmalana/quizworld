@@ -46,6 +46,10 @@ defmodule QuizworldRealtime.Games do
     end
   end
 
+  def ready_player(pin, player_id, player_token) do
+    transition(pin, fn -> GameServer.ready_player(pin, player_id, player_token) end)
+  end
+
   defp transition(pin, callback) do
     with result <- call_or_restore(pin, callback) do
       normalize_transition(result)

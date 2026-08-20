@@ -18,6 +18,7 @@ defmodule QuizworldRealtime.Game do
     players: %{},
     questions: [],
     answers: %{},
+    ready_player_ids: MapSet.new(),
     # Survival mode: set of eliminated player_ids
     eliminated: MapSet.new(),
     # Team Battle mode: teams map + player→team assignments
@@ -142,6 +143,11 @@ defmodule QuizworldRealtime.Game do
         |> Enum.map(
           &Map.take(&1, [:player_id, :answer_id, :response_time_ms, :is_correct, :points_awarded])
         ),
+      ready_player_ids:
+        game
+        |> Map.get(:ready_player_ids, MapSet.new())
+        |> MapSet.to_list()
+        |> Enum.sort(),
       question_history: question_history,
       # Survival mode
       eliminated: MapSet.to_list(game.eliminated),
@@ -432,6 +438,18 @@ defmodule QuizworldRealtime.Game do
   def reconnect_player(%__MODULE__{} = game, player_id, player_token) do
     with :ok <- ensure_player_token(game, player_id, player_token) do
       {:ok, snapshot(game)}
+    end
+  end
+
+  def ready_player(%__MODULE__{} = game, player_id, player_token) do
+    with :ok <- ensure_status(game, "waiting"),
+         :ok <- ensure_player_token(game, player_id, player_token) do
+      ready_player_ids =
+        game
+        |> Map.get(:ready_player_ids, MapSet.new())
+        |> MapSet.put(player_id)
+
+      {:ok, game |> Map.put(:ready_player_ids, ready_player_ids) |> touch()}
     end
   end
 

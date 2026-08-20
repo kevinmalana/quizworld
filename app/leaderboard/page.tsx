@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { calcLevel } from "@/components/study/study-session-panels";
+import { getLeaderboardXp } from "@/lib/leaderboard";
 import "@/styles/social.css";
 import "@/styles/leaderboard.css";
 
@@ -22,7 +23,7 @@ type TabType = "global" | "weekly";
 
 function LeaderboardRow({ entry, rank, isMe, showWeekly }: { entry: LeaderboardEntry; rank: number; isMe: boolean; showWeekly?: boolean }) {
   const lv = calcLevel(entry.total_xp);
-  const xpDisplay = showWeekly ? (entry.weekly_xp ?? 0) : entry.total_xp;
+  const xpDisplay = getLeaderboardXp(entry, showWeekly ? "weekly" : "global");
   const podiumClass =
     rank === 1 ? "leaderboard-row leaderboard-row--gold" :
     rank === 2 ? "leaderboard-row leaderboard-row--silver" :
@@ -166,7 +167,7 @@ export default function LeaderboardPage() {
                     {(entry.avatar||"👤").startsWith("http") ? <img src={entry.avatar} alt={entry.display_name||entry.username} className="leaderboard-podium-avatar" style={{borderRadius:"50%",objectFit:"cover"}} /> : <div className="leaderboard-podium-avatar">{entry.avatar||"👤"}</div>}
                     <div className="leaderboard-podium-name">{entry.display_name || entry.username}</div>
                     <span className="social-level-badge">⭐ Lv {lv.level}</span>
-                    <div className="leaderboard-podium-xp">{entry.total_xp.toLocaleString()} XP</div>
+                    <div className="leaderboard-podium-xp">{getLeaderboardXp(entry, tab).toLocaleString()} XP</div>
                   </div>
                 );
               })}

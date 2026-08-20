@@ -105,6 +105,19 @@ defmodule QuizworldRealtimeWeb.SessionController do
     end
   end
 
+  def ready(conn, %{"pin" => pin} = params) do
+    player_id = params["player_id"]
+    player_token = params["player_token"]
+
+    if blank?(player_id) or blank?(player_token) do
+      conn
+      |> put_status(:unprocessable_entity)
+      |> json(%{error: "player_id and player_token are required"})
+    else
+      transition(conn, Games.ready_player(pin, player_id, player_token))
+    end
+  end
+
   def start(conn, %{"pin" => pin, "host_token" => host_token}) do
     transition(conn, Games.start_game(pin, host_token))
   end

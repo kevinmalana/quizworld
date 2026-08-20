@@ -7,6 +7,7 @@ import { useAuth } from "@/components/supabase-provider";
 import { checkAndGrantAchievements } from "@/lib/achievements";
 
 import type { CardState, SessionResult, StudyMode, StudyQuestion, StudyQuiz } from "@/lib/study/types";
+import { calculateStudyXp, shouldExpireQuickFireQuestion } from "@/lib/study/session";
 import {
   FlashcardPanel,
   QuickFirePanel,
@@ -38,7 +39,7 @@ export default function StudyPageClient() {
   const [saveMessage, setSaveMessage] = useState("");
   const [totalXp, setTotalXp]         = useState<number | undefined>(undefined);
   const [newAchievements, setNewAchievements] = useState<string[]>([]);
-  const [quickFireTimeLeft, setQuickFireTimeLeft] = useState(0);
+  const [quickFireTimeLeft, setQuickFireTimeLeft] = useState<number | null>(null);
   const [advancing, setAdvancing]     = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const [timerPaused, setTimerPaused] = useState(false);
@@ -81,14 +82,21 @@ export default function StudyPageClient() {
 
   // QuickFire timer — tick (pause while advancing so clock doesn't run on next card)
   useEffect(() => {
-    if (mode !== "quickfire" || !currentQuestion || sessionResult || advancing || timerPaused || quickFireTimeLeft <= 0) return;
-    const t = window.setTimeout(() => setQuickFireTimeLeft((n) => n - 1), 1000);
+    if (mode !== "quickfire" || !currentQuestion || sessionResult || advancing || timerPaused || quickFireTimeLeft === null || quickFireTimeLeft <= 0) return;
+    const t = window.setTimeout(() => setQuickFireTimeLeft((n) => n === null ? null : n - 1), 1000);
     return () => window.clearTimeout(t);
   }, [advancing, currentQuestion, mode, quickFireTimeLeft, sessionResult, timerPaused]);
 
   // QuickFire timer — expired → auto-wrong
   useEffect(() => {
-    if (mode !== "quickfire" || !currentQuestion || sessionResult || advancing || timerPaused || quickFireTimeLeft > 0) return;
+    if (!shouldExpireQuickFireQuestion({
+      mode,
+      hasQuestion: !!currentQuestion,
+      sessionComplete: !!sessionResult,
+      advancing,
+      timerPaused,
+      timeLeft: quickFireTimeLeft,
+    })) return;
     void recordAnswer(false);
   }, [advancing, currentQuestion, mode, quickFireTimeLeft, sessionResult, timerPaused]);
 
@@ -100,10 +108,7 @@ export default function StudyPageClient() {
     setSaving(true);
     const mastery        = Math.round((result.correct / Math.max(result.total, 1)) * 100);
     const now            = new Date().toISOString();
-    const xpPerCorrect   = mode === "quickfire" ? 45 : 25;
-    const completionBonus = result.correct === result.total && result.total > 0 ? 50 : 0;
-    const perfectBonus   = result.correct === result.total && result.total > 0 ? 100 : 0;
-    const sessionXp      = result.correct * xpPerCorrect + completionBonus + perfectBonus;
+    const sessionXp      = calculateStudyXp({ mode, correct: result.correct, total: result.total }).totalXp;
     const studyMode      = mode === "review" ? "flashcard" : mode;
 
     // 1. Upsert study_progress (mastery per quiz)
@@ -214,7 +219,7 @@ export default function StudyPageClient() {
     setSessionResult(null);
     setSaveMessage("");
     setAdvancing(false);
-    setQuickFireTimeLeft(0);
+    setQuickFireTimeLeft(null);
     setTimerPaused(false);
     setLastAnswerCorrect(null);
     setTotalXp(undefined);
@@ -274,7 +279,7 @@ export default function StudyPageClient() {
         totalQuestions={questions.length}
         correctCount={correctCount}
         answeredCount={answeredCount}
-        timeLeft={quickFireTimeLeft}
+        timeLeft={quickFireTimeLeft ?? currentQuestion.time_limit ?? 20}
         advancing={advancing}
         lastAnswerCorrect={lastAnswerCorrect}
         onExit={() => setMode("choose")}

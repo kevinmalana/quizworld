@@ -26,6 +26,7 @@ import {
   answerPhoenixSession,
   fetchPhoenixSession,
   reconnectPhoenixSession,
+  readyPhoenixSession,
   revealPhoenixSession,
   startPhoenixSession,
 } from "@/lib/game-engine/client";
@@ -93,9 +94,6 @@ export default function GamePage() {
   const [playerSessionReady, setPlayerSessionReady] = useState(false);
   const phaseTransitionLock = useRef(false);
   const revealRequestLock = useRef(false);
-  // Feature 5: Ready-up
-  const [readyPlayers, setReadyPlayers] = useState<Set<string>>(new Set());
-  const [amReady, setAmReady] = useState(false);
   // Feature 6: Streak tracking
   const [playerStreaks, setPlayerStreaks] = useState<Record<string, number>>({});
   // AI Summary
@@ -540,7 +538,9 @@ export default function GamePage() {
   const aliveCount = typedSession?.alive_count ?? players.length;
   const teams = (typedSession?.teams ?? {}) as Record<string, { id: string; name: string; color: string; emoji: string; score: number }>;
   const teamAssignments = (typedSession?.team_assignments ?? {}) as Record<string, string>;
+  const readyPlayers = new Set(typedSession?.ready_player_ids ?? []);
   const myTeamId = playerSession?.playerId ? (teamAssignments[playerSession.playerId] ?? null) : null;
+  const amReady = playerSession?.playerId ? readyPlayers.has(playerSession.playerId) : false;
   const isEliminated = playerSession?.playerId ? eliminated.includes(playerSession.playerId) : false;
 
   // Calculate achievements from game data
@@ -651,6 +651,21 @@ export default function GamePage() {
     }
   };
 
+  const markReady = async () => {
+    if (!playerSession?.playerId || !playerSession.playerToken || gameStatus !== "waiting") return;
+
+    try {
+      const response = await readyPhoenixSession(pin, {
+        player_id: playerSession.playerId,
+        player_token: playerSession.playerToken,
+      }) as { session?: Record<string, unknown> };
+      if (response.session) applySessionSnapshot(response.session);
+    } catch (readyError) {
+      console.error("Error marking player ready:", readyError);
+      setNotice("Could not update your ready status. Please try again.");
+    }
+  };
+
   const goToNextQuestion = async () => {
     if (
       !isHost ||
@@ -672,12 +687,9 @@ export default function GamePage() {
 
         const response = await advancePhoenixSession(pin, hostSession.hostToken) as { session?: Record<string, unknown> };
         if (response?.session) applySessionSnapshot(response.session);
-
-        // Record game results after Phoenix advance
+        // Keep the browser fallback until ResultSync has a durable retry/outbox.
+        // ResultSync remains the authoritative source for detailed question analytics.
         if (isLastQuestion) {
-          // Phoenix sessions use pin-based results — write a game_results row directly
-          // (finish_game_and_record_results expects a Supabase DB session id, which
-          // Phoenix sessions don't have, so we upsert the row ourselves)
           const phoenixPlayers = (response?.session as any)?.players ?? (session as any)?.players ?? {};
           const phoenixPlayerList = Array.isArray(phoenixPlayers) ? phoenixPlayers : Object.values(phoenixPlayers);
           const hostUserId = user?.id;
@@ -697,7 +709,6 @@ export default function GamePage() {
             }, { onConflict: 'pin,player_id', ignoreDuplicates: true }).then(({ error: grErr }) => {
               if (grErr) console.warn('game_results upsert failed:', grErr.message);
             });
-            // Award XP for completing a game (50 XP)
             await supabase.rpc('increment_xp', { user_uuid: hostUserId, xp_amount: 50 })
               .then(({ error: xpErr }) => { if (xpErr) console.warn('XP award failed:', xpErr.message); });
           }
@@ -830,10 +841,7 @@ export default function GamePage() {
           playerSessionReady={playerSessionReady}
           amReady={amReady}
           gameMode={gameMode}
-          onReady={() => {
-            setAmReady(true);
-            setReadyPlayers((prev) => new Set(prev).add(playerSession?.playerId ?? ""));
-          }}
+          onReady={() => void markReady()}
           onStart={() => void startGame()}
         />
         {gameMode === "survival" && (
@@ -1042,6 +1050,7 @@ export default function GamePage() {
       teamAssignments={teamAssignments}
       eliminated={eliminated}
       myTeamId={myTeamId}
+      currentPlayerId={playerSession?.playerId ?? null}
       onPlayAgain={() => {
         const quizId = (session as any)?.quiz_id ?? (session as any)?.quiz?.id;
         router.push(quizId ? `/host?quiz=${quizId}` : '/host');

@@ -26,6 +26,9 @@ defmodule QuizworldRealtime.GameServer do
   def reconnect_player(pin, player_id, player_token),
     do: GenServer.call(via(pin), {:reconnect_player, player_id, player_token}, 3_000)
 
+  def ready_player(pin, player_id, player_token),
+    do: GenServer.call(via(pin), {:ready_player, player_id, player_token}, 3_000)
+
   # Tight timeout for answer submissions — once a user submits, the client has
   # moved on. If we miss the window, the next REST poll will pick up the answer
   # from the snapshot, and the user sees their answer counted (just delayed).
@@ -129,6 +132,10 @@ defmodule QuizworldRealtime.GameServer do
       {:ok, snapshot} -> {:reply, {:ok, snapshot}, game}
       {:error, reason} -> {:reply, {:error, reason}, game}
     end
+  end
+
+  def handle_call({:ready_player, player_id, player_token}, _from, game) do
+    reply_with_transition(Game.ready_player(game, player_id, player_token), game)
   end
 
   @impl true
