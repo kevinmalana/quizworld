@@ -25,7 +25,7 @@ const ACCEPTED_MIME = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "application/vnd.ms-powerpoint",
 ];
-const MAX_BYTES = 100 * 1024 * 1024;
+const MAX_BYTES = 25 * 1024 * 1024;
 const MAX_PAGES = 100;
 
 export function ImportDeckPanel({ onImport, onClose }: ImportDeckPanelProps) {
@@ -59,7 +59,7 @@ export function ImportDeckPanel({ onImport, onClose }: ImportDeckPanelProps) {
       return `Unsupported format "${ext}". Use PDF, PPTX, or PPT.`;
     }
     if (file.size === 0) return "File is empty.";
-    if (file.size > MAX_BYTES) return `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 100 MB.`;
+    if (file.size > MAX_BYTES) return `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 25 MB.`;
     return null;
   }
 
@@ -327,7 +327,7 @@ export function ImportDeckPanel({ onImport, onClose }: ImportDeckPanelProps) {
             <div className="present-deck-dropzone-icon">📂</div>
             <p className="present-deck-dropzone-title">Drop your deck here or click to browse</p>
             <p className="present-deck-dropzone-hint">
-              PDF · PPTX · PPT &nbsp;·&nbsp; Max 100 MB &nbsp;·&nbsp; Up to {MAX_PAGES} pages
+              PDF · PPTX · PPT &nbsp;·&nbsp; Max 25 MB &nbsp;·&nbsp; Up to {MAX_PAGES} pages
             </p>
           </div>
         )}

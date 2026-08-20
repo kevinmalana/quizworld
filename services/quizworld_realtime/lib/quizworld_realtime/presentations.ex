@@ -8,6 +8,7 @@ defmodule QuizworldRealtime.Presentations do
 
   require Logger
 
+  alias QuizworldRealtime.PresentationSnapshot
   alias QuizworldRealtime.PresentationStore
 
   @supabase_rest "/rest/v1"
@@ -15,11 +16,15 @@ defmodule QuizworldRealtime.Presentations do
   def start_live(presentation_id, host_id) do
     with {:ok, snapshot} <- get_snapshot(presentation_id),
          true <- snapshot.creator_id == host_id || {:error, :not_host},
+         :ok <- reset_live_run(presentation_id, snapshot.slides),
          {:ok, presenter_token} <- ensure_live_session(presentation_id) do
+      settings = Map.put(snapshot[:settings] || %{}, "results_hidden", false)
+
       update_presentation(presentation_id, %{
         status: "live",
         current_slide_index: 0,
-        finished_at: nil
+        finished_at: nil,
+        settings: settings
       })
       |> case do
         {:ok, updated} ->
@@ -72,20 +77,7 @@ defmodule QuizworldRealtime.Presentations do
              receive_timeout: 10_000
            ) do
         {:ok, %{status: 200, body: [pres | _]}} ->
-          slides = pres["slides"] || []
-          sorted = Enum.sort_by(slides, &(&1["order_index"] || 0))
-          current_index = pres["current_slide_index"] || 0
-
-          snapshot = %{
-            id: pres["id"],
-            creator_id: pres["creator_id"],
-            title: pres["title"],
-            status: pres["status"],
-            join_code: pres["join_code"],
-            current_slide_index: current_index,
-            slides: sorted,
-            total_slides: length(sorted)
-          }
+          snapshot = PresentationSnapshot.from_record(pres)
 
           if snapshot.status == "live", do: PresentationStore.put_snapshot(snapshot)
           {:ok, snapshot}
@@ -125,6 +117,18 @@ defmodule QuizworldRealtime.Presentations do
          {:ok, snapshot} <- get_snapshot(presentation_id) do
       new_index = max(0, min(index, max(snapshot.total_slides - 1, 0)))
       update_slide_index(presentation_id, new_index)
+    end
+  end
+
+  def set_results_hidden(presentation_id, hidden, presenter_token) when is_boolean(hidden) do
+    with :ok <- ensure_presenter_token(presentation_id, presenter_token),
+         {:ok, snapshot} <- get_snapshot(presentation_id) do
+      updated = PresentationSnapshot.with_results_hidden(snapshot, hidden)
+
+      with {:ok, _} <- update_presentation(presentation_id, %{settings: updated.settings}) do
+        PresentationStore.put_snapshot(updated)
+        {:ok, updated}
+      end
     end
   end
 
@@ -300,6 +304,70 @@ defmodule QuizworldRealtime.Presentations do
     end
   end
 
+  defp reset_live_run(presentation_id, slides) do
+    slide_ids =
+      slides
+      |> Enum.map(&(&1["id"] || &1[:id]))
+      |> Enum.filter(&is_binary/1)
+
+    with {:ok, base_url} <- fetch_env(:supabase_url),
+         {:ok, api_key} <- fetch_env(:supabase_service_role_key),
+         :ok <- delete_run_rows(base_url, api_key, "slide_responses", slide_ids),
+         :ok <- delete_run_rows(base_url, api_key, "qna_questions", slide_ids, true),
+         :ok <- delete_participants(base_url, api_key, presentation_id) do
+      Enum.each(slide_ids, &PresentationStore.delete_activity/1)
+      PresentationStore.delete_presentation(presentation_id)
+      :ok
+    end
+  end
+
+  defp delete_run_rows(_base_url, _api_key, _table, []), do: :ok
+
+  defp delete_run_rows(base_url, api_key, table, slide_ids, allow_missing \\ false) do
+    filter = "in.(#{Enum.join(slide_ids, ",")})"
+
+    case Req.delete(
+           url: "#{base_url}#{@supabase_rest}/#{table}",
+           params: %{slide_id: filter},
+           headers: headers(api_key),
+           receive_timeout: 10_000
+         ) do
+      {:ok, %{status: status}} when status in [200, 204] ->
+        :ok
+
+      {:ok, %{status: 404}} when allow_missing ->
+        :ok
+
+      {:ok, %{status: status, body: body}} ->
+        Logger.warning("Supabase #{table} reset failed #{status}: #{inspect(body)}")
+        {:error, :reset_failed}
+
+      {:error, reason} ->
+        Logger.warning("Supabase #{table} reset error: #{inspect(reason)}")
+        {:error, :reset_failed}
+    end
+  end
+
+  defp delete_participants(base_url, api_key, presentation_id) do
+    case Req.delete(
+           url: "#{base_url}#{@supabase_rest}/presentation_participants",
+           params: %{presentation_id: "eq.#{presentation_id}"},
+           headers: headers(api_key),
+           receive_timeout: 10_000
+         ) do
+      {:ok, %{status: status}} when status in [200, 204] ->
+        :ok
+
+      {:ok, %{status: status, body: body}} ->
+        Logger.warning("Supabase participant reset failed #{status}: #{inspect(body)}")
+        {:error, :reset_failed}
+
+      {:error, reason} ->
+        Logger.warning("Supabase participant reset error: #{inspect(reason)}")
+        {:error, :reset_failed}
+    end
+  end
+
   defp ensure_live_session(presentation_id) do
     with {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
@@ -309,11 +377,18 @@ defmodule QuizworldRealtime.Presentations do
              headers: headers(api_key),
              receive_timeout: 10_000
            ) do
-        {:ok, %{status: 200, body: [%{"presenter_token" => token} | _]}} when is_binary(token) ->
+        {:ok, %{status: 200, body: [_existing | _]}} ->
+          token = token()
+
           case Req.patch(
                  url: "#{base_url}#{@supabase_rest}/presentation_live_sessions",
                  params: %{presentation_id: "eq.#{presentation_id}"},
-                 json: %{status: "live", ended_at: nil},
+                 json: %{
+                   presenter_token: token,
+                   status: "live",
+                   started_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+                   ended_at: nil
+                 },
                  headers: headers(api_key),
                  receive_timeout: 10_000
                ) do
@@ -654,6 +729,13 @@ defmodule QuizworldRealtime.Presentations do
            ) do
         {:ok, %{status: 200, body: questions}} ->
           {:ok, questions}
+
+        {:ok, %{status: 404, body: body}} ->
+          Logger.warning(
+            "Supabase QnA table unavailable; continuing without QnA: #{inspect(body)}"
+          )
+
+          {:ok, []}
 
         {:ok, %{status: status, body: body}} ->
           Logger.warning("Supabase QnA fetch failed #{status}: #{inspect(body)}")

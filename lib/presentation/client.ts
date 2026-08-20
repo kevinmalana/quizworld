@@ -102,8 +102,14 @@ export async function fetchPhoenixSlideActivity(
   return body;
 }
 
-export async function fetchPhoenixPresentation(presentationId: string) {
-  const response = await fetch(`${baseUrl()}/api/presentations/${encodeURIComponent(presentationId)}`, {
+export async function fetchPhoenixPresentation(
+  presentationId: string,
+  auth?: { presenterToken?: string | null }
+) {
+  const params = new URLSearchParams();
+  if (auth?.presenterToken) params.set("presenter_token", auth.presenterToken);
+  const query = params.toString();
+  const response = await fetch(`${baseUrl()}/api/presentations/${encodeURIComponent(presentationId)}${query ? `?${query}` : ""}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
     cache: "no-store",

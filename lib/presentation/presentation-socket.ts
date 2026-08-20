@@ -168,12 +168,6 @@ export function subscribeToPresentation(options: {
         return;
       }
 
-      if (msgEvent === "presenter:disconnected") {
-        const p = payload as { message?: string };
-        options.callbacks.onPresenterDisconnected?.(p.message || "The presenter has disconnected.");
-        return;
-      }
-
       if (msgEvent === "phx_error") {
         options.callbacks.onError?.("Presentation channel error.");
       }
@@ -236,6 +230,11 @@ export function subscribeToPresentation(options: {
         slide_id: slideId,
         participant_id: options.participantId || undefined,
         participant_token: options.participantToken || undefined,
+      }, true),
+    setResultsHidden: (hidden: boolean) =>
+      push("results:visibility", {
+        hidden,
+        presenter_token: options.presenterToken || undefined,
       }, true),
     endPresentation: () => push("presentation:end", { presenter_token: options.presenterToken || undefined }, true),
     revealQuizAnswers: (slideId: string, correctAnswers: string[]) =>

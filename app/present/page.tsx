@@ -162,7 +162,7 @@ export default function PresentPage() {
         p_title: importTitle.trim(),
         p_slides: pendingImport.map((s, i) => ({
           slide_type: "content", title: s.title,
-          content: { image_url: s.image_url, text: "" }, settings: {}, order_index: i,
+          content: { image_url: s.image_url, text: "", _imported: true }, settings: {}, order_index: i,
         })),
       });
       if (rpcError) throw rpcError;
@@ -302,7 +302,7 @@ export default function PresentPage() {
       )}
 
       {/* Create row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.75rem", marginBottom: "2rem", alignItems: "flex-start" }}>
+      <div className="present-create-row" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.75rem", marginBottom: "2rem", alignItems: "flex-start" }}>
         <div>
           <input
             value={title}

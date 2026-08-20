@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import type { Slide, SlideResponse, QnaQuestion } from "@/lib/presentation/types";
 import { getParticipantName } from "@/lib/presentation/types";
+import { activityMatchesSlide, summarizePresentationActivity } from "@/lib/presentation/runtime";
 import { subscribeToPresentation } from "@/lib/presentation/presentation-socket";
 import {
   fetchPhoenixPresentation,
@@ -17,6 +17,7 @@ import {
 import { presentationJoinUrl } from "@/lib/config/public";
 import { HostDock, JoinOverlay, LiveStatusRail } from "@/components/present/live/live-status-panels";
 import { LiveSlideStage } from "@/components/present/live/live-slide-stage";
+import { PresentationLiveGuard } from "@/components/present/live/live-route-guards";
 
 export default function PresentationLive() {
   const params = useParams();
@@ -36,6 +37,8 @@ export default function PresentationLive() {
   const [channelError, setChannelError] = useState<string | null>(null);
   const [showJoinOverlay, setShowJoinOverlay] = useState(false);
   const [resultsHidden, setResultsHidden] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [ended, setEnded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Audience state
@@ -51,6 +54,14 @@ export default function PresentationLive() {
 
   const participantId = participantSession?.participantId || "";
   const channelRef = useRef<ReturnType<typeof subscribeToPresentation> | null>(null);
+  const currentSlideIdRef = useRef<string | undefined>(undefined);
+  const currentSlideId = slides[currentIndex]?.id;
+
+  useEffect(() => {
+    currentSlideIdRef.current = currentSlideId;
+    setAllResponses([]);
+    setQnaQuestions([]);
+  }, [currentSlideId]);
 
   const toggleFullscreen = useCallback(() => {
     if (typeof document === "undefined") return;
@@ -71,14 +82,16 @@ export default function PresentationLive() {
   // Load initial presentation state
   useEffect(() => {
     async function load() {
-      const { data: pres, error } = await supabase
-        .from("presentations")
-        .select("*, slides(*)")
-        .eq("id", code)
-        .single();
+      const storedPresenterToken = readPresenterToken(code);
+      const storedParticipantSession = readParticipantSession(code);
+      let pres: any;
 
-      if (error || !pres) {
-        router.push("/present");
+      try {
+        const result = await fetchPhoenixPresentation(code, { presenterToken: storedPresenterToken });
+        pres = result.presentation;
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : "Presentation could not be loaded.");
+        setLoading(false);
         return;
       }
 
@@ -86,11 +99,11 @@ export default function PresentationLive() {
       setJoinCode(pres.join_code);
       const host = user?.id === pres.creator_id;
       setIsHost(host);
-      const storedPresenterToken = readPresenterToken(code);
-      const storedParticipantSession = readParticipantSession(code);
       setPresenterToken(storedPresenterToken);
       setParticipantSession(storedParticipantSession);
       setCurrentIndex(pres.current_slide_index || 0);
+      setResultsHidden(pres.results_hidden === true);
+      setEnded(pres.status === "finished");
       const sorted = (pres.slides || []).sort((a: Slide, b: Slide) => a.order_index - b.order_index);
       setSlides(sorted);
 
@@ -106,7 +119,7 @@ export default function PresentationLive() {
 
   // Connect to Phoenix channel
   useEffect(() => {
-    if (loading) return;
+    if (loading || ended) return;
 
     const channel = subscribeToPresentation({
       presentationId: code,
@@ -129,6 +142,7 @@ export default function PresentationLive() {
             setResponse("");
             setSelectedOption(null);
           }
+          if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
         },
         onSlideChanged: (pres: any) => {
           if (pres?.slides) {
@@ -141,21 +155,28 @@ export default function PresentationLive() {
             setResponse("");
             setSelectedOption(null);
           }
+          if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
         },
         onResponseNew: (data) => {
-          setAllResponses((data.responses || []) as SlideResponse[]);
+          if (activityMatchesSlide(currentSlideIdRef.current, data)) {
+            setAllResponses((data.responses || []) as SlideResponse[]);
+          }
         },
         onQnaNew: (data) => {
-          setQnaQuestions((data.questions || []) as QnaQuestion[]);
+          if (activityMatchesSlide(currentSlideIdRef.current, data)) {
+            setQnaQuestions((data.questions || []) as QnaQuestion[]);
+          }
         },
         onQnaUpdated: (data) => {
-          setQnaQuestions((data.questions || []) as QnaQuestion[]);
+          if (activityMatchesSlide(currentSlideIdRef.current, data)) {
+            setQnaQuestions((data.questions || []) as QnaQuestion[]);
+          }
         },
         onQuizRevealed: (data) => {
           setRevealedAnswers((prev) => ({ ...prev, [data.slide_id]: data.correct_answers }));
         },
         onPresentationEnded: () => {
-          router.push("/present");
+          setEnded(true);
         },
         onPresenterDisconnected: (msg) => {
           setChannelError(msg);
@@ -174,7 +195,7 @@ export default function PresentationLive() {
     return () => {
       channel.disconnect();
     };
-  }, [loading, code, isHost, presenterToken, participantSession?.participantId, participantSession?.participantToken, router]);
+  }, [loading, ended, code, isHost, presenterToken, participantSession?.participantId, participantSession?.participantToken, router]);
 
   useEffect(() => {
     if (!isHost || !joinCode) return;
@@ -216,7 +237,7 @@ export default function PresentationLive() {
 
       if (event.key.toLowerCase() === "h") {
         event.preventDefault();
-        setResultsHidden((v) => !v);
+        if (channelJoined && channelRef.current) void channelRef.current.setResultsHidden(!resultsHidden);
       }
 
       if (event.key.toLowerCase() === "f") {
@@ -231,33 +252,40 @@ export default function PresentationLive() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isHost, channelJoined, currentIndex, slides.length, toggleFullscreen]);
+  }, [isHost, channelJoined, currentIndex, slides.length, resultsHidden, toggleFullscreen]);
 
   // Load responses for current slide (initial + fallback)
   useEffect(() => {
-    if (!slides[currentIndex]) return;
+    const slideId = slides[currentIndex]?.id;
+    if (!slideId || slideId.startsWith("temp_")) return;
+    if (!isHost && !participantSession) return;
+
+    let cancelled = false;
+    setAllResponses([]);
+    setQnaQuestions([]);
 
     async function loadResponses() {
-      const slideId = slides[currentIndex]?.id;
-      if (!slideId || slideId.startsWith("temp_")) return;
+      try {
+        const activity = await fetchPhoenixSlideActivity(code, slideId, {
+          presenterToken: isHost ? presenterToken : null,
+          participantId: participantSession?.participantId,
+          participantToken: participantSession?.participantToken,
+        });
+        if (cancelled || currentSlideIdRef.current !== slideId) return;
 
-      if (!isHost && !participantSession) return;
-
-      const activity = await fetchPhoenixSlideActivity(code, slideId, {
-        presenterToken: isHost ? presenterToken : null,
-        participantId: participantSession?.participantId,
-        participantToken: participantSession?.participantToken,
-      });
-      const responses = (activity.responses || []) as SlideResponse[];
-      const qnas = (activity.questions || []) as QnaQuestion[];
-      setAllResponses(responses);
-      setQnaQuestions(qnas);
-
-      const alreadySubmitted = responses.some((r: SlideResponse) => r.participant_id === participantId);
-      setSubmitted(alreadySubmitted);
+        const responses = (activity.responses || []) as SlideResponse[];
+        const qnas = (activity.questions || []) as QnaQuestion[];
+        setAllResponses(responses);
+        setQnaQuestions(qnas);
+        setSubmitted(responses.some((r: SlideResponse) => r.participant_id === participantId));
+      } catch (err) {
+        if (!cancelled) setChannelError(err instanceof Error ? err.message : "Could not load slide activity.");
+      }
     }
-    loadResponses();
-  }, [currentIndex, slides, participantId, isHost, presenterToken, participantSession]);
+
+    void loadResponses();
+    return () => { cancelled = true; };
+  }, [code, currentIndex, slides, participantId, isHost, presenterToken, participantSession]);
 
   // Periodic fallback when websocket is unavailable.
   useEffect(() => {
@@ -268,6 +296,7 @@ export default function PresentationLive() {
         const pres = latest.presentation;
         if (pres?.slides) setSlides([...(pres.slides || [])].sort((a: Slide, b: Slide) => a.order_index - b.order_index));
         if (pres?.current_slide_index !== undefined) setCurrentIndex(pres.current_slide_index);
+        if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
 
         const slideId = slides[currentIndex]?.id;
         if (slideId && !slideId.startsWith("temp_") && (isHost || participantSession)) {
@@ -276,8 +305,10 @@ export default function PresentationLive() {
             participantId: participantSession?.participantId,
             participantToken: participantSession?.participantToken,
           });
-          setAllResponses((activity.responses || []) as SlideResponse[]);
-          setQnaQuestions((activity.questions || []) as QnaQuestion[]);
+          if (currentSlideIdRef.current === slideId) {
+            setAllResponses((activity.responses || []) as SlideResponse[]);
+            setQnaQuestions((activity.questions || []) as QnaQuestion[]);
+          }
         }
       } catch {
         // Keep current screen stable; explicit channelError is already shown.
@@ -307,61 +338,19 @@ export default function PresentationLive() {
     void channelRef.current.upvoteQna(qnaId, slides[currentIndex].id);
   }, [currentIndex, slides, participantSession]);
 
-  if (loading) {
-    return <div className="container present-live-guard">Loading...</div>;
-  }
-
-  if (isHost && !presenterToken) {
-    return (
-      <div className="container present-live-guard present-live-guard--narrow">
-        <div className="card present-live-guard-card">
-          <div className="present-live-guard-icon">🎤</div>
-          <h1 className="font-display present-live-guard-title">Start from the editor</h1>
-          <p className="present-live-guard-copy">Presenter controls require a live presenter token. Start this deck from the editor.</p>
-          <button className="btn btn-primary btn-lg" onClick={() => router.push(`/present/${code}/edit`)}>Open Editor</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isHost && !participantSession) {
-    return (
-      <div className="container present-live-guard present-live-guard--narrow">
-        <div className="card present-live-guard-card">
-          <div className="present-live-guard-icon">🙋</div>
-          <h1 className="font-display present-live-guard-title">Join through the presentation code</h1>
-          <p className="present-live-guard-copy">Audience responses need a participant session so your answers and upvotes are valid.</p>
-          <button className="btn btn-primary btn-lg" onClick={() => router.push(joinCode ? `/present/join?code=${joinCode}` : "/present/join")}>Join Presentation</button>
-        </div>
-      </div>
-    );
-  }
+  const navigate = (path: string) => router.push(path);
+  if (loading) return <PresentationLiveGuard state="loading" />;
+  if (loadError) return <PresentationLiveGuard state="unavailable" message={loadError} onNavigate={navigate} />;
+  if (ended) return <PresentationLiveGuard state="ended" title={title} isHost={isHost} onNavigate={navigate} />;
+  if (isHost && !presenterToken) return <PresentationLiveGuard state="presenter-token" presentationId={code} onNavigate={navigate} />;
+  if (!isHost && !participantSession) return <PresentationLiveGuard state="participant-session" joinCode={joinCode} onNavigate={navigate} />;
 
   const currentSlide = slides[currentIndex];
   if (!currentSlide) {
-    return <div className="container present-live-guard">No slides</div>;
+    return <PresentationLiveGuard state="empty" />;
   }
 
-  // Word cloud data
-  const wordCloudWords = allResponses.flatMap(r => {
-    const text = (r.response_data?.words as string) || "";
-    return text.split(/[\s,]+/).filter(w => w.length > 1);
-  });
-  const wordCounts: Record<string, number> = {};
-  wordCloudWords.forEach(w => { wordCounts[w.toLowerCase()] = (wordCounts[w.toLowerCase()] || 0) + 1; });
-  const sortedWords = Object.entries(wordCounts).sort((a, b) => b[1] - a[1]).slice(0, 30);
-
-  // Poll data
-  const pollCounts: Record<string, number> = {};
-  (currentSlide.content?.options || []).forEach(o => { pollCounts[o.id] = 0; });
-  allResponses.forEach(r => {
-    const optId = r.response_data?.option_id as string;
-    if (optId) pollCounts[optId] = (pollCounts[optId] || 0) + 1;
-  });
-
-  // Scale data
-  const scaleValues = allResponses.map(r => Number(r.response_data?.value) || 0);
-  const scaleAvg = scaleValues.length > 0 ? Math.round(scaleValues.reduce((s, v) => s + v, 0) / scaleValues.length * 10) / 10 : 0;
+  const { sortedWords, pollCounts, scaleValues, scaleAvg } = summarizePresentationActivity(currentSlide, allResponses);
 
   const joinUrl = joinCode ? presentationJoinUrl(joinCode) : "";
   const responseCount = allResponses.length;
@@ -445,7 +434,10 @@ export default function PresentationLive() {
           onPrev={() => { if (channelJoined && channelRef.current) void channelRef.current.prevSlide(); }}
           onNext={() => { if (channelJoined && channelRef.current) void channelRef.current.nextSlide(); }}
           onJoin={() => setShowJoinOverlay(true)}
-          onToggleResults={() => setResultsHidden((v) => !v)}
+          onToggleResults={() => {
+            const hidden = !resultsHidden;
+            if (channelJoined && channelRef.current) void channelRef.current.setResultsHidden(hidden);
+          }}
           onToggleFullscreen={toggleFullscreen}
           onEnd={() => { if (channelJoined && channelRef.current) void channelRef.current.endPresentation(); }}
         />

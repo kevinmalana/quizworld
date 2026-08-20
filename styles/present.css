@@ -35,6 +35,18 @@
     padding: 0.9rem !important;
   }
 
+  .present-create-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .present-create-row > div:last-child {
+    width: 100% !important;
+  }
+
+  .present-create-row > div:last-child button {
+    flex: 1 !important;
+  }
+
   .present-join-card input,
   .present-create-card input {
     min-height: 52px !important;
@@ -65,7 +77,7 @@
     overflow: visible !important;
   }
 
-  .present-slide-list {
+  .present-slide-list-panel {
     width: 100% !important;
     display: flex !important;
     gap: 0.5rem !important;
@@ -79,16 +91,33 @@
     z-index: 15 !important;
   }
 
-  .present-slide-list > div,
-  .present-slide-list > button {
+  .present-slide-list-panel .present-slide-thumb,
+  .present-slide-list-panel > button {
     flex: 0 0 145px !important;
     min-height: 58px !important;
     margin-bottom: 0 !important;
   }
 
-  .present-slide-editor {
+  .present-slide-editor-panel {
     padding: 0.9rem !important;
     overflow: visible !important;
+  }
+
+  .present-editor-main {
+    flex-direction: column !important;
+    overflow: visible !important;
+  }
+
+  .present-editor-form {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    overflow: visible !important;
+    border-right: none !important;
+  }
+
+  .present-editor-preview {
+    width: 100% !important;
+    min-height: 320px !important;
   }
 
   .present-slide-card {

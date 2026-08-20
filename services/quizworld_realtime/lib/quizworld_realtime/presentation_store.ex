@@ -48,6 +48,12 @@ defmodule QuizworldRealtime.PresentationStore do
         participant_token,
         participant_name \\ "Anonymous"
       ) do
+    live_token =
+      case get_live_session(presentation_id) do
+        {:ok, token} -> token
+        _ -> "not-live"
+      end
+
     payload =
       Jason.encode!(%{
         participant_id: participant_id,
@@ -58,7 +64,7 @@ defmodule QuizworldRealtime.PresentationStore do
     pipeline([
       [
         "SET",
-        participant_key(presentation_id, participant_id, participant_token),
+        participant_key(presentation_id, participant_id, participant_token, live_token),
         "1",
         "EX",
         ttl()
@@ -69,7 +75,11 @@ defmodule QuizworldRealtime.PresentationStore do
 
   def participant_token?(presentation_id, participant_id, participant_token)
       when is_binary(participant_id) and is_binary(participant_token) do
-    exists?(participant_key(presentation_id, participant_id, participant_token))
+    with {:ok, live_token} <- get_live_session(presentation_id) do
+      exists?(participant_key(presentation_id, participant_id, participant_token, live_token))
+    else
+      _ -> false
+    end
   end
 
   def participant_token?(_presentation_id, _participant_id, _participant_token), do: false
@@ -109,6 +119,11 @@ defmodule QuizworldRealtime.PresentationStore do
   def put_activity(slide_id, responses, questions) do
     payload = Jason.encode!(%{responses: responses || [], questions: questions || []})
     command(["SET", activity_key(slide_id), payload, "EX", ttl()])
+    :ok
+  end
+
+  def delete_activity(slide_id) do
+    command(["DEL", activity_key(slide_id)])
     :ok
   end
 
@@ -165,10 +180,11 @@ defmodule QuizworldRealtime.PresentationStore do
   defp presenter_key(id, token),
     do: "quizworld:present:" <> to_string(id) <> ":presenter:" <> token_hash(token)
 
-  defp participant_key(id, participant_id, token),
+  defp participant_key(id, participant_id, token, live_token),
     do:
       "quizworld:present:" <>
-        to_string(id) <> ":participant:" <> token_hash(participant_id <> ":" <> token)
+        to_string(id) <>
+        ":participant:" <> token_hash(live_token <> ":" <> participant_id <> ":" <> token)
 
   defp participant_id_key(id, participant_id),
     do: "quizworld:present:" <> to_string(id) <> ":participant_id:" <> token_hash(participant_id)
@@ -195,6 +211,8 @@ defmodule QuizworldRealtime.PresentationStore do
       status: map["status"],
       join_code: map["join_code"],
       current_slide_index: map["current_slide_index"] || 0,
+      settings: map["settings"] || %{},
+      results_hidden: map["results_hidden"] == true,
       slides: map["slides"] || [],
       total_slides: map["total_slides"] || length(map["slides"] || [])
     }

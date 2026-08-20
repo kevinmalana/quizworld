@@ -2,6 +2,7 @@ defmodule QuizworldRealtimeWeb.PresentationController do
   use QuizworldRealtimeWeb, :controller
 
   alias QuizworldRealtime.Auth
+  alias QuizworldRealtime.PresentationSnapshot
   alias QuizworldRealtime.Presentations
 
   def start(conn, %{"id" => presentation_id}) do
@@ -56,35 +57,13 @@ defmodule QuizworldRealtimeWeb.PresentationController do
           if Presentations.presenter_authorized?(presentation_id, params["presenter_token"]) do
             snapshot
           else
-            sanitize_slides(snapshot)
+            PresentationSnapshot.for_audience(snapshot)
           end
 
         json(conn, %{presentation: safe})
 
       {:error, reason} ->
         conn |> put_status(status_for(reason)) |> json(%{error: format_error(reason)})
-    end
-  end
-
-  defp sanitize_slides(snapshot) do
-    slides =
-      (snapshot[:slides] || snapshot["slides"] || [])
-      |> Enum.map(fn slide ->
-        content = slide["content"] || %{}
-
-        case slide["slide_type"] do
-          "quiz" ->
-            answers = (content["answers"] || []) |> Enum.map(&Map.delete(&1, "is_correct"))
-            Map.put(slide, "content", Map.put(content, "answers", answers))
-
-          _ ->
-            slide
-        end
-      end)
-
-    case snapshot do
-      %{} = s -> Map.put(s, :slides, slides)
-      _ -> Map.put(snapshot, "slides", slides)
     end
   end
 

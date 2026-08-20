@@ -2,6 +2,7 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
   use QuizworldRealtimeWeb, :channel
 
   alias QuizworldRealtime.Presentations
+  alias QuizworldRealtime.PresentationSnapshot
   alias QuizworldRealtime.Presence
 
   # If presenter disconnects, participants get a notice after this many ms
@@ -26,7 +27,7 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
         # Track presence so participants/presenters know who's connected
         send(self(), {:after_join, payload, role})
 
-        safe_snapshot = sanitize_snapshot_for_role(snapshot, role)
+        safe_snapshot = PresentationSnapshot.for_role(snapshot, role)
         {:ok, %{presentation: safe_snapshot}, socket}
 
       {:error, _reason} ->
@@ -97,7 +98,12 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
 
   @impl true
   def handle_info({:presentation_updated, snapshot}, socket) do
-    push(socket, "presentation:update", %{presentation: snapshot})
+    role = socket.assigns[:role] || :viewer
+
+    push(socket, "presentation:update", %{
+      presentation: PresentationSnapshot.for_role(snapshot, role)
+    })
+
     {:noreply, socket}
   end
 
@@ -187,6 +193,28 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     end
   end
 
+  def handle_in("results:visibility", %{"hidden" => hidden} = payload, socket)
+      when is_boolean(hidden) do
+    presentation_id = socket.assigns.presentation_id
+
+    case Presentations.set_results_hidden(
+           presentation_id,
+           hidden,
+           presenter_token(socket, payload)
+         ) do
+      {:ok, snapshot} ->
+        broadcast_from!(socket, "presentation:update", %{
+          presentation: PresentationSnapshot.for_audience(snapshot)
+        })
+
+        push(socket, "presentation:update", %{presentation: snapshot})
+        {:reply, :ok, socket}
+
+      {:error, reason} ->
+        {:reply, {:error, %{reason: to_string(reason)}}, socket}
+    end
+  end
+
   def handle_in("quiz:reveal", payload, socket) do
     case ensure_presenter(socket, payload) do
       :ok ->
@@ -222,10 +250,10 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     case callback.() do
       {:ok, snapshot} ->
         role = socket.assigns[:role] || :viewer
-        safe_snapshot = sanitize_snapshot_for_role(snapshot, role)
+        safe_snapshot = PresentationSnapshot.for_role(snapshot, role)
 
         broadcast_from!(socket, "slide:changed", %{
-          presentation: sanitize_snapshot_for_role(snapshot, :participant)
+          presentation: PresentationSnapshot.for_audience(snapshot)
         })
 
         push(socket, "slide:changed", %{presentation: safe_snapshot})
@@ -233,36 +261,6 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
 
       {:error, reason} ->
         {:reply, {:error, %{reason: to_string(reason)}}, socket}
-    end
-  end
-
-  defp sanitize_snapshot_for_role(snapshot, :presenter), do: snapshot
-
-  defp sanitize_snapshot_for_role(snapshot, _role) do
-    slides =
-      (snapshot[:slides] || snapshot["slides"] || [])
-      |> Enum.map(fn slide ->
-        content = slide["content"] || %{}
-
-        sanitized_content =
-          case slide["slide_type"] do
-            "quiz" ->
-              answers =
-                (content["answers"] || [])
-                |> Enum.map(&Map.delete(&1, "is_correct"))
-
-              Map.put(content, "answers", answers)
-
-            _ ->
-              content
-          end
-
-        Map.put(slide, "content", sanitized_content)
-      end)
-
-    case snapshot do
-      %{} = s -> Map.put(s, :slides, slides)
-      _ -> Map.put(snapshot, "slides", slides)
     end
   end
 

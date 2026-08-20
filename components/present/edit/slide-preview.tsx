@@ -108,8 +108,8 @@ export function SlidePreview({ slide }: SlidePreviewProps) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.3rem" }}>
             {((content.answers as { text: string; is_correct: boolean }[]) || []).slice(0, 4).map((ans, i) => (
               <div key={i} style={{
-                background: ans.is_correct ? "rgba(34,197,94,0.15)" : "var(--surface)",
-                border: `1px solid ${ans.is_correct ? "#22c55e" : "var(--line)"}`,
+                background: "var(--surface)",
+                border: "1px solid var(--line)",
                 borderRadius: 4, padding: "0.3rem 0.4rem", fontSize: "0.7em",
               }}>
                 {String.fromCharCode(65 + i)}. {ans.text || `Answer ${i + 1}`}
@@ -165,6 +165,23 @@ export function SlidePreview({ slide }: SlidePreviewProps) {
           <div style={{ fontSize: "1.5em", marginBottom: "0.25rem" }}>❓</div>
           <div style={{ fontSize: "0.8em", fontWeight: 700 }}>Q&A</div>
           <div style={{ fontSize: "0.7em", color: "var(--muted)", marginTop: "0.25rem" }}>Audience submits questions live</div>
+        </div>
+      )}
+
+      {slide.slide_type === "content" && slide.content.interactive && (
+        <div style={{
+          position: "absolute", left: "6%", right: "6%", bottom: "6%",
+          padding: "0.45rem 0.65rem", borderRadius: 6,
+          background: "rgba(15,23,42,0.9)", color: "#fff", textAlign: "center",
+          boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
+        }}>
+          <strong style={{ textTransform: "uppercase", fontSize: "0.65em", letterSpacing: "0.08em" }}>
+            {slide.content.interactive.type.replace("_", " ")}
+          </strong>
+          <div style={{ marginTop: "0.2rem", fontSize: "0.75em" }}>
+            {slide.content.interactive.question || slide.content.interactive.prompt ||
+              (slide.content.interactive.type === "qna" ? "Audience can submit questions" : "Interactive prompt")}
+          </div>
         </div>
       )}
 
