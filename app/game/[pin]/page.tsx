@@ -34,7 +34,6 @@ import {
   legacySupabaseGameEngine,
   liveGameEngineMisconfigured,
 } from "@/lib/game-engine/config";
-import { subscribeToPhoenixTopic } from "@/lib/game-engine/phoenix-socket";
 import {
   clearPlayerSession,
   readPlayerSession,
@@ -60,6 +59,7 @@ import {
   type QuestionHistoryEntry,
 } from "@/lib/game/session-normalizers";
 import { useGameAudio } from "@/lib/game/use-game-audio";
+import { usePhoenixGameChannel } from "@/lib/game/use-phoenix-game-channel";
 import {
   calculatePlayerAchievements,
   countCorrectAnswersByPlayer,
@@ -91,7 +91,6 @@ export default function GamePage() {
   const [playerSession, setPlayerSession] = useState<StoredPlayerSession | null>(null);
   const [hostSession, setHostSession] = useState<StoredHostSession | null>(null);
   const [playerSessionReady, setPlayerSessionReady] = useState(false);
-  const [phoenixChannelConnected, setPhoenixChannelConnected] = useState(false);
   const phaseTransitionLock = useRef(false);
   const revealRequestLock = useRef(false);
   // Feature 5: Ready-up
@@ -99,11 +98,6 @@ export default function GamePage() {
   const [amReady, setAmReady] = useState(false);
   // Feature 6: Streak tracking
   const [playerStreaks, setPlayerStreaks] = useState<Record<string, number>>({});
-  // Feature 13: Reactions
-  const [reactions, setReactions] = useState<{id: string; emoji: string; x: number; ts: number}[]>([]);
-  const reactionIdRef = useRef(0);
-  // Achievements
-  const [achievements, setAchievements] = useState<Record<string, string[]>>({});
   // AI Summary
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
@@ -405,58 +399,11 @@ export default function GamePage() {
     };
   }, [(session as { id?: string })?.id, loadSession]);
 
-  useEffect(() => {
-    if (!isPhoenixGameEngine) return;
-
-    let stopped = false;
-
-    const unsubscribe = subscribeToPhoenixTopic({
-      topic: `game:${pin}`,
-      onJoin: (payload) => {
-        if (stopped) return;
-        setPhoenixChannelConnected(true);
-        const p = payload as { session?: Record<string, unknown> };
-        if (p?.session) {
-          applySessionSnapshot(p.session);
-        }
-      },
-      onSessionUpdate: (payload) => {
-        if (stopped) return;
-        setPhoenixChannelConnected(true);
-        const p = payload as { session?: Record<string, unknown> };
-        if (p?.session) {
-          applySessionSnapshot(p.session);
-        }
-      },
-      onError: () => {
-        if (stopped) return;
-        setPhoenixChannelConnected(false);
-      },
-      onClose: () => {
-        if (stopped) return;
-        setPhoenixChannelConnected(false);
-      },
-    });
-
-    return () => {
-      stopped = true;
-      unsubscribe();
-    };
-  }, [applySessionSnapshot, pin]);
-
-  useEffect(() => {
-    if (!isPhoenixGameEngine) return;
-
-    const fallbackInterval = window.setInterval(() => {
-      if (!phoenixChannelConnected) {
-        void loadSession();
-      }
-    }, 5000);
-
-    return () => {
-      window.clearInterval(fallbackInterval);
-    };
-  }, [loadSession, phoenixChannelConnected]);
+  const phoenixChannelConnected = usePhoenixGameChannel({
+    pin,
+    onSnapshot: applySessionSnapshot,
+    loadSnapshot: loadSession,
+  });
 
   // Show reconnecting notice when WS drops mid-game
   // Use a delay so we don't flash the notice during normal initial connection
@@ -595,14 +542,6 @@ export default function GamePage() {
   const teamAssignments = (typedSession?.team_assignments ?? {}) as Record<string, string>;
   const myTeamId = playerSession?.playerId ? (teamAssignments[playerSession.playerId] ?? null) : null;
   const isEliminated = playerSession?.playerId ? eliminated.includes(playerSession.playerId) : false;
-
-  // Feature 13: Send reaction
-  const sendReaction = useCallback((emoji: string) => {
-    const id = String(++reactionIdRef.current);
-    const x = 10 + Math.random() * 80;
-    setReactions(prev => [...prev, { id, emoji, x, ts: Date.now() }]);
-    setTimeout(() => setReactions(prev => prev.filter(r => r.id !== id)), 2500);
-  }, []);
 
   // Calculate achievements from game data
   const playerAchievements = useMemo(

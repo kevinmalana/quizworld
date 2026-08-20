@@ -38,7 +38,9 @@ defmodule QuizworldRealtime.Application do
   defp warn_if_prod_without_redis do
     if Application.get_env(:quizworld_realtime, :redis_url) in [nil, ""] and
          Application.get_env(:quizworld_realtime, QuizworldRealtimeWeb.Endpoint, [])[:server] do
-      Logger.warning("Redis is not configured. Single-node Phoenix can still run, but multi-node production realtime is not safe without shared state.")
+      Logger.warning(
+        "Redis is not configured. Single-node Phoenix can still run, but multi-node production realtime is not safe without shared state."
+      )
     end
   end
 end

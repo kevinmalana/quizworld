@@ -223,10 +223,26 @@ defmodule QuizworldRealtime.GameTest do
 
     {:ok, game} = Game.start(game, Game.host_token(game))
     fast_started_at = DateTime.add(DateTime.utc_now(), -1, :second)
-    {:ok, game} = Game.submit_answer(%{game | question_started_at: fast_started_at}, id_fast, token_fast, "a2", 99_000)
+
+    {:ok, game} =
+      Game.submit_answer(
+        %{game | question_started_at: fast_started_at},
+        id_fast,
+        token_fast,
+        "a2",
+        99_000
+      )
 
     slow_started_at = DateTime.add(DateTime.utc_now(), -18, :second)
-    {:ok, game} = Game.submit_answer(%{game | question_started_at: slow_started_at}, id_slow, token_slow, "a2", 0)
+
+    {:ok, game} =
+      Game.submit_answer(
+        %{game | question_started_at: slow_started_at},
+        id_slow,
+        token_slow,
+        "a2",
+        0
+      )
 
     {:ok, revealed} = Game.reveal_current_question(game, Game.host_token(game))
     snapshot = Game.snapshot(revealed)
@@ -344,23 +360,31 @@ defmodule QuizworldRealtime.GameTest do
   end
 
   test "survival: eliminated player cannot submit answer" do
-    game = survival_game()
     # 3 players: after round, Bob survives alone but game ends since alive<=1
     # Use a 3-question game to test: Alice eliminated Q1, tries Q2
-    game3 = Game.new(%{
-      "pin" => "SURV03",
-      "host_id" => "host_abc",
-      "quiz_id" => "quiz_xyz",
-      "game_mode" => "survival",
-      "questions" => two_questions() ++ [%{
-        "id" => "q3", "text" => "Q3", "time_limit" => 20, "points" => 1000,
-        "order_index" => 2,
-        "answers" => [
-          %{"id" => "c1", "text" => "Yes", "is_correct" => true},
-          %{"id" => "c2", "text" => "No", "is_correct" => false}
-        ]
-      }]
-    })
+    game3 =
+      Game.new(%{
+        "pin" => "SURV03",
+        "host_id" => "host_abc",
+        "quiz_id" => "quiz_xyz",
+        "game_mode" => "survival",
+        "questions" =>
+          two_questions() ++
+            [
+              %{
+                "id" => "q3",
+                "text" => "Q3",
+                "time_limit" => 20,
+                "points" => 1000,
+                "order_index" => 2,
+                "answers" => [
+                  %{"id" => "c1", "text" => "Yes", "is_correct" => true},
+                  %{"id" => "c2", "text" => "No", "is_correct" => false}
+                ]
+              }
+            ]
+      })
+
     {started, host_token} = start_game_with_players(game3, ["Alice", "Bob", "Charlie"])
 
     player_ids = Map.keys(started.players)
@@ -385,6 +409,7 @@ defmodule QuizworldRealtime.GameTest do
     result = Game.submit_answer(next, pid_a, p_token_a, "b2", 500)
     assert {:error, :eliminated} = result
   end
+
   test "survival: game ends when 1 player alive after advance" do
     game = survival_game()
     {started, host_token} = start_game_with_players(game, ["Alice", "Bob"])

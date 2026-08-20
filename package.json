@@ -7,13 +7,13 @@
     "build": "next build --webpack",
     "typecheck": "tsc --noEmit --pretty false",
     "quality": "node scripts/quality-check.js",
-    "test:unit": "tsx --test \"lib/**/*.test.ts\"",
+    "test:unit": "tsx --test $(find lib -type f -name '*.test.ts' -print)",
     "check": "npm run quality && npm run typecheck && npm run test:unit && npm run build && npm run check:phoenix",
     "start": "next start",
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",
     "test:e2e:headed": "npx playwright test --headed",
-    "check:phoenix": "cd services/quizworld_realtime && MIX_ENV=test mix compile --warnings-as-errors && MIX_ENV=test mix test"
+    "check:phoenix": "cd services/quizworld_realtime && mix format --check-formatted && MIX_ENV=test mix compile --warnings-as-errors && MIX_ENV=test mix test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

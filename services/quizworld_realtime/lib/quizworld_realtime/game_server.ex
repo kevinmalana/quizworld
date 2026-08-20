@@ -303,8 +303,11 @@ defmodule QuizworldRealtime.GameServer do
 
     elapsed_ms =
       case game.question_started_at do
-        %DateTime{} = started_at -> max(DateTime.diff(DateTime.utc_now(), started_at, :millisecond), 0)
-        _ -> 0
+        %DateTime{} = started_at ->
+          max(DateTime.diff(DateTime.utc_now(), started_at, :millisecond), 0)
+
+        _ ->
+          0
       end
 
     max(total_ms - elapsed_ms, 0)

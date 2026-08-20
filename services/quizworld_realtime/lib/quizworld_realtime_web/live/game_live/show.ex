@@ -64,7 +64,9 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
   end
 
   def handle_event("host_reveal", _params, socket) do
-    transition(socket, fn -> Games.reveal_current_question(socket.assigns.pin, socket.assigns.host_token) end)
+    transition(socket, fn ->
+      Games.reveal_current_question(socket.assigns.pin, socket.assigns.host_token)
+    end)
   end
 
   def handle_event("host_advance", _params, socket) do
@@ -387,6 +389,7 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
     case callback.() do
       {:ok, snapshot} ->
         {:noreply, socket |> assign(:error, nil) |> assign_snapshot(snapshot)}
+
       {:error, reason} ->
         {:noreply, assign(socket, :error, format_reason(reason))}
     end
@@ -398,9 +401,12 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
   defp sorted_players(snapshot), do: Enum.sort_by(snapshot.players || [], &(-(&1[:score] || 0)))
 
   defp own_answer(nil, _player_id), do: nil
-  defp own_answer(snapshot, player_id), do: Enum.find(snapshot.current_answers || [], &(&1[:player_id] == player_id))
+
+  defp own_answer(snapshot, player_id),
+    do: Enum.find(snapshot.current_answers || [], &(&1[:player_id] == player_id))
 
   defp selected_answer?(nil, _player_id, _answer_id), do: false
+
   defp selected_answer?(snapshot, player_id, answer_id) do
     case own_answer(snapshot, player_id) do
       nil -> false
@@ -418,6 +424,7 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
   defp finished?(s), do: s.status == "finished"
 
   defp last_question?(nil), do: false
+
   defp last_question?(s) do
     (s.current_question_index || 0) >= max(length(get_in(s, [:quiz, :questions]) || []) - 1, 0)
   end
@@ -426,8 +433,10 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
   defp host_controls?(_s, ht), do: ht != ""
 
   defp can_answer?(nil, _pid), do: false
+
   defp can_answer?(s, pid) do
-    s.status == "active" and pid != "" and time_left(s.current_question, s.question_started_at) > 0 and
+    s.status == "active" and pid != "" and
+      time_left(s.current_question, s.question_started_at) > 0 and
       not already_answered?(s, pid)
   end
 
@@ -435,8 +444,10 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
   defp already_answered?(s, pid), do: Enum.any?(s.current_answers || [], &(&1[:player_id] == pid))
 
   defp time_left(nil, _sa), do: 0
+
   defp time_left(q, sa) do
     total = q["time_limit"] || 20
+
     if sa do
       elapsed = div(DateTime.diff(DateTime.utc_now(), parse_datetime(sa), :millisecond), 1000)
       max(total - elapsed, 0)
@@ -446,6 +457,7 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
   end
 
   defp parse_datetime(%DateTime{} = v), do: v
+
   defp parse_datetime(v) when is_binary(v) do
     case DateTime.from_iso8601(v) do
       {:ok, dt, _} -> dt
@@ -464,6 +476,7 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
 
   defp answer_class(index, enabled?, selected?) do
     base = "game-answer game-answer--#{rem(index, 4) || 4}"
+
     cond do
       selected? -> "#{base} game-answer--selected"
       not enabled? -> "#{base} game-answer--disabled"
@@ -502,17 +515,35 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
   defp stage_eyebrow(_), do: "Live"
 
   defp stage_copy(nil, _ht, _pt), do: "Connecting to the live room."
+
   defp stage_copy(s, ht, pt) do
     cond do
-      host_controls?(s, ht) and waiting?(s) -> "You are in control. Build the room, then open the first round when the lobby feels full."
-      host_controls?(s, ht) and active?(s) -> "You are running the show. Watch answer volume climb and trigger the reveal when the round peaks."
-      host_controls?(s, ht) and reveal?(s) -> "The crowd has answered. Let the leaderboard breathe, then send them into the next round."
-      waiting?(s) and pt == "" -> "Join the lobby, claim a nickname, and wait for the host to kick off the first question."
-      waiting?(s) -> "You are in the room. Stay sharp for the opening countdown."
-      active?(s) -> "Fast answers win bigger points. Lock in your choice before the timer burns out."
-      reveal?(s) -> "See what the room chose, find the right answer, and watch the standings shift."
-      finished?(s) -> "The game is done. Celebrate the podium, compare scores, and decide who hosts the rematch."
-      true -> "Live game session connected."
+      host_controls?(s, ht) and waiting?(s) ->
+        "You are in control. Build the room, then open the first round when the lobby feels full."
+
+      host_controls?(s, ht) and active?(s) ->
+        "You are running the show. Watch answer volume climb and trigger the reveal when the round peaks."
+
+      host_controls?(s, ht) and reveal?(s) ->
+        "The crowd has answered. Let the leaderboard breathe, then send them into the next round."
+
+      waiting?(s) and pt == "" ->
+        "Join the lobby, claim a nickname, and wait for the host to kick off the first question."
+
+      waiting?(s) ->
+        "You are in the room. Stay sharp for the opening countdown."
+
+      active?(s) ->
+        "Fast answers win bigger points. Lock in your choice before the timer burns out."
+
+      reveal?(s) ->
+        "See what the room chose, find the right answer, and watch the standings shift."
+
+      finished?(s) ->
+        "The game is done. Celebrate the podium, compare scores, and decide who hosts the rematch."
+
+      true ->
+        "Live game session connected."
     end
   end
 
@@ -526,6 +557,7 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
   end
 
   defp question_progress(nil), do: "0/0"
+
   defp question_progress(s) do
     current = (s.current_question_index || -1) + 1
     total = length(get_in(s, [:quiz, :questions]) || [])
@@ -533,17 +565,21 @@ defmodule QuizworldRealtimeWeb.GameLive.Show do
   end
 
   defp response_time_ms(nil), do: 0
+
   defp response_time_ms(s) do
     limit = s |> Map.get(:current_question, %{}) |> Map.get("time_limit", 20)
     started = Map.get(s, :question_started_at)
+
     if started do
-      DateTime.diff(DateTime.utc_now(), parse_datetime(started), :millisecond) |> max(0) |> min(max(limit, 1) * 1000)
+      DateTime.diff(DateTime.utc_now(), parse_datetime(started), :millisecond)
+      |> max(0)
+      |> min(max(limit, 1) * 1000)
     else
       0
     end
   end
 
-  defp answer_label(index), do: <<(?A + index - 1)>>
+  defp answer_label(index), do: <<?A + index - 1>>
 
   defp format_reason(:session_closed), do: "Game is not accepting new players."
   defp format_reason(:invalid_player), do: "Nickname is required."
