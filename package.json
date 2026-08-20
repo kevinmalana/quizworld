@@ -7,7 +7,7 @@
     "build": "next build --webpack",
     "typecheck": "tsc --noEmit --pretty false",
     "quality": "node scripts/quality-check.js",
-    "test:unit": "tsx --test \"lib/**/*.test.ts\"",
+    "test:unit": "tsx --test $(find lib -type f -name '*.test.ts' -print)",
     "check": "npm run quality && npm run typecheck && npm run test:unit && npm run build && npm run check:phoenix",
     "start": "next start",
     "test:e2e": "npx playwright test",
