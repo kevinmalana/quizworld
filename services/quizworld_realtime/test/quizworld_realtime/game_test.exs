@@ -139,6 +139,21 @@ defmodule QuizworldRealtime.GameTest do
     assert Enum.any?(rev_snapshot.current_question["answers"], &Map.has_key?(&1, "is_correct"))
   end
 
+  test "public snapshots never include per-player answers or question history" do
+    game = new_game()
+    {game, token, id} = join(game, "Mia")
+    {:ok, game} = Game.start(game, Game.host_token(game))
+    {:ok, game} = Game.submit_answer(game, id, token, "a2", 0)
+
+    public = Game.snapshot(game, :public)
+    refute Map.has_key?(public, :current_answers)
+    refute Map.has_key?(public, :question_history)
+
+    player = Game.snapshot(game, {:player, id})
+    assert [%{player_id: ^id}] = player.current_answers
+    refute Map.has_key?(player, :question_history)
+  end
+
   test "submit_answer rejects late answers" do
     game = new_game()
     {game, token, id} = join(game, "Mia")

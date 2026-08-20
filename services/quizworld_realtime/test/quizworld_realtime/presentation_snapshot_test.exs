@@ -85,5 +85,27 @@ defmodule QuizworldRealtime.PresentationSnapshotTest do
 
       assert PresentationSnapshot.for_audience(snapshot) == snapshot
     end
+
+    test "recursively strips answer-key fields at arbitrary nesting" do
+      snapshot = %{
+        slides: [
+          %{
+            "content" => %{
+              "groups" => [
+                %{
+                  "answers" => [
+                    %{"id" => "a", "is_correct" => true, "meta" => %{"correct_answer_id" => "a"}}
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+
+      [slide] = PresentationSnapshot.for_audience(snapshot).slides
+      [group] = slide["content"]["groups"]
+      assert group["answers"] == [%{"id" => "a", "meta" => %{}}]
+    end
   end
 end

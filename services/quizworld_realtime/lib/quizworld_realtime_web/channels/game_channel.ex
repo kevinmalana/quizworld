@@ -6,14 +6,14 @@ defmodule QuizworldRealtimeWeb.GameChannel do
 
   @impl true
   def join("game:" <> pin, payload, socket) do
-    case Games.snapshot(pin) do
-      {:ok, snapshot} ->
+    case Games.authorized_snapshot(pin, payload) do
+      {:ok, snapshot, role} ->
         Phoenix.PubSub.subscribe(QuizworldRealtime.PubSub, Games.topic(pin))
 
         # Track presence so host can see real connected count
         send(self(), {:after_join, payload})
 
-        {:ok, %{session: snapshot}, assign(socket, :pin, pin)}
+        {:ok, %{session: snapshot}, socket |> assign(:pin, pin) |> assign(:role, role)}
 
       {:error, _reason} ->
         {:error, %{reason: "session_not_found"}}
@@ -37,7 +37,13 @@ defmodule QuizworldRealtimeWeb.GameChannel do
   end
 
   @impl true
-  def handle_info({:session_updated, snapshot}, socket) do
+  def handle_info({:session_updated, public_snapshot}, socket) do
+    snapshot =
+      case Games.snapshot_for_role(socket.assigns.pin, socket.assigns[:role] || :public) do
+        {:ok, shaped} -> shaped
+        _ -> public_snapshot
+      end
+
     push(socket, "session:update", %{session: snapshot})
     {:noreply, socket}
   end
@@ -55,7 +61,7 @@ defmodule QuizworldRealtimeWeb.GameChannel do
     case Games.join_player(pin, payload) do
       {:ok, snapshot, player_token, player_id} ->
         {:reply, {:ok, %{session: snapshot, player_token: player_token, player_id: player_id}},
-         socket}
+         assign(socket, :role, {:player, player_id})}
 
       {:error, :game_full} ->
         {:reply,

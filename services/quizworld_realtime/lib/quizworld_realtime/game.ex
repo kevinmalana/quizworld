@@ -23,7 +23,9 @@ defmodule QuizworldRealtime.Game do
     eliminated: MapSet.new(),
     # Team Battle mode: teams map + player→team assignments
     teams: %{},
-    team_assignments: %{}
+    team_assignments: %{},
+    result_sync_status: nil,
+    result_sync_attempts: 0
   ]
 
   @max_players 200
@@ -47,7 +49,9 @@ defmodule QuizworldRealtime.Game do
     }
   end
 
-  def snapshot(%__MODULE__{} = game) do
+  def snapshot(%__MODULE__{} = game), do: snapshot(game, :host)
+
+  def snapshot(%__MODULE__{} = game, role) do
     current_question = current_question(game)
     current_question_id = if current_question, do: current_question["id"], else: nil
     current_answers = Map.get(game.answers, current_question_id, %{})
@@ -114,7 +118,7 @@ defmodule QuizworldRealtime.Game do
         }
       end)
 
-    %{
+    host_snapshot = %{
       pin: game.pin,
       quiz_id: game.quiz_id,
       category: game.category,
@@ -156,7 +160,42 @@ defmodule QuizworldRealtime.Game do
       teams: game.teams,
       team_assignments: game.team_assignments
     }
+
+    shape_snapshot(host_snapshot, role)
   end
+
+  defp shape_snapshot(snapshot, :host), do: snapshot
+
+  defp shape_snapshot(snapshot, {:player, player_id}) do
+    own_answers = Enum.filter(snapshot.current_answers, &(&1.player_id == player_id))
+    snapshot |> Map.put(:current_answers, own_answers) |> Map.delete(:question_history)
+  end
+
+  defp shape_snapshot(snapshot, _public) do
+    snapshot |> Map.delete(:current_answers) |> Map.delete(:question_history)
+  end
+
+  def authorized_role(%__MODULE__{} = game, host_token, _player_id, _player_token)
+      when is_binary(host_token) do
+    if secure_equal?(game.host_token, host_token),
+      do: {:ok, :host},
+      else: {:error, :invalid_token}
+  end
+
+  def authorized_role(%__MODULE__{} = game, _host_token, player_id, player_token)
+      when is_binary(player_id) and is_binary(player_token) do
+    case ensure_player_token(game, player_id, player_token) do
+      :ok -> {:ok, {:player, player_id}}
+      _ -> {:error, :invalid_token}
+    end
+  end
+
+  def authorized_role(_game, _host_token, _player_id, _player_token), do: {:ok, :public}
+
+  defp secure_equal?(left, right) when byte_size(left) == byte_size(right),
+    do: Plug.Crypto.secure_compare(left, right)
+
+  defp secure_equal?(_left, _right), do: false
 
   def host_token(%__MODULE__{} = game), do: game.host_token
 
@@ -437,7 +476,7 @@ defmodule QuizworldRealtime.Game do
 
   def reconnect_player(%__MODULE__{} = game, player_id, player_token) do
     with :ok <- ensure_player_token(game, player_id, player_token) do
-      {:ok, snapshot(game)}
+      {:ok, snapshot(game, {:player, player_id})}
     end
   end
 
@@ -472,7 +511,13 @@ defmodule QuizworldRealtime.Game do
 
       if game.current_question_index >= last_question_index or
            (game.game_mode == "survival" and alive_count < 2) do
-        {:ok, touch(%{game | status: "finished", question_started_at: nil})}
+        {:ok,
+         touch(%{
+           game
+           | status: "finished",
+             question_started_at: nil,
+             result_sync_status: :pending
+         })}
       else
         {:ok,
          touch(%{

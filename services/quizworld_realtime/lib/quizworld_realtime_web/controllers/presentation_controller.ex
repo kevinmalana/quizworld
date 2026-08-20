@@ -48,13 +48,13 @@ defmodule QuizworldRealtimeWeb.PresentationController do
     end
   end
 
-  def show(conn, %{"id" => presentation_id} = params) do
+  def show(conn, %{"id" => presentation_id}) do
     case Presentations.get_snapshot(presentation_id) do
       {:ok, snapshot} ->
         # `presenter_token` arrives in an untrusted query string. Return the
         # answer key only after verifying it belongs to this live presentation.
         safe =
-          if Presentations.presenter_authorized?(presentation_id, params["presenter_token"]) do
+          if Presentations.presenter_authorized?(presentation_id, bearer_credential(conn)) do
             snapshot
           else
             PresentationSnapshot.for_audience(snapshot)
@@ -67,8 +67,24 @@ defmodule QuizworldRealtimeWeb.PresentationController do
     end
   end
 
-  def activity(conn, %{"id" => presentation_id, "slide_id" => slide_id} = params) do
-    auth_payload = Map.take(params, ["presenter_token", "participant_id", "participant_token"])
+  def activity(conn, %{"id" => presentation_id, "slide_id" => slide_id}) do
+    auth_payload =
+      case get_req_header(conn, "authorization") do
+        ["Participant " <> credential | _] ->
+          case String.split(credential, ":", parts: 2) do
+            [participant_id, token] ->
+              %{"participant_id" => participant_id, "participant_token" => token}
+
+            _ ->
+              %{}
+          end
+
+        ["Bearer " <> token | _] ->
+          %{"presenter_token" => token}
+
+        _ ->
+          %{}
+      end
 
     case Presentations.slide_activity(presentation_id, slide_id, auth_payload) do
       {:ok, activity} ->
@@ -80,6 +96,13 @@ defmodule QuizworldRealtimeWeb.PresentationController do
   end
 
   defp blank?(value), do: value |> to_string() |> String.trim() == ""
+
+  defp bearer_credential(conn) do
+    case get_req_header(conn, "authorization") do
+      ["Bearer " <> token | _] -> token
+      _ -> nil
+    end
+  end
 
   defp status_for(:not_found), do: :not_found
   defp status_for(:not_host), do: :forbidden

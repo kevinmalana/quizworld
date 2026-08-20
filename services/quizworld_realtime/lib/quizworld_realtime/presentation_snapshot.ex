@@ -12,6 +12,7 @@ defmodule QuizworldRealtime.PresentationSnapshot do
 
     %{
       id: fetch(record, :id),
+      run_id: fetch(record, :run_id),
       creator_id: fetch(record, :creator_id),
       title: fetch(record, :title),
       status: fetch(record, :status),
@@ -58,40 +59,24 @@ defmodule QuizworldRealtime.PresentationSnapshot do
 
   defp safe_slide(slide), do: slide
 
-  defp safe_content(content) do
-    content
-    |> strip_answer_keys()
-    |> update_interactive()
+  defp safe_content(content), do: sanitize(content)
+
+  @sensitive_keys ~w(is_correct correct correct_answer correct_answer_id correct_answer_ids
+                     correct_answers answer_key solution)
+
+  defp sanitize(value) when is_list(value), do: Enum.map(value, &sanitize/1)
+
+  defp sanitize(value) when is_map(value) do
+    Enum.reduce(value, %{}, fn {key, nested}, safe ->
+      if to_string(key) in @sensitive_keys do
+        safe
+      else
+        Map.put(safe, key, sanitize(nested))
+      end
+    end)
   end
 
-  defp update_interactive(content) do
-    case fetch(content, :interactive) do
-      interactive when is_map(interactive) ->
-        put_existing_style(content, :interactive, strip_answer_keys(interactive))
-
-      _ ->
-        content
-    end
-  end
-
-  defp strip_answer_keys(content) do
-    case fetch(content, :answers) do
-      answers when is_list(answers) ->
-        safe_answers = Enum.map(answers, &drop_correctness/1)
-        put_existing_style(content, :answers, safe_answers)
-
-      _ ->
-        content
-    end
-  end
-
-  defp drop_correctness(answer) when is_map(answer) do
-    answer
-    |> Map.delete("is_correct")
-    |> Map.delete(:is_correct)
-  end
-
-  defp drop_correctness(answer), do: answer
+  defp sanitize(value), do: value
 
   defp fetch(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 
