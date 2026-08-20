@@ -10,6 +10,8 @@ test("social migration persists recipient-owned notifications with teacher-only 
   assert.match(sql, /auth\.uid\(\) = user_id/i);
   assert.match(sql, /cm_teacher\.role = 'teacher'/i);
   assert.match(sql, /CREATE TRIGGER complete_classroom_assignments_from_study/i);
+  assert.match(sql, /WHEN \(NEW\.total_questions > 0\)/i);
+  assert.doesNotMatch(sql, /NEW\.total\b/i);
 });
 
 test("social migration canonicalizes legacy category aliases without deleting quizzes", () => {

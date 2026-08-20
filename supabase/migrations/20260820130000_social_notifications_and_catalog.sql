@@ -90,7 +90,7 @@ DROP TRIGGER IF EXISTS complete_classroom_assignments_from_study ON public.study
 CREATE TRIGGER complete_classroom_assignments_from_study
   AFTER INSERT ON public.study_sessions
   FOR EACH ROW
-  WHEN (NEW.total > 0)
+  WHEN (NEW.total_questions > 0)
   EXECUTE FUNCTION public.complete_classroom_assignments_from_study();
 
 -- Collapse legacy aliases into the labels used by current discovery navigation.
