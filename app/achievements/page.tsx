@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
+import { buildLoginHref } from "@/lib/auth/redirects";
 import "@/styles/social.css";
 import "@/styles/achievements.css";
 
@@ -74,6 +76,16 @@ export default function AchievementsPage() {
         <h1 className="font-display">🏅 Achievements</h1>
         <p>Unlock achievements by playing, studying, and reaching milestones.</p>
       </div>
+
+      {!user && (
+        <div className="card social-signin-callout">
+          <div>
+            <h2 className="social-section-title">Track what you unlock</h2>
+            <p className="social-card-desc">Sign in to earn achievements and keep your XP.</p>
+          </div>
+          <Link href={buildLoginHref("/achievements")} className="btn btn-primary">Sign in</Link>
+        </div>
+      )}
 
       {/* Stats bar */}
       {achievements.length > 0 && (

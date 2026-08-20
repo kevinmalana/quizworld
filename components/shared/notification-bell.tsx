@@ -8,7 +8,8 @@ import { useAuth } from "@/components/supabase-provider";
 
 type NotifItem = {
   id: string;
-  type: "friend_request" | "classroom_join" | "group_join";
+  notificationId?: string;
+  type: "friend_request" | "classroom_join" | "group_join" | "classroom_nudge";
   title: string;
   subtitle: string;
   href: string;
@@ -36,18 +37,28 @@ export function NotificationBell() {
     } catch { return new Set(); }
   });
 
-  function dismissAll() {
-    const allIds = items.map(i => i.id);
-    const next = new Set([...seenIds, ...allIds]);
+  async function dismissAll() {
+    const persistedIds = items.flatMap(item => item.notificationId ? [item.notificationId] : []);
+    if (persistedIds.length > 0) {
+      await supabase.from("notifications").update({ read_at: new Date().toISOString() }).in("id", persistedIds);
+    }
+    const legacyIds = items.filter(item => !item.notificationId).map(item => item.id);
+    const next = new Set([...seenIds, ...legacyIds]);
     setSeenIds(next);
     try { localStorage.setItem("qw_seen_notifs", JSON.stringify([...next])); } catch {}
+    setItems([]);
     setOpen(false);
   }
 
-  function dismissOne(id: string) {
-    const next = new Set([...seenIds, id]);
-    setSeenIds(next);
-    try { localStorage.setItem("qw_seen_notifs", JSON.stringify([...next])); } catch {}
+  async function dismissOne(item: NotifItem) {
+    if (item.notificationId) {
+      await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", item.notificationId);
+    } else {
+      const next = new Set([...seenIds, item.id]);
+      setSeenIds(next);
+      try { localStorage.setItem("qw_seen_notifs", JSON.stringify([...next])); } catch {}
+    }
+    setItems(current => current.filter(candidate => candidate.id !== item.id));
     setOpen(false);
   }
 
@@ -69,7 +80,14 @@ export function NotificationBell() {
   const fetchNotifs = useCallback(async () => {
     if (!user) return;
 
-    const [friendRes, classRes, groupRes] = await Promise.all([
+    const [notificationRes, friendRes, classRes, groupRes] = await Promise.all([
+      // Durable notifications such as teacher assignment reminders.
+      supabase.from("notifications")
+        .select("id, type, title, message, href")
+        .eq("user_id", user.id)
+        .is("read_at", null)
+        .order("created_at", { ascending: false })
+        .limit(20),
       // Pending friend requests TO me
       supabase.from("friendships")
         .select("id, requester_id, profiles!friendships_requester_id_fkey(username, display_name)")
@@ -91,6 +109,18 @@ export function NotificationBell() {
     ]);
 
     const notifs: NotifItem[] = [];
+
+    (notificationRes.data ?? []).forEach((notification: { id: string; type: string; title: string; message: string; href: string }) => {
+      if (notification.type !== "classroom_nudge") return;
+      notifs.push({
+        id: `nt-${notification.id}`,
+        notificationId: notification.id,
+        type: "classroom_nudge",
+        title: notification.title,
+        subtitle: notification.message,
+        href: notification.href,
+      });
+    });
 
     (friendRes.data ?? []).forEach((f: { id: string; requester_id: string; profiles: { username: string; display_name: string }[] }) => {
       const name = f.profiles?.[0]?.display_name || f.profiles?.[0]?.username || "Someone";
@@ -141,6 +171,7 @@ export function NotificationBell() {
     friend_request: "👥",
     classroom_join: "🏫",
     group_join: "🎯",
+    classroom_nudge: "📚",
   };
 
   return (
@@ -149,6 +180,8 @@ export function NotificationBell() {
         className="nav-icon-btn notif-bell-btn"
         onClick={() => setOpen(o => !o)}
         aria-label={`Notifications${count > 0 ? ` (${count})` : ""}`}
+        aria-expanded={open}
+        aria-controls="notification-menu"
         data-tooltip="Notifications"
       >
         🔔
@@ -158,11 +191,11 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="notif-dropdown">
+        <div className="notif-dropdown" id="notification-menu" role="region" aria-label="Notifications">
           <div className="notif-header">
             <span className="notif-header-title">Notifications</span>
             {count > 0 && (
-              <button className="notif-clear-btn" onClick={dismissAll}>Clear all</button>
+              <button className="notif-clear-btn" onClick={() => void dismissAll()}>Clear all</button>
             )}
           </div>
           {items.length === 0 ? (
@@ -174,7 +207,7 @@ export function NotificationBell() {
                   key={item.id}
                   href={item.href}
                   className="notif-item"
-                  onClick={() => dismissOne(item.id)}
+                  onClick={() => void dismissOne(item)}
                 >
                   <span className="notif-icon">{iconMap[item.type]}</span>
                   <div className="notif-content">
@@ -185,8 +218,8 @@ export function NotificationBell() {
               ))}
             </div>
           )}
-          <Link href="/friends" className="notif-footer" onClick={dismissAll}>
-            View all →
+          <Link href="/friends" className="notif-footer">
+            View friends →
           </Link>
         </div>
       )}

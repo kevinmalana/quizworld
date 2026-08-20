@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { calcLevel } from "@/components/study/study-session-panels";
 import { checkAndGrantAchievements } from "@/lib/achievements";
+import { buildLoginHref } from "@/lib/auth/redirects";
 import "@/styles/social.css";
 
 type Classroom = {
@@ -92,8 +93,10 @@ export default function ClassroomsPage() {
   if (!user) return (
     <div className="container social-shell">
       <div className="social-empty">
-        <div className="social-empty-icon">🏫</div>
-        <div className="social-empty-title">Sign in to use Classrooms</div>
+        <div className="social-empty-icon" aria-hidden="true">🏫</div>
+        <h1 className="social-empty-title">Sign in to use Classrooms</h1>
+        <p className="social-empty-text">Create classes, join assignments and keep your progress connected.</p>
+        <Link href={buildLoginHref("/classrooms")} className="btn btn-primary">Sign in</Link>
       </div>
     </div>
   );

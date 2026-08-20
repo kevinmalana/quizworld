@@ -261,7 +261,17 @@ export function FlashcardPanel({
 
       <div className="study-flashcard-perspective">
         <div
+          role={!isBack ? "button" : undefined}
+          aria-label={!isBack ? "Reveal answers" : undefined}
+          aria-disabled={!isBack ? advancing : undefined}
+          tabIndex={!isBack && !advancing ? 0 : -1}
           onClick={(!isBack && !advancing) ? onFlip : undefined}
+          onKeyDown={(event) => {
+            if (!isBack && !advancing && (event.key === "Enter" || event.key === " ")) {
+              event.preventDefault();
+              onFlip();
+            }
+          }}
           className={`study-flashcard${advancing ? " is-advancing" : ""}`}
           style={{ transform: isBack ? "rotateY(180deg)" : "rotateY(0deg)", cursor: (!isBack && !advancing) ? "pointer" : "default" }}
         >

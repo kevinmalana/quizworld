@@ -7,15 +7,21 @@ import { useAuth } from "@/components/supabase-provider";
 import { AvailableStudyQuizCard, ContinueStudyQuizCard } from "@/components/study/study-quiz-card";
 import { StudyStatsDashboard, type StudyProgressRow, type StudySessionRow } from "@/components/study/study-dashboard";
 import { calcLevel } from "@/components/study/study-session-panels";
+import { CATEGORY_COLORS } from "@/lib/shared";
+import { buildLoginHref } from "@/lib/auth/redirects";
+import { canonicalizeCategory, categoryVariants, formatCatalogCount, mergeCatalogPage } from "@/lib/catalog-discovery";
+
+const STUDY_PAGE_SIZE = 24;
+const STUDY_CATEGORIES = ["All", ...new Set(Object.keys(CATEGORY_COLORS).map(canonicalizeCategory))];
 
 function XpGuideBox() {
   const [open, setOpen] = useState(false);
   return (
     <div className="study-xp-guide">
-      <div className="study-xp-guide__header" onClick={() => setOpen(o => !o)}>
+      <button type="button" className="study-xp-guide__header" aria-expanded={open} onClick={() => setOpen(o => !o)}>
         <span className="study-xp-guide__title">💡 How to earn XP &amp; level up</span>
         <span className="study-xp-guide__toggle">{open ? "Hide ▲" : "Show ▼"}</span>
-      </div>
+      </button>
       {open && (
         <div className="study-xp-guide__body">
           <div className="study-xp-guide__rows">
@@ -47,58 +53,69 @@ type QuizRow = {
 export default function StudyListPage() {
   const { user, loading: authLoading } = useAuth();
   const [quizzes, setQuizzes] = useState<QuizRow[]>([]);
-    // 2026-08-13: study list is now bounded at STUDY_PAGE_LIMIT most-recent.
-    // isAtCap indicates the catalog is bigger than what we show.
-    const [isAtCap, setIsAtCap] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [assignedQuizIds, setAssignedQuizIds] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState<StudyProgressRow[]>([]);
   const [sessions, setSessions] = useState<StudySessionRow[]>([]);
   const [profile, setProfile] = useState<{ total_xp: number; study_streak: number; longest_streak: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [quizError, setQuizError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const loadCatalogPage = useCallback(async (pageIndex: number, append: boolean) => {
+    const from = pageIndex * STUDY_PAGE_SIZE;
+    let query = supabase
+      .from("quizzes")
+      .select("id, title, emoji, color, category, questions(id)", { count: "exact" })
+      .is("archived_at", null)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + STUDY_PAGE_SIZE - 1);
+
+    query = user ? query.or(`is_public.eq.true,creator_id.eq.${user.id}`) : query.eq("is_public", true);
+    if (debouncedSearch) query = query.ilike("title", `%${debouncedSearch}%`);
+    if (activeCategory !== "All") query = query.in("category", categoryVariants(activeCategory));
+
+    const { data, error, count } = await query;
+    if (error) {
+      console.error("Error loading study quizzes:", error);
+      setQuizError("Could not load study sets. Please try again.");
+      if (!append) setQuizzes([]);
+      return false;
+    }
+
+    const rows = (data ?? []).map(row => ({ ...row, category: canonicalizeCategory(row.category) })) as QuizRow[];
+    const exactTotal = count ?? rows.length;
+    setQuizzes(current => append ? mergeCatalogPage(current, rows) : rows);
+    setTotalCount(exactTotal);
+    setHasMore(from + rows.length < exactTotal);
+    setPage(pageIndex);
+    return true;
+  }, [activeCategory, debouncedSearch, user?.id]);
 
   useEffect(() => {
     if (authLoading) return;
     let ignore = false;
 
     async function fetchData() {
-          setLoading(true);
-          setQuizError(null);
-
-          // 2026-08-13: cap the catalog load to 200 most-recent. The previous
-          // unbounded query had a comment "// No limit — fetch full catalog"
-          // which was the right call when the catalog was small, but as the
-          // catalog grows (now ~thousands of public quizzes) this hammers
-          // Supabase and risks hitting the API rate limit on every page-load.
-          // For study, the 200 most-recent public quizzes + user's own are
-          // almost always what people actually study. Pagination can be added
-          // later if needed.
-          const STUDY_PAGE_LIMIT = 200;
-
-          const quizQuery = supabase
-            .from("quizzes")
-            .select("id, title, emoji, color, category, questions(id)")
-            .is("archived_at", null)
-            .order("created_at", { ascending: false })
-            .limit(STUDY_PAGE_LIMIT);
-
-          const { data: quizData, error: qError } = user
-            ? await quizQuery.or(`is_public.eq.true,creator_id.eq.${user.id}`)
-            : await quizQuery.eq("is_public", true);
-
+      setLoading(true);
+      setQuizError(null);
+      const catalogLoaded = await loadCatalogPage(0, false);
       if (ignore) return;
-
-      if (qError) {
-        console.error("Error loading study quizzes:", qError);
-        setQuizError("Could not load study sets. Please try again.");
-        setQuizzes([]);
+      if (!catalogLoaded) {
         setLoading(false);
         return;
       }
-
-      setQuizzes(quizData ?? []);
-        setIsAtCap((quizData ?? []).length >= STUDY_PAGE_LIMIT);
 
       if (!user) {
         setProgress([]);
@@ -107,7 +124,7 @@ export default function StudyListPage() {
         return;
       }
 
-      const [progressResult, sessionResult, profileResult] = await Promise.all([
+      const [progressResult, sessionResult, profileResult, membershipResult] = await Promise.all([
         supabase
           .from("study_progress")
           .select("quiz_id, questions_studied, correct, mastery, last_studied")
@@ -123,6 +140,10 @@ export default function StudyListPage() {
           .select("*")
           .eq("id", user.id)
           .maybeSingle(),
+        supabase
+          .from("classroom_members")
+          .select("classroom_id")
+          .eq("user_id", user.id),
       ]);
 
       if (ignore) return;
@@ -139,34 +160,64 @@ export default function StudyListPage() {
         setProfile(profileResult.data as any);
       }
 
+      const classroomIds = (membershipResult.data ?? []).map(membership => membership.classroom_id);
+      if (classroomIds.length > 0) {
+        const { data: assignmentRows } = await supabase
+          .from("classroom_assignments")
+          .select("quiz_id")
+          .in("classroom_id", classroomIds);
+        const ids = [...new Set((assignmentRows ?? []).map(assignment => assignment.quiz_id))];
+        setAssignedQuizIds(new Set(ids));
+        if (ids.length > 0) {
+          const { data: assignedRows } = await supabase
+            .from("quizzes")
+            .select("id, title, emoji, color, category, questions(id)")
+            .in("id", ids);
+          if (!ignore && assignedRows) {
+            const normalized = assignedRows.map(row => ({ ...row, category: canonicalizeCategory(row.category) })) as QuizRow[];
+            setQuizzes(current => mergeCatalogPage(normalized, current));
+          }
+        }
+      } else {
+        setAssignedQuizIds(new Set());
+      }
+
       setLoading(false);
     }
 
     fetchData();
     return () => { ignore = true; };
-  }, [user?.id, authLoading]);
+  }, [user?.id, authLoading, loadCatalogPage]);
 
   const progressByQuizId = useMemo(
     () => new Map(progress.map((entry) => [entry.quiz_id, entry])),
     [progress]
   );
 
-  const allCategories = useMemo(() => {
-    const cats = Array.from(new Set(quizzes.map((q) => q.category).filter(Boolean)));
-    return ["All", ...cats.sort()];
-  }, [quizzes]);
+  const allCategories = STUDY_CATEGORIES;
 
   const filteredQuizzes = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const query = search.trim().toLowerCase();
     return quizzes.filter((quiz) => {
-      const matchesSearch = !q || quiz.title.toLowerCase().includes(q) || quiz.category?.toLowerCase().includes(q);
-      const matchesCat = activeCategory === "All" || quiz.category === activeCategory;
-      return matchesSearch && matchesCat;
+      const matchesSearch = !query || quiz.title.toLowerCase().includes(query) || quiz.category.toLowerCase().includes(query);
+      const matchesCategory = activeCategory === "All" || canonicalizeCategory(quiz.category) === activeCategory;
+      return matchesSearch && matchesCategory;
     });
   }, [quizzes, search, activeCategory]);
 
   const studiedQuizzes = filteredQuizzes.filter((quiz) => progressByQuizId.has(quiz.id));
-  const availableQuizzes = filteredQuizzes.filter((quiz) => !progressByQuizId.has(quiz.id));
+  const assignedQuizzes = filteredQuizzes.filter((quiz) => assignedQuizIds.has(quiz.id) && !progressByQuizId.has(quiz.id));
+  const preferredCategories = new Set(
+    progress.flatMap(entry => {
+      const quiz = quizzes.find(candidate => candidate.id === entry.quiz_id);
+      return quiz ? [canonicalizeCategory(quiz.category)] : [];
+    })
+  );
+  const recommendedQuizzes = filteredQuizzes
+    .filter(quiz => !progressByQuizId.has(quiz.id) && !assignedQuizIds.has(quiz.id) && preferredCategories.has(canonicalizeCategory(quiz.category)))
+    .slice(0, 6);
+  const featuredIds = new Set([...assignedQuizzes, ...recommendedQuizzes].map(quiz => quiz.id));
+  const availableQuizzes = filteredQuizzes.filter((quiz) => !progressByQuizId.has(quiz.id) && !featuredIds.has(quiz.id));
 
   const totalCorrect = progress.reduce((s, p) => s + (p.correct ?? 0), 0);
   const totalStudied = progress.reduce((s, p) => s + (p.questions_studied ?? 0), 0);
@@ -178,6 +229,12 @@ export default function StudyListPage() {
   const streak = profile?.study_streak ?? 0;
   const longestStreak = profile?.longest_streak ?? 0;
   const totalSessionXp = sessions.reduce((s, sess) => s + (sess.xp_earned ?? 0), 0);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    await loadCatalogPage(page + 1, true);
+    setLoadingMore(false);
+  }
 
   if (loading) {
     return (
@@ -254,21 +311,17 @@ export default function StudyListPage() {
           </p>
         )}
 
-        {/* 2026-08-13: surface that the catalog is bounded.
-            Shown when the catalog has more entries than the 200 study limit.
-            Filter chips and search are still available — user just needs to know
-            the bigger catalog exists. */}
-        {isAtCap && !isFiltering && (
-          <p className="study-filter-results">
-            Showing the 200 most recent study sets. Use search or a category
-            chip above to find older ones.
+        {!loading && (
+          <p className="study-filter-results" aria-live="polite">
+            {formatCatalogCount(filteredQuizzes.length, totalCount, "study set")}
           </p>
         )}
 
         {/* Stats collapsed when user is actively filtering */}
         {!isFiltering && !user && (
           <div className="card study-login-hint">
-            Sign in to save study progress and earn XP across sessions.
+            <span>Sign in to save study progress and earn XP across sessions.</span>
+            <Link href={buildLoginHref("/study")} className="btn btn-primary btn-compact">Sign in</Link>
           </div>
         )}
 
@@ -303,7 +356,25 @@ export default function StudyListPage() {
           </>
         )}
 
-        <h2 className="study-section-title">Ready to Study</h2>
+        {assignedQuizzes.length > 0 && (
+          <>
+            <h2 className="study-section-title">Assigned to You</h2>
+            <div className="study-card-grid">
+              {assignedQuizzes.map((quiz) => <AvailableStudyQuizCard key={quiz.id} quiz={quiz} />)}
+            </div>
+          </>
+        )}
+
+        {recommendedQuizzes.length > 0 && (
+          <>
+            <h2 className="study-section-title">Recommended for You</h2>
+            <div className="study-card-grid">
+              {recommendedQuizzes.map((quiz) => <AvailableStudyQuizCard key={quiz.id} quiz={quiz} />)}
+            </div>
+          </>
+        )}
+
+        <h2 className="study-section-title">Browse Study Sets</h2>
         {availableQuizzes.length === 0 ? (
           <div className="card study-empty-card">
             <div className="study-empty-icon">
@@ -333,6 +404,13 @@ export default function StudyListPage() {
             {availableQuizzes.map((quiz) => (
               <AvailableStudyQuizCard key={quiz.id} quiz={quiz} />
             ))}
+          </div>
+        )}
+        {hasMore && (
+          <div className="study-load-more">
+            <button className="btn btn-secondary" type="button" disabled={loadingMore} onClick={() => void handleLoadMore()}>
+              {loadingMore ? "Loading..." : "Load more study sets"}
+            </button>
           </div>
         )}
       </div>

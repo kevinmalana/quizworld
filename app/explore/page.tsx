@@ -9,10 +9,10 @@ import { SectionCard } from "@/components/section-card";
 import { calcLevel } from "@/components/study/study-session-panels";
 
 import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/shared";
+import { canonicalizeCategory, categoryVariants, excludeFeaturedQuizzes, formatCatalogCount, mergeCatalogPage } from "@/lib/catalog-discovery";
 import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/explore-quiz-card";
 
-const CATEGORY_LIST = ["All", ...Object.keys(CATEGORY_COLORS)];
-
+const CATEGORY_LIST = ["All", ...new Set(Object.keys(CATEGORY_COLORS).map(canonicalizeCategory))];
 const PAGE_SIZE = 24;
 
 type SortMode = "popular" | "newest" | "az" | "za";
@@ -293,18 +293,6 @@ function CollectionCard({
         <span
           style={{
             fontSize: "0.7rem",
-            fontWeight: 700,
-            background: "var(--accent-light)",
-            color: "var(--accent)",
-            borderRadius: "999px",
-            padding: "0.2rem 0.55rem",
-          }}
-        >
-          {collection.quizCount} {collection.quizCount === 1 ? 'quiz' : 'quizzes'}
-        </span>
-        <span
-          style={{
-            fontSize: "0.7rem",
             fontWeight: 600,
             background: "var(--surface)",
             color: "var(--muted)",
@@ -490,12 +478,13 @@ function ExplorePageContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const categoryParam = searchParams.get("category");
+  const requestedCategory = categoryParam ? canonicalizeCategory(categoryParam) : "All";
   const [quizzes, setQuizzes] = useState<QuizWithCreator[]>([]);
   const [searchResults, setSearchResults] = useState<QuizWithCreator[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState(
-    categoryParam && CATEGORY_LIST.includes(categoryParam) ? categoryParam : "All"
+    CATEGORY_LIST.includes(requestedCategory) ? requestedCategory : "All"
   );
   const [sortMode, setSortMode] = useState<SortMode>("popular");
   const [loading, setLoading] = useState(true);
@@ -503,16 +492,20 @@ function ExplorePageContent() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Surprise me state
   const [surpriseQuiz, setSurpriseQuiz] = useState<QuizWithCreator | null>(null);
   const [surprisePool, setSurprisePool] = useState<QuizWithCreator[]>([]);
 
   useEffect(() => {
-    if (categoryParam && CATEGORY_LIST.includes(categoryParam)) {
-      setActiveCategory(categoryParam);
+    if (!categoryParam) return;
+    const canonical = canonicalizeCategory(categoryParam);
+    if (CATEGORY_LIST.includes(canonical)) setActiveCategory(canonical);
+    if (canonical !== categoryParam) {
+      router.replace(`/explore?category=${encodeURIComponent(canonical)}`);
     }
-  }, [categoryParam]);
+  }, [categoryParam, router]);
 
   async function fetchPage(pageIndex: number, append: boolean) {
     if (pageIndex === 0) {
@@ -525,26 +518,23 @@ function ExplorePageContent() {
     const from = pageIndex * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    // 2026-08-13: include server-side filter on activeCategory.
-    // When "All", no extra filter; otherwise restrict to category.
     let query = supabase
       .from("quizzes")
-      .select("*, questions(*, answers(*))")
+      .select("*, questions(*, answers(*))", { count: "exact" })
       .eq("is_public", true)
       .is("archived_at", null)
-      .order("plays", { ascending: false })
       .range(from, to);
 
     if (activeCategory && activeCategory !== "All") {
-      query = query.eq("category", activeCategory);
+      query = query.in("category", categoryVariants(activeCategory));
     }
-    if (sortMode === "newest") {
-      // Most recent first — different order
-      query = query.order("plays", { ascending: false }); // already default
-      // We could add created_at ordering; for now use plays as tiebreak
-    }
+    if (sortMode === "newest") query = query.order("created_at", { ascending: false });
+    else if (sortMode === "az") query = query.order("title", { ascending: true });
+    else if (sortMode === "za") query = query.order("title", { ascending: false });
+    else query = query.order("plays", { ascending: false });
+    query = query.order("id", { ascending: true });
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
       console.error("Error fetching quizzes:", error);
@@ -555,7 +545,9 @@ function ExplorePageContent() {
     }
 
     const batch = data ?? [];
-    setHasMore(batch.length === PAGE_SIZE);
+    const exactTotal = count ?? batch.length;
+    setTotalCount(exactTotal);
+    setHasMore(from + batch.length < exactTotal);
 
     if (batch.length > 0) {
       const creatorIds = [...new Set(batch.map((q: any) => q.creator_id).filter(Boolean))];
@@ -590,7 +582,7 @@ function ExplorePageContent() {
         creator_level_title: creatorMap[q.creator_id]?.levelTitle ?? undefined,
       })) as QuizWithCreator[];
 
-      setQuizzes((prev) => append ? [...prev, ...withCreator] : withCreator);
+      setQuizzes((prev) => append ? mergeCatalogPage(prev, withCreator) : withCreator);
     } else if (!append) {
       setQuizzes([]);
     }
@@ -612,20 +604,28 @@ function ExplorePageContent() {
   // When user types a search term, query the full DB — don't just filter the loaded page
   useEffect(() => {
     const term = search.trim();
-    if (!term) { setSearchResults(null); return; }
+    if (!term) {
+      const hadSearch = searchResults !== null;
+      setSearchResults(null);
+      if (hadSearch) { setPage(0); void fetchPage(0, false); }
+      return;
+    }
 
     let cancelled = false;
     const timer = setTimeout(async () => {
       setSearchLoading(true);
-      const { data } = await supabase
+      let query = supabase
         .from("quizzes")
-        .select("*, questions(id)")
+        .select("*, questions(id)", { count: "exact" })
         .eq("is_public", true)
         .is("archived_at", null)
         .ilike("title", `%${term}%`)
         .order("plays", { ascending: false })
         .limit(50);
+      if (activeCategory !== "All") query = query.in("category", categoryVariants(activeCategory));
+      const { data, count } = await query;
       if (cancelled) return;
+      setTotalCount(count ?? data?.length ?? 0);
 
       const batch = data ?? [];
 
@@ -667,7 +667,7 @@ function ExplorePageContent() {
     }, 300);
 
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [search]);
+  }, [search, activeCategory]);
 
   function handleLoadMore() {
     const next = page + 1;
@@ -707,7 +707,7 @@ function ExplorePageContent() {
     const base = search.trim() && searchResults !== null ? searchResults : quizzes;
 
     let result = base.filter((q) => {
-      const matchCat = activeCategory === "All" || q.category === activeCategory;
+      const matchCat = activeCategory === "All" || canonicalizeCategory(q.category) === activeCategory;
       const matchSearch =
         !search.trim() ||
         q.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -721,7 +721,9 @@ function ExplorePageContent() {
       result = [...result].sort((a, b) => {
         const aTime = (a as any).created_at ?? a.createdAt ?? 0;
         const bTime = (b as any).created_at ?? b.createdAt ?? 0;
-        return bTime - aTime;
+        const aMs = typeof aTime === "string" ? new Date(aTime).getTime() : aTime;
+        const bMs = typeof bTime === "string" ? new Date(bTime).getTime() : bTime;
+        return bMs - aMs;
       });
     } else if (sortMode === "az") {
       result = [...result].sort((a, b) => a.title.localeCompare(b.title));
@@ -758,11 +760,13 @@ function ExplorePageContent() {
     return [...quizzes].sort((a, b) => b.plays - a.plays).slice(0, 6);
   }, [quizzes]);
 
+  const catalogGridQuizzes = hasActiveFilter
+    ? filtered
+    : excludeFeaturedQuizzes(filtered, [trendingThisWeek, newAndFresh, allTimeGreatest]);
+
   const catalogDescription = searchLoading
     ? "Searching across all quizzes…"
-    : hasActiveFilter
-    ? `${filtered.length} quiz${filtered.length !== 1 ? "zes" : ""} matching your filters`
-    : `All ${filtered.length} public quiz${filtered.length !== 1 ? "zes" : ""}`;
+    : formatCatalogCount(filtered.length, totalCount, hasActiveFilter ? "result" : "public quiz");
 
   const showTrendingSections = !hasActiveFilter && !loading && !fetchError && quizzes.length > 0;
 
@@ -832,7 +836,7 @@ function ExplorePageContent() {
                     <span>{opt.label}</span>
                   </button>
                 ))}
-                <span className="explore-results-badge">{filtered.length} results</span>
+                <span className="explore-results-badge">{totalCount} results</span>
               </div>
             </div>
 
@@ -864,17 +868,13 @@ function ExplorePageContent() {
                 gap: "1rem",
               }}
             >
-              {COLLECTIONS.map((col) => {
-                const liveCatCount = quizzes.filter(q => q.category === col.category).length;
-                const liveCount = liveCatCount > 0 ? liveCatCount : col.quizCount;
-                return (
-                  <CollectionCard
-                    key={col.title}
-                    collection={{ ...col, quizCount: liveCount }}
-                    onCategorySelect={(cat) => setActiveCategory(cat)}
-                  />
-                );
-              })}
+              {COLLECTIONS.map((collection) => (
+                <CollectionCard
+                  key={collection.title}
+                  collection={collection}
+                  onCategorySelect={(category) => setActiveCategory(category)}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -950,7 +950,7 @@ function ExplorePageContent() {
               description={catalogDescription}
             >
               <div className="grid-3">
-                {filtered.map((q) => (
+                {catalogGridQuizzes.map((q) => (
                   <ExploreQuizCard key={q.id} quiz={q} />
                 ))}
               </div>

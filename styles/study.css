@@ -124,6 +124,8 @@
   color: var(--ink);
 }
 .study-login-hint::before { content: '🔒'; font-size: 0.85rem; }
+.study-login-hint span { flex: 1; }
+.study-load-more { display: flex; justify-content: center; margin-top: 1.5rem; }
 
 .study-dashboard-hero {
   display: grid;
@@ -901,6 +903,12 @@
 }
 .study-xp-guide__header {
   display: flex;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
   align-items: center;
   justify-content: space-between;
   cursor: pointer;

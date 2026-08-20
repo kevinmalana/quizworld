@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { calcLevel } from "@/components/study/study-session-panels";
+import { buildClassroomNudges, computeClassroomCompletion } from "@/lib/social-recovery";
 import "@/styles/social.css";
 import "@/styles/classroom-teacher.css";
 
@@ -29,6 +30,7 @@ type Assignment = {
   created_at: string;
   quiz_title?: string;
   completed?: boolean;
+  completion_source?: "manual" | "study_session";
   // teacher-only enrichment
   completion_count?: number;
   member_count?: number;
@@ -183,10 +185,10 @@ export default function ClassroomDetailPage() {
 
       const [quizzesRes, myCompletionsRes, allCompletionsRes, progressRes] = await Promise.all([
         supabase.from("quizzes").select("id, title").in("id", qIds),
-        supabase.from("assignment_completions").select("assignment_id").eq("user_id", user.id).in("assignment_id", aIds),
+        supabase.from("assignment_completions").select("assignment_id, source").eq("user_id", user.id).in("assignment_id", aIds),
         // Teacher: fetch all completions to show count per assignment
         role === "teacher"
-          ? supabase.from("assignment_completions").select("assignment_id, user_id").in("assignment_id", aIds)
+          ? supabase.from("assignment_completions").select("assignment_id, user_id, source").in("assignment_id", aIds)
           : Promise.resolve({ data: [] }),
         // Mastery data for all members on all assigned quizzes
         role === "teacher" && userIds.length
@@ -194,21 +196,28 @@ export default function ClassroomDetailPage() {
           : Promise.resolve({ data: [] }),
       ]);
 
-      const myCompletedIds = new Set((myCompletionsRes.data ?? []).map(c => c.assignment_id));
+      const myCompletionMap = new Map(
+        (myCompletionsRes.data ?? []).map(c => [c.assignment_id, c.source as "manual" | "study_session"])
+      );
+      const studentIds = new Set(memberRows.filter(m => m.role === "student").map(m => m.user_id));
 
-      // Build completion count map for teacher
+      // Teacher metrics count students only; teacher completions cannot inflate them.
       const completionCountMap: Record<string, number> = {};
       (allCompletionsRes.data ?? []).forEach(c => {
+        if (!studentIds.has(c.user_id)) return;
         completionCountMap[c.assignment_id] = (completionCountMap[c.assignment_id] ?? 0) + 1;
       });
 
       setAssignments(aData.map(a => ({
         ...a,
         quiz_title: quizzesRes.data?.find(q => q.id === a.quiz_id)?.title,
-        completed: myCompletedIds.has(a.id),
+        completed: myCompletionMap.has(a.id),
+        completion_source: myCompletionMap.get(a.id),
         completion_count: completionCountMap[a.id] ?? 0,
-        member_count: memberRows.length,
-        completed_by: (allCompletionsRes.data ?? []).filter(c => c.assignment_id === a.id).map(c => c.user_id),
+        member_count: studentIds.size,
+        completed_by: (allCompletionsRes.data ?? [])
+          .filter(c => c.assignment_id === a.id && studentIds.has(c.user_id))
+          .map(c => c.user_id),
       })));
 
       // Build mastery grid for teacher progress tab
@@ -295,17 +304,23 @@ export default function ClassroomDetailPage() {
           builtInsights.push({ type: "success", text: `🏆 ${tName} is leading the class with ${Math.round(topAvg)}% average mastery across all assignments.` });
         }
 
-        // Overall completion rate
-        const totalExpected = assignments.length * studentMembers.length;
-        if (totalExpected > 0) {
-          const totalCompleted = Object.values(quizMasteryAvg).reduce((s, arr) => s + arr.length, 0);
-          const pct = Math.round((totalCompleted / totalExpected) * 100);
-          if (pct === 0) {
-            builtInsights.push({ type: "info", text: "No students have studied any assignments yet. Share the classroom join code to get started." });
-          } else if (pct >= 80) {
-            builtInsights.push({ type: "success", text: `Great engagement! ${pct}% of assignments have been studied across the class.` });
+        // Overall completion is based on fetched assignment completion rows,
+        // not study-progress rows or stale React assignment state.
+        const completion = computeClassroomCompletion({
+          assignmentIds: aIds,
+          studentUserIds: studentMembers.map(member => member.user_id),
+          completions: (allCompletionsRes.data ?? []).map(row => ({
+            assignmentId: row.assignment_id,
+            userId: row.user_id,
+          })),
+        });
+        if (completion.expected > 0) {
+          if (completion.percent === 0) {
+            builtInsights.push({ type: "info", text: "No students have completed an assignment yet. Share the classroom join code to get started." });
+          } else if (completion.percent >= 80) {
+            builtInsights.push({ type: "success", text: `Great engagement! ${completion.percent}% of assigned work is complete.` });
           } else {
-            builtInsights.push({ type: "info", text: `${pct}% of assignments have been studied. ${neverStudied.length > 0 ? "Nudge inactive students from the Assignments tab." : ""}` });
+            builtInsights.push({ type: "info", text: `${completion.percent}% of assigned work is complete. ${neverStudied.length > 0 ? "Nudge inactive students from the Assignments tab." : ""}` });
           }
         }
 
@@ -346,10 +361,14 @@ export default function ClassroomDetailPage() {
 
   async function handleMarkComplete(assignmentId: string, isCompleted: boolean) {
     if (!user) return;
-    if (isCompleted) {
-      await supabase.from("assignment_completions").delete().eq("assignment_id", assignmentId).eq("user_id", user.id);
-    } else {
-      await supabase.from("assignment_completions").insert({ assignment_id: assignmentId, user_id: user.id });
+    const { error } = isCompleted
+      ? await supabase.from("assignment_completions").delete().eq("assignment_id", assignmentId).eq("user_id", user.id)
+      : await supabase.from("assignment_completions").insert({ assignment_id: assignmentId, user_id: user.id, source: "manual" });
+
+    if (error) {
+      setMsg("Could not update this manual completion override.");
+      setMsgType("error");
+      return;
     }
     load();
   }
@@ -361,24 +380,46 @@ export default function ClassroomDetailPage() {
   }
 
   async function handleNudge(assignmentId: string, assignmentTitle: string) {
-    // Find students who haven't completed this assignment
+    if (!user || !classroom) return;
     setNudgeSending(assignmentId);
-    const { data: completions } = await supabase
+    const { data: completions, error: completionError } = await supabase
       .from("assignment_completions")
       .select("user_id")
       .eq("assignment_id", assignmentId);
-    const completedIds = new Set((completions ?? []).map(c => c.user_id));
-    const unstudied = members.filter(m => m.role === "student" && !completedIds.has(m.user_id));
-    // Store nudge notification for each unstudied student via a simple DB insert
-    // (uses the same pattern as assignment_completions — lightweight notification log)
-    const nudges = unstudied.map(m => ({
-      user_id: m.user_id,
-      message: `📚 Your teacher sent a reminder: please study "${assignmentTitle}" in ${classroom?.name}.`,
-      classroom_id: id,
-    }));
-    // For now: show confirmation (full push notification requires a notifications table)
+
+    if (completionError) {
+      setNudgeSending(null);
+      setMsg("Could not check assignment completion. No reminders were sent.");
+      setMsgType("error");
+      return;
+    }
+
+    const nudges = buildClassroomNudges({
+      actorId: user.id,
+      assignmentId,
+      assignmentTitle,
+      classroomId: id,
+      classroomName: classroom.name,
+      completedUserIds: (completions ?? []).map(completion => completion.user_id),
+      members: members.map(member => ({ userId: member.user_id, role: member.role })),
+    });
+
+    if (nudges.length === 0) {
+      setNudgeSending(null);
+      setMsg("Everyone has completed this assignment — no reminders needed.");
+      setMsgType("success");
+      return;
+    }
+
+    const { error: notificationError } = await supabase.from("notifications").insert(nudges);
     setNudgeSending(null);
-    setMsg(`📬 Nudge sent to ${unstudied.length} student${unstudied.length !== 1 ? "s" : ""} who haven\'t completed this assignment.`);
+    if (notificationError) {
+      setMsg("Reminder delivery failed. No success was recorded; please try again.");
+      setMsgType("error");
+      return;
+    }
+
+    setMsg(`📬 Reminder saved for ${nudges.length} student${nudges.length === 1 ? "" : "s"}.`);
     setMsgType("success");
     setTimeout(() => setMsg(""), 4000);
   }
@@ -584,22 +625,30 @@ export default function ClassroomDetailPage() {
                       {myRole === "student" && (
                         <button
                           className={`btn btn-compact ${a.completed ? "btn-secondary" : "btn-primary"}`}
+                          disabled={a.completion_source === "study_session"}
                           onClick={() => handleMarkComplete(a.id, a.completed ?? false)}
                         >
-                          {a.completed ? "↩ Undo" : "✅ Done"}
+                          {a.completed
+                            ? a.completion_source === "study_session" ? "✓ Verified by study" : "↩ Undo manual override"
+                            : "Mark complete manually"}
                         </button>
                       )}
                       {myRole === "teacher" && (
                         <>
                           <button
                             className="btn btn-secondary btn-compact"
-                            title="Nudge students who haven't completed this"
+                            title="Remind students who have not completed this assignment"
+                            aria-label={`Remind students about ${a.quiz_title ?? "this assignment"}`}
                             disabled={nudgeSending === a.id}
                             onClick={() => handleNudge(a.id, a.quiz_title ?? "this quiz")}
                           >
                             {nudgeSending === a.id ? "⏳" : "📬"}
                           </button>
-                          <button className="btn btn-secondary btn-compact" onClick={() => handleDeleteAssignment(a.id)}>🗑</button>
+                          <button
+                            className="btn btn-secondary btn-compact"
+                            aria-label={`Delete assignment ${a.quiz_title ?? "Quiz"}`}
+                            onClick={() => handleDeleteAssignment(a.id)}
+                          >🗑</button>
                         </>
                       )}
                     </div>
