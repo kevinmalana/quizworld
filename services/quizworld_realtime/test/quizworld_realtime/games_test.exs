@@ -3,10 +3,67 @@ defmodule QuizworldRealtime.GamesTest do
 
   alias QuizworldRealtime.Games
 
+  defmodule FlakyResultSync do
+    def persist_finished_game(_game) do
+      attempt = Agent.get_and_update(__MODULE__, fn count -> {count, count + 1} end)
+      if attempt == 0, do: {:error, :transient}, else: :ok
+    end
+  end
+
   setup do
     QuizworldRealtime.TestGameStore.reset()
     :ok
   end
+
+  test "finished result sync persists pending state and retries to success" do
+    start_supervised!(%{
+      id: FlakyResultSync,
+      start: {Agent, :start_link, [fn -> 0 end, [name: FlakyResultSync]]}
+    })
+
+    previous_module = Application.get_env(:quizworld_realtime, :result_sync_module)
+    previous_delay = Application.get_env(:quizworld_realtime, :result_sync_retry_base_ms)
+    Application.put_env(:quizworld_realtime, :result_sync_module, FlakyResultSync)
+    Application.put_env(:quizworld_realtime, :result_sync_retry_base_ms, 5)
+
+    on_exit(fn ->
+      Application.put_env(:quizworld_realtime, :result_sync_module, previous_module)
+      Application.put_env(:quizworld_realtime, :result_sync_retry_base_ms, previous_delay)
+    end)
+
+    pin = "S" <> Integer.to_string(System.unique_integer([:positive]))
+
+    {:ok, _, host_token} =
+      Games.create_session(%{
+        "pin" => pin,
+        "host_id" => "host",
+        "quiz_id" => "quiz",
+        "questions" => [question()]
+      })
+
+    {:ok, _, player_token, player_id} = Games.join_player(pin, %{"nickname" => "Mia"})
+    {:ok, _} = Games.start_game(pin, host_token)
+    {:ok, _} = Games.submit_answer(pin, player_id, player_token, "a1", 0)
+    {:ok, _} = Games.advance(pin, host_token)
+
+    assert_eventually(fn ->
+      {:ok, game} = QuizworldRealtime.TestGameStore.fetch_game(pin)
+      game.result_sync_status == :succeeded and game.result_sync_attempts == 1
+    end)
+  end
+
+  defp assert_eventually(fun, attempts \\ 50)
+
+  defp assert_eventually(fun, attempts) when attempts > 0 do
+    if fun.() do
+      :ok
+    else
+      Process.sleep(10)
+      assert_eventually(fun, attempts - 1)
+    end
+  end
+
+  defp assert_eventually(_fun, 0), do: flunk("condition did not become true")
 
   defp question do
     %{
@@ -176,7 +233,12 @@ defmodule QuizworldRealtime.GamesTest do
     assert_receive {:DOWN, ^monitor, :process, ^restored_pid, :killed}, 1_000
     _latest_pid = await_restarted_game(pin, restored_pid)
 
-    assert {:ok, recovered_reveal} = Games.snapshot(pin)
+    assert {:ok, recovered_reveal, {:player, ^player_id}} =
+             Games.authorized_snapshot(pin, %{
+               "player_id" => player_id,
+               "player_token" => player_token
+             })
+
     assert recovered_reveal.status == "reveal"
     assert length(recovered_reveal.current_answers) == 1
   end
@@ -200,8 +262,36 @@ defmodule QuizworldRealtime.GamesTest do
     assert {:ok, joined_snapshot, _player_token, _player_id} =
              Games.join_player(pin, %{"nickname" => "Mia", "avatar" => "🦊"})
 
-    assert_receive {:session_updated, ^joined_snapshot}
-    refute_receive {:session_updated, ^joined_snapshot}, 100
+    assert_receive {:session_updated, public_snapshot}
+    refute Map.has_key?(public_snapshot, :current_answers)
+    assert public_snapshot.players == joined_snapshot.players
+    refute_receive {:session_updated, _}, 100
+  end
+
+  test "player readiness is persisted and broadcast to the lobby" do
+    pin = "Y" <> Integer.to_string(System.unique_integer([:positive]))
+    Phoenix.PubSub.subscribe(QuizworldRealtime.PubSub, Games.topic(pin))
+
+    assert {:ok, _snapshot, _host_token} =
+             Games.create_session(%{
+               "pin" => pin,
+               "host_id" => "host_test",
+               "quiz_id" => "quiz_test",
+               "questions" => [question()],
+               "game_mode" => "classic"
+             })
+
+    assert_receive {:session_updated, _created_snapshot}
+
+    assert {:ok, _joined, player_token, player_id} =
+             Games.join_player(pin, %{"nickname" => "Mia", "avatar" => "🦊"})
+
+    assert_receive {:session_updated, _joined_snapshot}
+    assert {:ok, ready_snapshot} = Games.ready_player(pin, player_id, player_token)
+    assert ready_snapshot.ready_player_ids == [player_id]
+    assert_receive {:session_updated, public_snapshot}
+    assert public_snapshot.ready_player_ids == ready_snapshot.ready_player_ids
+    refute Map.has_key?(public_snapshot, :question_history)
   end
 
   test "the last eligible answer reveals the round on the server" do

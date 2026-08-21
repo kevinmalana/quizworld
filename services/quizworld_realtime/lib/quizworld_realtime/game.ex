@@ -18,11 +18,15 @@ defmodule QuizworldRealtime.Game do
     players: %{},
     questions: [],
     answers: %{},
+    ready_player_ids: MapSet.new(),
     # Survival mode: set of eliminated player_ids
     eliminated: MapSet.new(),
     # Team Battle mode: teams map + player→team assignments
     teams: %{},
-    team_assignments: %{}
+    team_assignments: %{},
+    result_sync_status: nil,
+    result_sync_attempts: 0,
+    result_sync_ref: nil
   ]
 
   @max_players 200
@@ -46,7 +50,9 @@ defmodule QuizworldRealtime.Game do
     }
   end
 
-  def snapshot(%__MODULE__{} = game) do
+  def snapshot(%__MODULE__{} = game), do: snapshot(game, :host)
+
+  def snapshot(%__MODULE__{} = game, role) do
     current_question = current_question(game)
     current_question_id = if current_question, do: current_question["id"], else: nil
     current_answers = Map.get(game.answers, current_question_id, %{})
@@ -113,7 +119,7 @@ defmodule QuizworldRealtime.Game do
         }
       end)
 
-    %{
+    host_snapshot = %{
       pin: game.pin,
       quiz_id: game.quiz_id,
       category: game.category,
@@ -142,6 +148,11 @@ defmodule QuizworldRealtime.Game do
         |> Enum.map(
           &Map.take(&1, [:player_id, :answer_id, :response_time_ms, :is_correct, :points_awarded])
         ),
+      ready_player_ids:
+        game
+        |> Map.get(:ready_player_ids, MapSet.new())
+        |> MapSet.to_list()
+        |> Enum.sort(),
       question_history: question_history,
       # Survival mode
       eliminated: MapSet.to_list(game.eliminated),
@@ -150,7 +161,56 @@ defmodule QuizworldRealtime.Game do
       teams: game.teams,
       team_assignments: game.team_assignments
     }
+
+    shape_snapshot(host_snapshot, role)
   end
+
+  defp shape_snapshot(snapshot, :host), do: snapshot
+
+  defp shape_snapshot(snapshot, {:player, player_id}) do
+    own_answers = Enum.filter(snapshot.current_answers, &(&1.player_id == player_id))
+
+    snapshot
+    |> Map.put(:current_answers, own_answers)
+    |> Map.delete(:question_history)
+    |> hide_live_answer_counts()
+  end
+
+  defp shape_snapshot(snapshot, _public) do
+    snapshot
+    |> Map.delete(:current_answers)
+    |> Map.delete(:question_history)
+    |> hide_live_answer_counts()
+  end
+
+  defp hide_live_answer_counts(%{status: "active", current_question: %{} = question} = snapshot) do
+    answers = Enum.map(question["answers"] || [], &Map.delete(&1, "count"))
+    Map.put(snapshot, :current_question, Map.put(question, "answers", answers))
+  end
+
+  defp hide_live_answer_counts(snapshot), do: snapshot
+
+  def authorized_role(%__MODULE__{} = game, host_token, _player_id, _player_token)
+      when is_binary(host_token) do
+    if secure_equal?(game.host_token, host_token),
+      do: {:ok, :host},
+      else: {:error, :invalid_token}
+  end
+
+  def authorized_role(%__MODULE__{} = game, _host_token, player_id, player_token)
+      when is_binary(player_id) and is_binary(player_token) do
+    case ensure_player_token(game, player_id, player_token) do
+      :ok -> {:ok, {:player, player_id}}
+      _ -> {:error, :invalid_token}
+    end
+  end
+
+  def authorized_role(_game, _host_token, _player_id, _player_token), do: {:ok, :public}
+
+  defp secure_equal?(left, right) when byte_size(left) == byte_size(right),
+    do: Plug.Crypto.secure_compare(left, right)
+
+  defp secure_equal?(_left, _right), do: false
 
   def host_token(%__MODULE__{} = game), do: game.host_token
 
@@ -431,7 +491,19 @@ defmodule QuizworldRealtime.Game do
 
   def reconnect_player(%__MODULE__{} = game, player_id, player_token) do
     with :ok <- ensure_player_token(game, player_id, player_token) do
-      {:ok, snapshot(game)}
+      {:ok, snapshot(game, {:player, player_id})}
+    end
+  end
+
+  def ready_player(%__MODULE__{} = game, player_id, player_token) do
+    with :ok <- ensure_status(game, "waiting"),
+         :ok <- ensure_player_token(game, player_id, player_token) do
+      ready_player_ids =
+        game
+        |> Map.get(:ready_player_ids, MapSet.new())
+        |> MapSet.put(player_id)
+
+      {:ok, game |> Map.put(:ready_player_ids, ready_player_ids) |> touch()}
     end
   end
 
@@ -454,7 +526,13 @@ defmodule QuizworldRealtime.Game do
 
       if game.current_question_index >= last_question_index or
            (game.game_mode == "survival" and alive_count < 2) do
-        {:ok, touch(%{game | status: "finished", question_started_at: nil})}
+        {:ok,
+         touch(%{
+           game
+           | status: "finished",
+             question_started_at: nil,
+             result_sync_status: :pending
+         })}
       else
         {:ok,
          touch(%{
@@ -476,7 +554,16 @@ defmodule QuizworldRealtime.Game do
   end
 
   def for_persistence(%__MODULE__{} = game) do
-    %{game | question_timer_ref: nil, cleanup_timer_ref: nil}
+    persisted_status =
+      if game.result_sync_status == :in_flight, do: :pending, else: game.result_sync_status
+
+    %{
+      game
+      | question_timer_ref: nil,
+        cleanup_timer_ref: nil,
+        result_sync_ref: nil,
+        result_sync_status: persisted_status
+    }
   end
 
   defp current_question(%__MODULE__{current_question_index: index, questions: questions})
@@ -584,28 +671,11 @@ defmodule QuizworldRealtime.Game do
     |> Enum.map(fn question ->
       question_type = normalize_question_type(Map.get(question, "question_type"))
 
+      canonical_answers = Map.get(question, "answers", [])
+
       answers =
-        if question_type == "true_false" do
-          [
-            %{
-              "id" => fetch_string(question, "true_answer_id") || "true",
-              "text" => "True",
-              "is_correct" =>
-                Map.get(question, "correct_answer") == "true" or
-                  Map.get(question, "correct_answer") == true
-            },
-            %{
-              "id" => fetch_string(question, "false_answer_id") || "false",
-              "text" => "False",
-              "is_correct" =>
-                Map.get(question, "correct_answer") == "false" or
-                  Map.get(question, "correct_answer") == false
-            }
-          ]
-        else
-          question
-          |> Map.get("answers", [])
-          |> Enum.map(fn answer ->
+        if canonical_answers != [] do
+          Enum.map(canonical_answers, fn answer ->
             %{
               "id" => fetch_string(answer, "id"),
               "text" => fetch_string(answer, "text"),
@@ -613,6 +683,27 @@ defmodule QuizworldRealtime.Game do
               "is_correct" => Map.get(answer, "is_correct", false)
             }
           end)
+        else
+          if question_type == "true_false" do
+            [
+              %{
+                "id" => blank_to_nil(fetch_string(question, "true_answer_id")) || "true",
+                "text" => "True",
+                "is_correct" =>
+                  Map.get(question, "correct_answer") == "true" or
+                    Map.get(question, "correct_answer") == true
+              },
+              %{
+                "id" => blank_to_nil(fetch_string(question, "false_answer_id")) || "false",
+                "text" => "False",
+                "is_correct" =>
+                  Map.get(question, "correct_answer") == "false" or
+                    Map.get(question, "correct_answer") == false
+              }
+            ]
+          else
+            []
+          end
         end
 
       %{
