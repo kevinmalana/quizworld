@@ -154,11 +154,6 @@ export default function HomePage() {
         <div className="container home-hero-content">
           <div className="home-hero-grid">
             <div className="animate-pop-in">
-              <div className="tag tag-success mb-md">
-                <span className="home-tag-dot" />
-                Live Multiplayer
-              </div>
-
               <h1 className="font-display home-hero-title">
                 Learning that feels like{" "}
                 <span className="text-gradient inline">game night</span>
