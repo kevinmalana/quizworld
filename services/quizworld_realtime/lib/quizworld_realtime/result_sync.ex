@@ -1,12 +1,12 @@
 defmodule QuizworldRealtime.ResultSync do
   require Logger
 
-  @rpc_path "/rest/v1/rpc/record_game_result"
+  @rpc_path "/rest/v1/rpc/record_game_result_v2"
 
   def persist_finished_game(game) do
     with {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, service_role_key} <- fetch_env(:supabase_service_role_key),
-         {:ok, body} <- build_body(game),
+         {:ok, body} <- build_result_payload(game),
          {:ok, response} <- request(base_url, service_role_key, body) do
       case response.status do
         200 ->
@@ -16,16 +16,14 @@ defmodule QuizworldRealtime.ResultSync do
           :ok
 
         status ->
-          Logger.warning(
-            "Supabase result sync returned status #{status}: #{inspect(response.body)}"
-          )
+          Logger.warning("Supabase result sync returned status #{status}")
 
           {:error, :unexpected_status}
       end
     else
       {:error, :missing_config} ->
-        Logger.debug("Skipping result sync: Supabase service credentials are not configured.")
-        :ok
+        Logger.error("Result sync is not configured; retaining the pending game snapshot.")
+        {:error, :missing_config}
 
       {:error, reason} ->
         Logger.warning("Supabase result sync failed: #{inspect(reason)}")
@@ -41,11 +39,13 @@ defmodule QuizworldRealtime.ResultSync do
     end
   end
 
-  defp build_body(game) do
+  @doc false
+  def build_result_payload(game) do
     question_breakdown = build_question_breakdown(game)
 
     {:ok,
      %{
+       p_game_instance_id: game.instance_id,
        p_pin: game.pin,
        p_quiz_id: game.quiz_id,
        p_host_id: game.host_id,

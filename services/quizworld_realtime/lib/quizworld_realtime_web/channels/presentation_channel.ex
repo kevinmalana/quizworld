@@ -2,6 +2,7 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
   use QuizworldRealtimeWeb, :channel
 
   alias QuizworldRealtime.Presentations
+  alias QuizworldRealtime.PresentationSnapshot
   alias QuizworldRealtime.Presence
 
   # If presenter disconnects, participants get a notice after this many ms
@@ -26,7 +27,7 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
         # Track presence so participants/presenters know who's connected
         send(self(), {:after_join, payload, role})
 
-        safe_snapshot = sanitize_snapshot_for_role(snapshot, role)
+        safe_snapshot = PresentationSnapshot.for_role(snapshot, role)
         {:ok, %{presentation: safe_snapshot}, socket}
 
       {:error, _reason} ->
@@ -97,7 +98,12 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
 
   @impl true
   def handle_info({:presentation_updated, snapshot}, socket) do
-    push(socket, "presentation:update", %{presentation: snapshot})
+    role = socket.assigns[:role] || :viewer
+
+    push(socket, "presentation:update", %{
+      presentation: PresentationSnapshot.for_role(snapshot, role)
+    })
+
     {:noreply, socket}
   end
 
@@ -141,9 +147,15 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     payload = with_participant(socket, payload)
 
     case Presentations.submit_response(presentation_id, payload) do
-      {:ok, responses} ->
-        broadcast!(socket, "response:new", %{slide_id: payload["slide_id"], responses: responses})
-        {:reply, :ok, socket}
+      {:ok, _responses} ->
+        case Presentations.public_slide_activity(presentation_id, payload["slide_id"]) do
+          {:ok, public} ->
+            broadcast!(socket, "activity:update", Map.put(public, :slide_id, payload["slide_id"]))
+            {:reply, {:ok, %{own_submission: payload["response_data"], activity: public}}, socket}
+
+          {:error, reason} ->
+            {:reply, {:error, %{reason: to_string(reason)}}, socket}
+        end
 
       {:error, reason} ->
         {:reply, {:error, %{reason: to_string(reason)}}, socket}
@@ -155,9 +167,15 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     payload = with_participant(socket, payload)
 
     case Presentations.submit_qna(presentation_id, payload) do
-      {:ok, questions} ->
-        broadcast!(socket, "qna:new", %{slide_id: payload["slide_id"], questions: questions})
-        {:reply, :ok, socket}
+      {:ok, _questions} ->
+        case Presentations.public_slide_activity(presentation_id, payload["slide_id"]) do
+          {:ok, public} ->
+            broadcast!(socket, "activity:update", Map.put(public, :slide_id, payload["slide_id"]))
+            {:reply, {:ok, %{activity: public}}, socket}
+
+          {:error, reason} ->
+            {:reply, {:error, %{reason: to_string(reason)}}, socket}
+        end
 
       {:error, reason} ->
         {:reply, {:error, %{reason: to_string(reason)}}, socket}
@@ -166,7 +184,7 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
 
   def handle_in(
         "qna:upvote",
-        %{"question_id" => question_id, "slide_id" => slide_id} = payload,
+        %{"question_id" => question_id} = payload,
         socket
       ) do
     presentation_id = socket.assigns.presentation_id
@@ -178,8 +196,36 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
            payload["participant_id"],
            payload["participant_token"]
          ) do
-      {:ok, questions} ->
-        broadcast!(socket, "qna:updated", %{slide_id: slide_id, questions: questions})
+      {:ok, slide_id, _questions} ->
+        case Presentations.public_slide_activity(presentation_id, slide_id) do
+          {:ok, public} ->
+            broadcast!(socket, "activity:update", Map.put(public, :slide_id, slide_id))
+            {:reply, {:ok, %{activity: public}}, socket}
+
+          {:error, reason} ->
+            {:reply, {:error, %{reason: to_string(reason)}}, socket}
+        end
+
+      {:error, reason} ->
+        {:reply, {:error, %{reason: to_string(reason)}}, socket}
+    end
+  end
+
+  def handle_in("results:visibility", %{"hidden" => hidden} = payload, socket)
+      when is_boolean(hidden) do
+    presentation_id = socket.assigns.presentation_id
+
+    case Presentations.set_results_hidden(
+           presentation_id,
+           hidden,
+           presenter_token(socket, payload)
+         ) do
+      {:ok, snapshot} ->
+        broadcast_from!(socket, "presentation:update", %{
+          presentation: PresentationSnapshot.for_audience(snapshot)
+        })
+
+        push(socket, "presentation:update", %{presentation: snapshot})
         {:reply, :ok, socket}
 
       {:error, reason} ->
@@ -188,11 +234,14 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
   end
 
   def handle_in("quiz:reveal", payload, socket) do
-    case ensure_presenter(socket, payload) do
-      :ok ->
-        slide_id = payload["slide_id"]
-        correct_answers = payload["correct_answers"] || []
+    slide_id = payload["slide_id"]
 
+    case Presentations.reveal_quiz(
+           socket.assigns.presentation_id,
+           slide_id,
+           presenter_token(socket, payload)
+         ) do
+      {:ok, _snapshot, correct_answers} ->
         broadcast!(socket, "quiz:revealed", %{
           slide_id: slide_id,
           correct_answers: correct_answers
@@ -222,10 +271,10 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     case callback.() do
       {:ok, snapshot} ->
         role = socket.assigns[:role] || :viewer
-        safe_snapshot = sanitize_snapshot_for_role(snapshot, role)
+        safe_snapshot = PresentationSnapshot.for_role(snapshot, role)
 
         broadcast_from!(socket, "slide:changed", %{
-          presentation: sanitize_snapshot_for_role(snapshot, :participant)
+          presentation: PresentationSnapshot.for_audience(snapshot)
         })
 
         push(socket, "slide:changed", %{presentation: safe_snapshot})
@@ -236,61 +285,25 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     end
   end
 
-  defp sanitize_snapshot_for_role(snapshot, :presenter), do: snapshot
-
-  defp sanitize_snapshot_for_role(snapshot, _role) do
-    slides =
-      (snapshot[:slides] || snapshot["slides"] || [])
-      |> Enum.map(fn slide ->
-        content = slide["content"] || %{}
-
-        sanitized_content =
-          case slide["slide_type"] do
-            "quiz" ->
-              answers =
-                (content["answers"] || [])
-                |> Enum.map(&Map.delete(&1, "is_correct"))
-
-              Map.put(content, "answers", answers)
-
-            _ ->
-              content
-          end
-
-        Map.put(slide, "content", sanitized_content)
-      end)
-
-    case snapshot do
-      %{} = s -> Map.put(s, :slides, slides)
-      _ -> Map.put(snapshot, "slides", slides)
-    end
-  end
-
-  defp ensure_presenter(socket, payload) do
-    token = payload["presenter_token"] || socket.assigns[:presenter_token]
-    presentation_id = socket.assigns.presentation_id
-
-    case QuizworldRealtime.PresentationStore.get_live_session(presentation_id) do
-      {:ok, stored_token} when stored_token == token -> :ok
-      _ -> {:error, :not_presenter}
-    end
-  end
-
-  defp presenter_token(socket, payload),
-    do: payload["presenter_token"] || socket.assigns[:presenter_token]
+  defp presenter_token(socket, _payload),
+    do: socket.assigns[:presenter_token]
 
   defp with_participant(socket, payload) do
     payload
-    |> Map.put_new("participant_id", socket.assigns[:participant_id])
-    |> Map.put_new("participant_token", socket.assigns[:participant_token])
+    |> Map.put("participant_id", socket.assigns[:participant_id])
+    |> Map.put("participant_token", socket.assigns[:participant_token])
   end
 
   defp role_from_payload(presentation_id, %{"presenter_token" => token}) when is_binary(token) do
     if Presentations.presenter_authorized?(presentation_id, token), do: :presenter, else: :viewer
   end
 
-  defp role_from_payload(_presentation_id, %{"participant_token" => token}) when is_binary(token),
-    do: :participant
+  defp role_from_payload(presentation_id, %{"participant_token" => token, "participant_id" => id})
+       when is_binary(token) and is_binary(id) do
+    if Presentations.participant_authorized?(presentation_id, id, token),
+      do: :participant,
+      else: :viewer
+  end
 
   defp role_from_payload(_presentation_id, _payload), do: :viewer
 end

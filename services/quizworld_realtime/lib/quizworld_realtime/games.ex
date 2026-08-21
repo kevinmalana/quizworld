@@ -17,6 +17,20 @@ defmodule QuizworldRealtime.Games do
     end
   end
 
+  def authorized_snapshot(pin, credentials) do
+    with {:ok, role} <- call_or_restore(pin, fn -> GameServer.authorize(pin, credentials) end),
+         snapshot <- call_or_restore(pin, fn -> GameServer.snapshot(pin, role) end) do
+      {:ok, snapshot, role}
+    end
+  end
+
+  def snapshot_for_role(pin, role) do
+    case call_or_restore(pin, fn -> GameServer.snapshot(pin, role) end) do
+      {:error, reason} -> {:error, reason}
+      snapshot -> {:ok, snapshot}
+    end
+  end
+
   def join_player(pin, player) do
     transition(pin, fn -> GameServer.join_player(pin, player) end)
   end
@@ -44,6 +58,10 @@ defmodule QuizworldRealtime.Games do
       {:ok, snapshot} -> {:ok, snapshot}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  def ready_player(pin, player_id, player_token) do
+    transition(pin, fn -> GameServer.ready_player(pin, player_id, player_token) end)
   end
 
   defp transition(pin, callback) do

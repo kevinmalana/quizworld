@@ -34,6 +34,28 @@ defmodule QuizworldRealtime.GameTest do
     ]
   end
 
+  test "true/false questions preserve canonical database answer ids and correctness" do
+    game =
+      new_game([
+        %{
+          "id" => "tf1",
+          "text" => "The sky appears blue.",
+          "question_type" => "true_false",
+          "answers" => [
+            %{"id" => "true-id", "text" => "True", "is_correct" => true},
+            %{"id" => "false-id", "text" => "False", "is_correct" => false}
+          ]
+        }
+      ])
+
+    assert [question] = game.questions
+
+    assert [
+             %{"id" => "true-id", "is_correct" => true},
+             %{"id" => "false-id", "is_correct" => false}
+           ] = Enum.map(question["answers"], &Map.take(&1, ["id", "is_correct"]))
+  end
+
   defp new_game(questions \\ nil) do
     Game.new(%{
       "pin" => "TEST01",
@@ -137,6 +159,23 @@ defmodule QuizworldRealtime.GameTest do
     {:ok, revealed} = Game.reveal_current_question(active, Game.host_token(active))
     rev_snapshot = Game.snapshot(revealed)
     assert Enum.any?(rev_snapshot.current_question["answers"], &Map.has_key?(&1, "is_correct"))
+  end
+
+  test "public snapshots never include per-player answers or question history" do
+    game = new_game()
+    {game, token, id} = join(game, "Mia")
+    {:ok, game} = Game.start(game, Game.host_token(game))
+    {:ok, game} = Game.submit_answer(game, id, token, "a2", 0)
+
+    public = Game.snapshot(game, :public)
+    refute Map.has_key?(public, :current_answers)
+    refute Map.has_key?(public, :question_history)
+    refute Enum.any?(public.current_question["answers"], &Map.has_key?(&1, "count"))
+
+    player = Game.snapshot(game, {:player, id})
+    assert [%{player_id: ^id}] = player.current_answers
+    refute Map.has_key?(player, :question_history)
+    refute Enum.any?(player.current_question["answers"], &Map.has_key?(&1, "count"))
   end
 
   test "submit_answer rejects late answers" do
@@ -277,6 +316,14 @@ defmodule QuizworldRealtime.GameTest do
     # on an unknown player returns :invalid_player_token (not :unknown_player)
     assert {:error, :invalid_player_token} =
              Game.reconnect_player(game, "player_nobody", "any_token")
+  end
+
+  test "ready_player publishes readiness in the shared lobby snapshot" do
+    game = new_game()
+    {game, token, id} = join(game, "Mia")
+
+    assert {:ok, ready_game} = Game.ready_player(game, id, token)
+    assert Game.snapshot(ready_game).ready_player_ids == [id]
   end
 
   test "game_mode is stored in snapshot" do
