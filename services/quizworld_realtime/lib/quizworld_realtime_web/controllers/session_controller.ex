@@ -18,8 +18,18 @@ defmodule QuizworldRealtimeWeb.SessionController do
           with {:ok, quiz_attrs} <- quiz_loader.load_for_host(params["quiz_id"], user_id) do
             attrs = Map.put(quiz_attrs, "host_id", user_id)
             attrs = Map.put(attrs, "game_mode", params["game_mode"])
+            attrs = Map.put(attrs, "host_player", params["host_player"])
 
             case Games.create_session(attrs) do
+              {:ok, snapshot, host_token, player_token, player_id} ->
+                conn
+                |> put_status(:created)
+                |> json(%{
+                  session: snapshot,
+                  host_token: host_token,
+                  host_player: %{player_token: player_token, player_id: player_id}
+                })
+
               {:ok, snapshot, host_token} ->
                 conn
                 |> put_status(:created)

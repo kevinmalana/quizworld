@@ -6,14 +6,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { HostIcon } from "@/components/shared/host-icon";
+import { HostPlayOption } from "@/components/host/HostPlayOption";
+import { HostSelectedQuiz } from "@/components/host/HostSelectedQuiz";
 import { CATEGORY_EMOJIS } from "@/lib/shared";
-import { createPhoenixSession } from "@/lib/game-engine/client";
+import { launchHostedSession } from "@/lib/game-engine/host-launch";
 import {
   isPhoenixGameEngine,
   legacySupabaseGameEngine,
   liveGameEngineMisconfigured,
 } from "@/lib/game-engine/config";
-import { writeHostSession } from "@/lib/host-session";
 
 // ─── Game modes ──────────────────────────────────────────────────────────────
 
@@ -159,6 +160,9 @@ function HostPageContent() {
   const [error, setError] = useState("");
   const [section, setSection] = useState<"mine" | "recent" | "public">("mine");
   const [gameMode, setGameMode] = useState("classic");
+  const [playAsHost, setPlayAsHost] = useState(false);
+  const [hostPlayerName, setHostPlayerName] = useState("");
+  const [hostPlayerAvatar, setHostPlayerAvatar] = useState("🎮");
 
   useEffect(() => {
     if (!user) return;
@@ -239,6 +243,7 @@ function HostPageContent() {
 
   async function handleLaunch() {
     if (!user || !selectedId) return;
+    const playerName = hostPlayerName.trim() || user.user_metadata?.full_name || user.email?.split("@")[0] || "Host";
     setLaunching(true);
     setLaunchSeconds(0);
     setError("");
@@ -271,16 +276,18 @@ function HostPageContent() {
         const { data: { session: authSession } } = await supabase.auth.getSession();
         if (!authSession?.access_token) throw new Error("Sign in again before hosting.");
 
-        const response = await createPhoenixSession({
-          quiz_id: fullQuiz.id,
-          game_mode: gameMode,
-          questions: toPhoenixQuestions(fullQuiz as QuizFull),
-        }, authSession.access_token);
-
-        if (!response?.host_token || !response?.session?.pin) throw new Error("Could not start game session.");
-
-        writeHostSession(response.session.pin, { hostId: user.id, hostToken: response.host_token });
-        router.push(`/game/${response.session.pin}`);
+        const pin = await launchHostedSession({
+          payload: {
+            quiz_id: fullQuiz.id,
+            game_mode: gameMode,
+            questions: toPhoenixQuestions(fullQuiz as QuizFull),
+            ...(playAsHost ? { host_player: { nickname: playerName.trim(), avatar: hostPlayerAvatar } } : {}),
+          },
+          authToken: authSession.access_token,
+          hostId: user.id,
+          playAsHost,
+        });
+        router.push(`/game/${pin}`);
         return;
       } else {
         setError("Legacy Supabase game sessions are no longer supported from this host flow.");
@@ -406,36 +413,7 @@ function HostPageContent() {
         )}
       </div>
 
-      {/* Selected quiz preview */}
-      {selectedQuiz ? (
-        <div className="card host-selected-card">
-          <div className="host-selected-inner">
-            <div className="host-selected-emoji" style={{ background: `${selectedQuiz.color || "#7c3aed"}15` }}>
-              {selectedQuiz.emoji || CATEGORY_EMOJIS[selectedQuiz.category] || "📝"}
-            </div>
-            <div className="host-selected-info">
-              <div className="host-selected-label">Selected Quiz</div>
-              <div className="host-selected-title">{selectedQuiz.title}</div>
-              <div className="host-selected-meta">
-                <span>📝 {selectedQuiz.question_count} questions</span>
-                <span>{selectedQuiz.category}</span>
-                {selectedQuiz.plays > 0 && <span>▶️ {selectedQuiz.plays} plays</span>}
-              </div>
-            </div>
-            <button className="btn btn-secondary btn-compact" onClick={() => setSelectedId(null)}>Change</button>
-          </div>
-          {gameMode !== "classic" && (
-            <div className="host-selected-mode-badge">
-              {gameMode === "survival" ? "💀 Survival Mode" : "👥 Team Battle"}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="card host-empty-selection">
-          <span className="host-empty-icon">👆</span>
-          <span>Select a quiz below to get started</span>
-        </div>
-      )}
+      <HostSelectedQuiz quiz={selectedQuiz} gameMode={gameMode} onChange={() => setSelectedId(null)} />
 
       {error && <div className="error-message">{error}</div>}
 
@@ -461,6 +439,16 @@ function HostPageContent() {
           ))}
         </div>
       </div>
+
+      <HostPlayOption
+        enabled={playAsHost}
+        name={hostPlayerName}
+        avatar={hostPlayerAvatar}
+        fallbackName={user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Host"}
+        onEnabledChange={setPlayAsHost}
+        onNameChange={setHostPlayerName}
+        onAvatarChange={setHostPlayerAvatar}
+      />
 
       {/* Quiz picker */}
       <div className="social-tabs host-section-tabs">

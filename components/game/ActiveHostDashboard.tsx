@@ -11,6 +11,7 @@ export function ActiveHostDashboard({
   teamAssignments = {},
   gameMode = "classic",
   aliveCount,
+  showResults = false,
 }: {
   currentAnswers: CurrentAnswer[];
   players: GamePlayer[];
@@ -20,6 +21,7 @@ export function ActiveHostDashboard({
   teamAssignments?: Record<string, string>;
   gameMode?: string;
   aliveCount?: number;
+  showResults?: boolean;
 }) {
   const answered = currentAnswers.length;
   const correct = currentAnswers.filter((a) => a.is_correct).length;
@@ -33,11 +35,13 @@ export function ActiveHostDashboard({
     <div className="card game-host-dashboard">
       <div className="game-host-metrics">
         <HostMetric value={`${answered}/${expectedAnswers}`} label="Answered" color="var(--accent)" />
-        <HostMetric
-          value={`${accuracy}%`}
-          label="Accuracy"
-          color={answered > 0 && accuracy >= 70 ? "var(--success)" : "var(--primary)"}
-        />
+        {showResults && (
+          <HostMetric
+            value={`${accuracy}%`}
+            label="Accuracy"
+            color={answered > 0 && accuracy >= 70 ? "var(--success)" : "var(--primary)"}
+          />
+        )}
         <HostMetric
           value={`${timeLeft}s`}
           label="Time Left"
@@ -62,7 +66,7 @@ export function ActiveHostDashboard({
               <div key={answer.id} className="game-host-bar-col">
                 <div
                   className="game-host-bar-letter"
-                  style={{ color: answer.is_correct ? "var(--accent)" : "var(--muted)" }}
+                  style={{ color: showResults && answer.is_correct ? "var(--accent)" : "var(--muted)" }}
                 >
                   {String.fromCharCode(65 + i)}
                 </div>
@@ -71,7 +75,7 @@ export function ActiveHostDashboard({
                     className="game-host-bar-fill"
                     style={{
                       height: `${pct}%`,
-                      background: answer.is_correct ? "var(--accent)" : "var(--muted)",
+                      background: showResults && answer.is_correct ? "var(--accent)" : "var(--muted)",
                     }}
                   />
                 </div>

@@ -166,6 +166,7 @@ defmodule QuizworldRealtime.Game do
   end
 
   defp shape_snapshot(snapshot, :host), do: snapshot
+  defp shape_snapshot(snapshot, :host_player), do: snapshot
 
   defp shape_snapshot(snapshot, {:player, player_id}) do
     own_answers = Enum.filter(snapshot.current_answers, &(&1.player_id == player_id))
@@ -189,6 +190,16 @@ defmodule QuizworldRealtime.Game do
   end
 
   defp hide_live_answer_counts(snapshot), do: snapshot
+
+  def authorized_role(%__MODULE__{} = game, host_token, player_id, player_token)
+      when is_binary(host_token) and is_binary(player_id) and is_binary(player_token) do
+    with true <- secure_equal?(game.host_token, host_token),
+         :ok <- ensure_player_token(game, player_id, player_token) do
+      {:ok, :host_player}
+    else
+      _ -> {:error, :invalid_token}
+    end
+  end
 
   def authorized_role(%__MODULE__{} = game, host_token, _player_id, _player_token)
       when is_binary(host_token) do

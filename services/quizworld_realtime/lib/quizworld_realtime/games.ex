@@ -5,9 +5,11 @@ defmodule QuizworldRealtime.Games do
   alias QuizworldRealtime.Pin
 
   def create_session(attrs) do
-    attrs
-    |> with_pin()
-    |> create_session_with_pin(6)
+    with :ok <- validate_host_player(Map.get(attrs, "host_player")) do
+      attrs
+      |> with_pin()
+      |> create_session_with_pin(6)
+    end
   end
 
   def snapshot(pin) do
@@ -164,7 +166,12 @@ defmodule QuizworldRealtime.Games do
         with {:ok, snapshot} <- broadcast(pin),
              host_token when is_binary(host_token) <-
                safe_call(fn -> GameServer.host_token(pin) end) do
-          {:ok, snapshot, host_token}
+          create_host_player_if_requested(
+            pin,
+            snapshot,
+            host_token,
+            Map.get(attrs, "host_player")
+          )
         else
           {:error, reason} -> {:error, reason}
           _ -> {:error, :not_found}
@@ -180,6 +187,34 @@ defmodule QuizworldRealtime.Games do
         {:error, reason}
     end
   end
+
+  defp validate_host_player(nil), do: :ok
+
+  defp validate_host_player(%{} = host_player) do
+    case Map.get(host_player, "nickname") do
+      nickname when is_binary(nickname) ->
+        if String.trim(nickname) == "", do: {:error, :invalid_player}, else: :ok
+
+      _ ->
+        {:error, :invalid_player}
+    end
+  end
+
+  defp validate_host_player(_host_player), do: {:error, :invalid_player}
+
+  defp create_host_player_if_requested(_pin, snapshot, host_token, nil),
+    do: {:ok, snapshot, host_token}
+
+  defp create_host_player_if_requested(pin, _snapshot, host_token, host_player)
+       when is_map(host_player) do
+    with {:ok, _player_snapshot, player_token, player_id} <- join_player(pin, host_player),
+         {:ok, host_snapshot} <- snapshot(pin) do
+      {:ok, host_snapshot, host_token, player_token, player_id}
+    end
+  end
+
+  defp create_host_player_if_requested(_pin, _snapshot, _host_token, _host_player),
+    do: {:error, :invalid_player}
 
   defp retry_or_fail(attrs, attempts_remaining) do
     if Map.get(attrs, "pin_source") == "server" do

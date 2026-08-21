@@ -32,6 +32,10 @@ export async function createPhoenixSession(
 
   return response.json() as Promise<{
     host_token?: string;
+    host_player?: {
+      player_id?: string;
+      player_token?: string;
+    };
     session?: {
       pin?: string;
     } & Record<string, unknown>;

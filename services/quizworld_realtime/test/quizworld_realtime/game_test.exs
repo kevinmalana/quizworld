@@ -71,6 +71,14 @@ defmodule QuizworldRealtime.GameTest do
     {game, token, id}
   end
 
+  test "host-player credentials authorize the combined live-game role" do
+    game = new_game()
+    {game, player_token, player_id} = join(game, "Kevin")
+
+    assert {:ok, :host_player} =
+             Game.authorized_role(game, Game.host_token(game), player_id, player_token)
+  end
+
   test "join_player generates server-side player id" do
     game = new_game()
     {:ok, _game, _token, player_id} = Game.join_player(game, %{"nickname" => "Mia"})

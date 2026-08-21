@@ -5,6 +5,7 @@ import { subscribeToPhoenixTopic } from "@/lib/game-engine/phoenix-socket";
 
 type PhoenixGameChannelOptions = {
   pin: string;
+  joinPayload?: Record<string, unknown>;
   onSnapshot: (session: Record<string, unknown>) => void;
   loadSnapshot: () => Promise<void> | void;
 };
@@ -15,11 +16,7 @@ function sessionFromPayload(payload: unknown) {
   return (payload as { session?: Record<string, unknown> } | null)?.session;
 }
 
-export function usePhoenixGameChannel({
-  pin,
-  onSnapshot,
-  loadSnapshot,
-}: PhoenixGameChannelOptions) {
+export function usePhoenixGameChannel({ pin, joinPayload, onSnapshot, loadSnapshot }: PhoenixGameChannelOptions) {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
@@ -34,6 +31,7 @@ export function usePhoenixGameChannel({
 
     const unsubscribe = subscribeToPhoenixTopic({
       topic: `game:${pin}`,
+      joinPayload,
       onJoin: handleSnapshot,
       onSessionUpdate: handleSnapshot,
       onError: () => {
@@ -48,7 +46,7 @@ export function usePhoenixGameChannel({
       stopped = true;
       unsubscribe();
     };
-  }, [onSnapshot, pin]);
+  }, [joinPayload, onSnapshot, pin]);
 
   useEffect(() => {
     const fallbackInterval = window.setInterval(() => {

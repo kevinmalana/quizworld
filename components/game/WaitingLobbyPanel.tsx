@@ -78,12 +78,12 @@ export function WaitingLobbyPanel({
           </>
         )}
 
-        {!isHost && currentPlayer && !amReady && (
+        {currentPlayer && !amReady && (
           <button onClick={onReady} className="btn btn-primary" style={{ width: "100%", marginBottom: "0.75rem" }}>
             Ready ✅
           </button>
         )}
-        {!isHost && currentPlayer && amReady && (
+        {currentPlayer && amReady && (
           <div className="game-lobby-you-ready">✅ You&apos;re ready!</div>
         )}
         {isHost && (

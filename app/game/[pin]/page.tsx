@@ -397,8 +397,16 @@ export default function GamePage() {
     };
   }, [(session as { id?: string })?.id, loadSession]);
 
+  const gameChannelJoinPayload = useMemo(() => ({
+    ...(hostSession?.hostToken ? { host_token: hostSession.hostToken } : {}),
+    ...(playerSession?.playerId && playerSession.playerToken
+      ? { player_id: playerSession.playerId, player_token: playerSession.playerToken }
+      : {}),
+  }), [hostSession?.hostToken, playerSession?.playerId, playerSession?.playerToken]);
+
   const phoenixChannelConnected = usePhoenixGameChannel({
     pin,
+    joinPayload: gameChannelJoinPayload,
     onSnapshot: applySessionSnapshot,
     loadSnapshot: loadSession,
   });
@@ -718,7 +726,6 @@ export default function GamePage() {
 
   const submitAnswer = async (answer: { id: string }) => {
     if (
-      isHost ||
       !session ||
       !currentQuestion ||
       !currentPlayer ||
@@ -875,7 +882,7 @@ export default function GamePage() {
           </div>
         )}
 
-        {isHost ? (
+        {isHost && (
           <ActiveHostDashboard
             currentAnswers={currentAnswers}
             players={players}
@@ -885,9 +892,11 @@ export default function GamePage() {
             teams={teams}
             teamAssignments={teamAssignments}
             aliveCount={aliveCount}
+            showResults={!currentPlayer}
           />
-        ) : !playerSessionReady || !currentPlayer ? (
-          <SpectatorPanel />
+        )}
+        {!playerSessionReady || !currentPlayer ? (
+          !isHost && <SpectatorPanel />
         ) : isEliminated ? (
           <SurvivalStatusBar
             aliveCount={aliveCount}
@@ -938,7 +947,7 @@ export default function GamePage() {
           </div>
           <QuestionMedia question={currentQuestion} maxHeight={200} margin="0" />
 
-          {!isHost && ownAnswer && (
+          {ownAnswer && (
             <div
               className={ownAnswer.is_correct ? "game-own-answer is-correct" : "game-own-answer is-incorrect"}
             >

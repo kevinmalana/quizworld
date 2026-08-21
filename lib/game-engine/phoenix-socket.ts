@@ -4,6 +4,7 @@ type PhoenixMessage = [string | null, string | null, string, string, unknown];
 
 type SubscribeOptions = {
   topic: string;
+  joinPayload?: Record<string, unknown>;
   onJoin?: (payload: unknown) => void;
   onSessionUpdate?: (payload: unknown) => void;
   onError?: (message: string) => void;
@@ -52,7 +53,7 @@ export function subscribeToPhoenixTopic(options: SubscribeOptions) {
 
     socket.addEventListener("open", () => {
       reconnectAttempts = 0;
-      push(options.topic, "phx_join", {});
+      push(options.topic, "phx_join", options.joinPayload ?? {});
 
       heartbeat = window.setInterval(() => {
         push("phoenix", "heartbeat", {});
