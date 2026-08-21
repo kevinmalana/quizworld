@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useId, useState, useRef } from "react";
 import type { SourceType } from "@/components/builder/SourcePicker";
 import { extractTextFromFile, FileExtractionError } from "@/lib/file-extract";
 import type { AIGenerationOptions, AIDifficultyPreset, AITonePreset } from "@/lib/quiz-ai";
@@ -23,7 +23,7 @@ type SourceModalProps = {
   onPasteTextChange: (value: string) => void;
   onAiCountChange: (value: AIQuestionCount) => void;
   onAiOptionsChange: (options: AIGenerationOptions) => void;
-  onAiGenerate: () => void;
+  onAiGenerate: (sourceMode: "topic" | "document") => void;
   onPasteImport: () => void;
   onUrlFetch: () => void;
 };
@@ -62,7 +62,7 @@ export function CreateSourceModals({
         <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
-          <button onClick={onAiGenerate} disabled={aiLoading || aiTopic.trim().length < 5} className="btn btn-primary btn-compact builder-source-action">
+          <button onClick={() => onAiGenerate("topic")} disabled={aiLoading || aiTopic.trim().length < 5} className="btn btn-primary btn-compact builder-source-action">
             {aiLoading ? "Generating…" : "Generate ✨"}
           </button>
         </ModalFooter>
@@ -123,7 +123,7 @@ export function CreateSourceModals({
         <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
-          <button onClick={onAiGenerate} disabled={aiLoading || aiTopic.trim().length < 20} className="btn btn-primary btn-compact builder-source-action">
+          <button onClick={() => onAiGenerate("document")} disabled={aiLoading || aiTopic.trim().length < 20} className="btn btn-primary btn-compact builder-source-action">
             {aiLoading ? "Generating…" : "Generate ✨"}
           </button>
         </ModalFooter>
@@ -305,14 +305,15 @@ function FileUploadArea({ onTextExtracted, currentText }: { onTextExtracted: (te
 
   return (
     <div className="builder-file-upload">
-      <div
+      <button
+        type="button"
         onClick={() => fileInputRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         className={dragOver ? "builder-file-dropzone is-drag-over" : "builder-file-dropzone"}
+        aria-label="Upload a source document"
       >
-        <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.docx" onChange={handleInputChange} className="builder-file-input" />
         {extracting ? (
           <>
             <span className="builder-file-icon">⏳</span>
@@ -322,18 +323,20 @@ function FileUploadArea({ onTextExtracted, currentText }: { onTextExtracted: (te
           <>
             <span className="builder-file-icon">✅</span>
             <span className="builder-file-status builder-file-status--success">{fileName}</span>
-            <span className="builder-file-hint">Click to upload a different file</span>
+            <span className="builder-file-hint">Choose a different file</span>
           </>
         ) : (
           <>
             <span className="builder-file-icon">📁</span>
             <span className="builder-file-status">Upload a file</span>
-            <span className="builder-file-hint">PDF, Word, TXT, or Markdown · Max 5MB</span>
+            <span className="builder-file-hint">PDF, Word, TXT, or Markdown · Max 25MB</span>
           </>
         )}
-      </div>
+      </button>
+      <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.docx" onChange={handleInputChange} className="builder-file-input" />
 
       {fileError && <p className="builder-file-error">{fileError}</p>}
+      {fileWarning && <p className="builder-file-warning" role="status">{fileWarning}</p>}
 
       <div className="builder-file-paste">
         <span className="builder-file-paste-label">Or paste text directly:</span>
@@ -358,11 +361,57 @@ function FileUploadArea({ onTextExtracted, currentText }: { onTextExtracted: (te
 // ── Shared components ──────────────────────────────────────────
 
 function BuilderSourceModal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const titleId = useId();
+
+  useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ) ?? []);
+    focusable()[0]?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus();
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center glass-dark">
-      <div className="card-elevated builder-source-modal">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="card-elevated builder-source-modal"
+      >
         <div className="flex items-center justify-between">
-          <h2 className="font-display font-bold text-lg text-[var(--ink)]">{title}</h2>
+          <h2 id={titleId} className="font-display font-bold text-lg text-[var(--ink)]">{title}</h2>
           <button onClick={onClose} className="builder-source-close" aria-label="Close source dialog">✕</button>
         </div>
         {children}

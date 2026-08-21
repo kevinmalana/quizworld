@@ -147,11 +147,15 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     payload = with_participant(socket, payload)
 
     case Presentations.submit_response(presentation_id, payload) do
-      {:ok, responses} ->
-        {:ok, snapshot} = Presentations.get_snapshot(presentation_id)
-        public = Presentations.public_activity(%{responses: responses}, snapshot.results_hidden)
-        broadcast!(socket, "activity:update", Map.put(public, :slide_id, payload["slide_id"]))
-        {:reply, {:ok, %{own_submission: payload["response_data"], activity: public}}, socket}
+      {:ok, _responses} ->
+        case Presentations.public_slide_activity(presentation_id, payload["slide_id"]) do
+          {:ok, public} ->
+            broadcast!(socket, "activity:update", Map.put(public, :slide_id, payload["slide_id"]))
+            {:reply, {:ok, %{own_submission: payload["response_data"], activity: public}}, socket}
+
+          {:error, reason} ->
+            {:reply, {:error, %{reason: to_string(reason)}}, socket}
+        end
 
       {:error, reason} ->
         {:reply, {:error, %{reason: to_string(reason)}}, socket}
@@ -163,10 +167,15 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
     payload = with_participant(socket, payload)
 
     case Presentations.submit_qna(presentation_id, payload) do
-      {:ok, questions} ->
-        public = Presentations.public_activity(%{questions: questions}, false)
-        broadcast!(socket, "activity:update", Map.put(public, :slide_id, payload["slide_id"]))
-        {:reply, {:ok, %{activity: public}}, socket}
+      {:ok, _questions} ->
+        case Presentations.public_slide_activity(presentation_id, payload["slide_id"]) do
+          {:ok, public} ->
+            broadcast!(socket, "activity:update", Map.put(public, :slide_id, payload["slide_id"]))
+            {:reply, {:ok, %{activity: public}}, socket}
+
+          {:error, reason} ->
+            {:reply, {:error, %{reason: to_string(reason)}}, socket}
+        end
 
       {:error, reason} ->
         {:reply, {:error, %{reason: to_string(reason)}}, socket}
@@ -175,7 +184,7 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
 
   def handle_in(
         "qna:upvote",
-        %{"question_id" => question_id, "slide_id" => slide_id} = payload,
+        %{"question_id" => question_id} = payload,
         socket
       ) do
     presentation_id = socket.assigns.presentation_id
@@ -187,10 +196,15 @@ defmodule QuizworldRealtimeWeb.PresentationChannel do
            payload["participant_id"],
            payload["participant_token"]
          ) do
-      {:ok, questions} ->
-        public = Presentations.public_activity(%{questions: questions}, false)
-        broadcast!(socket, "activity:update", Map.put(public, :slide_id, slide_id))
-        {:reply, {:ok, %{activity: public}}, socket}
+      {:ok, slide_id, _questions} ->
+        case Presentations.public_slide_activity(presentation_id, slide_id) do
+          {:ok, public} ->
+            broadcast!(socket, "activity:update", Map.put(public, :slide_id, slide_id))
+            {:reply, {:ok, %{activity: public}}, socket}
+
+          {:error, reason} ->
+            {:reply, {:error, %{reason: to_string(reason)}}, socket}
+        end
 
       {:error, reason} ->
         {:reply, {:error, %{reason: to_string(reason)}}, socket}

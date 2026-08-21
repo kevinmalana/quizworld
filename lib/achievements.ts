@@ -28,28 +28,17 @@ function calcLevel(totalXp: number): number {
 
 async function grantAchievement(
   supabase: SupabaseClient,
-  userId: string,
+  _userId: string,
   slug: string,
   alreadyEarned: Set<string>
 ): Promise<boolean> {
   if (alreadyEarned.has(slug)) return false;
-  const { error } = await supabase
-    .from("user_achievements")
-    .insert({ user_id: userId, achievement_slug: slug });
-  if (error && !error.message?.includes("duplicate")) {
+  const { data, error } = await supabase.rpc("grant_achievement_if_eligible", { p_slug: slug });
+  if (error) {
     console.error(`Failed to grant achievement ${slug}:`, error.message);
     return false;
   }
-  // Grant XP reward
-  const { data: ach } = await supabase
-    .from("achievements")
-    .select("xp_reward")
-    .eq("slug", slug)
-    .single();
-  if (ach?.xp_reward && ach.xp_reward > 0) {
-    await supabase.rpc("increment_xp", { user_uuid: userId, xp_amount: ach.xp_reward });
-  }
-  return true;
+  return (data as { granted?: boolean } | null)?.granted === true;
 }
 
 export type AchievementContext = {

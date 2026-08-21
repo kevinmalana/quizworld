@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import type { AIPresentationDraft, AIInteractionDensity } from "@/lib/presentation/ai-draft";
+import type { AIPresentationDraft, AIInteractionDensity, AIPresentationSourceMode } from "@/lib/presentation/ai-draft";
 import { useAuth } from "@/components/supabase-provider";
 import { ImportDeckPanel } from "@/components/present/edit/import-deck-panel";
 
@@ -28,7 +28,9 @@ export default function PresentPage() {
   const { user, loading: authLoading } = useAuth();
   const [title, setTitle] = useState("");
   const [showAI, setShowAI] = useState(false);
+  const [aiSourceMode, setAiSourceMode] = useState<AIPresentationSourceMode | "template">("topic");
   const [aiBrief, setAiBrief] = useState("");
+  const [aiUrl, setAiUrl] = useState("");
   const [aiAudience, setAiAudience] = useState("");
   const [aiSlideCount, setAiSlideCount] = useState(8);
   const [aiDensity, setAiDensity] = useState<AIInteractionDensity>("balanced");
@@ -46,9 +48,13 @@ export default function PresentPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("mode") === "ai") {
-      setShowAI(true);
-    }
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("mode");
+    const source = params.get("source");
+    if (mode === "ai") setShowAI(true);
+    if (mode === "import") setShowImport(true);
+    if (source === "topic" || source === "document" || source === "url") setAiSourceMode(source);
+    if (source === "template") setAiSourceMode("template");
   }, []);
 
   // Load existing presentations
@@ -106,21 +112,40 @@ export default function PresentPage() {
       router.push("/login");
       return;
     }
-    if (aiBrief.trim().length < 10) {
-      setAiError("Describe the topic, audience goal, or desired outcome in a little more detail.");
+    if (aiSourceMode === "url" ? !aiUrl.trim() : aiBrief.trim().length < 10) {
+      setAiError(aiSourceMode === "url"
+        ? "Enter a source URL."
+        : "Add more source detail so the draft can stay grounded and useful.");
       return;
     }
 
     setAiGenerating(true);
     setAiError("");
     try {
+      let sourceText = aiBrief.trim();
+      let sourceTitle = aiSourceMode === "document" ? "Uploaded document" : sourceText.slice(0, 100);
+      let requestMode: AIPresentationSourceMode = aiSourceMode === "template" ? "topic" : aiSourceMode;
+
+      if (aiSourceMode === "url") {
+        const imported = await fetch("/api/import-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: aiUrl.trim() }),
+        });
+        const importedPayload = await imported.json().catch(() => ({})) as { error?: string; text?: string; content?: string };
+        if (!imported.ok) throw new Error(importedPayload.error || "Could not read that URL.");
+        sourceText = importedPayload.text || importedPayload.content || "";
+        sourceTitle = aiUrl.trim();
+        requestMode = "url";
+      }
+
       const response = await fetch("/api/ai-presentation-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sourceMode: "topic",
-          sourceText: aiBrief.trim(),
-          sourceTitle: aiBrief.trim().slice(0, 100),
+          sourceMode: requestMode,
+          sourceText,
+          sourceTitle,
           audience: aiAudience.trim(),
           slideCount: aiSlideCount,
           interactionDensity: aiDensity,
@@ -244,15 +269,44 @@ export default function PresentPage() {
           </div>
 
           <div className="present-ai-create__fields">
-            <label className="present-ai-create__brief">
-              <span>Topic or brief</span>
-              <textarea
-                value={aiBrief}
-                onChange={(event) => { setAiBrief(event.target.value); setAiError(""); }}
-                placeholder="e.g. Teach Year 8 students how photosynthesis works, with a warm-up poll and two knowledge checks"
-                rows={4}
-              />
+            <label>
+              <span>Source</span>
+              <select value={aiSourceMode} onChange={(event) => { setAiSourceMode(event.target.value as AIPresentationSourceMode | "template"); setAiError(""); }}>
+                <option value="topic">Topic or brief</option>
+                <option value="document">Document text</option>
+                <option value="url">Web page URL</option>
+                <option value="template">Template</option>
+              </select>
             </label>
+            {aiSourceMode === "template" && (
+              <label>
+                <span>Template</span>
+                <select value={aiBrief} onChange={(event) => setAiBrief(event.target.value)}>
+                  <option value="">Choose a template…</option>
+                  <option value="Interactive lesson with a warm-up poll, clear teaching sections, two knowledge checks, and a closing reflection">Interactive lesson</option>
+                  <option value="Team workshop with an opening pulse check, discussion prompts, practical activity, Q&A, and action commitments">Team workshop</option>
+                  <option value="Trivia event with themed rounds, audience polls, quiz questions, score breaks, and a final challenge">Trivia event</option>
+                </select>
+              </label>
+            )}
+            {aiSourceMode === "url" ? (
+              <label className="present-ai-create__brief">
+                <span>Source URL</span>
+                <input value={aiUrl} onChange={(event) => { setAiUrl(event.target.value); setAiError(""); }} placeholder="https://example.com/article" />
+              </label>
+            ) : aiSourceMode !== "template" ? (
+              <label className="present-ai-create__brief">
+                <span>{aiSourceMode === "document" ? "Document text" : "Topic or brief"}</span>
+                <textarea
+                  value={aiBrief}
+                  onChange={(event) => { setAiBrief(event.target.value); setAiError(""); }}
+                  placeholder={aiSourceMode === "document"
+                    ? "Paste the document text to keep the draft grounded in this source…"
+                    : "e.g. Teach Year 8 students how photosynthesis works, with a warm-up poll and two knowledge checks"}
+                  rows={4}
+                />
+              </label>
+            ) : null}
             <label>
               <span>Audience</span>
               <input
@@ -287,7 +341,7 @@ export default function PresentPage() {
               type="button"
               className="btn btn-primary btn-lg"
               onClick={() => void handleGenerateAI()}
-              disabled={aiGenerating || aiBrief.trim().length < 10}
+              disabled={aiGenerating || (aiSourceMode === "url" ? !aiUrl.trim() : aiBrief.trim().length < 10)}
             >
               {aiGenerating ? "Generating draft…" : "Generate editable draft →"}
             </button>

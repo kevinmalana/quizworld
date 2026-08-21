@@ -1,24 +1,41 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("unified creation", () => {
-  test("AI presentation generation requires authentication", async ({ request }) => {
-    const response = await request.post("/api/ai-presentation-draft", {
-      data: {
-        sourceMode: "topic",
-        sourceText: "A detailed introduction to the solar system",
-        slideCount: 8,
-      },
-    });
+  test("AI quiz and presentation generation require authentication", async ({ request }) => {
+    const [presentation, quiz] = await Promise.all([
+      request.post("/api/ai-presentation-draft", {
+        data: {
+          sourceMode: "topic",
+          sourceText: "A detailed introduction to the solar system",
+          slideCount: 8,
+        },
+      }),
+      request.post("/api/ai-source-draft", {
+        data: { sourceMode: "topic", sourceText: "The solar system", questionCount: 5 },
+      }),
+    ]);
 
-    expect(response.status()).toBe(401);
-    await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/sign in/i) });
+    expect(presentation.status()).toBe(401);
+    expect(quiz.status()).toBe(401);
+    await expect(presentation.json()).resolves.toMatchObject({ error: expect.stringMatching(/sign in/i) });
+    await expect(quiz.json()).resolves.toMatchObject({ error: expect.stringMatching(/sign in/i) });
   });
 
-  test("creation hub offers quiz and presentation paths", async ({ page }) => {
+  test("creation hub carries output and source choices into authoring", async ({ page }) => {
     await page.goto("/create/activity");
     await expect(page.getByRole("heading", { name: /what do you want to create/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /create a quiz/i })).toHaveAttribute("href", "/create");
-    await expect(page.getByRole("link", { name: /create a presentation/i })).toHaveAttribute("href", "/present?mode=ai");
+    await page.getByRole("button", { name: /study set/i }).click();
+    await page.getByRole("button", { name: /document/i }).click();
+    await expect(page.getByRole("link", { name: /continue with document/i })).toHaveAttribute(
+      "href",
+      "/create?source=document&purpose=study",
+    );
+    await page.getByRole("button", { name: /^Presentation / }).click();
+    await page.getByRole("button", { name: /^Deck / }).click();
+    await expect(page.getByRole("link", { name: /continue with deck/i })).toHaveAttribute(
+      "href",
+      "/present?mode=import&source=deck",
+    );
   });
 
   test("global Create action opens the output-first hub", async ({ page }) => {
@@ -27,6 +44,15 @@ test.describe("unified creation", () => {
       "href",
       "/create/activity",
     );
+  });
+
+  test("quiz source dialogs are semantic and Escape-closeable", async ({ page }) => {
+    await page.goto("/create");
+    await page.getByRole("button", { name: /ai from topic/i }).click();
+    const dialog = page.getByRole("dialog", { name: /ai topic generator/i });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
   });
 
   test("quiz conversion requires authentication", async ({ request }) => {
@@ -48,7 +74,10 @@ test.describe("unified creation", () => {
   test("AI presentation mode explains the editable generation workflow", async ({ page }) => {
     await page.goto("/present?mode=ai");
     await expect(page.getByRole("heading", { name: /generate an interactive presentation/i })).toBeVisible();
-    await expect(page.getByLabel(/topic or brief/i)).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Topic or brief", exact: true })).toBeVisible();
+    const source = page.getByLabel("Source");
+    await expect(source).toBeVisible();
+    await expect(source.locator("option")).toHaveText(["Topic or brief", "Document text", "Web page URL", "Template"]);
     await expect(page.getByRole("button", { name: /generate editable draft/i })).toBeVisible();
     await expect(page.getByText(/review every slide before presenting/i)).toBeVisible();
   });

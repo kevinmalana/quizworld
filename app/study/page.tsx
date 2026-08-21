@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { AvailableStudyQuizCard, ContinueStudyQuizCard } from "@/components/study/study-quiz-card";
@@ -47,6 +47,7 @@ type QuizRow = {
   emoji: string | null;
   color: string | null;
   category: string;
+  created_at: string;
   questions?: { id: string }[];
 };
 
@@ -56,6 +57,8 @@ export default function StudyListPage() {
   const [hasMore, setHasMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
+  const catalogCursorRef = useRef<{ createdAt: string; id: string } | null>(null);
+  const catalogLoadedRef = useRef(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [assignedQuizIds, setAssignedQuizIds] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState<StudyProgressRow[]>([]);
@@ -73,22 +76,44 @@ export default function StudyListPage() {
   }, [search]);
 
   const loadCatalogPage = useCallback(async (pageIndex: number, append: boolean) => {
-    const from = pageIndex * STUDY_PAGE_SIZE;
+    const cursor = append ? catalogCursorRef.current : null;
     let query = supabase
       .from("quizzes")
-      .select("id, title, emoji, color, category, questions(id)", { count: "exact" })
+      .select("id, title, emoji, color, category, created_at, questions(id)")
       .is("archived_at", null)
       .order("created_at", { ascending: false })
-      .order("id", { ascending: true })
-      .range(from, from + STUDY_PAGE_SIZE - 1);
+      .order("id", { ascending: true });
+    let countQuery = supabase
+      .from("quizzes")
+      .select("id", { count: "exact", head: true })
+      .is("archived_at", null);
 
-    query = user ? query.or(`is_public.eq.true,creator_id.eq.${user.id}`) : query.eq("is_public", true);
-    if (debouncedSearch) query = query.ilike("title", `%${debouncedSearch}%`);
-    if (activeCategory !== "All") query = query.in("category", categoryVariants(activeCategory));
+    if (user) {
+      const scope = `is_public.eq.true,creator_id.eq.${user.id}`;
+      query = query.or(scope);
+      countQuery = countQuery.or(scope);
+    } else {
+      query = query.eq("is_public", true);
+      countQuery = countQuery.eq("is_public", true);
+    }
+    if (debouncedSearch) {
+      query = query.ilike("title", `%${debouncedSearch}%`);
+      countQuery = countQuery.ilike("title", `%${debouncedSearch}%`);
+    }
+    if (activeCategory !== "All") {
+      const variants = categoryVariants(activeCategory);
+      query = query.in("category", variants);
+      countQuery = countQuery.in("category", variants);
+    }
+    if (cursor) {
+      const createdAt = `"${cursor.createdAt.replace(/"/g, '\\"')}"`;
+      query = query.or(`created_at.lt.${createdAt},and(created_at.eq.${createdAt},id.gt.${cursor.id})`);
+    }
+    query = query.limit(STUDY_PAGE_SIZE);
 
-    const { data, error, count } = await query;
-    if (error) {
-      console.error("Error loading study quizzes:", error);
+    const [{ data, error }, { count, error: countError }] = await Promise.all([query, countQuery]);
+    if (error || countError) {
+      console.error("Error loading study quizzes:", error || countError);
       setQuizError("Could not load study sets. Please try again.");
       if (!append) setQuizzes([]);
       return false;
@@ -98,7 +123,12 @@ export default function StudyListPage() {
     const exactTotal = count ?? rows.length;
     setQuizzes(current => append ? mergeCatalogPage(current, rows) : rows);
     setTotalCount(exactTotal);
-    setHasMore(from + rows.length < exactTotal);
+    const loaded = (append ? catalogLoadedRef.current : 0) + rows.length;
+    catalogLoadedRef.current = loaded;
+    setHasMore(loaded < exactTotal);
+    const last = rows[rows.length - 1];
+    if (last) catalogCursorRef.current = { createdAt: last.created_at, id: last.id };
+    else if (!append) catalogCursorRef.current = null;
     setPage(pageIndex);
     return true;
   }, [activeCategory, debouncedSearch, user?.id]);
@@ -171,7 +201,7 @@ export default function StudyListPage() {
         if (ids.length > 0) {
           const { data: assignedRows } = await supabase
             .from("quizzes")
-            .select("id, title, emoji, color, category, questions(id)")
+            .select("id, title, emoji, color, category, created_at, questions(id)")
             .in("id", ids);
           if (!ignore && assignedRows) {
             const normalized = assignedRows.map(row => ({ ...row, category: canonicalizeCategory(row.category) })) as QuizRow[];

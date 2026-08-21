@@ -9,6 +9,7 @@ import {
   type AIGenerationOptions,
 } from "@/lib/quiz-ai";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { createClient } from "@/utils/supabase/server";
 
 function requireEnv(name: string) {
   const value = process.env[name]?.trim();
@@ -19,6 +20,10 @@ function requireEnv(name: string) {
 }
 
 export async function POST(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Sign in to generate a quiz." }, { status: 401 });
+
   // Rate limiting
   const rateLimitResponse = await checkRateLimit(request as any);
   if (rateLimitResponse) return rateLimitResponse;

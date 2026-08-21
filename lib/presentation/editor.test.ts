@@ -26,7 +26,15 @@ test("overlay polls and quizzes receive the same validation as standalone slides
       { id: "1", text: "A", is_correct: false },
       { id: "2", text: "B", is_correct: false },
     ] })]),
-    "Slide 1: choose a correct answer.",
+    "Slide 1: choose exactly one correct answer.",
+  );
+
+  assert.equal(
+    validatePresentationSlides([contentSlide({ type: "quiz", question: "Choose", answers: [
+      { id: "1", text: "A", is_correct: true },
+      { id: "2", text: "B", is_correct: true },
+    ] })]),
+    "Slide 1: choose exactly one correct answer.",
   );
 });
 

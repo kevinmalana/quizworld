@@ -109,6 +109,16 @@ defmodule QuizworldRealtime.PresentationStore do
   def participant_token?(_presentation_id, _run_id, _participant_id, _participant_token),
     do: false
 
+  def fetch_participant(presentation_id, run_id, participant_id) do
+    with {:ok, payload} when is_binary(payload) <-
+           command(["GET", participant_id_key(presentation_id, run_id, participant_id)]),
+         {:ok, participant} <- Jason.decode(payload) do
+      {:ok, participant}
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
   def put_snapshot(%{} = snapshot) do
     presentation_id = get_value(snapshot, :id)
     run_id = get_value(snapshot, :run_id)

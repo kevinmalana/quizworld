@@ -1,5 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 
+const PHOENIX_URL = process.env.E2E_PHOENIX_URL || process.env.NEXT_PUBLIC_GAME_SERVICE_URL || 'https://quizworld-xs0g.onrender.com';
+
 /**
  * Phoenix Presence & Resilience Tests
  *
@@ -24,14 +26,10 @@ async function checkPhoenixAvailable(page: Page): Promise<boolean> {
 test.describe('Game Engine: Error Messages', () => {
   test('join page shows clear error for invalid PIN format', async ({ page }) => {
     await page.goto('/join');
-    // Enter clearly invalid PIN
-    const digits = page.locator('input[type="text"], input[maxlength]');
-    const count = await digits.count();
-    if (count > 0) {
-      await digits.first().fill('X');
-    }
-    const errorOrInput = await page.locator('.error-message, [class*="error"], input').first().isVisible();
-    expect(errorOrInput).toBeTruthy();
+    const firstCell = page.getByRole('textbox', { name: 'PIN character 1' });
+    await expect(firstCell).toBeVisible();
+    await firstCell.fill('X');
+    await expect(page.getByRole('button', { name: 'Enter Game' })).toBeDisabled();
   });
 
   test('join page error messages are specific not generic', async ({ page }) => {
@@ -135,11 +133,10 @@ test.describe('Game Engine: Reconnect Behaviour', () => {
 
 test.describe('Phoenix Connection: Health', () => {
   test('Phoenix game service is reachable', async ({ page }) => {
-    const response = await page.request.get('https://quizworld-xs0g.onrender.com/api/sessions/HEALTHCHECK').catch(() => null);
-    // Returns 404 JSON for unknown session — means server is alive
-    if (response) {
-      expect([200, 404, 400]).toContain(response.status());
-    }
+    test.setTimeout(150_000);
+    const response = await page.request.get(`${PHOENIX_URL}/api/health`, { timeout: 120_000 }).catch(() => null);
+    expect(response, 'Phoenix health response').not.toBeNull();
+    expect(response?.status()).toBe(200);
   });
 
   test('join page shows PIN input when Phoenix is configured', async ({ page }) => {

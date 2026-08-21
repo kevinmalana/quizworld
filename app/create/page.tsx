@@ -30,7 +30,7 @@ import {
 } from "@/lib/quiz-lifecycle";
 import { useQuizAuthoringRecovery, type RecoveredQuizAuthoringState } from "@/lib/builder/use-quiz-authoring-recovery";
 import { useSerializedAutosave } from "@/lib/autosave/use-serialized-autosave";
-import { saveQuizDraftV2WithConflictRecovery, type DraftClient } from "@/lib/quiz-draft-client";
+import { DraftRevisionConflictError, saveQuizDraftV2WithConflictRecovery, type DraftClient } from "@/lib/quiz-draft-client";
 
 type PageStep = "source" | "builder";
 const CREATE_DRAFT_KEY = "qw_create_draft_v9";
@@ -42,9 +42,12 @@ function CreatePageContent() {
   const quizParam = searchParams.get("quiz");
   const versionParam = searchParams.get("version");
   const duplicateParam = searchParams.get("duplicate") === "1";
+  const studyPurpose = searchParams.get("purpose") === "study";
+  const sourceParam = searchParams.get("source");
+  const initialSourceType: SourceType = sourceParam === "document" ? "ai-document" : sourceParam === "url" ? "ai-url" : sourceParam === "topic" || sourceParam === "template" ? "ai-topic" : "manual";
 
   const [step, setStep] = useState<PageStep>("source");
-  const [sourceType, setSourceType] = useState<SourceType>("manual");
+  const [sourceType, setSourceType] = useState<SourceType>(initialSourceType);
   const [questions, setQuestions] = useState<QuestionData[]>([makeBlankQuestion()]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [quizTitle, setQuizTitle] = useState("");
@@ -62,7 +65,7 @@ function CreatePageContent() {
   const remoteDraftIdRef = useRef<string | null>(null);
   const remoteRevisionRef = useRef<number | null>(null);
 
-  const [aiTopic, setAiTopic] = useState("");
+  const [aiTopic, setAiTopic] = useState(sourceParam === "template" ? "Educational quiz covering key concepts, definitions, and important facts" : "");
   const [aiUrl, setAiUrl] = useState("");
   const [aiCount, setAiCount] = useState<AIQuestionCount>(10);
   const [aiLoading, setAiLoading] = useState(false);
@@ -95,16 +98,15 @@ function CreatePageContent() {
     authLoading, userId: user?.id ?? null,
     draftParam, quizParam, versionParam, duplicateParam, router,
     storageKey: CREATE_DRAFT_KEY,
+    currentRemoteDraftId: remoteDraftId,
     currentDraft: { title: quizTitle, category: quizCategory, emoji: quizEmoji, isPublic, sourceType, questions },
     makeBlankQuestion, onRecover: applyRecoveredState, onLoadError: setLoadError,
   });
 
-  // ── Derived ──
   const readyCount = questions.filter(isQuestionComplete).length;
   const canPublish = canPublishQuiz(quizTitle, questions);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
-  // ── Restore saved quiz state after login ──
   useEffect(() => {
     if (!user) return;
     try {
@@ -123,7 +125,6 @@ function CreatePageContent() {
     } catch {}
   }, [user]);
 
-  // ── Question actions ──
   const addQuestion = useCallback(() => {
     const q = makeBlankQuestion();
     setQuestions((prev) => [...prev, q]);
@@ -180,7 +181,6 @@ function CreatePageContent() {
     setDraftState("dirty");
   }, []);
 
-  // ── Source handlers ──
   const handleSourceSelect = useCallback((type: SourceType) => {
     setSourceType(type);
     if (type === "manual") {
@@ -189,13 +189,10 @@ function CreatePageContent() {
     // Other types show their input inline
   }, []);
 
-  const handleAiGenerate = useCallback(async () => {
+  const handleAiGenerate = useCallback(async (sourceMode: "topic" | "document") => {
         const topic = aiTopic.trim();
         if (!topic || topic.length < 5) return;
-        // 2026-08-13: Pre-flight auth check. Without this, logged-out users click
-        // "Generate", the server returns 401 "Sign in to use AI features", and
-        // the front-end catch block shows "AI generation failed" — which is a
-        // terrible UX. Now we detect the missing session BEFORE firing the request.
+
         if (!user) {
           setAiError("Sign in to use AI quiz generation.");
           return;
@@ -203,14 +200,15 @@ function CreatePageContent() {
         setAiLoading(true);
         setAiError("");
         try {
-          // Pad short topics to meet the 200-char minimum for source text
-          const sourceText = topic.length < 200
+
+          const sourceText = sourceMode === "topic" && topic.length < 200
             ? `Topic: ${topic}.\n\nGenerate quiz questions about this topic. Include relevant facts, key concepts, and important details that would make good educational quiz questions. The questions should test knowledge about ${topic}.`
             : topic;
+          const sourceTitle = sourceMode === "document" ? "Uploaded document" : topic.slice(0, 60);
           const res = await fetch("/api/ai-source-draft", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sourceText, sourceTitle: topic.slice(0, 60), questionCount: aiCount, aiOptions, sourceMode: "topic" }),
+            body: JSON.stringify({ sourceText, sourceTitle, questionCount: aiCount, aiOptions, sourceMode }),
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "AI generation failed");
@@ -229,7 +227,7 @@ function CreatePageContent() {
 
   const handlePasteImport = useCallback(async () => {
         if (!pasteText.trim()) return;
-        // 2026-08-13: same auth pre-flight as handleAiGenerate — see comment there.
+
         if (!user) {
           setAiError("Sign in to use AI quiz generation.");
           return;
@@ -283,7 +281,7 @@ function CreatePageContent() {
 
   const handleUrlFetch = useCallback(async () => {
     if (!aiUrl.trim()) return;
-    // 2026-08-13: same auth pre-flight as handleAiGenerate / handlePasteImport.
+
     if (!user) {
       setAiError("Sign in to use AI quiz generation.");
       return;
@@ -323,7 +321,6 @@ function CreatePageContent() {
     }
   }, [aiUrl, aiCount, aiOptions, user]);
 
-  // ── AI Enrichment ──
   const handleEnrich = useCallback(async () => {
     const questionsToEnrich = questions.filter((q) => q.text.trim()).map((q) => ({
       text: q.text,
@@ -368,7 +365,6 @@ function CreatePageContent() {
     }
   }, [questions]);
 
-  // ── Draft persistence ──
   const draftValue = {
     title: quizTitle, category: quizCategory, emoji: quizEmoji, isPublic, sourceType,
     editingQuizId, questions,
@@ -378,17 +374,25 @@ function CreatePageContent() {
   });
   const persistDraftValue = useCallback(async (value: typeof draftValue) => {
     if (!user) throw new Error("Sign in to save this draft.");
-    const saved = await saveQuizDraftV2WithConflictRecovery({
-      client: supabase as unknown as DraftClient,
-      draftId: remoteDraftIdRef.current,
-      expectedRevision: remoteRevisionRef.current,
-      value,
-    });
-    remoteDraftIdRef.current = saved.draftId;
-    remoteRevisionRef.current = saved.revision;
-    setRemoteDraftId(saved.draftId);
-    setRemoteRevision(saved.revision);
-    lastSavedFingerprint.current = buildDraftFingerprint(value);
+    try {
+      const saved = await saveQuizDraftV2WithConflictRecovery({
+        client: supabase as unknown as DraftClient,
+        draftId: remoteDraftIdRef.current,
+        expectedRevision: remoteRevisionRef.current,
+        value,
+      });
+      remoteDraftIdRef.current = saved.draftId;
+      remoteRevisionRef.current = saved.revision;
+      setRemoteDraftId(saved.draftId);
+      setRemoteRevision(saved.revision);
+      sessionStorage.removeItem(CREATE_DRAFT_KEY);
+      lastSavedFingerprint.current = buildDraftFingerprint(value);
+    } catch (error) {
+      if (error instanceof DraftRevisionConflictError) {
+        setLoadError("This draft changed in another tab. Reload the page before continuing so newer work is not overwritten.");
+      }
+      throw error;
+    }
   }, [user]);
   const draftAutosave = useSerializedAutosave({
     value: draftValue,
@@ -441,7 +445,6 @@ function CreatePageContent() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [saveDraftToSupabase, addQuestion]);
 
-  // ── Confetti state (#14) ──
   const [showConfetti, setShowConfetti] = useState(false);
 
   // ── Publish ──
@@ -493,14 +496,15 @@ function CreatePageContent() {
       const dashboardParams = new URLSearchParams();
       dashboardParams.set(published.lifecycle, published.quizId);
       if (published.versionNumber !== null) dashboardParams.set("version", String(published.versionNumber));
-      setTimeout(() => { router.push(`/dashboard?${dashboardParams.toString()}`); }, 1500);
+      setTimeout(() => {
+        router.push(studyPurpose ? `/study/${published.quizId}` : `/dashboard?${dashboardParams.toString()}`);
+      }, 1500);
     } catch (err) {
       console.error("Publish error:", err);
       setDraftState("error");
     }
-  }, [user, canPublish, quizTitle, quizCategory, quizEmoji, isPublic, questions, editingQuizId, remoteDraftId, router]);
+  }, [user, canPublish, quizTitle, quizCategory, quizEmoji, isPublic, questions, editingQuizId, remoteDraftId, router, studyPurpose]);
 
-  // ── Login Prompt Modal ──
   if (showLoginPrompt) {
     return (
       <PublishLoginPrompt
@@ -520,13 +524,15 @@ function CreatePageContent() {
         <div className="card" role="alert">
           <h2 className="font-display">Could not open this quiz</h2>
           <p className="text-muted">{loadError}</p>
-          <button className="btn btn-primary" onClick={() => router.push("/dashboard")}>Back to dashboard</button>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+            <button className="btn btn-primary" onClick={() => window.location.reload()}>Reload draft</button>
+            <button className="btn btn-secondary" onClick={() => router.push("/dashboard")}>Back to dashboard</button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Source step
   if (step === "source") {
     return (
       <div>
@@ -553,7 +559,7 @@ function CreatePageContent() {
           onPasteTextChange={setPasteText}
           onAiCountChange={setAiCount}
           onAiOptionsChange={setAiOptions}
-          onAiGenerate={() => void handleAiGenerate()}
+          onAiGenerate={(sourceMode) => void handleAiGenerate(sourceMode)}
           onPasteImport={handlePasteImport}
           onUrlFetch={() => void handleUrlFetch()}
         />
@@ -561,7 +567,6 @@ function CreatePageContent() {
     );
   }
 
-  // Builder step
   return (
     <BuilderWorkspace
       title={quizTitle}

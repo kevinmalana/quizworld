@@ -139,7 +139,7 @@ function AnswerGrid({
   advancing?: boolean;
   stopPropagation?: boolean;
   showCorrect?: boolean;
-  onAnswer: (correct: boolean) => void;
+  onAnswer: (correct: boolean, answerId: string) => void;
 }) {
   return (
     <div className="study-answer-grid">
@@ -152,7 +152,7 @@ function AnswerGrid({
             key={answer.id}
             onClick={(e) => {
               if (stopPropagation) e.stopPropagation();
-              onAnswer(answer.is_correct);
+              onAnswer(answer.is_correct, answer.id);
             }}
             disabled={advancing}
             className={`study-answer-button${highlight ? " is-correct-reveal" : ""}`}
@@ -247,7 +247,7 @@ export function FlashcardPanel({
   lastAnswerCorrect: boolean | null;
   onExit: () => void;
   onFlip: () => void;
-  onAnswer: (correct: boolean) => void;
+  onAnswer: (correct: boolean, answerId: string) => void;
 }) {
   const isBack = cardState === "back";
   const answered = lastAnswerCorrect !== null;
@@ -328,6 +328,7 @@ export function QuickFirePanel({
   lastAnswerCorrect,
   onExit,
   onAnswer,
+  onContinue,
 }: {
   question: StudyQuestion;
   currentIndex: number;
@@ -338,7 +339,8 @@ export function QuickFirePanel({
   advancing: boolean;
   lastAnswerCorrect: boolean | null;
   onExit: () => void;
-  onAnswer: (correct: boolean) => void;
+  onAnswer: (correct: boolean, answerId: string) => void;
+  onContinue: () => void;
 }) {
   const urgentTimer = timeLeft <= 5;
 
@@ -372,8 +374,13 @@ export function QuickFirePanel({
 
       <AnswerGrid question={question} advancing={advancing} onAnswer={onAnswer} />
 
-      {lastAnswerCorrect !== null && !advancing && (
-        <ExplanationBox question={question} show />
+      {lastAnswerCorrect !== null && (
+        <>
+          <ExplanationBox question={question} show />
+          <button type="button" className="btn btn-primary btn-lg" onClick={onContinue} autoFocus>
+            Continue →
+          </button>
+        </>
       )}
     </div>
   );
@@ -398,7 +405,7 @@ export function StudyReviewPanel({
   advancing: boolean;
   lastAnswerCorrect: boolean | null;
   onExit: () => void;
-  onAnswer: (correct: boolean) => void;
+  onAnswer: (correct: boolean, answerId: string) => void;
 }) {
   return (
     <div className="container study-play-shell">
@@ -420,7 +427,7 @@ export function StudyReviewPanel({
 
       <AnswerGrid question={question} advancing={advancing} showCorrect={lastAnswerCorrect !== null} onAnswer={onAnswer} />
 
-      {lastAnswerCorrect !== null && !advancing && (
+      {lastAnswerCorrect !== null && (
         <ExplanationBox question={question} show />
       )}
 

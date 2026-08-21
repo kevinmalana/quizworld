@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { CATEGORY_EMOJIS } from "@/lib/shared";
+import { canonicalizeCategory } from "@/lib/catalog-discovery";
 
 // Slug → display name mapping
 const SLUG_TO_CATEGORY: Record<string, string> = {
@@ -34,7 +35,8 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { category: slug } = await params;
-  const categoryName = SLUG_TO_CATEGORY[slug];
+  const mappedCategory = SLUG_TO_CATEGORY[slug];
+  const categoryName = mappedCategory ? canonicalizeCategory(mappedCategory) : null;
 
   if (!categoryName) return { title: "Category Not Found" };
 
@@ -71,7 +73,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CategoryPage({ params }: PageProps) {
   const { category: slug } = await params;
-  const categoryName = SLUG_TO_CATEGORY[slug];
+  const mappedCategory = SLUG_TO_CATEGORY[slug];
+  const categoryName = mappedCategory ? canonicalizeCategory(mappedCategory) : null;
 
   if (!categoryName) notFound();
 

@@ -4,10 +4,14 @@ type DraftValue = RecoverableDraft & { editingQuizId: string | null };
 type RpcResult = { data: unknown; error: { message?: string } | null };
 export type DraftClient = {
   rpc(name: string, payload: unknown): PromiseLike<RpcResult>;
-  from(name: string): {
-    select(columns: string): { eq(column: string, value: string): { single(): PromiseLike<RpcResult> } };
-  };
 };
+
+export class DraftRevisionConflictError extends Error {
+  constructor(public readonly serverRevision: number | null) {
+    super("This draft changed in another tab. Reload before saving again.");
+    this.name = "DraftRevisionConflictError";
+  }
+}
 
 export async function saveQuizDraftV2WithConflictRecovery(input: {
   client: DraftClient;
@@ -22,14 +26,19 @@ export async function saveQuizDraftV2WithConflictRecovery(input: {
     questions: input.value.questions,
   }));
   let result = await request(input.expectedRevision);
-  if (result.error && input.draftId && /revision|conflict|stale/i.test(result.error.message || "")) {
-    const current = await input.client.from("quiz_drafts").select("revision").eq("id", input.draftId).single();
-    const revision = (current.data as { revision?: unknown } | null)?.revision;
-    if (current.error || typeof revision !== "number") throw result.error;
-    result = await request(revision);
+  const isRevisionConflict = (candidate: RpcResult) => {
+    const data = candidate.data as { ok?: unknown; error?: unknown } | null;
+    return /revision|conflict|stale/i.test(candidate.error?.message || "")
+      || (data?.ok === false && data.error === "revision_conflict");
+  };
+
+  if (isRevisionConflict(result)) {
+    const data = result.data as { revision?: unknown } | null;
+    throw new DraftRevisionConflictError(typeof data?.revision === "number" ? data.revision : null);
   }
   if (result.error) throw result.error;
-  const saved = result.data as { draft_id?: string; revision?: number } | null;
+  const saved = result.data as { ok?: boolean; error?: string; draft_id?: string; revision?: number } | null;
+  if (saved?.ok === false) throw new Error(saved.error || "Draft save failed.");
   if (!saved?.draft_id || typeof saved.revision !== "number") throw new Error("Draft save did not return its id and revision.");
   return { draftId: saved.draft_id, revision: saved.revision };
 }

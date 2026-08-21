@@ -16,26 +16,11 @@ defmodule QuizworldRealtime.Presentations do
   def start_live(presentation_id, host_id) do
     with {:ok, snapshot} <- get_snapshot_from_supabase(presentation_id, nil),
          true <- snapshot.creator_id == host_id || {:error, :not_host},
-         :ok <- finish_active_runs(presentation_id),
-         {:ok, run_id, presenter_token} <- create_live_session(presentation_id) do
-      settings = Map.put(snapshot[:settings] || %{}, "results_hidden", false)
-
-      update_presentation(presentation_id, %{
-        status: "live",
-        current_slide_index: 0,
-        finished_at: nil,
-        settings: settings
-      })
-      |> case do
-        {:ok, updated} ->
-          updated = Map.put(updated, :run_id, run_id)
-          PresentationStore.put_live_session(presentation_id, run_id, presenter_token)
-          PresentationStore.put_snapshot(updated)
-          {:ok, updated, presenter_token}
-
-        error ->
-          error
-      end
+         {:ok, run_id, presenter_token} <- create_live_session(presentation_id),
+         {:ok, updated} <- get_snapshot_from_supabase(presentation_id, run_id) do
+      PresentationStore.put_live_session(presentation_id, run_id, presenter_token)
+      PresentationStore.put_snapshot(updated)
+      {:ok, updated, presenter_token}
     end
   end
 
@@ -72,7 +57,10 @@ defmodule QuizworldRealtime.Presentations do
   def presenter_authorized?(_presentation_id, _presenter_token), do: false
 
   def participant_authorized?(presentation_id, participant_id, participant_token) do
-    ensure_participant_token(presentation_id, participant_id, participant_token) == :ok
+    match?(
+      {:ok, _run_id},
+      ensure_participant_token(presentation_id, participant_id, participant_token)
+    )
   end
 
   def public_activity(activity, results_hidden) do
@@ -86,11 +74,67 @@ defmodule QuizworldRealtime.Presentations do
     }
   end
 
+  def public_slide_activity(presentation_id, slide_id) do
+    with {:ok, run_id, _} <- active_run(presentation_id),
+         :ok <- ensure_slide_belongs_to_run(presentation_id, run_id, slide_id),
+         {:ok, activity} <- get_activity(slide_id),
+         {:ok, snapshot} <- get_snapshot(presentation_id) do
+      {:ok, public_activity(activity, snapshot.results_hidden)}
+    end
+  end
+
   defp aggregate_responses(responses) do
-    Enum.reduce(responses, %{}, fn row, counts ->
-      value = get_in(row, ["response_data", "answer_id"])
-      if is_binary(value), do: Map.update(counts, value, 1, &(&1 + 1)), else: counts
-    end)
+    poll_counts =
+      Enum.reduce(responses, %{}, fn row, counts ->
+        option_id = get_in(row, ["response_data", "option_id"])
+        if is_binary(option_id), do: Map.update(counts, option_id, 1, &(&1 + 1)), else: counts
+      end)
+
+    answer_counts =
+      Enum.reduce(responses, %{}, fn row, counts ->
+        answer_id = get_in(row, ["response_data", "answer_id"])
+        if is_binary(answer_id), do: Map.update(counts, answer_id, 1, &(&1 + 1)), else: counts
+      end)
+
+    word_counts =
+      Enum.reduce(responses, %{}, fn row, counts ->
+        words = get_in(row, ["response_data", "words"])
+
+        if is_binary(words) do
+          words
+          |> String.split(~r/[\s,]+/, trim: true)
+          |> Enum.filter(&(String.length(&1) > 1))
+          |> Enum.reduce(counts, fn word, acc ->
+            Map.update(acc, String.downcase(word), 1, &(&1 + 1))
+          end)
+        else
+          counts
+        end
+      end)
+
+    sorted_words =
+      word_counts
+      |> Enum.sort_by(fn {_word, count} -> -count end)
+      |> Enum.take(30)
+
+    scale_values =
+      responses
+      |> Enum.map(&get_in(&1, ["response_data", "value"]))
+      |> Enum.filter(&is_number/1)
+
+    scale_avg =
+      case scale_values do
+        [] -> 0
+        values -> Float.round(Enum.sum(values) / length(values), 1)
+      end
+
+    %{
+      "poll_counts" => poll_counts,
+      "answer_counts" => answer_counts,
+      "sorted_words" => sorted_words,
+      "scale_values" => scale_values,
+      "scale_avg" => scale_avg
+    }
   end
 
   def reveal_quiz(presentation_id, slide_id, presenter_token) do
@@ -116,9 +160,7 @@ defmodule QuizworldRealtime.Presentations do
   def reveal_for_snapshot(snapshot, slide_id) do
     with %{} = slide <- Enum.at(snapshot.slides, snapshot.current_slide_index),
          ^slide_id <- slide["id"] || slide[:id],
-         true <- (slide["slide_type"] || slide[:slide_type]) == "quiz" do
-      answers = get_in(slide, ["content", "answers"]) || get_in(slide, [:content, :answers]) || []
-
+         {:ok, answers} <- quiz_answers_for_slide(slide) do
       correct_ids =
         for answer <- answers,
             (answer["is_correct"] || answer[:is_correct]) == true,
@@ -127,6 +169,23 @@ defmodule QuizworldRealtime.Presentations do
       {:ok, correct_ids, Map.put(snapshot[:quiz_reveals] || %{}, slide_id, correct_ids)}
     else
       _ -> {:error, :bad_slide}
+    end
+  end
+
+  defp quiz_answers_for_slide(slide) do
+    type = slide["slide_type"] || slide[:slide_type]
+    content = slide["content"] || slide[:content] || %{}
+    interactive = content["interactive"] || content[:interactive] || %{}
+
+    cond do
+      type == "quiz" ->
+        {:ok, content["answers"] || content[:answers] || []}
+
+      type == "content" and (interactive["type"] || interactive[:type]) == "quiz" ->
+        {:ok, interactive["answers"] || interactive[:answers] || []}
+
+      true ->
+        {:error, :bad_slide}
     end
   end
 
@@ -171,12 +230,12 @@ defmodule QuizworldRealtime.Presentations do
         {:ok, %{status: 200, body: []}} ->
           {:error, :not_found}
 
-        {:ok, %{status: status, body: body}} ->
-          Logger.warning("Supabase presentation fetch failed #{status}: #{inspect(body)}")
+        {:ok, %{status: status, body: _body}} ->
+          Logger.warning("Supabase presentation fetch failed with status #{status}")
           {:error, :fetch_failed}
 
-        {:error, reason} ->
-          Logger.warning("Supabase presentation fetch error: #{inspect(reason)}")
+        {:error, _reason} ->
+          Logger.warning("Supabase presentation fetch transport error")
           {:error, :fetch_failed}
       end
     end
@@ -238,11 +297,16 @@ defmodule QuizworldRealtime.Presentations do
     participant_id = payload["participant_id"]
     participant_token = payload["participant_token"]
 
-    with :ok <- ensure_participant_token(presentation_id, participant_id, participant_token),
-         :ok <- ensure_slide_belongs_to_presentation(presentation_id, slide_id),
-         {:ok, run_id, _} <- active_run(presentation_id),
+    with {:ok, run_id} <-
+           ensure_participant_token(presentation_id, participant_id, participant_token),
+         :ok <- ensure_slide_belongs_to_run(presentation_id, run_id, slide_id),
+         {:ok, slide} <- ensure_current_slide(presentation_id, slide_id),
+         {:ok, response_data} <- validate_response_for_slide(slide, payload["response_data"]),
+         {:ok, participant_name} <- participant_name(presentation_id, run_id, participant_id),
          {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
+      server_payload = %{"participant_name" => participant_name, "response_data" => response_data}
+
       case Req.get(
              url: "#{base_url}#{@supabase_rest}/slide_responses",
              params: %{
@@ -264,7 +328,7 @@ defmodule QuizworldRealtime.Presentations do
             run_id,
             slide_id,
             participant_id,
-            payload
+            server_payload
           )
       end
     end
@@ -295,12 +359,15 @@ defmodule QuizworldRealtime.Presentations do
       {:ok, %{status: status}} when status in [200, 201] ->
         with {:ok, activity} <- refresh_activity(slide_id), do: {:ok, activity.responses}
 
-      {:ok, %{status: status, body: resp_body}} ->
-        Logger.warning("Supabase response insert failed #{status}: #{inspect(resp_body)}")
+      {:ok, %{status: 409}} ->
+        with {:ok, activity} <- refresh_activity(slide_id), do: {:ok, activity.responses}
+
+      {:ok, %{status: status, body: _resp_body}} ->
+        Logger.warning("Supabase response insert failed with status #{status}")
         {:error, :insert_failed}
 
-      {:error, reason} ->
-        Logger.warning("Supabase response insert error: #{inspect(reason)}")
+      {:error, _reason} ->
+        Logger.warning("Supabase response insert transport error")
         {:error, :insert_failed}
     end
   end
@@ -309,9 +376,12 @@ defmodule QuizworldRealtime.Presentations do
     participant_id = payload["participant_id"]
     participant_token = payload["participant_token"]
 
-    with :ok <- ensure_participant_token(presentation_id, participant_id, participant_token),
-         :ok <- ensure_slide_belongs_to_presentation(presentation_id, slide_id),
-         {:ok, run_id, _} <- active_run(presentation_id),
+    with {:ok, run_id} <-
+           ensure_participant_token(presentation_id, participant_id, participant_token),
+         :ok <- ensure_slide_belongs_to_run(presentation_id, run_id, slide_id),
+         {:ok, slide} <- ensure_current_slide(presentation_id, slide_id),
+         {:ok, question} <- validate_qna_for_slide(slide, payload["question"]),
+         {:ok, participant_name} <- participant_name(presentation_id, run_id, participant_id),
          {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
       body = %{
@@ -319,8 +389,8 @@ defmodule QuizworldRealtime.Presentations do
         run_id: run_id,
         slide_id: slide_id,
         participant_id: participant_id,
-        participant_name: payload["participant_name"] || "Anonymous",
-        question: payload["question"] || ""
+        participant_name: participant_name,
+        question: question
       }
 
       case Req.post(
@@ -332,124 +402,73 @@ defmodule QuizworldRealtime.Presentations do
         {:ok, %{status: status}} when status in [200, 201] ->
           with {:ok, activity} <- refresh_activity(slide_id), do: {:ok, activity.questions}
 
-        {:ok, %{status: status, body: resp_body}} ->
-          Logger.warning("Supabase QnA insert failed #{status}: #{inspect(resp_body)}")
+        {:ok, %{status: status, body: _resp_body}} ->
+          Logger.warning("Supabase QnA insert failed with status #{status}")
           {:error, :insert_failed}
 
-        {:error, reason} ->
-          Logger.warning("Supabase QnA insert error: #{inspect(reason)}")
+        {:error, _reason} ->
+          Logger.warning("Supabase QnA insert transport error")
           {:error, :insert_failed}
       end
     end
   end
 
   def upvote_qna(presentation_id, question_id, participant_id, participant_token) do
-    with :ok <- ensure_participant_token(presentation_id, participant_id, participant_token),
-         {:ok, run_id, _} <- active_run(presentation_id),
+    with {:ok, run_id} <-
+           ensure_participant_token(presentation_id, participant_id, participant_token),
          {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
-      case Req.get(
-             url: "#{base_url}#{@supabase_rest}/qna_questions",
-             params: %{
-               id: "eq.#{question_id}",
-               presentation_id: "eq.#{presentation_id}",
-               run_id: "eq.#{run_id}",
-               select: "upvotes,slide_id"
+      case Req.post(
+             url: "#{base_url}#{@supabase_rest}/rpc/upvote_presentation_qna",
+             json: %{
+               p_presentation_id: presentation_id,
+               p_run_id: run_id,
+               p_question_id: question_id,
+               p_participant_id: participant_id
              },
              headers: headers(api_key),
              receive_timeout: 10_000
            ) do
-        {:ok, %{status: 200, body: [q | _]}} ->
-          with :ok <- ensure_slide_belongs_to_presentation(presentation_id, q["slide_id"]),
-               :new <-
-                 ensure_new_qna_upvote(
-                   base_url,
-                   api_key,
-                   presentation_id,
-                   run_id,
-                   question_id,
-                   participant_id
-                 ) do
-            new_count = (q["upvotes"] || 0) + 1
+        {:ok, %{status: 200, body: %{"slide_id" => slide_id}}} ->
+          with {:ok, activity} <- refresh_activity(slide_id),
+               do: {:ok, slide_id, activity.questions}
 
-            Req.patch(
-              url: "#{base_url}#{@supabase_rest}/qna_questions",
-              params: %{id: "eq.#{question_id}"},
-              json: %{upvotes: new_count},
-              headers: headers(api_key),
-              receive_timeout: 10_000
-            )
+        {:ok, %{status: status}} ->
+          Logger.warning("Supabase QnA upvote RPC failed with status #{status}")
+          {:error, :insert_failed}
 
-            with {:ok, activity} <- refresh_activity(q["slide_id"]), do: {:ok, activity.questions}
-          else
-            :existing ->
-              with {:ok, activity} <- get_activity(q["slide_id"]), do: {:ok, activity.questions}
-
-            {:error, reason} ->
-              {:error, reason}
-          end
-
-        _ ->
-          {:error, :not_found}
+        {:error, _reason} ->
+          Logger.warning("Supabase QnA upvote RPC transport failed")
+          {:error, :insert_failed}
       end
-    end
-  end
-
-  defp ensure_new_qna_upvote(
-         base_url,
-         api_key,
-         presentation_id,
-         run_id,
-         question_id,
-         participant_id
-       ) do
-    case Req.post(
-           url: "#{base_url}#{@supabase_rest}/qna_question_upvotes",
-           json: %{
-             presentation_id: presentation_id,
-             run_id: run_id,
-             question_id: question_id,
-             participant_id: participant_id
-           },
-           headers: headers(api_key),
-           receive_timeout: 10_000
-         ) do
-      {:ok, %{status: status}} when status in [200, 201] ->
-        :new
-
-      {:ok, %{status: 409}} ->
-        :existing
-
-      {:ok, %{status: status, body: body}} ->
-        Logger.warning("Supabase QnA upvote insert failed #{status}: #{inspect(body)}")
-        {:error, :insert_failed}
-
-      {:error, reason} ->
-        Logger.warning("Supabase QnA upvote insert error: #{inspect(reason)}")
-        {:error, :insert_failed}
     end
   end
 
   def slide_activity(presentation_id, slide_id, auth_payload \\ %{}) do
     with {:ok, role} <- ensure_activity_access(presentation_id, auth_payload),
-         :ok <- ensure_slide_belongs_to_presentation(presentation_id, slide_id),
-         {:ok, activity} <- get_activity(slide_id),
          {:ok, snapshot} <- get_snapshot(presentation_id) do
-      shaped =
-        case role do
-          :presenter ->
-            activity
+      case role do
+        :presenter ->
+          with {:ok, run_id, _} <- active_run(presentation_id),
+               :ok <- ensure_slide_belongs_to_run(presentation_id, run_id, slide_id),
+               {:ok, activity} <- get_activity(presentation_id, run_id, slide_id) do
+            {:ok, activity}
+          end
 
-          {:participant, participant_id} ->
-            activity
-            |> public_activity(snapshot.results_hidden)
-            |> Map.put(
-              :own_response,
-              Enum.find(activity.responses || [], &(&1["participant_id"] == participant_id))
-            )
-        end
+        {:participant, participant_id, run_id} ->
+          with :ok <- ensure_slide_belongs_to_run(presentation_id, run_id, slide_id),
+               {:ok, activity} <- get_activity(presentation_id, run_id, slide_id) do
+            shaped =
+              activity
+              |> public_activity(snapshot.results_hidden)
+              |> Map.put(
+                :own_response,
+                Enum.find(activity.responses || [], &(&1["participant_id"] == participant_id))
+              )
 
-      {:ok, shaped}
+            {:ok, shaped}
+          end
+      end
     end
   end
 
@@ -458,72 +477,56 @@ defmodule QuizworldRealtime.Presentations do
          {:ok, run_id, _} <- active_run(presentation_id),
          {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
-      now = DateTime.utc_now() |> DateTime.to_iso8601()
+      case Req.post(
+             url: "#{base_url}#{@supabase_rest}/rpc/finish_presentation_run",
+             json: %{
+               p_presentation_id: presentation_id,
+               p_run_id: run_id,
+               p_presenter_token: presenter_token
+             },
+             headers: headers(api_key),
+             receive_timeout: 10_000
+           ) do
+        {:ok, %{status: 200}} ->
+          PresentationStore.delete_presentation(presentation_id, run_id)
+          {:ok, :ended}
 
-      with {:ok, _} <- update_presentation_status(base_url, api_key, presentation_id, now),
-           {:ok, _} <- update_live_session_status(base_url, api_key, presentation_id, now) do
-        PresentationStore.delete_presentation(presentation_id, run_id)
-        {:ok, :ended}
+        {:ok, %{status: status}} ->
+          Logger.warning("Supabase presentation finish RPC failed with status #{status}")
+          {:error, :update_failed}
+
+        {:error, _reason} ->
+          Logger.warning("Supabase presentation finish RPC transport error")
+          {:error, :update_failed}
       end
     end
   end
 
   # A live session is an immutable run. Starting never mutates or deletes an
   # earlier run's participants, responses, or Q&A rows.
-  defp finish_active_runs(presentation_id) do
-    with {:ok, base_url} <- fetch_env(:supabase_url),
-         {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
-      now = DateTime.utc_now() |> DateTime.to_iso8601()
-
-      case Req.patch(
-             url: "#{base_url}#{@supabase_rest}/presentation_live_sessions",
-             params: %{presentation_id: "eq.#{presentation_id}", status: "eq.live"},
-             json: %{status: "finished", ended_at: now},
-             headers: headers(api_key),
-             receive_timeout: 10_000
-           ) do
-        {:ok, %{status: status}} when status in [200, 204] ->
-          :ok
-
-        {:ok, %{status: status, body: body}} ->
-          Logger.warning(
-            "Supabase previous presentation run close failed #{status}: #{inspect(body)}"
-          )
-
-          {:error, :update_failed}
-
-        {:error, reason} ->
-          Logger.warning("Supabase previous presentation run close error: #{inspect(reason)}")
-          {:error, :update_failed}
-      end
-    end
-  end
-
   defp create_live_session(presentation_id) do
     with {:ok, base_url} <- fetch_env(:supabase_url),
          {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
       presenter_token = token()
 
       case Req.post(
-             url: "#{base_url}#{@supabase_rest}/presentation_live_sessions",
+             url: "#{base_url}#{@supabase_rest}/rpc/start_presentation_run",
              json: %{
-               presentation_id: presentation_id,
-               presenter_token: presenter_token,
-               status: "live",
-               state: %{quiz_reveals: %{}}
+               p_presentation_id: presentation_id,
+               p_presenter_token: presenter_token
              },
              headers: headers(api_key),
              receive_timeout: 10_000
            ) do
-        {:ok, %{status: status, body: [%{"id" => run_id} | _]}} when status in [200, 201] ->
+        {:ok, %{status: 200, body: %{"run_id" => run_id}}} ->
           {:ok, run_id, presenter_token}
 
-        {:ok, %{status: status, body: body}} ->
-          Logger.warning("Supabase live session insert failed #{status}: #{inspect(body)}")
+        {:ok, %{status: status}} ->
+          Logger.warning("Supabase presentation start RPC failed with status #{status}")
           {:error, :insert_failed}
 
-        {:error, reason} ->
-          Logger.warning("Supabase live session insert error: #{inspect(reason)}")
+        {:error, _reason} ->
+          Logger.warning("Supabase presentation start RPC transport error")
           {:error, :insert_failed}
       end
     end
@@ -605,7 +608,7 @@ defmodule QuizworldRealtime.Presentations do
          "participant_token" => participant_token
        }) do
     case ensure_participant_token(presentation_id, participant_id, participant_token) do
-      :ok -> {:ok, {:participant, participant_id}}
+      {:ok, run_id} -> {:ok, {:participant, participant_id, run_id}}
       error -> error
     end
   end
@@ -622,7 +625,7 @@ defmodule QuizworldRealtime.Presentations do
            participant_id,
            participant_token
          ) do
-        :ok
+        {:ok, run_id}
       else
         with {:ok, base_url} <- fetch_env(:supabase_url),
              {:ok, api_key} <- fetch_env(:supabase_service_role_key) do
@@ -633,7 +636,7 @@ defmodule QuizworldRealtime.Presentations do
                    presentation_id: "eq.#{presentation_id}",
                    run_id: "eq.#{run_id}",
                    participant_token: "eq.#{participant_token}",
-                   select: "id"
+                   select: "id,participant_name"
                  },
                  headers: headers(api_key),
                  receive_timeout: 10_000
@@ -647,7 +650,7 @@ defmodule QuizworldRealtime.Presentations do
                 run_id
               )
 
-              :ok
+              {:ok, run_id}
 
             {:ok, %{status: 200, body: [_ | _]}} ->
               PresentationStore.put_participant(
@@ -658,7 +661,7 @@ defmodule QuizworldRealtime.Presentations do
                 run_id
               )
 
-              :ok
+              {:ok, run_id}
 
             _ ->
               {:error, :invalid_participant_token}
@@ -671,8 +674,111 @@ defmodule QuizworldRealtime.Presentations do
   defp ensure_participant_token(_presentation_id, _participant_id, _participant_token),
     do: {:error, :invalid_participant_token}
 
-  defp ensure_slide_belongs_to_presentation(presentation_id, slide_id) when is_binary(slide_id) do
-    with {:ok, run_id, _} <- active_run(presentation_id) do
+  defp participant_name(presentation_id, run_id, participant_id) do
+    with {:ok, participant} <-
+           PresentationStore.fetch_participant(presentation_id, run_id, participant_id),
+         name when is_binary(name) <- participant["participant_name"] do
+      {:ok, name |> String.trim() |> String.slice(0, 80)}
+    else
+      _ -> {:error, :invalid_participant_token}
+    end
+  end
+
+  defp ensure_current_slide(presentation_id, slide_id) do
+    with {:ok, snapshot} <- get_snapshot(presentation_id),
+         %{} = slide <- Enum.at(snapshot.slides, snapshot.current_slide_index),
+         ^slide_id <- slide["id"] || slide[:id] do
+      {:ok, slide}
+    else
+      _ -> {:error, :stale_slide}
+    end
+  end
+
+  @doc false
+  def validate_response_for_slide(slide, response_data) when is_map(response_data) do
+    type = slide["slide_type"] || slide[:slide_type]
+    content = slide["content"] || slide[:content] || %{}
+    interactive = content["interactive"] || content[:interactive]
+    definition = if is_map(interactive), do: interactive, else: content
+
+    response_type =
+      if is_map(interactive), do: interactive["type"] || interactive[:type], else: type
+
+    case response_type do
+      "poll" ->
+        validate_choice(
+          response_data,
+          definition["options"] || definition[:options] || [],
+          "option_id"
+        )
+
+      "quiz" ->
+        validate_choice(
+          response_data,
+          definition["answers"] || definition[:answers] || [],
+          "answer_id"
+        )
+
+      "open_text" ->
+        validate_short_text(response_data, "text", 2_000)
+
+      "word_cloud" ->
+        validate_short_text(response_data, "words", 80)
+
+      "scale" ->
+        value = response_data["value"]
+        min_value = definition["min"] || definition[:min] || 1
+        max_value = definition["max"] || definition[:max] || 10
+
+        if is_number(value) and value >= min_value and value <= max_value,
+          do: {:ok, %{"value" => value}},
+          else: {:error, :bad_response}
+
+      _ ->
+        {:error, :bad_response}
+    end
+  end
+
+  def validate_response_for_slide(_slide, _response_data), do: {:error, :bad_response}
+
+  defp validate_choice(response_data, choices, key) do
+    choice_id = response_data[key]
+    valid_ids = Enum.map(choices, &(&1["id"] || &1[:id]))
+
+    if is_binary(choice_id) and choice_id in valid_ids,
+      do: {:ok, %{key => choice_id}},
+      else: {:error, :bad_response}
+  end
+
+  defp validate_short_text(response_data, key, max_length) do
+    value = response_data[key]
+    trimmed = if is_binary(value), do: String.trim(value), else: ""
+
+    if trimmed != "" and String.length(trimmed) <= max_length,
+      do: {:ok, %{key => trimmed}},
+      else: {:error, :bad_response}
+  end
+
+  @doc false
+  def validate_qna_for_slide(slide, question) do
+    type = slide["slide_type"] || slide[:slide_type]
+    content = slide["content"] || slide[:content] || %{}
+    interactive = content["interactive"] || content[:interactive] || %{}
+
+    is_qna =
+      type == "qna" or
+        (type == "content" and (interactive["type"] || interactive[:type]) == "qna")
+
+    trimmed = if is_binary(question), do: String.trim(question), else: ""
+
+    if is_qna and trimmed != "" and String.length(trimmed) <= 500,
+      do: {:ok, trimmed},
+      else: {:error, :bad_response}
+  end
+
+  defp ensure_slide_belongs_to_run(presentation_id, run_id, slide_id)
+       when is_binary(run_id) and is_binary(slide_id) do
+    with {:ok, ^run_id, _} <- active_run(presentation_id) do
       if PresentationStore.slide_belongs?(presentation_id, run_id, slide_id) do
         :ok
       else
@@ -693,10 +799,12 @@ defmodule QuizworldRealtime.Presentations do
           end
         end
       end
+    else
+      _ -> {:error, :invalid_participant_token}
     end
   end
 
-  defp ensure_slide_belongs_to_presentation(_presentation_id, _slide_id), do: {:error, :bad_slide}
+  defp ensure_slide_belongs_to_run(_presentation_id, _run_id, _slide_id), do: {:error, :bad_slide}
 
   defp find_live_presentation_by_code(join_code) do
     normalized =
@@ -755,12 +863,12 @@ defmodule QuizworldRealtime.Presentations do
 
           {:ok, participant_id, participant_token}
 
-        {:ok, %{status: status, body: resp_body}} ->
-          Logger.warning("Supabase participant insert failed #{status}: #{inspect(resp_body)}")
+        {:ok, %{status: status, body: _resp_body}} ->
+          Logger.warning("Supabase participant insert failed with status #{status}")
           {:error, :insert_failed}
 
-        {:error, reason} ->
-          Logger.warning("Supabase participant insert error: #{inspect(reason)}")
+        {:error, _reason} ->
+          Logger.warning("Supabase participant insert transport error")
           {:error, :insert_failed}
       end
     end
@@ -785,58 +893,14 @@ defmodule QuizworldRealtime.Presentations do
         {:ok, %{status: 204}} ->
           cached_or_refresh_snapshot(presentation_id, patch)
 
-        {:ok, %{status: status, body: body}} ->
-          Logger.warning("Supabase presentation update failed #{status}: #{inspect(body)}")
+        {:ok, %{status: status, body: _body}} ->
+          Logger.warning("Supabase presentation update failed with status #{status}")
           {:error, :update_failed}
 
-        {:error, reason} ->
-          Logger.warning("Supabase presentation update error: #{inspect(reason)}")
+        {:error, _reason} ->
+          Logger.warning("Supabase presentation update transport error")
           {:error, :update_failed}
       end
-    end
-  end
-
-  defp update_presentation_status(base_url, api_key, presentation_id, now) do
-    case Req.patch(
-           url: "#{base_url}#{@supabase_rest}/presentations",
-           params: %{id: "eq.#{presentation_id}"},
-           json: %{status: "finished", finished_at: now},
-           headers: headers(api_key),
-           receive_timeout: 10_000
-         ) do
-      {:ok, %{status: status}} when status in [200, 204] ->
-        {:ok, :updated}
-
-      {:ok, %{status: status, body: body}} ->
-        Logger.warning("Supabase presentation finish failed #{status}: #{inspect(body)}")
-        {:error, :update_failed}
-
-      {:error, reason} ->
-        Logger.warning("Supabase presentation finish error: #{inspect(reason)}")
-        {:error, :update_failed}
-    end
-  end
-
-  defp update_live_session_status(base_url, api_key, presentation_id, now) do
-    {:ok, run_id, _} = active_run(presentation_id)
-
-    case Req.patch(
-           url: "#{base_url}#{@supabase_rest}/presentation_live_sessions",
-           params: %{presentation_id: "eq.#{presentation_id}", id: "eq.#{run_id}"},
-           json: %{status: "finished", ended_at: now},
-           headers: headers(api_key),
-           receive_timeout: 10_000
-         ) do
-      {:ok, %{status: status}} when status in [200, 204] ->
-        {:ok, :updated}
-
-      {:ok, %{status: status, body: body}} ->
-        Logger.warning("Supabase live session finish failed #{status}: #{inspect(body)}")
-        {:error, :update_failed}
-
-      {:error, reason} ->
-        Logger.warning("Supabase live session finish error: #{inspect(reason)}")
-        {:error, :update_failed}
     end
   end
 
@@ -857,32 +921,41 @@ defmodule QuizworldRealtime.Presentations do
         {:ok, %{status: 200, body: responses}} ->
           {:ok, responses}
 
-        {:ok, %{status: status, body: body}} ->
-          Logger.warning("Supabase slide responses fetch failed #{status}: #{inspect(body)}")
+        {:ok, %{status: status, body: _body}} ->
+          Logger.warning("Supabase slide responses fetch failed with status #{status}")
           {:error, :activity_unavailable}
 
-        {:error, reason} ->
-          Logger.warning("Supabase slide responses fetch error: #{inspect(reason)}")
+        {:error, _reason} ->
+          Logger.warning("Supabase slide responses fetch transport error")
           {:error, :activity_unavailable}
       end
+    end
+  end
+
+  defp get_activity(presentation_id, run_id, slide_id) do
+    case PresentationStore.fetch_activity(presentation_id, run_id, slide_id) do
+      {:ok, activity} -> {:ok, activity}
+      {:error, _} -> refresh_activity(presentation_id, run_id, slide_id)
     end
   end
 
   defp get_activity(slide_id) do
     with {:ok, presentation_id, run_id} <- context_for_slide(slide_id) do
-      case PresentationStore.fetch_activity(presentation_id, run_id, slide_id) do
-        {:ok, activity} -> {:ok, activity}
-        {:error, _} -> refresh_activity(slide_id)
-      end
+      get_activity(presentation_id, run_id, slide_id)
+    end
+  end
+
+  defp refresh_activity(presentation_id, run_id, slide_id) do
+    with {:ok, responses} <- get_slide_responses_from_supabase(slide_id, run_id),
+         {:ok, questions} <- get_qna_questions_from_supabase(slide_id, run_id) do
+      PresentationStore.put_activity(presentation_id, run_id, slide_id, responses, questions)
+      {:ok, %{responses: responses, questions: questions}}
     end
   end
 
   defp refresh_activity(slide_id) do
-    with {:ok, presentation_id, run_id} <- context_for_slide(slide_id),
-         {:ok, responses} <- get_slide_responses_from_supabase(slide_id, run_id),
-         {:ok, questions} <- get_qna_questions_from_supabase(slide_id, run_id) do
-      PresentationStore.put_activity(presentation_id, run_id, slide_id, responses, questions)
-      {:ok, %{responses: responses, questions: questions}}
+    with {:ok, presentation_id, run_id} <- context_for_slide(slide_id) do
+      refresh_activity(presentation_id, run_id, slide_id)
     end
   end
 
@@ -920,19 +993,12 @@ defmodule QuizworldRealtime.Presentations do
         {:ok, %{status: 200, body: questions}} ->
           {:ok, questions}
 
-        {:ok, %{status: 404, body: body}} ->
-          Logger.warning(
-            "Supabase QnA table unavailable; continuing without QnA: #{inspect(body)}"
-          )
-
-          {:ok, []}
-
-        {:ok, %{status: status, body: body}} ->
-          Logger.warning("Supabase QnA fetch failed #{status}: #{inspect(body)}")
+        {:ok, %{status: status, body: _body}} ->
+          Logger.warning("Supabase QnA fetch failed with status #{status}")
           {:error, :activity_unavailable}
 
-        {:error, reason} ->
-          Logger.warning("Supabase QnA fetch error: #{inspect(reason)}")
+        {:error, _reason} ->
+          Logger.warning("Supabase QnA fetch transport error")
           {:error, :activity_unavailable}
       end
     end

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -33,6 +34,21 @@ test("featured Explore rows do not repeat in the main catalog grid", () => {
   const catalog = [{ id: "q1" }, { id: "q2" }, { id: "q3" }, { id: "q4" }];
   const result = excludeFeaturedQuizzes(catalog, [[{ id: "q1" }], [{ id: "q3" }, { id: "q1" }]]);
   assert.deepEqual(result.map((quiz) => quiz.id), ["q2", "q4"]);
+});
+
+test("catalog pages use stable keyset cursors instead of offsets", () => {
+  const explore = readFileSync(new URL("../app/explore/page.tsx", import.meta.url), "utf8");
+  const study = readFileSync(new URL("../app/study/page.tsx", import.meta.url), "utf8");
+  const cursorHelpers = readFileSync(new URL("./catalog-discovery.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(explore, /\.range\(/);
+  assert.doesNotMatch(study, /\.range\(/);
+  assert.match(explore, /countQuery[\s\S]*head: true/);
+  assert.match(study, /countQuery[\s\S]*head: true/);
+  assert.match(explore, /Promise\.all\(\[query, countQuery\]\)/);
+  assert.match(study, /Promise\.all\(\[query, countQuery\]\)/);
+  assert.match(explore, /catalogCursorFilter/);
+  assert.match(cursorHelpers, /created_at\.lt|plays\.lt|title\.gt/);
+  assert.match(study, /created_at\.lt/);
 });
 
 test("catalog count copy distinguishes loaded rows from the exact total", () => {

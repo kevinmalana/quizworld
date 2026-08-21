@@ -137,6 +137,14 @@ export function subscribeToPresentation(options: {
         return;
       }
 
+      if (msgEvent === "activity:update") {
+        const activity = p as { slide_id: string; responses: unknown[]; questions: unknown[] };
+        options.callbacks.onResponseNew?.(activity);
+        options.callbacks.onQnaNew?.(activity);
+        options.callbacks.onQnaUpdated?.(activity);
+        return;
+      }
+
       if (msgEvent === "response:new") {
         options.callbacks.onResponseNew?.(p as { slide_id: string; responses: unknown[] });
         return;

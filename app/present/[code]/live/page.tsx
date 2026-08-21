@@ -35,7 +35,6 @@ export default function PresentationLive() {
   const [loadError, setLoadError] = useState(""); const [ended, setEnded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Audience state
   const [name, setName] = useState(""); const [response, setResponse] = useState("");
   const [selectedOption, setSelectedOption] = useState<string | null>(null); const [scaleValue, setScaleValue] = useState(5);
   const [submitted, setSubmitted] = useState(false);
@@ -68,18 +67,13 @@ export default function PresentationLive() {
     return () => document.body.classList.remove("qw-present-live-route");
   }, []);
 
-  // Load initial presentation state
   useEffect(() => {
     async function load() {
-      const storedPresenterToken = readPresenterToken(code);
       const storedParticipantSession = readParticipantSession(code);
       let pres: any;
 
       try {
-        const result = await fetchPhoenixPresentation(code, {
-          presenterToken: storedPresenterToken,
-          participantToken: storedParticipantSession?.participantToken,
-        });
+        const result = await fetchPhoenixPresentation(code);
         pres = result.presentation;
       } catch (err) {
         setLoadError(err instanceof Error ? err.message : "Presentation could not be loaded.");
@@ -90,17 +84,21 @@ export default function PresentationLive() {
       setTitle(pres.title);
       setJoinCode(pres.join_code);
       const host = user?.id === pres.creator_id;
+      const activeParticipantSession = storedParticipantSession?.runId === pres.run_id
+        ? storedParticipantSession
+        : null;
       setIsHost(host);
-      setPresenterToken(storedPresenterToken);
-      setParticipantSession(storedParticipantSession);
+      setPresenterToken(readPresenterToken(code, pres.run_id));
+      setParticipantSession(activeParticipantSession);
       setCurrentIndex(pres.current_slide_index || 0);
       setResultsHidden(pres.results_hidden === true);
+      setRevealedAnswers(pres.quiz_reveals || {});
       setEnded(pres.status === "finished");
       const sorted = (pres.slides || []).sort((a: Slide, b: Slide) => a.order_index - b.order_index);
       setSlides(sorted);
 
-      const savedName = storedParticipantSession?.participantName || getParticipantName();
-      if (host || storedParticipantSession || savedName !== "Anonymous") {
+      const savedName = activeParticipantSession?.participantName || getParticipantName();
+      if (host || activeParticipantSession || savedName !== "Anonymous") {
         setName(savedName);
       }
 
@@ -109,7 +107,6 @@ export default function PresentationLive() {
     load();
   }, [code, user, router]);
 
-  // Connect to Phoenix channel
   useEffect(() => {
     if (loading || ended) return;
 
@@ -135,6 +132,7 @@ export default function PresentationLive() {
             setSelectedOption(null);
           }
           if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
+          if (pres?.quiz_reveals) setRevealedAnswers(pres.quiz_reveals);
         },
         onSlideChanged: (pres: any) => {
           if (pres?.slides) {
@@ -148,6 +146,7 @@ export default function PresentationLive() {
             setSelectedOption(null);
           }
           if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
+          if (pres?.quiz_reveals) setRevealedAnswers(pres.quiz_reveals);
         },
         onResponseNew: (data) => {
           if (activityMatchesSlide(currentSlideIdRef.current, data)) {
@@ -250,7 +249,6 @@ export default function PresentationLive() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isHost, channelJoined, currentIndex, slides.length, resultsHidden, toggleFullscreen]);
 
-  // Load responses for current slide (initial + fallback)
   useEffect(() => {
     const slideId = slides[currentIndex]?.id;
     if (!slideId || slideId.startsWith("temp_")) return;
@@ -285,19 +283,21 @@ export default function PresentationLive() {
     return () => { cancelled = true; };
   }, [code, currentIndex, slides, participantId, isHost, presenterToken, participantSession]);
 
-  // Periodic fallback when websocket is unavailable.
+  // Periodic presenter activity refresh and disconnected-channel fallback.
   useEffect(() => {
-    if (loading || channelJoined) return;
+    if (loading || (channelJoined && !isHost)) return;
     const timer = window.setInterval(async () => {
       try {
-        const latest = await fetchPhoenixPresentation(code, {
-          presenterToken: isHost ? presenterToken : null,
-          participantToken: participantSession?.participantToken,
-        }) as { presentation?: any };
-        const pres = latest.presentation;
-        if (pres?.slides) setSlides([...(pres.slides || [])].sort((a: Slide, b: Slide) => a.order_index - b.order_index));
-        if (pres?.current_slide_index !== undefined) setCurrentIndex(pres.current_slide_index);
-        if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
+        if (!channelJoined) {
+          const latest = await fetchPhoenixPresentation(code, {
+            presenterToken: isHost ? presenterToken : null,
+          }) as { presentation?: any };
+          const pres = latest.presentation;
+          if (pres?.slides) setSlides([...(pres.slides || [])].sort((a: Slide, b: Slide) => a.order_index - b.order_index));
+          if (pres?.current_slide_index !== undefined) setCurrentIndex(pres.current_slide_index);
+          if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
+          if (pres?.quiz_reveals) setRevealedAnswers(pres.quiz_reveals);
+        }
 
         const slideId = slides[currentIndex]?.id;
         if (slideId && !slideId.startsWith("temp_") && (isHost || participantSession)) {

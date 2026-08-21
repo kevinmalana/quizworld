@@ -19,6 +19,10 @@ test("study completion is one atomic RPC and game completion has no browser resu
   const study = source("../app/study/[id]/StudyPageClient.tsx");
   const game = source("../app/game/[pin]/page.tsx");
   assert.match(study, /rpc\("complete_study_session_atomic"/);
-  assert.doesNotMatch(study, /rpc\("increment_xp"|rpc\("update_study_streak"|from\("study_sessions"\)\.insert/);
+  assert.match(study, /p_attempt_id/);
+  assert.match(study, /p_answers: submittedAnswersRef\.current/);
+  assert.doesNotMatch(study, /p_correct|p_total/);
+  assert.match(study, /mode === "review"/);
+  assert.doesNotMatch(study, /p_xp_earned|rpc\("increment_xp"|rpc\("update_study_streak"|from\("study_sessions"\)\.insert/);
   assert.doesNotMatch(game, /from\(['"]game_results['"]\)\.upsert|rpc\(['"]increment_xp['"]/);
 });

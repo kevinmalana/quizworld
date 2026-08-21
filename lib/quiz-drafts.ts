@@ -1,4 +1,10 @@
 export type PersistedQuestionType = "multiple_choice" | "true_false" | "poll";
+export type PersistedAiMetadata = {
+  confidence?: "high" | "medium" | "low";
+  difficulty?: "easy" | "medium" | "hard";
+  rationale?: string;
+  citations?: Array<{ snippet: string; source_label: string }>;
+};
 
 export type QuizDraftRow = {
   id: string;
@@ -25,6 +31,7 @@ export type QuizDraftQuestionRow = {
   explanation: string | null;
   video_url: string | null;
   shuffle_answers: boolean;
+  ai_metadata: PersistedAiMetadata | null;
 };
 
 export type QuizDraftAnswerRow = {
@@ -54,6 +61,7 @@ export type PublishedQuizRow = {
     explanation: string | null;
     video_url: string | null;
     shuffle_answers: boolean;
+    ai_metadata: PersistedAiMetadata | null;
     answers?: Array<{
       id: string;
       text: string;
@@ -89,6 +97,7 @@ export type QuizVersionRow = {
       explanation?: string | null;
       video_url?: string | null;
       shuffle_answers?: boolean;
+      ai_metadata?: PersistedAiMetadata | null;
       answers?: Array<{
         text?: string;
         image_url?: string | null;
@@ -115,6 +124,7 @@ export function questionsFromDraftRows(
       explanation: question.explanation ?? "",
       videoUrl: question.video_url ?? "",
       shuffleAnswers: question.shuffle_answers ?? false,
+      aiMetadata: question.ai_metadata ?? undefined,
       answers: draftAnswers
         .filter((answer) => answer.question_id === question.id)
         .sort((a, b) => a.order_index - b.order_index)
@@ -140,6 +150,7 @@ export function questionsFromPublishedQuiz(quiz: PublishedQuizRow) {
       explanation: question.explanation ?? "",
       videoUrl: question.video_url ?? "",
       shuffleAnswers: question.shuffle_answers ?? false,
+      aiMetadata: question.ai_metadata ?? undefined,
       answers: [...(question.answers ?? [])]
         .sort((a, b) => a.order_index - b.order_index)
         .map((answer) => ({
@@ -162,6 +173,7 @@ export function questionsFromVersionSnapshot(version: QuizVersionRow) {
     explanation: question.explanation ?? "",
     videoUrl: question.video_url ?? "",
     shuffleAnswers: question.shuffle_answers ?? false,
+    aiMetadata: question.ai_metadata ?? undefined,
     answers: [...(question.answers ?? [])].map((answer, answerIndex) => ({
       id: `version-answer-${version.id}-${questionIndex}-${answerIndex}`,
       text: answer.text ?? "",

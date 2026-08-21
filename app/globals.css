@@ -2244,9 +2244,20 @@ textarea {
   min-height: 44px;
 }
 
+button,
+.btn,
+[role="button"],
+a[href],
+nav a,
 .nav-icon-btn,
 .cookie-notice__dismiss {
   min-width: 44px;
+  min-height: 44px;
+}
+
+a[href] {
+  display: inline-flex;
+  align-items: center;
 }
 
 .cookie-notice {

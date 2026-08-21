@@ -9,7 +9,7 @@ import { SectionCard } from "@/components/section-card";
 import { calcLevel } from "@/components/study/study-session-panels";
 
 import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/shared";
-import { canonicalizeCategory, categoryVariants, excludeFeaturedQuizzes, formatCatalogCount, mergeCatalogPage } from "@/lib/catalog-discovery";
+import { canonicalizeCategory, catalogCursorFilter, catalogCursorForRow, categoryVariants, excludeFeaturedQuizzes, formatCatalogCount, mergeCatalogPage, type CatalogCursor } from "@/lib/catalog-discovery";
 import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/explore-quiz-card";
 
 const CATEGORY_LIST = ["All", ...new Set(Object.keys(CATEGORY_COLORS).map(canonicalizeCategory))];
@@ -23,8 +23,6 @@ const SORT_OPTIONS: { value: SortMode; label: string; icon: string }[] = [
   { value: "az", label: "A → Z", icon: "🔤" },
   { value: "za", label: "Z → A", icon: "🔤" },
 ];
-
-// ─── Super-category groups ───────────────────────────────────────────────────
 
 type SuperCategory = {
   id: string;
@@ -90,8 +88,6 @@ const SUPER_CATEGORIES: SuperCategory[] = [
   },
 ];
 
-// ─── Curated collections (UI-only) ──────────────────────────────────────────
-
 type Collection = {
   emoji: string;
   title: string;
@@ -103,7 +99,7 @@ type Collection = {
   gradientTo: string;
 };
 
-// Collections now use live category counts — quizCount is overridden at render time
+
 const COLLECTIONS: Collection[] = [
   {
     emoji: "🌍",
@@ -146,8 +142,6 @@ const COLLECTIONS: Collection[] = [
     gradientTo: "#a855f720",
   },
 ];
-
-// ─── Surprise-me modal ───────────────────────────────────────────────────────
 
 function SurpriseModal({
   quiz,
@@ -260,8 +254,6 @@ function SurpriseModal({
   );
 }
 
-// ─── Collection card ─────────────────────────────────────────────────────────
-
 function CollectionCard({
   collection,
   onCategorySelect,
@@ -315,8 +307,6 @@ function CollectionCard({
   );
 }
 
-// ─── Trending row section ────────────────────────────────────────────────────
-
 function TrendingRow({
   title,
   quizzes,
@@ -367,8 +357,6 @@ function TrendingRow({
     </div>
   );
 }
-
-// ─── Super-category selector ─────────────────────────────────────────────────
 
 function SuperCategorySelector({
   activeCategory,
@@ -491,10 +479,10 @@ function ExplorePageContent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [catalogCursor, setCatalogCursor] = useState<CatalogCursor | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Surprise me state
   const [surpriseQuiz, setSurpriseQuiz] = useState<QuizWithCreator | null>(null);
   const [surprisePool, setSurprisePool] = useState<QuizWithCreator[]>([]);
 
@@ -515,18 +503,23 @@ function ExplorePageContent() {
       setLoadingMore(true);
     }
 
-    const from = pageIndex * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
+    const cursor = append ? catalogCursor : null;
 
     let query = supabase
       .from("quizzes")
-      .select("*, questions(*, answers(*))", { count: "exact" })
+      .select("*, questions(*, answers(*))")
       .eq("is_public", true)
-      .is("archived_at", null)
-      .range(from, to);
+      .is("archived_at", null);
+    let countQuery = supabase
+      .from("quizzes")
+      .select("id", { count: "exact", head: true })
+      .eq("is_public", true)
+      .is("archived_at", null);
 
     if (activeCategory && activeCategory !== "All") {
-      query = query.in("category", categoryVariants(activeCategory));
+      const variants = categoryVariants(activeCategory);
+      query = query.in("category", variants);
+      countQuery = countQuery.in("category", variants);
     }
     if (sortMode === "newest") query = query.order("created_at", { ascending: false });
     else if (sortMode === "az") query = query.order("title", { ascending: true });
@@ -534,10 +527,14 @@ function ExplorePageContent() {
     else query = query.order("plays", { ascending: false });
     query = query.order("id", { ascending: true });
 
-    const { data, error, count } = await query;
+    const cursorFilter = catalogCursorFilter(sortMode, cursor);
+    if (cursorFilter) query = query.or(cursorFilter);
+    query = query.limit(PAGE_SIZE);
 
-    if (error) {
-      console.error("Error fetching quizzes:", error);
+    const [{ data, error }, { count, error: countError }] = await Promise.all([query, countQuery]);
+
+    if (error || countError) {
+      console.error("Error fetching quizzes:", error || countError);
       setFetchError("Could not load the quiz catalog. Please try again in a moment.");
       setLoading(false);
       setLoadingMore(false);
@@ -547,7 +544,10 @@ function ExplorePageContent() {
     const batch = data ?? [];
     const exactTotal = count ?? batch.length;
     setTotalCount(exactTotal);
-    setHasMore(from + batch.length < exactTotal);
+    setHasMore((append ? quizzes.length : 0) + batch.length < exactTotal);
+    const last = batch[batch.length - 1] as any;
+    if (last) setCatalogCursor(catalogCursorForRow(sortMode, last));
+    else if (!append) setCatalogCursor(null);
 
     if (batch.length > 0) {
       const creatorIds = [...new Set(batch.map((q: any) => q.creator_id).filter(Boolean))];
@@ -591,10 +591,6 @@ function ExplorePageContent() {
     setLoadingMore(false);
   }
 
-  // 2026-08-13: server-side category filter.
-      // Previously fetchPage ran only on mount, then category was filtered client-side over the
-      // already-fetched top-24. That meant "Mathematics" appeared to have only the top-24 math
-      // quizzes even though the DB had hundreds. Now we re-fetch when category/sort changes.
       useEffect(() => {
         setPage(0);
         fetchPage(0, false);
@@ -675,7 +671,6 @@ function ExplorePageContent() {
     fetchPage(next, true);
   }
 
-  // Keep surprise pool in sync with loaded quizzes
   useEffect(() => {
     if (quizzes.length > 0) setSurprisePool(quizzes);
   }, [quizzes]);

@@ -48,7 +48,7 @@ export function validatePresentationSlides(slides: Slide[]): string | null {
       if (!content.question?.trim() && !standalonePrompt) return `${label}: add a quiz question.`;
       const answers = (content.answers || []).filter((answer) => answer.text.trim());
       if (answers.length < 2) return `${label}: quiz slides need at least two non-empty answers.`;
-      if (!answers.some((answer) => answer.is_correct)) return `${label}: choose a correct answer.`;
+      if (answers.filter((answer) => answer.is_correct).length !== 1) return `${label}: choose exactly one correct answer.`;
     }
 
     if (type === "open_text" && !content.question?.trim()) {

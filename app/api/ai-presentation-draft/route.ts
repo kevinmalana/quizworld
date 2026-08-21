@@ -7,6 +7,7 @@ import {
 } from "@/lib/presentation/ai-draft";
 import { sanitizeJsonString } from "@/lib/quiz-ai";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { createClient } from "@/utils/supabase/server";
 
 function requireEnv(name: string) {
   const value = process.env[name]?.trim();
@@ -15,6 +16,10 @@ function requireEnv(name: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Sign in to generate a presentation." }, { status: 401 });
+
   const rateLimitResponse = await checkRateLimit(request);
   if (rateLimitResponse) return rateLimitResponse;
 

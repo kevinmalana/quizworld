@@ -72,6 +72,30 @@ defmodule QuizworldRealtime.PresentationSnapshotTest do
              ]
     end
 
+    test "removes nested snake_case and camelCase answer keys from all audience fields" do
+      snapshot = %{
+        creator_id: "host-secret",
+        settings: %{"correctAnswerId" => "settings-leak", "theme" => "dark"},
+        slides: [
+          %{
+            "content" => %{
+              "answers" => [%{"id" => "a", "isCorrect" => true}],
+              "interactive" => %{"correct_answer_id" => "a"}
+            },
+            "settings" => %{"answerKey" => "a", "layout" => "grid"}
+          }
+        ]
+      }
+
+      safe = PresentationSnapshot.for_audience(snapshot)
+      assert safe.creator_id == "host-secret"
+      refute inspect(safe) =~ "settings-leak"
+      refute inspect(safe) =~ "answerKey"
+      refute inspect(safe) =~ "isCorrect"
+      assert safe.settings["theme"] == "dark"
+      assert get_in(safe, [:slides, Access.at(0), "settings", "layout"]) == "grid"
+    end
+
     test "preserves snapshot key style and unrelated content" do
       snapshot = %{
         "id" => "deck-1",

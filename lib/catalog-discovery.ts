@@ -40,6 +40,35 @@ export function categoryVariants(category: string): string[] {
   return CATEGORY_ALIASES[canonical] ?? [canonical];
 }
 
+export type CatalogCursor = { primary: string | number; id: string };
+export type CatalogSort = "popular" | "newest" | "az" | "za";
+
+function postgrestQuoted(value: string): string {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+export function catalogCursorFilter(sortMode: CatalogSort, cursor: CatalogCursor | null): string | null {
+  if (!cursor) return null;
+  if (sortMode === "newest") {
+    const value = postgrestQuoted(String(cursor.primary));
+    return `created_at.lt.${value},and(created_at.eq.${value},id.gt.${cursor.id})`;
+  }
+  if (sortMode === "az" || sortMode === "za") {
+    const op = sortMode === "az" ? "gt" : "lt";
+    const value = postgrestQuoted(String(cursor.primary));
+    return `title.${op}.${value},and(title.eq.${value},id.gt.${cursor.id})`;
+  }
+  const value = Number(cursor.primary) || 0;
+  return `plays.lt.${value},and(plays.eq.${value},id.gt.${cursor.id})`;
+}
+
+export function catalogCursorForRow(sortMode: CatalogSort, row: { id: string; created_at: string; title: string; plays?: number | null }): CatalogCursor {
+  const primary = sortMode === "newest" ? row.created_at
+    : sortMode === "az" || sortMode === "za" ? row.title
+    : (row.plays ?? 0);
+  return { primary, id: row.id };
+}
+
 export function mergeCatalogPage<T extends { id: string }>(current: T[], incoming: T[]): T[] {
   const seen = new Set<string>();
   return [...current, ...incoming].filter((item) => {

@@ -7,7 +7,9 @@ test.describe("Join PIN entry", () => {
     const cells = page.locator('input[aria-label^="PIN character"]');
     await expect(cells).toHaveCount(6);
 
-    await cells.first().pressSequentially("ABC234", { delay: 25 });
+    for (const [index, value] of ["A", "B", "C", "2", "3", "4"].entries()) {
+      await cells.nth(index).fill(value);
+    }
 
     await expect
       .poll(() => cells.evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value)))

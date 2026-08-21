@@ -29,6 +29,7 @@ export function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<NotifItem[]>([]);
   const [open, setOpen] = useState(false);
+  const [notificationError, setNotificationError] = useState("");
   const [seenIds, setSeenIds] = useState<Set<string>>(() => {
     // Persist dismissed notifications across page loads
     try {
@@ -38,9 +39,14 @@ export function NotificationBell() {
   });
 
   async function dismissAll() {
+    setNotificationError("");
     const persistedIds = items.flatMap(item => item.notificationId ? [item.notificationId] : []);
     if (persistedIds.length > 0) {
-      await supabase.rpc("mark_notifications_read", { p_notification_ids: persistedIds });
+      const { error } = await supabase.rpc("mark_notifications_read", { p_notification_ids: persistedIds });
+      if (error) {
+        setNotificationError("Could not mark notifications as read. Please try again.");
+        return;
+      }
     }
     const legacyIds = items.filter(item => !item.notificationId).map(item => item.id);
     const next = new Set([...seenIds, ...legacyIds]);
@@ -51,8 +57,13 @@ export function NotificationBell() {
   }
 
   async function dismissOne(item: NotifItem) {
+    setNotificationError("");
     if (item.notificationId) {
-      await supabase.rpc("mark_notifications_read", { p_notification_ids: [item.notificationId] });
+      const { error } = await supabase.rpc("mark_notifications_read", { p_notification_ids: [item.notificationId] });
+      if (error) {
+        setNotificationError("Could not mark this notification as read. Please try again.");
+        return;
+      }
     } else {
       const next = new Set([...seenIds, item.id]);
       setSeenIds(next);
@@ -198,6 +209,7 @@ export function NotificationBell() {
               <button className="notif-clear-btn" onClick={() => void dismissAll()}>Clear all</button>
             )}
           </div>
+          {notificationError && <div className="error-message" role="alert">{notificationError}</div>}
           {items.length === 0 ? (
             <div className="notif-empty">All caught up! 🎉</div>
           ) : (

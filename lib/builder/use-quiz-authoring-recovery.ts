@@ -53,6 +53,7 @@ type Options = {
   duplicateParam: boolean;
   router: { push(href: string): void };
   storageKey: string;
+  currentRemoteDraftId: string | null;
   currentDraft: CurrentDraft;
   makeBlankQuestion: () => QuestionData;
   onRecover: (state: RecoveredQuizAuthoringState) => void;
@@ -69,6 +70,7 @@ export function useQuizAuthoringRecovery(options: Options): void {
     duplicateParam,
     router,
     storageKey,
+    currentRemoteDraftId,
     currentDraft,
     makeBlankQuestion,
     onRecover,
@@ -78,6 +80,7 @@ export function useQuizAuthoringRecovery(options: Options): void {
   useEffect(() => {
     const intent = getIntent(draftParam, quizParam, versionParam, duplicateParam);
     if (intent.kind === "new" || authLoading) return;
+    if (intent.kind === "draft" && intent.id === currentRemoteDraftId) return;
     if (!userId) {
       sessionStorage.setItem("qw_post_login_redirect", getLifecycleHref(intent));
       router.push("/login");
@@ -98,7 +101,7 @@ export function useQuizAuthoringRecovery(options: Options): void {
     }
     void load();
     return () => { ignore = true; };
-  }, [authLoading, draftParam, duplicateParam, makeBlankQuestion, onLoadError, onRecover, quizParam, router, userId, versionParam]);
+  }, [authLoading, currentRemoteDraftId, draftParam, duplicateParam, makeBlankQuestion, onLoadError, onRecover, quizParam, router, userId, versionParam]);
 
   useEffect(() => {
     if (draftParam || quizParam || versionParam) return;
@@ -116,6 +119,7 @@ export function useQuizAuthoringRecovery(options: Options): void {
   }, [draftParam, onRecover, quizParam, storageKey, versionParam]);
 
   useEffect(() => {
+    if (draftParam || quizParam || versionParam || currentRemoteDraftId) return;
     const hasContent = Boolean(
       currentDraft.title.trim() ||
       currentDraft.questions.length > 1 ||
@@ -129,7 +133,7 @@ export function useQuizAuthoringRecovery(options: Options): void {
     } catch {
       // Storage may be unavailable in hardened/private browsing contexts.
     }
-  }, [currentDraft, storageKey]);
+  }, [currentDraft, currentRemoteDraftId, draftParam, quizParam, storageKey, versionParam]);
 }
 
 function getIntent(
@@ -161,7 +165,7 @@ async function loadRemoteAuthoringState(
     if (draftError) throw draftError;
     const { data: draftQuestions, error: questionsError } = await supabase
       .from("quiz_draft_questions")
-      .select("id,draft_id,text,image_url,video_url,shuffle_answers,time_limit,points,order_index,question_type,explanation")
+      .select("id,draft_id,text,image_url,video_url,shuffle_answers,ai_metadata,time_limit,points,order_index,question_type,explanation")
       .eq("draft_id", intent.id)
       .order("order_index", { ascending: true });
     if (questionsError) throw questionsError;
@@ -197,7 +201,7 @@ async function loadRemoteAuthoringState(
   if (intent.kind === "edit" || intent.kind === "duplicate") {
     const { data: quiz, error } = await supabase
       .from("quizzes")
-      .select("id,title,category,emoji,color,is_public,questions(id,text,image_url,video_url,shuffle_answers,time_limit,points,order_index,question_type,explanation,answers(id,text,image_url,is_correct,order_index))")
+      .select("id,title,category,emoji,color,is_public,questions(id,text,image_url,video_url,shuffle_answers,ai_metadata,time_limit,points,order_index,question_type,explanation,answers(id,text,image_url,is_correct,order_index))")
       .eq("id", intent.id)
       .eq("creator_id", userId)
       .single();

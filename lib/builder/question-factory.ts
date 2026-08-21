@@ -59,6 +59,7 @@ export function questionsToPublishPayload(questions: QuestionData[]) {
     points: question.points,
     question_type: question.type || "multiple_choice",
     explanation: question.explanation || "",
+    ai_metadata: question.aiMetadata ?? {},
     answers: question.answers.map((answer) => ({
       text: answer.text.trim(),
       image_url: answer.imageUrl || "",
@@ -104,6 +105,12 @@ export function aiDraftToQuestionData(draft: AIQuizDraft): QuestionData[] {
     timeLimit: question.time_limit,
     points: question.points,
     explanation: question.explanation || "",
+    aiMetadata: {
+      confidence: question.confidence,
+      difficulty: question.difficulty,
+      rationale: question.rationale,
+      citations: question.citations,
+    },
     answers: question.answers.map((answer) => ({
       id: uid(),
       text: answer.text,

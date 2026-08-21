@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { saveQuizDraftV2WithConflictRecovery } from "./quiz-draft-client";
+import { DraftRevisionConflictError, saveQuizDraftV2WithConflictRecovery } from "./quiz-draft-client";
 
 const value = {
   title: "Quiz", category: "Trivia", emoji: "🧠", isPublic: true, sourceType: "manual",
@@ -12,20 +12,21 @@ const value = {
   }],
 };
 
-test("draft revision conflict refreshes the server revision and retries the same complete state", async () => {
+test("draft revision conflict is surfaced instead of overwriting newer remote work", async () => {
   const revisions: unknown[] = [];
   const client = {
     async rpc(_name: string, payload: unknown) {
       revisions.push((payload as { p_expected_revision: unknown }).p_expected_revision);
-      return revisions.length === 1
-        ? { data: null, error: { message: "revision conflict" } }
-        : { data: { draft_id: "d1", revision: 10 }, error: null };
-    },
-    from() {
-      return { select: () => ({ eq: () => ({ single: async () => ({ data: { revision: 9 }, error: null }) }) }) };
+      return {
+        data: { ok: false, error: "revision_conflict", draft_id: "d1", revision: 9 },
+        error: null,
+      };
     },
   };
-  const saved = await saveQuizDraftV2WithConflictRecovery({ client, draftId: "d1", expectedRevision: 8, value });
-  assert.deepEqual(revisions, [8, 9]);
-  assert.deepEqual(saved, { draftId: "d1", revision: 10 });
+
+  await assert.rejects(
+    saveQuizDraftV2WithConflictRecovery({ client, draftId: "d1", expectedRevision: 8, value }),
+    (error: unknown) => error instanceof DraftRevisionConflictError && error.serverRevision === 9,
+  );
+  assert.deepEqual(revisions, [8]);
 });

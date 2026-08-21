@@ -34,6 +34,7 @@ export default function PresentationEditor() {
   const [importedCount, setImportedCount] = useState(0); // for bulk convert banner
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const markDirty = useCallback(() => setDirty(true), []);
 
   useEffect(() => {
     async function load() {
@@ -70,7 +71,7 @@ export default function PresentationEditor() {
       settings: {},
     };
     setSlides(prev => [...prev, newSlide]);
-    setDirty(true);
+    markDirty();
     setActiveIndex(slides.length);
     setShowAddSlide(false);
   }, [code, slides.length]);
@@ -89,7 +90,7 @@ export default function PresentationEditor() {
     }));
 
     setSlides(prev => [...prev, ...newSlides]);
-    setDirty(true);
+    markDirty();
     setActiveIndex(baseIndex);
     setImportedCount(imported.length); // FIX 4: show bulk convert banner
     setShowImportDeck(false);
@@ -104,29 +105,33 @@ export default function PresentationEditor() {
 
   const updateSlide = useCallback((idx: number, updates: Partial<Slide>) => {
     setSlides(prev => prev.map((s, i) => i === idx ? { ...s, ...updates } : s));
-    setDirty(true);
+    markDirty();
   }, []);
 
   const deleteSlide = useCallback((idx: number) => {
     if (slides.length <= 1) return;
     setSlides(prev => prev.filter((_, i) => i !== idx));
-    setDirty(true);
+    markDirty();
     setActiveIndex(prev => Math.min(prev, slides.length - 2));
   }, [slides.length]);
 
   const editorValue = { title, slides };
   const editorRevisionKey = JSON.stringify(editorValue);
+  const latestEditorRevision = useRef(editorRevisionKey);
+  latestEditorRevision.current = editorRevisionKey;
   const saveEditorValue = useCallback(async (value: typeof editorValue) => {
-    const validationError = validatePresentationSlides(value.slides);
-    if (validationError) {
-      throw new Error(validationError);
-    }
-    const { error } = await supabase.rpc("save_presentation", {
+    const savedRevision = JSON.stringify(value);
+    const { data, error } = await supabase.rpc("save_presentation_v2", {
       p_presentation_id: code,
       p_title: value.title,
       p_slides: value.slides,
     });
     if (error) throw error;
+    const canonicalSlides = (data as { slides?: unknown } | null)?.slides;
+    if (!Array.isArray(canonicalSlides)) throw new Error("Presentation save did not return canonical slides.");
+    if (latestEditorRevision.current === savedRevision) {
+      setSlides(canonicalSlides as Slide[]);
+    }
   }, [code]);
   const autosave = useSerializedAutosave({
     value: editorValue,
@@ -146,10 +151,8 @@ export default function PresentationEditor() {
   }, [autosave.status, autosave.error, dirty]);
 
   const savePresentation = useCallback(async () => {
-    const validationError = validatePresentationSlides(slides);
-    if (validationError) { setError(validationError); return false; }
     setError("");
-    setDirty(true);
+    markDirty();
     try {
       const result = await autosave.flush();
       return result.status === "saved";
@@ -157,10 +160,15 @@ export default function PresentationEditor() {
       setError(err instanceof Error ? err.message : "Save failed.");
       return false;
     }
-  }, [autosave, slides]);
+  }, [autosave]);
 
   const startPresenting = useCallback(async () => {
     if (presenting) return;
+    const validationError = validatePresentationSlides(slides);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setPresenting(true);
 
     const saved = await savePresentation();
@@ -181,13 +189,15 @@ export default function PresentationEditor() {
 
     try {
       const live = await startPhoenixPresentation(code, session.access_token);
-      writePresenterToken(code, live.presenter_token);
+      const runId = live.presentation.run_id;
+      if (!runId) throw new Error("Presentation start did not return a run id.");
+      writePresenterToken(code, live.presenter_token, runId);
       router.push(`/present/${code}/live`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start presentation.");
       setPresenting(false);
     }
-  }, [code, presenting, savePresentation, router]);
+  }, [code, presenting, savePresentation, router, slides]);
 
   // Bulk convert all imported slides — sets content.interactive overlay, keeps image
   const bulkConvertImported = useCallback((toType: "poll" | "quiz" | "open_text" | "word_cloud" | "qna") => {
@@ -195,7 +205,7 @@ export default function PresentationEditor() {
       if (!(s.content as Record<string, unknown>)._imported) return s;
       return { ...s, content: { ...s.content, interactive: makeInteractiveOverlay(toType) } } as Slide;
     }));
-    setDirty(true);
+    markDirty();
     setImportedCount(0);
   }, []);
 
@@ -283,7 +293,7 @@ export default function PresentationEditor() {
           onImport={() => setShowImportDeck(true)}
           onReorder={(reordered) => {
             setSlides(reordered);
-            setDirty(true);
+            markDirty();
             const activeId = slides[activeIndex]?.id;
             if (activeId) {
               const newIdx = reordered.findIndex((s) => s.id === activeId);

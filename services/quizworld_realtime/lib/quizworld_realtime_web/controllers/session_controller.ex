@@ -12,23 +12,28 @@ defmodule QuizworldRealtimeWeb.SessionController do
     else
       case Auth.authenticate_bearer(conn) do
         {:ok, user_id} ->
-          attrs = %{
-            "host_id" => user_id,
-            "quiz_id" => params["quiz_id"],
-            "category" => params["category"],
-            "game_mode" => params["game_mode"],
-            "questions" => params["questions"] || []
-          }
+          quiz_loader =
+            Application.get_env(:quizworld_realtime, :quiz_loader, QuizworldRealtime.QuizLoader)
 
-          case Games.create_session(attrs) do
-            {:ok, snapshot, host_token} ->
-              conn
-              |> put_status(:created)
-              |> json(%{session: snapshot, host_token: host_token})
+          with {:ok, quiz_attrs} <- quiz_loader.load_for_host(params["quiz_id"], user_id) do
+            attrs = Map.put(quiz_attrs, "host_id", user_id)
+            attrs = Map.put(attrs, "game_mode", params["game_mode"])
 
+            case Games.create_session(attrs) do
+              {:ok, snapshot, host_token} ->
+                conn
+                |> put_status(:created)
+                |> json(%{session: snapshot, host_token: host_token})
+
+              {:error, reason} ->
+                conn
+                |> put_status(:unprocessable_entity)
+                |> json(%{error: format_error(reason)})
+            end
+          else
             {:error, reason} ->
               conn
-              |> put_status(:unprocessable_entity)
+              |> put_status(status_for_quiz(reason))
               |> json(%{error: format_error(reason)})
           end
 
@@ -190,7 +195,14 @@ defmodule QuizworldRealtimeWeb.SessionController do
   defp format_error(:answer_window_closed), do: "Answer window has closed."
   defp format_error(:already_answered), do: "Your answer is already locked in."
   defp format_error(:eliminated), do: "You have been eliminated from this game."
+  defp format_error(:quiz_not_found), do: "Quiz not found."
+  defp format_error(:quiz_forbidden), do: "You do not have permission to host this quiz."
+  defp format_error(:quiz_unavailable), do: "Quiz data is temporarily unavailable."
   defp format_error(reason), do: to_string(reason)
+
+  defp status_for_quiz(:quiz_not_found), do: :not_found
+  defp status_for_quiz(:quiz_forbidden), do: :forbidden
+  defp status_for_quiz(_), do: :service_unavailable
 
   defp blank?(value), do: value |> to_string() |> String.trim() == ""
 

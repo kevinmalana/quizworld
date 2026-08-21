@@ -37,32 +37,11 @@ defmodule QuizworldRealtime.PresentationSnapshot do
   def for_role(snapshot, :presenter), do: snapshot
   def for_role(snapshot, _role), do: for_audience(snapshot)
 
-  def for_audience(snapshot) when is_map(snapshot) do
-    case fetch(snapshot, :slides) do
-      slides when is_list(slides) ->
-        put_existing_style(snapshot, :slides, Enum.map(slides, &safe_slide/1))
+  def for_audience(snapshot) when is_map(snapshot), do: sanitize(snapshot)
 
-      _ ->
-        snapshot
-    end
-  end
-
-  defp safe_slide(slide) when is_map(slide) do
-    content = fetch(slide, :content)
-
-    if is_map(content) do
-      put_existing_style(slide, :content, safe_content(content))
-    else
-      slide
-    end
-  end
-
-  defp safe_slide(slide), do: slide
-
-  defp safe_content(content), do: sanitize(content)
-
-  @sensitive_keys ~w(is_correct correct correct_answer correct_answer_id correct_answer_ids
-                     correct_answers answer_key solution)
+  @sensitive_keys ~w(is_correct isCorrect correct correct_answer correctAnswer
+                     correct_answer_id correctAnswerId correct_answer_ids correctAnswerIds
+                     correct_answers correctAnswers answer_key answerKey solution)
 
   defp sanitize(value) when is_list(value), do: Enum.map(value, &sanitize/1)
 

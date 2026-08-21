@@ -19,6 +19,12 @@ const completeQuestion = {
   videoUrl: "https://example.com/video",
   shuffleAnswers: true,
   explanation: "Paris is the capital city of France.",
+  aiMetadata: {
+    confidence: "high" as const,
+    difficulty: "easy" as const,
+    rationale: "Grounded in the source.",
+    citations: [{ source_label: "Source", snippet: "Paris is the capital city of France." }],
+  },
   answers: [
     { id: "answer-1", text: "Paris", isCorrect: true },
     { id: "answer-2", text: "Lyon", isCorrect: false },
@@ -85,6 +91,13 @@ test("draft fingerprints include persistence-relevant metadata", () => {
     buildDraftFingerprint({ ...base, questions: [{ ...completeQuestion, shuffleAnswers: false }] }),
     original,
   );
+  assert.notEqual(
+    buildDraftFingerprint({
+      ...base,
+      questions: [{ ...completeQuestion, aiMetadata: { ...completeQuestion.aiMetadata, confidence: "low" } }],
+    }),
+    original,
+  );
 });
 
 test("atomic draft payload preserves question and answer authoring fields", () => {
@@ -122,6 +135,12 @@ test("atomic draft payload preserves question and answer authoring fields", () =
           order_index: 0,
           question_type: "multiple_choice",
           explanation: "Paris is the capital city of France.",
+          ai_metadata: {
+            confidence: "high",
+            difficulty: "easy",
+            rationale: "Grounded in the source.",
+            citations: [{ source_label: "Source", snippet: "Paris is the capital city of France." }],
+          },
           answers: [
             { text: "Paris", image_url: null, is_correct: true, order_index: 0 },
             { text: "Lyon", image_url: null, is_correct: false, order_index: 1 },

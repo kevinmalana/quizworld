@@ -37,6 +37,12 @@ test("publish payload trims authored text", () => {
     {
       ...question,
       text: "  Which city is the capital of France?  ",
+      aiMetadata: {
+        confidence: "high",
+        difficulty: "easy",
+        rationale: "Grounded in the source.",
+        citations: [{ source_label: "Geography text", snippet: "Paris is the capital of France." }],
+      },
       answers: [
         { id: "a1", text: " Paris ", isCorrect: true },
         { id: "a2", text: " Lyon ", isCorrect: false },
@@ -46,6 +52,12 @@ test("publish payload trims authored text", () => {
 
   assert.equal(payload.text, "Which city is the capital of France?");
   assert.deepEqual(payload.answers.map((answer) => answer.text), ["Paris", "Lyon"]);
+  assert.deepEqual(payload.ai_metadata, {
+    confidence: "high",
+    difficulty: "easy",
+    rationale: "Grounded in the source.",
+    citations: [{ source_label: "Geography text", snippet: "Paris is the capital of France." }],
+  });
 });
 
 test("quiz validation blocks publishing when any authored question is incomplete", () => {

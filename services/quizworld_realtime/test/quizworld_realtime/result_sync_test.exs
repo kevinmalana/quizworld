@@ -37,6 +37,7 @@ defmodule QuizworldRealtime.ResultSyncTest do
     assert game.result_sync_status == :pending
 
     assert {:ok, payload} = ResultSync.build_result_payload(game)
+    assert payload.p_game_instance_id == game.instance_id
     assert payload.p_results.question_count == 1
     assert [question] = payload.p_results.question_breakdown
     assert question.question_id == "q1"

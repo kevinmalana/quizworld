@@ -15,5 +15,7 @@ test("global controls have visible focus and minimum touch targets", () => {
   const css = readFileSync(new URL("app/globals.css", root), "utf8");
   assert.match(css, /:focus-visible/);
   assert.match(css, /min-height:\s*44px/);
+  assert.match(css, /a\[href\][\s\S]*min-height:\s*44px/);
+  assert.match(css, /a\[href\]\s*\{[\s\S]*display:\s*inline-flex/);
   assert.doesNotMatch(css.match(/\.cookie-notice\s*\{[\s\S]*?\}/)?.[0] ?? "", /position:\s*fixed/);
 });

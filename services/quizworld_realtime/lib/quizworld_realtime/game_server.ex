@@ -60,9 +60,9 @@ defmodule QuizworldRealtime.GameServer do
       |> schedule_question_timer()
       |> schedule_auto_advance_timer()
       |> schedule_cleanup_timer()
+      |> maybe_start_result_sync()
 
     persist_snapshot(restored_game)
-    sync_finished_game(restored_game)
     {:ok, restored_game}
   end
 
@@ -200,17 +200,21 @@ defmodule QuizworldRealtime.GameServer do
     {:stop, :normal, game}
   end
 
-  def handle_info({:result_sync_complete, result}, game) do
+  def handle_info(
+        {:result_sync_complete, ref, result},
+        %Game{result_sync_status: :in_flight, result_sync_ref: ref} = game
+      ) do
     next_game =
       case result do
         :ok ->
-          %{game | result_sync_status: :succeeded}
+          %{game | result_sync_status: :succeeded, result_sync_ref: nil}
 
         {:error, _} ->
           %{
             game
             | result_sync_status: :pending,
-              result_sync_attempts: game.result_sync_attempts + 1
+              result_sync_attempts: game.result_sync_attempts + 1,
+              result_sync_ref: nil
           }
       end
 
@@ -223,9 +227,12 @@ defmodule QuizworldRealtime.GameServer do
     {:noreply, next_game}
   end
 
+  def handle_info({:result_sync_complete, _stale_ref, _result}, game), do: {:noreply, game}
+
   def handle_info(:retry_result_sync, game) do
-    sync_finished_game(game)
-    {:noreply, game}
+    next_game = maybe_start_result_sync(game)
+    persist_snapshot(next_game)
+    {:noreply, next_game}
   end
 
   @impl true
@@ -257,25 +264,22 @@ defmodule QuizworldRealtime.GameServer do
     do: reply_with_transition(result, current_game, :host)
 
   defp reply_with_transition({:ok, next_game}, current_game, role) do
-    next_game = prepare_next_game(next_game, current_game)
+    next_game = next_game |> prepare_next_game(current_game) |> maybe_start_result_sync()
     snapshot = persist_snapshot(next_game)
-    sync_finished_game(next_game)
     broadcast_update(next_game, snapshot)
     {:reply, {:ok, Game.snapshot(next_game, role)}, next_game}
   end
 
   defp reply_with_transition({:ok, next_game, player_token}, current_game, role) do
-    next_game = prepare_next_game(next_game, current_game)
+    next_game = next_game |> prepare_next_game(current_game) |> maybe_start_result_sync()
     snapshot = persist_snapshot(next_game)
-    sync_finished_game(next_game)
     broadcast_update(next_game, snapshot)
     {:reply, {:ok, Game.snapshot(next_game, role), player_token}, next_game}
   end
 
   defp reply_with_transition({:ok, next_game, player_token, player_id}, current_game, _role) do
-    next_game = prepare_next_game(next_game, current_game)
+    next_game = next_game |> prepare_next_game(current_game) |> maybe_start_result_sync()
     snapshot = persist_snapshot(next_game)
-    sync_finished_game(next_game)
     broadcast_update(next_game, snapshot)
 
     {:reply, {:ok, Game.snapshot(next_game, {:player, player_id}), player_token, player_id},
@@ -286,29 +290,27 @@ defmodule QuizworldRealtime.GameServer do
     {:reply, {:error, reason}, game}
   end
 
-  # 2026-08-13: Switched from `Task.start/1` (fire-and-forget) to supervised task.
-  # Failures are now visible; we can later add retries here without restructuring.
-  defp sync_finished_game(%Game{status: "finished", result_sync_status: status} = game)
-       when status != :succeeded do
+  defp maybe_start_result_sync(%Game{status: "finished", result_sync_status: :pending} = game) do
     owner = self()
+    ref = make_ref()
 
     sync_module =
       Application.get_env(:quizworld_realtime, :result_sync_module, QuizworldRealtime.ResultSync)
 
     case Task.Supervisor.start_child(
            QuizworldRealtime.TaskSupervisor,
-           fn -> send(owner, {:result_sync_complete, run_result_sync(sync_module, game)}) end
+           fn -> send(owner, {:result_sync_complete, ref, run_result_sync(sync_module, game)}) end
          ) do
       {:ok, _pid} ->
-        :ok
+        %{game | result_sync_status: :in_flight, result_sync_ref: ref}
 
-      {:error, reason} ->
-        send(owner, {:result_sync_complete, {:error, reason}})
-        {:error, reason}
+      {:error, _reason} ->
+        Process.send_after(self(), :retry_result_sync, retry_delay(game.result_sync_attempts + 1))
+        %{game | result_sync_attempts: game.result_sync_attempts + 1, result_sync_ref: nil}
     end
   end
 
-  defp sync_finished_game(_game), do: :ok
+  defp maybe_start_result_sync(game), do: game
 
   defp retry_delay(attempts) do
     base = Application.get_env(:quizworld_realtime, :result_sync_retry_base_ms, 1_000)
@@ -325,7 +327,12 @@ defmodule QuizworldRealtime.GameServer do
 
   defp normalize_recovery_state(%Game{status: "finished", result_sync_status: status} = game)
        when status != :succeeded do
-    %{game | result_sync_status: :pending, result_sync_attempts: game.result_sync_attempts || 0}
+    %{
+      game
+      | result_sync_status: :pending,
+        result_sync_attempts: game.result_sync_attempts || 0,
+        result_sync_ref: nil
+    }
   end
 
   defp normalize_recovery_state(%Game{} = game) do
@@ -341,8 +348,8 @@ defmodule QuizworldRealtime.GameServer do
   end
 
   defp noreply_transition(next_game) do
+    next_game = maybe_start_result_sync(next_game)
     snapshot = persist_snapshot(next_game)
-    sync_finished_game(next_game)
 
     Phoenix.PubSub.broadcast(
       QuizworldRealtime.PubSub,

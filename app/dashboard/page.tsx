@@ -14,6 +14,7 @@ import {
   getTotalHostedPlayers,
 } from "@/lib/reporting/game-results";
 import { questionsFromVersionSnapshot, type QuizDraftRow, type QuizVersionRow } from "@/lib/quiz-drafts";
+import { buildDraftSavePayload } from "@/lib/quiz-lifecycle";
 import { SectionCard } from "@/components/section-card";
 import { LoadingPanel, StatusPanel } from "@/components/shared/status-panel";
 import { MetricCard } from "@/components/shared/metric-card";
@@ -221,62 +222,27 @@ function DashboardPageContent() {
     setActionNotice("");
 
     try {
-      const { data: draft, error: draftError } = await supabase
-        .from("quiz_drafts")
-        .insert({
-          owner_id: user.id,
-          quiz_id: version.quiz_id,
+      const questions = questionsFromVersionSnapshot(version);
+      const { data: saved, error: saveError } = await supabase.rpc(
+        "save_quiz_draft_v2",
+        buildDraftSavePayload({
+          draftId: null,
+          expectedRevision: 0,
+          quizId: version.quiz_id,
           title: `${version.title} Restored`,
           category: version.snapshot.category ?? version.category,
-          emoji: version.snapshot.emoji ?? version.emoji,
-          color: version.snapshot.color ?? version.color,
-          is_public: version.snapshot.is_public ?? version.is_public,
-          source_type: "manual",
-          updated_at: new Date().toISOString(),
-        })
-        .select("id")
-        .single();
+          emoji: version.snapshot.emoji ?? version.emoji ?? "💡",
+          color: version.snapshot.color ?? version.color ?? "",
+          isPublic: version.snapshot.is_public ?? version.is_public,
+          sourceType: "manual",
+          questions,
+        }),
+      );
 
-      if (draftError) throw draftError;
-
-      const questions = questionsFromVersionSnapshot(version);
-
-      for (const [questionIndex, question] of questions.entries()) {
-        const { data: insertedQuestion, error: questionError } = await supabase
-          .from("quiz_draft_questions")
-          .insert({
-            draft_id: draft.id,
-            text: question.text,
-            time_limit: question.timeLimit,
-            points: question.points,
-            image_url: question.imageUrl || null, video_url: question.videoUrl || null,
-            shuffle_answers: question.shuffleAnswers ?? false, question_type: question.type,
-            explanation: question.explanation || null,
-            order_index: questionIndex,
-          })
-          .select("id")
-          .single();
-
-        if (questionError) throw questionError;
-
-        const answersPayload = question.answers.map((answer, answerIndex) => ({
-          question_id: insertedQuestion.id,
-          text: answer.text,
-          image_url: answer.imageUrl || null,
-          is_correct: answer.isCorrect,
-          order_index: answerIndex,
-        }));
-
-        if (answersPayload.length > 0) {
-          const { error: answersError } = await supabase
-            .from("quiz_draft_answers")
-            .insert(answersPayload);
-
-          if (answersError) throw answersError;
-        }
-      }
-
-      router.push(`/create?draft=${draft.id}`);
+      if (saveError) throw saveError;
+      const draftId = (saved as { draft_id?: unknown } | null)?.draft_id;
+      if (typeof draftId !== "string") throw new Error("Draft restore did not return an id.");
+      router.push(`/create?draft=${draftId}`);
     } catch (error) {
       console.error("Error restoring version to draft:", error);
       setActionError("Could not restore this version into a draft.");

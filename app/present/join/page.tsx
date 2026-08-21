@@ -67,6 +67,7 @@ function JoinForm() {
       const joined = await joinPhoenixPresentation(joinCode, participantName);
       setParticipantName(participantName);
       writeParticipantSession(joined.presentationId, {
+        runId: joined.runId,
         participantId: joined.participantId,
         participantToken: joined.participantToken,
         participantName,

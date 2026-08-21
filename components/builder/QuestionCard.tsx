@@ -23,6 +23,12 @@ export interface QuestionData {
   imageUrl?: string;
   videoUrl?: string;
   shuffleAnswers?: boolean;
+  aiMetadata?: {
+    confidence?: "high" | "medium" | "low";
+    difficulty?: "easy" | "medium" | "hard";
+    rationale?: string;
+    citations?: Array<{ snippet: string; source_label: string }>;
+  };
 }
 
 interface Props {
@@ -135,6 +141,26 @@ export function QuestionCard({ question, index, total, onChange, onDelete, onDup
           <button onClick={onDelete} className="btn btn-sm btn-ghost builder-question-action builder-question-action--danger">✕ Delete</button>
         </div>
       </div>
+
+      {question.aiMetadata && (
+        <div className="builder-ai-review" role="note" aria-label="AI generation evidence">
+          <strong>AI review</strong>
+          <span>
+            {question.aiMetadata.confidence ? ` Confidence: ${question.aiMetadata.confidence}.` : ""}
+            {question.aiMetadata.difficulty ? ` Difficulty: ${question.aiMetadata.difficulty}.` : ""}
+          </span>
+          {question.aiMetadata.rationale && <p>{question.aiMetadata.rationale}</p>}
+          {(question.aiMetadata.citations?.length ?? 0) > 0 && (
+            <ul>
+              {question.aiMetadata.citations!.map((citation, citationIndex) => (
+                <li key={`${citation.source_label}-${citationIndex}`}>
+                  <strong>{citation.source_label}:</strong> “{citation.snippet}”
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Question text */}
       <textarea

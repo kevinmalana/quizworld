@@ -113,6 +113,7 @@ export function buildDraftFingerprint(input: DraftFingerprintInput): string {
       timeLimit: question.timeLimit,
       points: question.points,
       explanation: question.explanation || "",
+      aiMetadata: question.aiMetadata ?? null,
       answers: question.answers.map((answer) => ({
         text: answer.text.trim(),
         imageUrl: answer.imageUrl || "",
@@ -143,6 +144,7 @@ export function buildDraftSavePayload(input: DraftSaveInput) {
       order_index: questionIndex,
       question_type: question.type || "multiple_choice",
       explanation: question.explanation || null,
+      ai_metadata: question.aiMetadata ?? {},
       answers: question.answers.map((answer, answerIndex) => ({
         text: answer.text,
         image_url: answer.imageUrl || null,

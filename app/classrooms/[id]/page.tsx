@@ -412,6 +412,7 @@ export default function ClassroomDetailPage() {
     }
 
     const { data: delivery, error: notificationError } = await supabase.rpc("send_classroom_nudges", {
+      p_classroom_id: id,
       p_assignment_id: assignmentId,
     });
     setNudgeSending(null);
@@ -423,7 +424,7 @@ export default function ClassroomDetailPage() {
 
     const delivered = typeof delivery === "number"
       ? delivery
-      : Number((delivery as { sent_count?: number } | null)?.sent_count ?? nudges.length);
+      : Number((delivery as { sent?: number } | null)?.sent ?? 0);
     setMsg(`📬 Reminder saved for ${delivered} student${delivered === 1 ? "" : "s"}.`);
     setMsgType("success");
     setTimeout(() => setMsg(""), 4000);

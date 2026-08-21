@@ -1,5 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 
+const PRESENTATION_SERVICE_URL = process.env.E2E_PHOENIX_URL || process.env.NEXT_PUBLIC_GAME_SERVICE_URL || 'https://quizworld-xs0g.onrender.com';
+
 /**
  * Presentation Channel Tests
  *
@@ -14,8 +16,8 @@ import { test, expect, Page } from '@playwright/test';
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 async function checkPresentationServiceAvailable(page: Page): Promise<boolean> {
-  const response = await page.request.get('https://quizworld-xs0g.onrender.com/api/sessions/HEALTHCHECK').catch(() => null);
-  return response !== null && [200, 404, 400].includes(response?.status() ?? 0);
+  const response = await page.request.get(`${PRESENTATION_SERVICE_URL}/api/health`, { timeout: 120_000 }).catch(() => null);
+  return response?.status() === 200;
 }
 
 // ─── Present Page: Availability ──────────────────────────────────────────
@@ -120,7 +122,7 @@ test.describe('Present: Disconnect Recovery', () => {
     }
 
     // Test the join endpoint exists (returns proper error for invalid code)
-    const response = await page.request.post('https://quizworld-xs0g.onrender.com/api/presentations/join', {
+    const response = await page.request.post(`${PRESENTATION_SERVICE_URL}/api/presentations/join`, {
       data: { join_code: 'INVALID', participant_name: 'Test' },
       headers: { 'Content-Type': 'application/json' }
     }).catch(() => null);
@@ -150,7 +152,7 @@ test.describe('Present: Disconnect Recovery', () => {
 test.describe('Present: Presence', () => {
   test('Phoenix Presence module is registered in application', async ({ page }) => {
     // Verify Phoenix service is alive and responding (Presence requires app to start)
-    const response = await page.request.get('https://quizworld-xs0g.onrender.com/health').catch(() => null);
+    const response = await page.request.get(`${PRESENTATION_SERVICE_URL}/health`).catch(() => null);
     // Health endpoint may return 404 (no /health route) but server is alive
     if (response) {
       expect(response.status()).not.toBe(503);
