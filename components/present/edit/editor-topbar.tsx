@@ -4,13 +4,14 @@ type EditorTopbarProps = {
   joinCode: string | null;
   error: string;
   saving: boolean;
+  presenting: boolean;
   savedOk: boolean;
   onBack: () => void;
   onSave: () => void;
   onPresent: () => void;
 };
 
-export function EditorTopbar({ title, onTitleChange, joinCode, error, saving, savedOk, onBack, onSave, onPresent }: EditorTopbarProps) {
+export function EditorTopbar({ title, onTitleChange, joinCode, error, saving, presenting, savedOk, onBack, onSave, onPresent }: EditorTopbarProps) {
   return (
     <div className="present-editor-topbar">
       <button onClick={onBack} className="present-editor-back-btn">←</button>
@@ -25,7 +26,9 @@ export function EditorTopbar({ title, onTitleChange, joinCode, error, saving, sa
       <button onClick={onSave} disabled={saving} className="present-editor-save-btn">
         {saving ? "Saving…" : savedOk ? "✅ Saved" : "Save"}
       </button>
-      <button onClick={onPresent} className="present-editor-present-btn">🎤 Present</button>
+      <button onClick={onPresent} disabled={saving || presenting} className="present-editor-present-btn">
+        {presenting ? "Starting…" : "🎤 Present"}
+      </button>
     </div>
   );
 }

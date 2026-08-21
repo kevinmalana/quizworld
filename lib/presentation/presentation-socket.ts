@@ -137,6 +137,14 @@ export function subscribeToPresentation(options: {
         return;
       }
 
+      if (msgEvent === "activity:update") {
+        const activity = p as { slide_id: string; responses: unknown[]; questions: unknown[] };
+        options.callbacks.onResponseNew?.(activity);
+        options.callbacks.onQnaNew?.(activity);
+        options.callbacks.onQnaUpdated?.(activity);
+        return;
+      }
+
       if (msgEvent === "response:new") {
         options.callbacks.onResponseNew?.(p as { slide_id: string; responses: unknown[] });
         return;
@@ -159,12 +167,6 @@ export function subscribeToPresentation(options: {
 
       if (msgEvent === "presentation:ended") {
         options.callbacks.onPresentationEnded?.();
-        return;
-      }
-
-      if (msgEvent === "presenter:disconnected") {
-        const p = payload as { message?: string };
-        options.callbacks.onPresenterDisconnected?.(p.message || "The presenter has disconnected.");
         return;
       }
 
@@ -236,6 +238,11 @@ export function subscribeToPresentation(options: {
         slide_id: slideId,
         participant_id: options.participantId || undefined,
         participant_token: options.participantToken || undefined,
+      }, true),
+    setResultsHidden: (hidden: boolean) =>
+      push("results:visibility", {
+        hidden,
+        presenter_token: options.presenterToken || undefined,
       }, true),
     endPresentation: () => push("presentation:end", { presenter_token: options.presenterToken || undefined }, true),
     revealQuizAnswers: (slideId: string, correctAnswers: string[]) =>

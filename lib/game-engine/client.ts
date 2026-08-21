@@ -91,6 +91,13 @@ export async function startPhoenixSession(pin: string, hostToken: string) {
   return postPhoenixSessionAction(pin, "start", { host_token: hostToken });
 }
 
+export async function readyPhoenixSession(
+  pin: string,
+  payload: { player_id: string; player_token: string }
+) {
+  return postPhoenixSessionAction<{ session?: Record<string, unknown> }>(pin, "ready", payload);
+}
+
 export async function revealPhoenixSession(pin: string, hostToken: string) {
   return postPhoenixSessionAction(pin, "reveal", { host_token: hostToken });
 }

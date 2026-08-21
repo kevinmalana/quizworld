@@ -1,4 +1,5 @@
 import type { Slide, SlideType, InteractiveOverlay } from "@/lib/presentation/types";
+import { makeInteractiveOverlay } from "@/lib/presentation/editor";
 import { SLIDE_TYPES } from "./slide-types";
 import { ImageUpload } from "@/components/builder/ImageUpload";
 
@@ -20,16 +21,6 @@ const INTERACTIVE_TYPES: { type: InteractiveType; icon: string; label: string }[
   { type: "word_cloud", icon: "☁️", label: "Word Cloud" },
   { type: "qna", icon: "❓", label: "Q&A" },
 ];
-
-function defaultInteractive(type: InteractiveType): InteractiveOverlay {
-  switch (type) {
-    case "poll": return { type, question: "", options: [{ id: "1", text: "" }, { id: "2", text: "" }] };
-    case "quiz": return { type, question: "", answers: [{ id: "1", text: "", is_correct: true }, { id: "2", text: "", is_correct: false }] };
-    case "open_text": return { type, question: "" };
-    case "word_cloud": return { type, prompt: "" };
-    case "qna": return { type };
-  }
-}
 
 export function SlideEditorPanel({ slide, slideIndex, slideCount, onUpdate, onDelete }: SlideEditorPanelProps) {
   const updateContent = (partial: Record<string, unknown>) => {
@@ -130,7 +121,7 @@ export function SlideEditorPanel({ slide, slideIndex, slideCount, onUpdate, onDe
                     {INTERACTIVE_TYPES.map(({ type, icon, label }) => (
                       <button
                         key={type}
-                        onClick={() => updateContent({ interactive: defaultInteractive(type) })}
+                        onClick={() => updateContent({ interactive: makeInteractiveOverlay(type) })}
                         className="btn btn-secondary"
                         style={{ fontSize: "0.75rem", padding: "0.25rem 0.625rem" }}
                       >
@@ -242,7 +233,7 @@ export function SlideEditorPanel({ slide, slideIndex, slideCount, onUpdate, onDe
                     {INTERACTIVE_TYPES.filter(t => t.type !== interactive.type).map(({ type, icon, label }) => (
                       <button
                         key={type}
-                        onClick={() => updateContent({ interactive: defaultInteractive(type) })}
+                        onClick={() => updateContent({ interactive: makeInteractiveOverlay(type) })}
                         className="btn btn-secondary"
                         style={{ fontSize: "0.7rem", padding: "0.15rem 0.5rem" }}
                       >

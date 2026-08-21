@@ -36,6 +36,14 @@ This file names the concepts and ownership rules that should remain stable acros
 - GitHub Actions verifies code. It does not perform a second Vercel deployment.
 - Render deploys the Phoenix service from `services/quizworld_realtime`.
 - Supabase schema changes use reviewed SQL migrations and are applied separately from application deployment.
+- Recovery changes deploy in compatibility order: additive Supabase migration → Phoenix → frontend → final Supabase lockdown. The lockdown must wait until both runtimes use the replacement RPCs.
+
+## Durable data invariants
+
+- A presentation live session is one immutable run. Re-launching a deck creates another run; participants, responses, Q&A, and upvotes retain their run reference and historical rows are never cleared as rollout cleanup.
+- Browser clients can read only their own notifications. Classroom teachers send nudges and recipients mark them read through authenticated RPCs; direct notification inserts and updates are not a client contract.
+- Verified study completion is one authenticated transaction that derives `auth.uid()`, validates the submitted total against the quiz questions, computes XP server-side, updates progress/profile/streak, and records assignment completion provenance.
+- Durable multiplayer results remain a Phoenix/service-role write, idempotent by game PIN. There is no browser result-write path.
 
 ## Current refactor direction
 

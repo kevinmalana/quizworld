@@ -174,9 +174,9 @@ export function SocialEmpty({
 }) {
   return (
     <div className="social-empty">
-      <div className="social-empty-icon">{icon}</div>
-      <div className="social-empty-title">{title}</div>
-      {text && <div className="social-empty-text">{text}</div>}
+      <div className="social-empty-icon" aria-hidden="true">{icon}</div>
+      <h2 className="social-empty-title">{title}</h2>
+      {text && <p className="social-empty-text">{text}</p>}
       {action}
     </div>
   );

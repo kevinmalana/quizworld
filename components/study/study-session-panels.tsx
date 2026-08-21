@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { CardState, SessionResult, StudyMode, StudyQuestion } from "@/lib/study/types";
-import { checkAndGrantAchievements } from "@/lib/achievements";
+import { calculateStudyXp } from "@/lib/study/session";
 
 // ─── Level system ─────────────────────────────────────────────────────────────
 
@@ -139,7 +139,7 @@ function AnswerGrid({
   advancing?: boolean;
   stopPropagation?: boolean;
   showCorrect?: boolean;
-  onAnswer: (correct: boolean) => void;
+  onAnswer: (correct: boolean, answerId: string) => void;
 }) {
   return (
     <div className="study-answer-grid">
@@ -152,7 +152,7 @@ function AnswerGrid({
             key={answer.id}
             onClick={(e) => {
               if (stopPropagation) e.stopPropagation();
-              onAnswer(answer.is_correct);
+              onAnswer(answer.is_correct, answer.id);
             }}
             disabled={advancing}
             className={`study-answer-button${highlight ? " is-correct-reveal" : ""}`}
@@ -247,7 +247,7 @@ export function FlashcardPanel({
   lastAnswerCorrect: boolean | null;
   onExit: () => void;
   onFlip: () => void;
-  onAnswer: (correct: boolean) => void;
+  onAnswer: (correct: boolean, answerId: string) => void;
 }) {
   const isBack = cardState === "back";
   const answered = lastAnswerCorrect !== null;
@@ -261,7 +261,17 @@ export function FlashcardPanel({
 
       <div className="study-flashcard-perspective">
         <div
+          role={!isBack ? "button" : undefined}
+          aria-label={!isBack ? "Reveal answers" : undefined}
+          aria-disabled={!isBack ? advancing : undefined}
+          tabIndex={!isBack && !advancing ? 0 : -1}
           onClick={(!isBack && !advancing) ? onFlip : undefined}
+          onKeyDown={(event) => {
+            if (!isBack && !advancing && (event.key === "Enter" || event.key === " ")) {
+              event.preventDefault();
+              onFlip();
+            }
+          }}
           className={`study-flashcard${advancing ? " is-advancing" : ""}`}
           style={{ transform: isBack ? "rotateY(180deg)" : "rotateY(0deg)", cursor: (!isBack && !advancing) ? "pointer" : "default" }}
         >
@@ -318,6 +328,7 @@ export function QuickFirePanel({
   lastAnswerCorrect,
   onExit,
   onAnswer,
+  onContinue,
 }: {
   question: StudyQuestion;
   currentIndex: number;
@@ -328,7 +339,8 @@ export function QuickFirePanel({
   advancing: boolean;
   lastAnswerCorrect: boolean | null;
   onExit: () => void;
-  onAnswer: (correct: boolean) => void;
+  onAnswer: (correct: boolean, answerId: string) => void;
+  onContinue: () => void;
 }) {
   const urgentTimer = timeLeft <= 5;
 
@@ -362,8 +374,13 @@ export function QuickFirePanel({
 
       <AnswerGrid question={question} advancing={advancing} onAnswer={onAnswer} />
 
-      {lastAnswerCorrect !== null && !advancing && (
-        <ExplanationBox question={question} show />
+      {lastAnswerCorrect !== null && (
+        <>
+          <ExplanationBox question={question} show />
+          <button type="button" className="btn btn-primary btn-lg" onClick={onContinue} autoFocus>
+            Continue →
+          </button>
+        </>
       )}
     </div>
   );
@@ -388,7 +405,7 @@ export function StudyReviewPanel({
   advancing: boolean;
   lastAnswerCorrect: boolean | null;
   onExit: () => void;
-  onAnswer: (correct: boolean) => void;
+  onAnswer: (correct: boolean, answerId: string) => void;
 }) {
   return (
     <div className="container study-play-shell">
@@ -410,7 +427,7 @@ export function StudyReviewPanel({
 
       <AnswerGrid question={question} advancing={advancing} showCorrect={lastAnswerCorrect !== null} onAnswer={onAnswer} />
 
-      {lastAnswerCorrect !== null && !advancing && (
+      {lastAnswerCorrect !== null && (
         <ExplanationBox question={question} show />
       )}
 
@@ -445,10 +462,8 @@ export function StudyResultPanel({
   onBack: () => void;
 }) {
   const pct = Math.round((result.correct / Math.max(result.total, 1)) * 100);
-  const xpPerCorrect    = mode === "quickfire" ? 45 : 25;
-  const completionBonus = result.total > 0 ? 50 : 0;
-  const perfectBonus    = result.correct === result.total && result.total > 0 ? 100 : 0;
-  const sessionXp       = result.correct * xpPerCorrect + completionBonus + perfectBonus;
+  const { xpPerCorrect, correctXp, completionBonus, perfectBonus, totalXp: sessionXp } =
+    calculateStudyXp({ mode, correct: result.correct, total: result.total });
 
   return (
     <div className="container study-result-shell">
@@ -467,7 +482,7 @@ export function StudyResultPanel({
             <div className="study-xp-breakdown__rows">
               <div className="study-xp-breakdown__row">
                 <span>{result.correct} correct × {xpPerCorrect} XP</span>
-                <span>+{result.correct * xpPerCorrect}</span>
+                <span>+{correctXp}</span>
               </div>
               <div className="study-xp-breakdown__row">
                 <span>Completion bonus</span>

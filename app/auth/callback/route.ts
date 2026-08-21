@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { normalizePostLoginRedirect } from "@/lib/auth/redirects";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = normalizePostLoginRedirect(searchParams.get("next"));
 
   if (code) {
     const response = NextResponse.redirect(`${origin}${next}`);
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error("Auth callback error:", error.message, error.status);
       return NextResponse.redirect(
-        `${origin}/login#error=${encodeURIComponent(error.message)}`
+        `${origin}/login?error=${encodeURIComponent(error.message)}`
       );
     }
 

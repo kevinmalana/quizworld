@@ -1,4 +1,10 @@
-import type { Question } from "@/lib/shared";
+export type PersistedQuestionType = "multiple_choice" | "true_false" | "poll";
+export type PersistedAiMetadata = {
+  confidence?: "high" | "medium" | "low";
+  difficulty?: "easy" | "medium" | "hard";
+  rationale?: string;
+  citations?: Array<{ snippet: string; source_label: string }>;
+};
 
 export type QuizDraftRow = {
   id: string;
@@ -10,21 +16,29 @@ export type QuizDraftRow = {
   is_public: boolean;
   source_type: string;
   updated_at: string;
+  revision: number;
 };
 
 export type QuizDraftQuestionRow = {
   id: string;
   draft_id: string;
   text: string;
+  image_url: string | null;
   time_limit: number;
   points: number;
   order_index: number;
+  question_type: PersistedQuestionType;
+  explanation: string | null;
+  video_url: string | null;
+  shuffle_answers: boolean;
+  ai_metadata: PersistedAiMetadata | null;
 };
 
 export type QuizDraftAnswerRow = {
   id: string;
   question_id: string;
   text: string;
+  image_url: string | null;
   is_correct: boolean;
   order_index: number;
 };
@@ -39,13 +53,21 @@ export type PublishedQuizRow = {
   questions?: Array<{
     id: string;
     text: string;
+    image_url: string | null;
     time_limit: number;
     points: number;
     order_index: number;
+    question_type: PersistedQuestionType;
+    explanation: string | null;
+    video_url: string | null;
+    shuffle_answers: boolean;
+    ai_metadata: PersistedAiMetadata | null;
     answers?: Array<{
       id: string;
       text: string;
+      image_url: string | null;
       is_correct: boolean;
+      order_index: number;
     }>;
   }>;
 };
@@ -68,10 +90,17 @@ export type QuizVersionRow = {
     is_public?: boolean;
     questions?: Array<{
       text?: string;
+      image_url?: string | null;
       time_limit?: number;
       points?: number;
+      question_type?: PersistedQuestionType;
+      explanation?: string | null;
+      video_url?: string | null;
+      shuffle_answers?: boolean;
+      ai_metadata?: PersistedAiMetadata | null;
       answers?: Array<{
         text?: string;
+        image_url?: string | null;
         is_correct?: boolean;
       }>;
     }>;
@@ -82,50 +111,73 @@ export type QuizVersionRow = {
 export function questionsFromDraftRows(
   draftQuestions: QuizDraftQuestionRow[],
   draftAnswers: QuizDraftAnswerRow[]
-): Question[] {
+) {
   return [...draftQuestions]
     .sort((a, b) => a.order_index - b.order_index)
     .map((question) => ({
       id: question.id,
       text: question.text,
+      imageUrl: question.image_url ?? "",
+      type: question.question_type,
       timeLimit: question.time_limit,
       points: question.points,
+      explanation: question.explanation ?? "",
+      videoUrl: question.video_url ?? "",
+      shuffleAnswers: question.shuffle_answers ?? false,
+      aiMetadata: question.ai_metadata ?? undefined,
       answers: draftAnswers
         .filter((answer) => answer.question_id === question.id)
         .sort((a, b) => a.order_index - b.order_index)
         .map((answer) => ({
           id: answer.id,
           text: answer.text,
+          imageUrl: answer.image_url ?? "",
           isCorrect: answer.is_correct,
         })),
     }));
 }
 
-export function questionsFromPublishedQuiz(quiz: PublishedQuizRow): Question[] {
+export function questionsFromPublishedQuiz(quiz: PublishedQuizRow) {
   return [...(quiz.questions ?? [])]
     .sort((a, b) => a.order_index - b.order_index)
     .map((question) => ({
       id: question.id,
       text: question.text,
+      imageUrl: question.image_url ?? "",
+      type: question.question_type,
       timeLimit: question.time_limit,
       points: question.points,
-      answers: [...(question.answers ?? [])].map((answer) => ({
-        id: answer.id,
-        text: answer.text,
-        isCorrect: answer.is_correct,
-      })),
+      explanation: question.explanation ?? "",
+      videoUrl: question.video_url ?? "",
+      shuffleAnswers: question.shuffle_answers ?? false,
+      aiMetadata: question.ai_metadata ?? undefined,
+      answers: [...(question.answers ?? [])]
+        .sort((a, b) => a.order_index - b.order_index)
+        .map((answer) => ({
+          id: answer.id,
+          text: answer.text,
+          imageUrl: answer.image_url ?? "",
+          isCorrect: answer.is_correct,
+        })),
     }));
 }
 
-export function questionsFromVersionSnapshot(version: QuizVersionRow): Question[] {
+export function questionsFromVersionSnapshot(version: QuizVersionRow) {
   return [...(version.snapshot.questions ?? [])].map((question, questionIndex) => ({
     id: `version-question-${version.id}-${questionIndex}`,
     text: question.text ?? "",
+    imageUrl: question.image_url ?? "",
+    type: question.question_type ?? "multiple_choice" as const,
     timeLimit: question.time_limit ?? 20,
     points: question.points ?? 1000,
+    explanation: question.explanation ?? "",
+    videoUrl: question.video_url ?? "",
+    shuffleAnswers: question.shuffle_answers ?? false,
+    aiMetadata: question.ai_metadata ?? undefined,
     answers: [...(question.answers ?? [])].map((answer, answerIndex) => ({
       id: `version-answer-${version.id}-${questionIndex}-${answerIndex}`,
       text: answer.text ?? "",
+      imageUrl: answer.image_url ?? "",
       isCorrect: Boolean(answer.is_correct),
     })),
   }));

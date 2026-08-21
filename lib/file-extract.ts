@@ -1,4 +1,4 @@
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 const MAX_TEXT_LENGTH = 24000;
 const MIN_TEXT_LENGTH = 50;
 
@@ -28,7 +28,7 @@ function validateFile(file: File): void {
 
   if (file.size > MAX_FILE_SIZE) {
     throw new FileExtractionError(
-      `File is too large (${formatBytes(file.size)}). Maximum size is 5MB.`
+      `File is too large (${formatBytes(file.size)}). Maximum size is 25MB.`
     );
   }
 
@@ -56,7 +56,10 @@ async function extractPdf(file: File): Promise<string> {
     throw new FileExtractionError("PDF support failed to load. Try refreshing the page.");
   }
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.min.mjs",
+    import.meta.url,
+  ).toString();
 
   let pdf;
   try {

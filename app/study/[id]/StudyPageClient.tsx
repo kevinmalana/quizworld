@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { checkAndGrantAchievements } from "@/lib/achievements";
 
 import type { CardState, SessionResult, StudyMode, StudyQuestion, StudyQuiz } from "@/lib/study/types";
+import { calculateStudyXp, shouldExpireQuickFireQuestion } from "@/lib/study/session";
 import {
   FlashcardPanel,
   QuickFirePanel,
@@ -21,6 +22,8 @@ export default function StudyPageClient() {
   const router   = useRouter();
   const { user } = useAuth();
   const quizId   = params.id as string;
+  const attemptIdRef = useRef<string>(crypto.randomUUID());
+  const submittedAnswersRef = useRef<Array<{ question_id: string; answer_id: string | null }>>([]);
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -38,10 +41,15 @@ export default function StudyPageClient() {
   const [saveMessage, setSaveMessage] = useState("");
   const [totalXp, setTotalXp]         = useState<number | undefined>(undefined);
   const [newAchievements, setNewAchievements] = useState<string[]>([]);
-  const [quickFireTimeLeft, setQuickFireTimeLeft] = useState(0);
+  const [quickFireTimeLeft, setQuickFireTimeLeft] = useState<number | null>(null);
   const [advancing, setAdvancing]     = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const [timerPaused, setTimerPaused] = useState(false);
+  const [pendingQuickFireAdvance, setPendingQuickFireAdvance] = useState<{
+    correct: number;
+    total: number;
+    wrong: StudyQuestion[];
+  } | null>(null);
 
   useEffect(() => {
     async function fetchQuiz() {
@@ -81,15 +89,22 @@ export default function StudyPageClient() {
 
   // QuickFire timer — tick (pause while advancing so clock doesn't run on next card)
   useEffect(() => {
-    if (mode !== "quickfire" || !currentQuestion || sessionResult || advancing || timerPaused || quickFireTimeLeft <= 0) return;
-    const t = window.setTimeout(() => setQuickFireTimeLeft((n) => n - 1), 1000);
+    if (mode !== "quickfire" || !currentQuestion || sessionResult || advancing || timerPaused || quickFireTimeLeft === null || quickFireTimeLeft <= 0) return;
+    const t = window.setTimeout(() => setQuickFireTimeLeft((n) => n === null ? null : n - 1), 1000);
     return () => window.clearTimeout(t);
   }, [advancing, currentQuestion, mode, quickFireTimeLeft, sessionResult, timerPaused]);
 
   // QuickFire timer — expired → auto-wrong
   useEffect(() => {
-    if (mode !== "quickfire" || !currentQuestion || sessionResult || advancing || timerPaused || quickFireTimeLeft > 0) return;
-    void recordAnswer(false);
+    if (!shouldExpireQuickFireQuestion({
+      mode,
+      hasQuestion: !!currentQuestion,
+      sessionComplete: !!sessionResult,
+      advancing,
+      timerPaused,
+      timeLeft: quickFireTimeLeft,
+    })) return;
+    void recordAnswer(false, null);
   }, [advancing, currentQuestion, mode, quickFireTimeLeft, sessionResult, timerPaused]);
 
   const persistProgress = async (result: SessionResult) => {
@@ -97,50 +112,30 @@ export default function StudyPageClient() {
       setSaveMessage("Sign in to save progress across devices.");
       return;
     }
-    setSaving(true);
-    const mastery        = Math.round((result.correct / Math.max(result.total, 1)) * 100);
-    const now            = new Date().toISOString();
-    const xpPerCorrect   = mode === "quickfire" ? 45 : 25;
-    const completionBonus = result.correct === result.total && result.total > 0 ? 50 : 0;
-    const perfectBonus   = result.correct === result.total && result.total > 0 ? 100 : 0;
-    const sessionXp      = result.correct * xpPerCorrect + completionBonus + perfectBonus;
-    const studyMode      = mode === "review" ? "flashcard" : mode;
-
-    // 1. Upsert study_progress (mastery per quiz)
-    const { error: progressError } = await supabase.from("study_progress").upsert(
-      { user_id: user.id, quiz_id: quiz.id, questions_studied: result.total, correct: result.correct, mastery, last_studied: now },
-      { onConflict: "user_id,quiz_id" }
-    );
-    if (progressError) console.error("Error saving study progress:", progressError);
-
-    // 2. Insert study session row (XP history + sparkline source)
-    const { error: sessionError } = await supabase.from("study_sessions").insert({
-      user_id: user.id,
-      quiz_id: quiz.id,
-      xp_earned: sessionXp,
-      correct: result.correct,
-      total: result.total,
-      study_mode: studyMode,
-    });
-    if (sessionError) console.error("Error saving study session:", sessionError);
-
-    // 3. Increment profile XP
-    if (sessionXp > 0) {
-      const { error: xpError } = await supabase.rpc("increment_xp", { user_uuid: user.id, xp_amount: sessionXp });
-      if (xpError) console.error("Error incrementing XP:", xpError);
-      else {
-        // Fetch updated total_xp to show live level progress on result screen
-        const { data: profile } = await supabase.from("profiles").select("total_xp").eq("id", user.id).single();
-        if (profile?.total_xp !== undefined) setTotalXp(profile.total_xp);
-      }
+    if (mode === "review") {
+      setSaveMessage("Review round complete. Your original session remains saved.");
+      return;
     }
-
-    // 4. Update daily streak
-    const { error: streakError } = await supabase.rpc("update_study_streak", { user_uuid: user.id });
-    if (streakError) console.error("Error updating streak:", streakError);
-
-    const saved = !progressError && !sessionError;
-    setSaveMessage(saved ? `Progress saved · +${sessionXp} XP` : "Could not save progress this time.");
+    if (mode !== "flashcard" && mode !== "quickfire") {
+      setSaveMessage("Choose a study mode before saving progress.");
+      return;
+    }
+    setSaving(true);
+    const sessionXp      = calculateStudyXp({ mode, correct: result.correct, total: result.total }).totalXp;
+    const studyMode      = mode;
+    const { data: completion, error: completionError } = await supabase.rpc("complete_study_session_atomic", {
+      p_quiz_id: quiz.id,
+      p_attempt_id: attemptIdRef.current,
+      p_answers: submittedAnswersRef.current,
+      p_study_mode: studyMode,
+      p_duration_secs: null,
+    });
+    if (completionError) console.error("Error completing study session:", completionError);
+    const returned = completion as { total_xp?: number; xp_earned?: number } | null;
+    if (typeof returned?.total_xp === "number") setTotalXp(returned.total_xp);
+    const persistedXp = typeof returned?.xp_earned === "number" ? returned.xp_earned : sessionXp;
+    const saved = !completionError;
+    setSaveMessage(saved ? `Progress saved · +${persistedXp} XP` : "Could not save progress this time.");
     setSaving(false);
 
     // Check + grant achievements after save
@@ -160,7 +155,7 @@ export default function StudyPageClient() {
     await persistProgress(result);
   };
 
-  const ADVANCE_DELAY = mode === "quickfire" ? 1200 : 1800;
+  const ADVANCE_DELAY = 1800;
 
   const advanceToNext = async (nextCorrect: number, nextTotal: number, nextWrong: StudyQuestion[]) => {
     if (currentIndex < questions.length - 1) {
@@ -175,11 +170,16 @@ export default function StudyPageClient() {
       }, ADVANCE_DELAY);
       return;
     }
-    await finishSession(nextCorrect, nextTotal, nextWrong);
+    setAdvancing(true);
+    setTimerPaused(true);
+    window.setTimeout(() => void finishSession(nextCorrect, nextTotal, nextWrong), ADVANCE_DELAY);
   };
 
-  const recordAnswer = async (correct: boolean) => {
+  const recordAnswer = async (correct: boolean, answerId: string | null) => {
     if (advancing) return;
+    if (mode !== "review" && currentQuestion) {
+      submittedAnswersRef.current.push({ question_id: currentQuestion.id, answer_id: answerId });
+    }
     setLastAnswerCorrect(correct);
     const nextCorrect = correctCount + (correct ? 1 : 0);
     const nextTotal   = answeredCount + 1;
@@ -187,7 +187,27 @@ export default function StudyPageClient() {
     setCorrectCount(nextCorrect);
     setAnsweredCount(nextTotal);
     setWrongQuestions(nextWrong);
+    if (mode === "quickfire") {
+      setTimerPaused(true);
+      setAdvancing(true);
+      setPendingQuickFireAdvance({ correct: nextCorrect, total: nextTotal, wrong: nextWrong });
+      return;
+    }
     await advanceToNext(nextCorrect, nextTotal, nextWrong);
+  };
+
+  const continueQuickFire = async () => {
+    if (!pendingQuickFireAdvance) return;
+    const pending = pendingQuickFireAdvance;
+    setPendingQuickFireAdvance(null);
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((index) => index + 1);
+      setCardState("front");
+      setLastAnswerCorrect(null);
+      setAdvancing(false);
+      return;
+    }
+    await finishSession(pending.correct, pending.total, pending.wrong);
   };
 
   const startReviewRound = () => {
@@ -200,12 +220,14 @@ export default function StudyPageClient() {
     setWrongQuestions([]);
     setSessionResult(null);
     setSaveMessage("");
+    setPendingQuickFireAdvance(null);
     setAdvancing(false);
     setLastAnswerCorrect(null);
     setMode("review");
   };
 
   const resetSession = () => {
+    submittedAnswersRef.current = [];
     setCurrentIndex(0);
     setCardState("front");
     setCorrectCount(0);
@@ -213,8 +235,9 @@ export default function StudyPageClient() {
     setWrongQuestions([]);
     setSessionResult(null);
     setSaveMessage("");
+    setPendingQuickFireAdvance(null);
     setAdvancing(false);
-    setQuickFireTimeLeft(0);
+    setQuickFireTimeLeft(null);
     setTimerPaused(false);
     setLastAnswerCorrect(null);
     setTotalXp(undefined);
@@ -255,6 +278,8 @@ export default function StudyPageClient() {
         questionCount={quiz.questions?.length ?? 0}
         onBack={() => router.push("/study")}
         onChoose={(chosen) => {
+          attemptIdRef.current = crypto.randomUUID();
+          submittedAnswersRef.current = [];
           setQuestions(quiz.questions ?? []);
           setMode(chosen);
         }}
@@ -274,11 +299,12 @@ export default function StudyPageClient() {
         totalQuestions={questions.length}
         correctCount={correctCount}
         answeredCount={answeredCount}
-        timeLeft={quickFireTimeLeft}
+        timeLeft={quickFireTimeLeft ?? currentQuestion.time_limit ?? 20}
         advancing={advancing}
         lastAnswerCorrect={lastAnswerCorrect}
-        onExit={() => setMode("choose")}
-        onAnswer={(correct) => void recordAnswer(correct)}
+        onExit={resetSession}
+        onAnswer={(correct, answerId) => void recordAnswer(correct, answerId)}
+        onContinue={() => void continueQuickFire()}
       />
     );
   }
@@ -293,7 +319,7 @@ export default function StudyPageClient() {
         advancing={advancing}
         lastAnswerCorrect={lastAnswerCorrect}
         onExit={resetSession}
-        onAnswer={(correct) => void recordAnswer(correct)}
+        onAnswer={(correct, answerId) => void recordAnswer(correct, answerId)}
       />
     );
   }
@@ -311,7 +337,7 @@ export default function StudyPageClient() {
       lastAnswerCorrect={lastAnswerCorrect}
       onExit={() => setMode("choose")}
       onFlip={() => setCardState((s) => (s === "front" ? "back" : "front"))}
-      onAnswer={(correct) => void recordAnswer(correct)}
+      onAnswer={(correct, answerId) => void recordAnswer(correct, answerId)}
     />
   );
 }

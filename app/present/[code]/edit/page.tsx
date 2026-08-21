@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { useAuth } from "@/components/supabase-provider";
+
 import type { Slide, SlideType } from "@/lib/presentation/types";
 import { startPhoenixPresentation, writePresenterToken } from "@/lib/presentation/client";
+import { makeInteractiveOverlay, validatePresentationSlides } from "@/lib/presentation/editor";
 import { defaultContent } from "@/components/present/edit/slide-types";
 import { EditorTopbar } from "@/components/present/edit/editor-topbar";
 import { SlideListPanel } from "@/components/present/edit/slide-list-panel";
@@ -13,46 +14,27 @@ import { SlideEditorPanel } from "@/components/present/edit/slide-editor-panel";
 import { SlidePreview } from "@/components/present/edit/slide-preview";
 import { AddSlideModal } from "@/components/present/edit/add-slide-modal";
 import { ImportDeckPanel } from "@/components/present/edit/import-deck-panel";
-
-function validateSlides(slides: Slide[]): string | null {
-  if (!slides.length) return "Add at least one slide.";
-
-  for (const [index, slide] of slides.entries()) {
-    const label = `Slide ${index + 1}`;
-    if (slide.slide_type === "poll" && (slide.content.options || []).filter((o) => o.text.trim()).length < 2) {
-      return `${label}: polls need at least two non-empty options.`;
-    }
-    if (slide.slide_type === "quiz") {
-      const answers = (slide.content.answers || []).filter((a) => a.text.trim());
-      if (answers.length < 2) return `${label}: quiz slides need at least two non-empty answers.`;
-      if (!answers.some((a) => a.is_correct)) return `${label}: choose a correct answer.`;
-    }
-    if (slide.slide_type === "scale" && Number(slide.content.min ?? 1) >= Number(slide.content.max ?? 10)) {
-      return `${label}: scale minimum must be less than maximum.`;
-    }
-  }
-
-  return null;
-}
+import { useSerializedAutosave } from "@/lib/autosave/use-serialized-autosave";
 
 export default function PresentationEditor() {
   const params = useParams();
   const router = useRouter();
   const code = params.code as string;
-  const { user } = useAuth();
+
 
   const [title, setTitle] = useState("");
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [savedOk, setSavedOk] = useState(false);
+  const [presenting, setPresenting] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [showAddSlide, setShowAddSlide] = useState(false);
   const [showImportDeck, setShowImportDeck] = useState(false);
   const [importToast, setImportToast] = useState<string | null>(null);
   const [importedCount, setImportedCount] = useState(0); // for bulk convert banner
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const markDirty = useCallback(() => setDirty(true), []);
 
   useEffect(() => {
     async function load() {
@@ -71,6 +53,8 @@ export default function PresentationEditor() {
       setJoinCode(pres.join_code);
       const sorted = (pres.slides || []).sort((a: Slide, b: Slide) => a.order_index - b.order_index);
       setSlides(sorted);
+      setImportedCount(sorted.filter((slide: Slide) => slide.content._imported && !slide.content.interactive).length);
+      setDirty(false);
       setLoading(false);
     }
     load();
@@ -87,6 +71,7 @@ export default function PresentationEditor() {
       settings: {},
     };
     setSlides(prev => [...prev, newSlide]);
+    markDirty();
     setActiveIndex(slides.length);
     setShowAddSlide(false);
   }, [code, slides.length]);
@@ -105,6 +90,7 @@ export default function PresentationEditor() {
     }));
 
     setSlides(prev => [...prev, ...newSlides]);
+    markDirty();
     setActiveIndex(baseIndex);
     setImportedCount(imported.length); // FIX 4: show bulk convert banner
     setShowImportDeck(false);
@@ -119,77 +105,107 @@ export default function PresentationEditor() {
 
   const updateSlide = useCallback((idx: number, updates: Partial<Slide>) => {
     setSlides(prev => prev.map((s, i) => i === idx ? { ...s, ...updates } : s));
+    markDirty();
   }, []);
 
   const deleteSlide = useCallback((idx: number) => {
     if (slides.length <= 1) return;
     setSlides(prev => prev.filter((_, i) => i !== idx));
+    markDirty();
     setActiveIndex(prev => Math.min(prev, slides.length - 2));
   }, [slides.length]);
 
+  const editorValue = { title, slides };
+  const editorRevisionKey = JSON.stringify(editorValue);
+  const latestEditorRevision = useRef(editorRevisionKey);
+  latestEditorRevision.current = editorRevisionKey;
+  const saveEditorValue = useCallback(async (value: typeof editorValue) => {
+    const savedRevision = JSON.stringify(value);
+    const { data, error } = await supabase.rpc("save_presentation_v2", {
+      p_presentation_id: code,
+      p_title: value.title,
+      p_slides: value.slides,
+    });
+    if (error) throw error;
+    const canonicalSlides = (data as { slides?: unknown } | null)?.slides;
+    if (!Array.isArray(canonicalSlides)) throw new Error("Presentation save did not return canonical slides.");
+    if (latestEditorRevision.current === savedRevision) {
+      setSlides(canonicalSlides as Slide[]);
+    }
+  }, [code]);
+  const autosave = useSerializedAutosave({
+    value: editorValue,
+    revisionKey: editorRevisionKey,
+    enabled: dirty,
+    debounceMs: 1500,
+    save: saveEditorValue,
+  });
+  const saving = autosave.status === "saving";
+  const savedOk = autosave.status === "saved" && !dirty;
+  const previousAutosaveStatus = useRef(autosave.status);
+
+  useEffect(() => {
+    if (autosave.status === "saved" && previousAutosaveStatus.current !== "saved") setDirty(false);
+    if (autosave.status === "error") setError(autosave.error?.message || "Save failed.");
+    previousAutosaveStatus.current = autosave.status;
+  }, [autosave.status, autosave.error, dirty]);
+
   const savePresentation = useCallback(async () => {
-    const validationError = validateSlides(slides);
-    if (validationError) {
-      setError(validationError);
-      return false;
-    }
-
-    setSaving(true);
     setError("");
+    markDirty();
     try {
-      const { error } = await supabase.rpc("save_presentation", {
-        p_presentation_id: code,
-        p_title: title,
-        p_slides: slides,
-      });
-
-      if (error) throw error;
-      setSaving(false);
-      setSavedOk(true);
-      setTimeout(() => setSavedOk(false), 2500);
-      return true;
+      const result = await autosave.flush();
+      return result.status === "saved";
     } catch (err) {
-      console.error("Save error:", err);
       setError(err instanceof Error ? err.message : "Save failed.");
-      setSaving(false);
       return false;
     }
-  }, [code, title, slides]);
+  }, [autosave]);
 
   const startPresenting = useCallback(async () => {
+    if (presenting) return;
+    const validationError = validatePresentationSlides(slides);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setPresenting(true);
+
     const saved = await savePresentation();
-    if (!saved) return;
+    if (!saved) {
+      setPresenting(false);
+      return;
+    }
 
     const {
       data: { session },
     } = await supabase.auth.getSession();
 
     if (!session?.access_token) {
+      setPresenting(false);
       router.push("/login");
       return;
     }
 
-    const live = await startPhoenixPresentation(code, session.access_token);
-    writePresenterToken(code, live.presenter_token);
-    router.push(`/present/${code}/live`);
-  }, [code, savePresentation, router]);
+    try {
+      const live = await startPhoenixPresentation(code, session.access_token);
+      const runId = live.presentation.run_id;
+      if (!runId) throw new Error("Presentation start did not return a run id.");
+      writePresenterToken(code, live.presenter_token, runId);
+      router.push(`/present/${code}/live`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start presentation.");
+      setPresenting(false);
+    }
+  }, [code, presenting, savePresentation, router, slides]);
 
   // Bulk convert all imported slides — sets content.interactive overlay, keeps image
   const bulkConvertImported = useCallback((toType: "poll" | "quiz" | "open_text" | "word_cloud" | "qna") => {
-    type OverlayOption = { id: string; text: string };
-    type OverlayAnswer = { id: string; text: string; is_correct: boolean };
-    type Overlay = { type: string; question?: string; prompt?: string; options?: OverlayOption[]; answers?: OverlayAnswer[] };
-    const defaults: Record<string, Overlay> = {
-      poll: { type: "poll", question: "", options: [{ id: "1", text: "" }, { id: "2", text: "" }] },
-      quiz: { type: "quiz", question: "", answers: [{ id: "1", text: "", is_correct: true }, { id: "2", text: "", is_correct: false }] },
-      open_text: { type: "open_text", question: "" },
-      word_cloud: { type: "word_cloud", prompt: "" },
-      qna: { type: "qna" },
-    };
     setSlides(prev => prev.map(s => {
       if (!(s.content as Record<string, unknown>)._imported) return s;
-      return { ...s, content: { ...s.content, interactive: defaults[toType] } } as Slide;
+      return { ...s, content: { ...s.content, interactive: makeInteractiveOverlay(toType) } } as Slide;
     }));
+    markDirty();
     setImportedCount(0);
   }, []);
 
@@ -204,18 +220,23 @@ export default function PresentationEditor() {
     { type: "poll", icon: "📊", label: "Convert to Polls" },
     { type: "quiz", icon: "🏆", label: "Convert to Quizzes" },
     { type: "open_text", icon: "💬", label: "Convert to Open Text" },
+    { type: "word_cloud", icon: "☁️", label: "Convert to Word Clouds" },
+    { type: "qna", icon: "❓", label: "Convert to Q&A" },
   ];
 
   return (
     <div className="present-editor-shell">
       <EditorTopbar
         title={title}
-        onTitleChange={setTitle}
+        onTitleChange={(value) => { setTitle(value); setDirty(true); }}
         joinCode={joinCode}
         error={error}
         saving={saving}
+        presenting={presenting}
         savedOk={savedOk}
-        onBack={() => router.push("/present")}
+        onBack={() => {
+          if (!dirty || window.confirm("Discard unsaved presentation changes?")) router.push("/present");
+        }}
         onSave={savePresentation}
         onPresent={startPresenting}
       />
@@ -272,6 +293,7 @@ export default function PresentationEditor() {
           onImport={() => setShowImportDeck(true)}
           onReorder={(reordered) => {
             setSlides(reordered);
+            markDirty();
             const activeId = slides[activeIndex]?.id;
             if (activeId) {
               const newIdx = reordered.findIndex((s) => s.id === activeId);
@@ -282,9 +304,9 @@ export default function PresentationEditor() {
 
         {/* Editor + Preview split */}
         {activeSlide && (
-          <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+          <div className="present-editor-main" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
             {/* Edit panel */}
-            <div style={{ flex: "0 0 360px", overflowY: "auto", borderRight: "1px solid var(--line)" }}>
+            <div className="present-editor-form" style={{ flex: "0 0 360px", overflowY: "auto", borderRight: "1px solid var(--line)" }}>
               <SlideEditorPanel
                 slide={activeSlide}
                 slideIndex={activeIndex}
@@ -295,7 +317,7 @@ export default function PresentationEditor() {
             </div>
 
             {/* FIX 1: Live preview pane */}
-            <div style={{
+            <div className="present-editor-preview" style={{
               flex: 1, padding: "1.5rem", overflowY: "auto",
               background: "var(--bg-subtle, #0a0a0d)",
               display: "flex", flexDirection: "column", gap: "0.75rem",
@@ -305,12 +327,27 @@ export default function PresentationEditor() {
               </div>
               <SlidePreview slide={activeSlide} />
               <p style={{ fontSize: "0.7rem", color: "var(--muted)", textAlign: "center" }}>
-                This is exactly what your audience sees during the presentation
+                Preview of the audience slide before live responses
               </p>
             </div>
           </div>
         )}
       </div>
+
+      {showAddSlide && (
+        <AddSlideModal
+          onClose={() => setShowAddSlide(false)}
+          onSelect={addSlide}
+          onImportDeck={() => { setShowAddSlide(false); setShowImportDeck(true); }}
+        />
+      )}
+
+      {showImportDeck && (
+        <ImportDeckPanel
+          onImport={importDeckSlides}
+          onClose={() => setShowImportDeck(false)}
+        />
+      )}
 
     </div>
   );

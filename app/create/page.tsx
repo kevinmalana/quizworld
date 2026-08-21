@@ -15,28 +15,39 @@ import { CreateSourceModals, type AIQuestionCount } from "@/components/builder/C
 import { PublishLoginPrompt } from "@/components/builder/PublishLoginPrompt";
 import {
   aiDraftToQuestionData,
+  canPublishQuiz,
   isQuestionComplete,
   legacyToQuestionData,
   makeBlankQuestion,
   makeTrueFalseQuestion,
   questionsToPublishPayload,
 } from "@/lib/builder/question-factory";
-
-// ─── Types ──────────────────────────────────────────────────────────────────────
+import {
+  buildDraftFingerprint,
+  getLifecycleHref,
+  getQuizLifecycleIntent,
+  normalizePublishResult,
+} from "@/lib/quiz-lifecycle";
+import { useQuizAuthoringRecovery, type RecoveredQuizAuthoringState } from "@/lib/builder/use-quiz-authoring-recovery";
+import { useSerializedAutosave } from "@/lib/autosave/use-serialized-autosave";
+import { DraftRevisionConflictError, saveQuizDraftV2WithConflictRecovery, type DraftClient } from "@/lib/quiz-draft-client";
 
 type PageStep = "source" | "builder";
 const CREATE_DRAFT_KEY = "qw_create_draft_v9";
-
-// ─── Main page ────────────────────────────────────────────────────────────────
-
 function CreatePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+  const draftParam = searchParams.get("draft");
+  const quizParam = searchParams.get("quiz");
+  const versionParam = searchParams.get("version");
+  const duplicateParam = searchParams.get("duplicate") === "1";
+  const studyPurpose = searchParams.get("purpose") === "study";
+  const sourceParam = searchParams.get("source");
+  const initialSourceType: SourceType = sourceParam === "document" ? "ai-document" : sourceParam === "url" ? "ai-url" : sourceParam === "topic" || sourceParam === "template" ? "ai-topic" : "manual";
 
-  // ── Core state ──
   const [step, setStep] = useState<PageStep>("source");
-  const [sourceType, setSourceType] = useState<SourceType>("manual");
+  const [sourceType, setSourceType] = useState<SourceType>(initialSourceType);
   const [questions, setQuestions] = useState<QuestionData[]>([makeBlankQuestion()]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [quizTitle, setQuizTitle] = useState("");
@@ -45,15 +56,16 @@ function CreatePageContent() {
   const [isPublic, setIsPublic] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
 
-  // ── Draft state ──
   const [remoteDraftId, setRemoteDraftId] = useState<string | null>(null);
+  const [, setRemoteRevision] = useState<number | null>(null);
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
   const [draftState, setDraftState] = useState<DraftSyncState>("idle");
-  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [loadError, setLoadError] = useState("");
   const lastSavedFingerprint = useRef<string>("");
+  const remoteDraftIdRef = useRef<string | null>(null);
+  const remoteRevisionRef = useRef<number | null>(null);
 
-  // ── AI state ──
-  const [aiTopic, setAiTopic] = useState("");
+  const [aiTopic, setAiTopic] = useState(sourceParam === "template" ? "Educational quiz covering key concepts, definitions, and important facts" : "");
   const [aiUrl, setAiUrl] = useState("");
   const [aiCount, setAiCount] = useState<AIQuestionCount>(10);
   const [aiLoading, setAiLoading] = useState(false);
@@ -62,61 +74,39 @@ function CreatePageContent() {
   const [enriching, setEnriching] = useState(false);
   const [aiOptions, setAiOptions] = useState<AIGenerationOptions>(DEFAULT_AI_OPTIONS);
 
-  // ── Load existing quiz for editing ──
-  useEffect(() => {
-    const quizParam = searchParams.get("quiz");
-    const draftParam = searchParams.get("draft");
-    if (!quizParam || draftParam) return;
+  const applyRecoveredState = useCallback((state: RecoveredQuizAuthoringState) => {
+    setRemoteDraftId(state.remoteDraftId);
+    remoteDraftIdRef.current = state.remoteDraftId;
+    setRemoteRevision(state.revision);
+    remoteRevisionRef.current = state.revision;
+    setEditingQuizId(state.editingQuizId);
+    setQuizTitle(state.title);
+    setQuizCategory(state.category);
+    setQuizEmoji(state.emoji);
+    setIsPublic(state.isPublic);
+    setSourceType(state.sourceType);
+    setQuestions(state.questions);
+    setActiveIndex(0);
+    setStep("builder");
+    setDraftState(state.draftState);
+    lastSavedFingerprint.current = state.markAsSaved
+      ? buildDraftFingerprint({ ...state, editingQuizId: state.editingQuizId })
+      : "";
+  }, []);
 
-    let ignore = false;
-    async function loadQuiz() {
-      const { data: quiz, error } = await supabase
-        .from("quizzes")
-        .select("*, questions(*, answers(*))")
-        .eq("id", quizParam)
-        .single();
+  useQuizAuthoringRecovery({
+    authLoading, userId: user?.id ?? null,
+    draftParam, quizParam, versionParam, duplicateParam, router,
+    storageKey: CREATE_DRAFT_KEY,
+    currentRemoteDraftId: remoteDraftId,
+    currentDraft: { title: quizTitle, category: quizCategory, emoji: quizEmoji, isPublic, sourceType, questions },
+    makeBlankQuestion, onRecover: applyRecoveredState, onLoadError: setLoadError,
+  });
 
-      if (ignore || error || !quiz) return;
-
-      const sorted = [...(quiz.questions ?? [])].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
-
-      setEditingQuizId(quiz.id);
-      setQuizTitle(quiz.title ?? "");
-      setQuizCategory(quiz.category ?? "General Knowledge");
-      setQuizEmoji(quiz.emoji ?? "💡");
-      setIsPublic(quiz.is_public ?? true);
-      setStep("builder");
-      setQuestions(
-        sorted.map((q: any) => ({
-          id: q.id || uid(),
-          text: q.text ?? "",
-          type: q.question_type === "true_false" ? "true_false" : q.question_type === "poll" ? "poll" : "multiple_choice",
-          imageUrl: q.image_url ?? "",
-          timeLimit: q.time_limit ?? 20,
-          points: q.points ?? 1000,
-          explanation: q.explanation ?? "",
-          answers: [...(q.answers ?? [])]
-            .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
-            .map((a: any) => ({
-              id: a.id || uid(),
-              text: a.text ?? "",
-              imageUrl: a.image_url ?? "",
-              isCorrect: a.is_correct ?? false,
-            })),
-        })) ?? [makeBlankQuestion()]
-      );
-      setActiveIndex(0);
-    }
-    loadQuiz();
-    return () => { ignore = true; };
-  }, [searchParams]);
-
-  // ── Derived ──
   const readyCount = questions.filter(isQuestionComplete).length;
-  const canPublish = quizTitle.trim().length > 0 && readyCount > 0;
+  const canPublish = canPublishQuiz(quizTitle, questions);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
-  // ── Restore saved quiz state after login ──
   useEffect(() => {
     if (!user) return;
     try {
@@ -135,17 +125,18 @@ function CreatePageContent() {
     } catch {}
   }, [user]);
 
-  // ── Question actions ──
   const addQuestion = useCallback(() => {
     const q = makeBlankQuestion();
     setQuestions((prev) => [...prev, q]);
     setActiveIndex(questions.length);
+    setDraftState("dirty");
   }, [questions.length]);
 
   const addTrueFalse = useCallback(() => {
     const q = makeTrueFalseQuestion();
     setQuestions((prev) => [...prev, q]);
     setActiveIndex(questions.length);
+    setDraftState("dirty");
   }, [questions.length]);
 
   const updateQuestion = useCallback((idx: number, q: QuestionData) => {
@@ -168,6 +159,7 @@ function CreatePageContent() {
     if (questions.length <= 1) return;
     setQuestions((prev) => prev.filter((_, i) => i !== idx));
     setActiveIndex((prev) => Math.min(prev, questions.length - 2));
+    setDraftState("dirty");
   }, [questions.length]);
 
   const duplicateQuestion = useCallback((idx: number) => {
@@ -175,6 +167,7 @@ function CreatePageContent() {
     q.answers = q.answers.map((a) => ({ ...a, id: uid() }));
     setQuestions((prev) => [...prev.slice(0, idx + 1), q, ...prev.slice(idx + 1)]);
     setActiveIndex(idx + 1);
+    setDraftState("dirty");
   }, [questions]);
 
   const reorderQuestions = useCallback((from: number, to: number) => {
@@ -188,7 +181,6 @@ function CreatePageContent() {
     setDraftState("dirty");
   }, []);
 
-  // ── Source handlers ──
   const handleSourceSelect = useCallback((type: SourceType) => {
     setSourceType(type);
     if (type === "manual") {
@@ -197,13 +189,10 @@ function CreatePageContent() {
     // Other types show their input inline
   }, []);
 
-  const handleAiGenerate = useCallback(async () => {
+  const handleAiGenerate = useCallback(async (sourceMode: "topic" | "document") => {
         const topic = aiTopic.trim();
         if (!topic || topic.length < 5) return;
-        // 2026-08-13: Pre-flight auth check. Without this, logged-out users click
-        // "Generate", the server returns 401 "Sign in to use AI features", and
-        // the front-end catch block shows "AI generation failed" — which is a
-        // terrible UX. Now we detect the missing session BEFORE firing the request.
+
         if (!user) {
           setAiError("Sign in to use AI quiz generation.");
           return;
@@ -211,14 +200,15 @@ function CreatePageContent() {
         setAiLoading(true);
         setAiError("");
         try {
-          // Pad short topics to meet the 200-char minimum for source text
-          const sourceText = topic.length < 200
+
+          const sourceText = sourceMode === "topic" && topic.length < 200
             ? `Topic: ${topic}.\n\nGenerate quiz questions about this topic. Include relevant facts, key concepts, and important details that would make good educational quiz questions. The questions should test knowledge about ${topic}.`
             : topic;
+          const sourceTitle = sourceMode === "document" ? "Uploaded document" : topic.slice(0, 60);
           const res = await fetch("/api/ai-source-draft", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sourceText, sourceTitle: topic.slice(0, 60), questionCount: aiCount, aiOptions, sourceMode: "topic" }),
+            body: JSON.stringify({ sourceText, sourceTitle, questionCount: aiCount, aiOptions, sourceMode }),
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "AI generation failed");
@@ -227,6 +217,7 @@ function CreatePageContent() {
           setQuizTitle(data.draft.title || aiTopic.slice(0, 60));
           setActiveIndex(0);
           setStep("builder");
+          setDraftState("dirty");
         } catch (err: any) {
           setAiError(err.message || "Something went wrong");
         } finally {
@@ -236,7 +227,7 @@ function CreatePageContent() {
 
   const handlePasteImport = useCallback(async () => {
         if (!pasteText.trim()) return;
-        // 2026-08-13: same auth pre-flight as handleAiGenerate — see comment there.
+
         if (!user) {
           setAiError("Sign in to use AI quiz generation.");
           return;
@@ -250,6 +241,7 @@ function CreatePageContent() {
       setQuestions(generated);
       setActiveIndex(0);
       setStep("builder");
+      setDraftState("dirty");
       return;
     }
 
@@ -279,6 +271,7 @@ function CreatePageContent() {
       setQuizTitle(data.draft.title || "Quiz from pasted text");
       setActiveIndex(0);
       setStep("builder");
+      setDraftState("dirty");
     } catch (err: any) {
       setAiError(err.message || "Something went wrong");
     } finally {
@@ -288,7 +281,7 @@ function CreatePageContent() {
 
   const handleUrlFetch = useCallback(async () => {
     if (!aiUrl.trim()) return;
-    // 2026-08-13: same auth pre-flight as handleAiGenerate / handlePasteImport.
+
     if (!user) {
       setAiError("Sign in to use AI quiz generation.");
       return;
@@ -320,6 +313,7 @@ function CreatePageContent() {
       setQuizTitle(aiData.draft.title || aiUrl.slice(0, 60));
       setActiveIndex(0);
       setStep("builder");
+      setDraftState("dirty");
     } catch (err: any) {
       setAiError(err.message || "Something went wrong");
     } finally {
@@ -327,7 +321,6 @@ function CreatePageContent() {
     }
   }, [aiUrl, aiCount, aiOptions, user]);
 
-  // ── AI Enrichment ──
   const handleEnrich = useCallback(async () => {
     const questionsToEnrich = questions.filter((q) => q.text.trim()).map((q) => ({
       text: q.text,
@@ -364,6 +357,7 @@ function CreatePageContent() {
           };
         })
       );
+      setDraftState("dirty");
     } catch (err: any) {
       setAiError(err.message || "Enrichment failed");
     } finally {
@@ -371,69 +365,64 @@ function CreatePageContent() {
     }
   }, [questions]);
 
-  // ── Draft persistence ──
-  const saveDraftToSupabase = useCallback(async (mode: "auto" | "manual") => {
-    if (!user) return;
-    const fingerprint = JSON.stringify({ title: quizTitle, category: quizCategory, questions: questions.map(q => ({ text: q.text, answers: q.answers.map(a => ({ text: a.text, isCorrect: a.isCorrect })) })) });
-    if (fingerprint === lastSavedFingerprint.current) return;
-
-    setDraftState("saving");
+  const draftValue = {
+    title: quizTitle, category: quizCategory, emoji: quizEmoji, isPublic, sourceType,
+    editingQuizId, questions,
+  };
+  const draftFingerprint = buildDraftFingerprint({
+    ...draftValue,
+  });
+  const persistDraftValue = useCallback(async (value: typeof draftValue) => {
+    if (!user) throw new Error("Sign in to save this draft.");
     try {
-      const draftPayload = {
-        title: quizTitle,
-        category: quizCategory,
-        emoji: quizEmoji,
-        color: "",
-        is_public: isPublic,
-        source_type: sourceType,
-        owner_id: user.id,
-        updated_at: new Date().toISOString(),
-      };
-
-      let draftId = remoteDraftId;
-      if (draftId) {
-        await supabase.from("quiz_drafts").update(draftPayload).eq("id", draftId).eq("owner_id", user.id);
-      } else {
-        const { data, error } = await supabase.from("quiz_drafts").insert(draftPayload).select("id, updated_at").single();
-        if (error) throw error;
-        draftId = data.id;
-        setRemoteDraftId(draftId);
+      const saved = await saveQuizDraftV2WithConflictRecovery({
+        client: supabase as unknown as DraftClient,
+        draftId: remoteDraftIdRef.current,
+        expectedRevision: remoteRevisionRef.current,
+        value,
+      });
+      remoteDraftIdRef.current = saved.draftId;
+      remoteRevisionRef.current = saved.revision;
+      setRemoteDraftId(saved.draftId);
+      setRemoteRevision(saved.revision);
+      sessionStorage.removeItem(CREATE_DRAFT_KEY);
+      lastSavedFingerprint.current = buildDraftFingerprint(value);
+    } catch (error) {
+      if (error instanceof DraftRevisionConflictError) {
+        setLoadError("This draft changed in another tab. Reload the page before continuing so newer work is not overwritten.");
       }
-
-      // Save questions
-      if (draftId) {
-        await supabase.from("quiz_draft_questions").delete().eq("draft_id", draftId);
-        for (let i = 0; i < questions.length; i++) {
-          const q = questions[i];
-          const { data: insertedQ } = await supabase.from("quiz_draft_questions").insert({
-            draft_id: draftId, text: q.text, image_url: q.imageUrl || null, time_limit: q.timeLimit, points: q.points, order_index: i, question_type: q.type || "multiple_choice", explanation: q.explanation || null,
-          }).select("id").single();
-          if (insertedQ) {
-            await supabase.from("quiz_draft_answers").insert(
-              q.answers.map((a, ai) => ({
-                question_id: insertedQ.id, text: a.text, image_url: a.imageUrl || null, is_correct: a.isCorrect, order_index: ai,
-              }))
-            );
-          }
-        }
-      }
-
-      lastSavedFingerprint.current = fingerprint;
+      throw error;
+    }
+  }, [user]);
+  const draftAutosave = useSerializedAutosave({
+    value: draftValue,
+    revisionKey: draftFingerprint,
+    enabled: Boolean(user && draftState === "dirty"),
+    debounceMs: 2500,
+    save: persistDraftValue,
+  });
+  const previousDraftAutosaveStatus = useRef(draftAutosave.status);
+  useEffect(() => {
+    if (draftAutosave.status === "saving") setDraftState("saving");
+    if (draftAutosave.status === "error") setDraftState("error");
+    if (draftAutosave.status === "saved" && previousDraftAutosaveStatus.current !== "saved") {
       setDraftState("saved");
-    } catch (err) {
-      console.error("Draft save error:", err);
+      if (remoteDraftIdRef.current && draftParam !== remoteDraftIdRef.current) {
+        router.replace(`/create?draft=${encodeURIComponent(remoteDraftIdRef.current)}`);
+      }
+    }
+    previousDraftAutosaveStatus.current = draftAutosave.status;
+  }, [draftAutosave.status, draftParam, router]);
+
+  const saveDraftToSupabase = useCallback(async (_mode: "auto" | "manual") => {
+    if (!user) return;
+    setDraftState("dirty");
+    try {
+      await draftAutosave.flush();
+    } catch {
       setDraftState("error");
     }
-  }, [user, quizTitle, quizCategory, quizEmoji, isPublic, sourceType, questions, remoteDraftId]);
-
-  // Auto-save on changes
-  useEffect(() => {
-    if (draftState !== "dirty") return;
-    if (draftTimer.current) clearTimeout(draftTimer.current);
-    draftTimer.current = setTimeout(() => { void saveDraftToSupabase("auto"); }, 2500);
-    return () => { if (draftTimer.current) clearTimeout(draftTimer.current); };
-  }, [draftState, saveDraftToSupabase]);
-
+  }, [user, draftAutosave]);
   // ── Keyboard shortcuts (#2) ──
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -456,19 +445,6 @@ function CreatePageContent() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [saveDraftToSupabase, addQuestion]);
 
-  // ── Unsaved changes guard (browser close/refresh) ──
-  useEffect(() => {
-    function handleBeforeUnload(e: BeforeUnloadEvent) {
-      if (draftState === "dirty") {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [draftState]);
-
-  // ── Confetti state (#14) ──
   const [showConfetti, setShowConfetti] = useState(false);
 
   // ── Publish ──
@@ -492,7 +468,7 @@ function CreatePageContent() {
         p_emoji: quizEmoji,
         p_color: "",
         p_is_public: isPublic,
-        p_questions: questionsToPublishPayload(questions.filter(isQuestionComplete)),
+        p_questions: questionsToPublishPayload(questions),
       };
 
       let result;
@@ -504,26 +480,37 @@ function CreatePageContent() {
 
       if (result.error) throw result.error;
 
-      const createdId = result.data;
+      const published = normalizePublishResult(result.data, editingQuizId);
       if (remoteDraftId && user) {
-        await supabase.from("quiz_drafts").update({ quiz_id: createdId, updated_at: new Date().toISOString() }).eq("id", remoteDraftId).eq("owner_id", user.id);
+        const { error: linkError } = await supabase
+          .from("quiz_drafts")
+          .update({ quiz_id: published.quizId, updated_at: new Date().toISOString() })
+          .eq("id", remoteDraftId)
+          .eq("owner_id", user.id);
+        if (linkError) console.error("Published quiz, but could not link its draft:", linkError);
       }
 
       // Confetti! (#14)
+      sessionStorage.removeItem(CREATE_DRAFT_KEY);
       setShowConfetti(true);
-      setTimeout(() => { router.push("/dashboard"); }, 1500);
+      const dashboardParams = new URLSearchParams();
+      dashboardParams.set(published.lifecycle, published.quizId);
+      if (published.versionNumber !== null) dashboardParams.set("version", String(published.versionNumber));
+      setTimeout(() => {
+        router.push(studyPurpose ? `/study/${published.quizId}` : `/dashboard?${dashboardParams.toString()}`);
+      }, 1500);
     } catch (err) {
       console.error("Publish error:", err);
       setDraftState("error");
     }
-  }, [user, canPublish, quizTitle, quizCategory, quizEmoji, isPublic, questions, editingQuizId, remoteDraftId, router]);
+  }, [user, canPublish, quizTitle, quizCategory, quizEmoji, isPublic, questions, editingQuizId, remoteDraftId, router, studyPurpose]);
 
-  // ── Login Prompt Modal ──
   if (showLoginPrompt) {
     return (
       <PublishLoginPrompt
         onSignIn={() => {
-          sessionStorage.setItem("qw_post_login_redirect", "/create");
+          const intent = getQuizLifecycleIntent(searchParams);
+          sessionStorage.setItem("qw_post_login_redirect", getLifecycleHref(intent));
           router.push("/login");
         }}
         onKeepEditing={() => setShowLoginPrompt(false)}
@@ -531,7 +518,21 @@ function CreatePageContent() {
     );
   }
 
-  // Source step
+  if (loadError) {
+    return (
+      <div className="container" style={{ paddingTop: "3rem" }}>
+        <div className="card" role="alert">
+          <h2 className="font-display">Could not open this quiz</h2>
+          <p className="text-muted">{loadError}</p>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+            <button className="btn btn-primary" onClick={() => window.location.reload()}>Reload draft</button>
+            <button className="btn btn-secondary" onClick={() => router.push("/dashboard")}>Back to dashboard</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (step === "source") {
     return (
       <div>
@@ -558,7 +559,7 @@ function CreatePageContent() {
           onPasteTextChange={setPasteText}
           onAiCountChange={setAiCount}
           onAiOptionsChange={setAiOptions}
-          onAiGenerate={() => void handleAiGenerate()}
+          onAiGenerate={(sourceMode) => void handleAiGenerate(sourceMode)}
           onPasteImport={handlePasteImport}
           onUrlFetch={() => void handleUrlFetch()}
         />
@@ -566,7 +567,6 @@ function CreatePageContent() {
     );
   }
 
-  // Builder step
   return (
     <BuilderWorkspace
       title={quizTitle}

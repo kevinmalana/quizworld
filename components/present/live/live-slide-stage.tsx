@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { QnaQuestion, Slide, SlideResponse } from "@/lib/presentation/types";
+import { shouldShowPresentationResults } from "@/lib/presentation/runtime";
 
 type WordCloudWord = [string, number];
 
@@ -90,7 +91,7 @@ export function LiveSlideStage({
   submitQnaQuestion,
   upvoteQna,
 }: LiveSlideStageProps) {
-  const shouldShowResults = !isHost || !resultsHidden;
+  const shouldShowResults = shouldShowPresentationResults(resultsHidden);
   // Scale: track whether audience has touched the slider
   const [scaleInteracted, setScaleInteracted] = useState(false);
 
@@ -175,7 +176,7 @@ export function LiveSlideStage({
                           const isCorrect = isRevealed && revealed.includes(ans.id);
                           return (
                             <button key={ans.id}
-                              onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id, is_correct: ans.is_correct }); }}
+                              onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id }); }}
                               disabled={submitted || isHost}
                               className={["present-quiz-option", submitted && isRevealed && isCorrect ? " is-correct" : "", submitted && isRevealed && !isCorrect ? " is-wrong" : ""].join("")}>
                               <span className="present-answer-letter">{String.fromCharCode(65 + i)}</span>
@@ -234,7 +235,7 @@ export function LiveSlideStage({
                             <span key={word} className="present-word-chip" style={{ fontSize: `${Math.min(1 + count * 0.3, 2.8)}rem` }}>{word}</span>
                           ))}
                         </div>
-                      ) : <p className="present-waiting-text">{resultsHidden && isHost ? `Responses hidden · ${responseCount} received` : "Waiting for responses…"}</p>}
+                      ) : <p className="present-waiting-text">{resultsHidden ? `Responses hidden · ${responseCount} received` : "Waiting for responses…"}</p>}
                       {!submitted && !isHost && (
                         <div className="present-response-row present-response-row--word">
                           <input value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Type a word…" className="present-response-input"
@@ -243,6 +244,33 @@ export function LiveSlideStage({
                         </div>
                       )}
                       {submitted && <p className="present-submitted-text">✅ Submitted!</p>}
+                    </div>
+                  )}
+
+                  {/* Q&A overlay */}
+                  {ov.type === "qna" && (
+                    <div>
+                      <h3 className="font-display" style={{ textAlign: "center", marginBottom: "0.75rem", fontSize: "1.1rem" }}>Questions & answers</h3>
+                      {shouldShowResults && qnaQuestions.length > 0 && (
+                        <div className="present-qna-list">
+                          {qnaQuestions.map((q) => (
+                            <div key={q.id} className="card present-qna-item">
+                              <button onClick={() => upvoteQna(q.id)} className="present-qna-upvote">▲ {q.upvotes}</button>
+                              <div className="present-qna-body">
+                                <div className="present-qna-question">{q.question}</div>
+                                <div className="present-qna-author">{q.participant_name}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!isHost && (
+                        <div className="present-response-row present-response-row--open">
+                          <input value={newQnaQuestion} onChange={(e) => setNewQnaQuestion(e.target.value)} placeholder="Ask a question…" className="present-response-input"
+                            onKeyDown={(e) => { if (e.key === "Enter" && newQnaQuestion.trim()) submitQnaQuestion(); }} />
+                          <button onClick={submitQnaQuestion} className="btn btn-primary">Ask</button>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -261,7 +289,7 @@ export function LiveSlideStage({
                   <span key={word} className="present-word-chip" style={{ fontSize: `${Math.min(1 + count * 0.3, 2.8)}rem` }}>{word}</span>
                 ))}
               </div>
-            ) : <p className="present-waiting-text">{resultsHidden && isHost ? `Responses hidden · ${responseCount} received` : "Waiting for responses…"}</p>}
+            ) : <p className="present-waiting-text">{resultsHidden ? `Responses hidden · ${responseCount} received` : "Waiting for responses…"}</p>}
             {!submitted && !isHost && (
               <div className="present-response-row present-response-row--word">
                 <input value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Type a word…"
@@ -326,7 +354,7 @@ export function LiveSlideStage({
 
         {currentSlide.slide_type === "quiz" && (
           <div>
-            <h2 className="font-display present-slide-title is-centered">{currentSlide.title || "Quiz"}</h2>
+            <h2 className="font-display present-slide-title is-centered">{currentSlide.content?.question || currentSlide.title || "Quiz"}</h2>
             <div className="present-option-list present-option-list--quiz">
               {(currentSlide.content?.answers || []).map((ans, i) => {
                 const revealed = revealedAnswers[currentSlide.id];
@@ -334,7 +362,7 @@ export function LiveSlideStage({
                 const isCorrect = isRevealed && revealed.includes(ans.id);
                 return (
                   <button key={ans.id}
-                    onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id, is_correct: ans.is_correct }); }}
+                    onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id }); }}
                     disabled={submitted || isHost}
                     className={[
                       "present-quiz-option",

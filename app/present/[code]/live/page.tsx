@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import type { Slide, SlideResponse, QnaQuestion } from "@/lib/presentation/types";
 import { getParticipantName } from "@/lib/presentation/types";
+import { activityMatchesSlide, normalizePresentationActivity, summarizePresentationActivity } from "@/lib/presentation/runtime";
 import { subscribeToPresentation } from "@/lib/presentation/presentation-socket";
 import {
   fetchPhoenixPresentation,
@@ -17,6 +17,7 @@ import {
 import { presentationJoinUrl } from "@/lib/config/public";
 import { HostDock, JoinOverlay, LiveStatusRail } from "@/components/present/live/live-status-panels";
 import { LiveSlideStage } from "@/components/present/live/live-slide-stage";
+import { PresentationLiveGuard } from "@/components/present/live/live-route-guards";
 
 export default function PresentationLive() {
   const params = useParams();
@@ -24,37 +25,35 @@ export default function PresentationLive() {
   const code = params.code as string;
   const { user } = useAuth();
 
-  const [title, setTitle] = useState("");
-  const [slides, setSlides] = useState<Slide[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isHost, setIsHost] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [title, setTitle] = useState(""); const [slides, setSlides] = useState<Slide[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0); const [isHost, setIsHost] = useState(false);
+  const [loading, setLoading] = useState(true); const [joinCode, setJoinCode] = useState<string | null>(null);
   const [presenterToken, setPresenterToken] = useState<string | null>(null);
   const [participantSession, setParticipantSession] = useState<PresentationParticipantSession | null>(null);
-  const [channelJoined, setChannelJoined] = useState(false);
-  const [channelError, setChannelError] = useState<string | null>(null);
-  const [showJoinOverlay, setShowJoinOverlay] = useState(false);
-  const [resultsHidden, setResultsHidden] = useState(false);
+  const [channelJoined, setChannelJoined] = useState(false); const [channelError, setChannelError] = useState<string | null>(null);
+  const [showJoinOverlay, setShowJoinOverlay] = useState(false); const [resultsHidden, setResultsHidden] = useState(false);
+  const [loadError, setLoadError] = useState(""); const [ended, setEnded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Audience state
-  const [name, setName] = useState("");
-  const [response, setResponse] = useState("");
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [scaleValue, setScaleValue] = useState(5);
+  const [name, setName] = useState(""); const [response, setResponse] = useState("");
+  const [selectedOption, setSelectedOption] = useState<string | null>(null); const [scaleValue, setScaleValue] = useState(5);
   const [submitted, setSubmitted] = useState(false);
-  const [allResponses, setAllResponses] = useState<SlideResponse[]>([]);
-  const [qnaQuestions, setQnaQuestions] = useState<QnaQuestion[]>([]);
-  const [newQnaQuestion, setNewQnaQuestion] = useState("");
+  const [allResponses, setAllResponses] = useState<SlideResponse[]>([]); const [safeResponseCount, setSafeResponseCount] = useState(0);
+  const [safeAggregates, setSafeAggregates] = useState<Record<string, unknown>>({});
+  const [qnaQuestions, setQnaQuestions] = useState<QnaQuestion[]>([]); const [newQnaQuestion, setNewQnaQuestion] = useState("");
   const [revealedAnswers, setRevealedAnswers] = useState<Record<string, string[]>>({}); // slideId -> correct answer ids
 
-  const participantId = participantSession?.participantId || "";
-  const channelRef = useRef<ReturnType<typeof subscribeToPresentation> | null>(null);
+  const participantId = participantSession?.participantId || ""; const currentSlideId = slides[currentIndex]?.id;
+  const channelRef = useRef<ReturnType<typeof subscribeToPresentation> | null>(null); const currentSlideIdRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    currentSlideIdRef.current = currentSlideId;
+    setAllResponses([]); setSafeResponseCount(0);
+    setSafeAggregates({}); setQnaQuestions([]);
+  }, [currentSlideId]);
 
   const toggleFullscreen = useCallback(() => {
     if (typeof document === "undefined") return;
-
     if (!document.fullscreenElement) {
       void document.documentElement.requestFullscreen?.();
     } else {
@@ -68,34 +67,38 @@ export default function PresentationLive() {
     return () => document.body.classList.remove("qw-present-live-route");
   }, []);
 
-  // Load initial presentation state
   useEffect(() => {
     async function load() {
-      const { data: pres, error } = await supabase
-        .from("presentations")
-        .select("*, slides(*)")
-        .eq("id", code)
-        .single();
+      const storedParticipantSession = readParticipantSession(code);
+      let pres: any;
 
-      if (error || !pres) {
-        router.push("/present");
+      try {
+        const result = await fetchPhoenixPresentation(code);
+        pres = result.presentation;
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : "Presentation could not be loaded.");
+        setLoading(false);
         return;
       }
 
       setTitle(pres.title);
       setJoinCode(pres.join_code);
       const host = user?.id === pres.creator_id;
+      const activeParticipantSession = storedParticipantSession?.runId === pres.run_id
+        ? storedParticipantSession
+        : null;
       setIsHost(host);
-      const storedPresenterToken = readPresenterToken(code);
-      const storedParticipantSession = readParticipantSession(code);
-      setPresenterToken(storedPresenterToken);
-      setParticipantSession(storedParticipantSession);
+      setPresenterToken(readPresenterToken(code, pres.run_id));
+      setParticipantSession(activeParticipantSession);
       setCurrentIndex(pres.current_slide_index || 0);
+      setResultsHidden(pres.results_hidden === true);
+      setRevealedAnswers(pres.quiz_reveals || {});
+      setEnded(pres.status === "finished");
       const sorted = (pres.slides || []).sort((a: Slide, b: Slide) => a.order_index - b.order_index);
       setSlides(sorted);
 
-      const savedName = storedParticipantSession?.participantName || getParticipantName();
-      if (host || storedParticipantSession || savedName !== "Anonymous") {
+      const savedName = activeParticipantSession?.participantName || getParticipantName();
+      if (host || activeParticipantSession || savedName !== "Anonymous") {
         setName(savedName);
       }
 
@@ -104,9 +107,8 @@ export default function PresentationLive() {
     load();
   }, [code, user, router]);
 
-  // Connect to Phoenix channel
   useEffect(() => {
-    if (loading) return;
+    if (loading || ended) return;
 
     const channel = subscribeToPresentation({
       presentationId: code,
@@ -129,6 +131,8 @@ export default function PresentationLive() {
             setResponse("");
             setSelectedOption(null);
           }
+          if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
+          if (pres?.quiz_reveals) setRevealedAnswers(pres.quiz_reveals);
         },
         onSlideChanged: (pres: any) => {
           if (pres?.slides) {
@@ -141,21 +145,33 @@ export default function PresentationLive() {
             setResponse("");
             setSelectedOption(null);
           }
+          if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
+          if (pres?.quiz_reveals) setRevealedAnswers(pres.quiz_reveals);
         },
         onResponseNew: (data) => {
-          setAllResponses((data.responses || []) as SlideResponse[]);
+          if (activityMatchesSlide(currentSlideIdRef.current, data)) {
+            const activity = normalizePresentationActivity(data as Record<string, unknown>, isHost);
+            setAllResponses(activity.responses as SlideResponse[]);
+            setSafeResponseCount(activity.responseCount);
+            setSafeAggregates(activity.aggregates);
+            if (!isHost && activity.ownResponse) setSubmitted(true);
+          }
         },
         onQnaNew: (data) => {
-          setQnaQuestions((data.questions || []) as QnaQuestion[]);
+          if (activityMatchesSlide(currentSlideIdRef.current, data)) {
+            setQnaQuestions((data.questions || []) as QnaQuestion[]);
+          }
         },
         onQnaUpdated: (data) => {
-          setQnaQuestions((data.questions || []) as QnaQuestion[]);
+          if (activityMatchesSlide(currentSlideIdRef.current, data)) {
+            setQnaQuestions((data.questions || []) as QnaQuestion[]);
+          }
         },
         onQuizRevealed: (data) => {
           setRevealedAnswers((prev) => ({ ...prev, [data.slide_id]: data.correct_answers }));
         },
         onPresentationEnded: () => {
-          router.push("/present");
+          setEnded(true);
         },
         onPresenterDisconnected: (msg) => {
           setChannelError(msg);
@@ -174,7 +190,7 @@ export default function PresentationLive() {
     return () => {
       channel.disconnect();
     };
-  }, [loading, code, isHost, presenterToken, participantSession?.participantId, participantSession?.participantToken, router]);
+  }, [loading, ended, code, isHost, presenterToken, participantSession?.participantId, participantSession?.participantToken, router]);
 
   useEffect(() => {
     if (!isHost || !joinCode) return;
@@ -216,7 +232,7 @@ export default function PresentationLive() {
 
       if (event.key.toLowerCase() === "h") {
         event.preventDefault();
-        setResultsHidden((v) => !v);
+        if (channelJoined && channelRef.current) void channelRef.current.setResultsHidden(!resultsHidden);
       }
 
       if (event.key.toLowerCase() === "f") {
@@ -231,43 +247,57 @@ export default function PresentationLive() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isHost, channelJoined, currentIndex, slides.length, toggleFullscreen]);
+  }, [isHost, channelJoined, currentIndex, slides.length, resultsHidden, toggleFullscreen]);
 
-  // Load responses for current slide (initial + fallback)
   useEffect(() => {
-    if (!slides[currentIndex]) return;
+    const slideId = slides[currentIndex]?.id;
+    if (!slideId || slideId.startsWith("temp_")) return;
+    if (!isHost && !participantSession) return;
+
+    let cancelled = false;
+    setAllResponses([]);
+    setQnaQuestions([]);
 
     async function loadResponses() {
-      const slideId = slides[currentIndex]?.id;
-      if (!slideId || slideId.startsWith("temp_")) return;
+      try {
+        const activity = await fetchPhoenixSlideActivity(code, slideId, {
+          presenterToken: isHost ? presenterToken : null,
+          participantId: participantSession?.participantId,
+          participantToken: participantSession?.participantToken,
+        });
+        if (cancelled || currentSlideIdRef.current !== slideId) return;
 
-      if (!isHost && !participantSession) return;
-
-      const activity = await fetchPhoenixSlideActivity(code, slideId, {
-        presenterToken: isHost ? presenterToken : null,
-        participantId: participantSession?.participantId,
-        participantToken: participantSession?.participantToken,
-      });
-      const responses = (activity.responses || []) as SlideResponse[];
-      const qnas = (activity.questions || []) as QnaQuestion[];
-      setAllResponses(responses);
-      setQnaQuestions(qnas);
-
-      const alreadySubmitted = responses.some((r: SlideResponse) => r.participant_id === participantId);
-      setSubmitted(alreadySubmitted);
+        const normalized = normalizePresentationActivity(activity as Record<string, unknown>, isHost);
+        const responses = normalized.responses as SlideResponse[];
+        setAllResponses(responses);
+        setSafeResponseCount(normalized.responseCount);
+        setSafeAggregates(normalized.aggregates);
+        setQnaQuestions(normalized.questions as QnaQuestion[]);
+        setSubmitted(Boolean(normalized.ownResponse) || responses.some((r) => r.participant_id === participantId));
+      } catch (err) {
+        if (!cancelled) setChannelError(err instanceof Error ? err.message : "Could not load slide activity.");
+      }
     }
-    loadResponses();
-  }, [currentIndex, slides, participantId, isHost, presenterToken, participantSession]);
 
-  // Periodic fallback when websocket is unavailable.
+    void loadResponses();
+    return () => { cancelled = true; };
+  }, [code, currentIndex, slides, participantId, isHost, presenterToken, participantSession]);
+
+  // Periodic presenter activity refresh and disconnected-channel fallback.
   useEffect(() => {
-    if (loading || channelJoined) return;
+    if (loading || (channelJoined && !isHost)) return;
     const timer = window.setInterval(async () => {
       try {
-        const latest = await fetchPhoenixPresentation(code) as { presentation?: any };
-        const pres = latest.presentation;
-        if (pres?.slides) setSlides([...(pres.slides || [])].sort((a: Slide, b: Slide) => a.order_index - b.order_index));
-        if (pres?.current_slide_index !== undefined) setCurrentIndex(pres.current_slide_index);
+        if (!channelJoined) {
+          const latest = await fetchPhoenixPresentation(code, {
+            presenterToken: isHost ? presenterToken : null,
+          }) as { presentation?: any };
+          const pres = latest.presentation;
+          if (pres?.slides) setSlides([...(pres.slides || [])].sort((a: Slide, b: Slide) => a.order_index - b.order_index));
+          if (pres?.current_slide_index !== undefined) setCurrentIndex(pres.current_slide_index);
+          if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
+          if (pres?.quiz_reveals) setRevealedAnswers(pres.quiz_reveals);
+        }
 
         const slideId = slides[currentIndex]?.id;
         if (slideId && !slideId.startsWith("temp_") && (isHost || participantSession)) {
@@ -276,8 +306,13 @@ export default function PresentationLive() {
             participantId: participantSession?.participantId,
             participantToken: participantSession?.participantToken,
           });
-          setAllResponses((activity.responses || []) as SlideResponse[]);
-          setQnaQuestions((activity.questions || []) as QnaQuestion[]);
+          if (currentSlideIdRef.current === slideId) {
+            const normalized = normalizePresentationActivity(activity as Record<string, unknown>, isHost);
+            setAllResponses(normalized.responses as SlideResponse[]);
+            setSafeResponseCount(normalized.responseCount);
+            setSafeAggregates(normalized.aggregates);
+            setQnaQuestions(normalized.questions as QnaQuestion[]);
+          }
         }
       } catch {
         // Keep current screen stable; explicit channelError is already shown.
@@ -307,64 +342,26 @@ export default function PresentationLive() {
     void channelRef.current.upvoteQna(qnaId, slides[currentIndex].id);
   }, [currentIndex, slides, participantSession]);
 
-  if (loading) {
-    return <div className="container present-live-guard">Loading...</div>;
-  }
-
-  if (isHost && !presenterToken) {
-    return (
-      <div className="container present-live-guard present-live-guard--narrow">
-        <div className="card present-live-guard-card">
-          <div className="present-live-guard-icon">🎤</div>
-          <h1 className="font-display present-live-guard-title">Start from the editor</h1>
-          <p className="present-live-guard-copy">Presenter controls require a live presenter token. Start this deck from the editor.</p>
-          <button className="btn btn-primary btn-lg" onClick={() => router.push(`/present/${code}/edit`)}>Open Editor</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isHost && !participantSession) {
-    return (
-      <div className="container present-live-guard present-live-guard--narrow">
-        <div className="card present-live-guard-card">
-          <div className="present-live-guard-icon">🙋</div>
-          <h1 className="font-display present-live-guard-title">Join through the presentation code</h1>
-          <p className="present-live-guard-copy">Audience responses need a participant session so your answers and upvotes are valid.</p>
-          <button className="btn btn-primary btn-lg" onClick={() => router.push(joinCode ? `/present/join?code=${joinCode}` : "/present/join")}>Join Presentation</button>
-        </div>
-      </div>
-    );
-  }
+  const navigate = (path: string) => router.push(path);
+  if (loading) return <PresentationLiveGuard state="loading" />;
+  if (loadError) return <PresentationLiveGuard state="unavailable" message={loadError} onNavigate={navigate} />;
+  if (ended) return <PresentationLiveGuard state="ended" title={title} isHost={isHost} onNavigate={navigate} />;
+  if (isHost && !presenterToken) return <PresentationLiveGuard state="presenter-token" presentationId={code} onNavigate={navigate} />;
+  if (!isHost && !participantSession) return <PresentationLiveGuard state="participant-session" joinCode={joinCode} onNavigate={navigate} />;
 
   const currentSlide = slides[currentIndex];
   if (!currentSlide) {
-    return <div className="container present-live-guard">No slides</div>;
+    return <PresentationLiveGuard state="empty" />;
   }
 
-  // Word cloud data
-  const wordCloudWords = allResponses.flatMap(r => {
-    const text = (r.response_data?.words as string) || "";
-    return text.split(/[\s,]+/).filter(w => w.length > 1);
-  });
-  const wordCounts: Record<string, number> = {};
-  wordCloudWords.forEach(w => { wordCounts[w.toLowerCase()] = (wordCounts[w.toLowerCase()] || 0) + 1; });
-  const sortedWords = Object.entries(wordCounts).sort((a, b) => b[1] - a[1]).slice(0, 30);
-
-  // Poll data
-  const pollCounts: Record<string, number> = {};
-  (currentSlide.content?.options || []).forEach(o => { pollCounts[o.id] = 0; });
-  allResponses.forEach(r => {
-    const optId = r.response_data?.option_id as string;
-    if (optId) pollCounts[optId] = (pollCounts[optId] || 0) + 1;
-  });
-
-  // Scale data
-  const scaleValues = allResponses.map(r => Number(r.response_data?.value) || 0);
-  const scaleAvg = scaleValues.length > 0 ? Math.round(scaleValues.reduce((s, v) => s + v, 0) / scaleValues.length * 10) / 10 : 0;
+  const derived = summarizePresentationActivity(currentSlide, allResponses);
+  const sortedWords = (safeAggregates.sorted_words as typeof derived.sortedWords | undefined) ?? derived.sortedWords;
+  const pollCounts = (safeAggregates.poll_counts as typeof derived.pollCounts | undefined) ?? derived.pollCounts;
+  const scaleValues = (safeAggregates.scale_values as typeof derived.scaleValues | undefined) ?? derived.scaleValues;
+  const scaleAvg = (safeAggregates.scale_avg as number | undefined) ?? derived.scaleAvg;
 
   const joinUrl = joinCode ? presentationJoinUrl(joinCode) : "";
-  const responseCount = allResponses.length;
+  const responseCount = isHost && safeResponseCount === 0 ? allResponses.length : safeResponseCount;
 
   return (
     <div className={isHost ? "present-live-shell is-host" : "present-live-shell"}>
@@ -445,7 +442,10 @@ export default function PresentationLive() {
           onPrev={() => { if (channelJoined && channelRef.current) void channelRef.current.prevSlide(); }}
           onNext={() => { if (channelJoined && channelRef.current) void channelRef.current.nextSlide(); }}
           onJoin={() => setShowJoinOverlay(true)}
-          onToggleResults={() => setResultsHidden((v) => !v)}
+          onToggleResults={() => {
+            const hidden = !resultsHidden;
+            if (channelJoined && channelRef.current) void channelRef.current.setResultsHidden(hidden);
+          }}
           onToggleFullscreen={toggleFullscreen}
           onEnd={() => { if (channelJoined && channelRef.current) void channelRef.current.endPresentation(); }}
         />

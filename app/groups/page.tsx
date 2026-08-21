@@ -5,6 +5,8 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { checkAndGrantAchievements } from "@/lib/achievements";
+import { buildLoginHref } from "@/lib/auth/redirects";
+import { splitGroupsByMembership } from "@/lib/social-recovery";
 import "@/styles/social.css";
 
 const EMOJIS = ["🎯", "🧠", "🏆", "⚡", "🔥", "🎮", "🌍", "🎬", "🎵", "⚽", "🦁", "🚀", "💡", "🦋", "🐉"];
@@ -29,35 +31,39 @@ export default function GroupsPage() {
   async function load() {
     setLoading(true);
 
-    // Public groups (for discover section)
-    const { data: pubData } = await supabase.from("trivia_groups").select("*").eq("is_public", true).order("created_at", { ascending: false }).limit(20);
+    const { data: pubData } = await supabase
+      .from("trivia_groups")
+      .select("*")
+      .eq("is_public", true)
+      .order("created_at", { ascending: false })
+      .limit(20);
 
-    // Get member counts
-    const allIds = (pubData ?? []).map(g => g.id);
+    const { data: membershipRows } = user
+      ? await supabase.from("trivia_group_members").select("group_id, role").eq("user_id", user.id)
+      : { data: [] };
+    const memberships = (membershipRows ?? []).map(row => ({ groupId: row.group_id, role: row.role }));
+    const membershipIds = memberships.map(membership => membership.groupId);
+    const { data: membershipGroups } = membershipIds.length > 0
+      ? await supabase.from("trivia_groups").select("*").in("id", membershipIds)
+      : { data: [] };
+
+    const allIds = [...new Set([...(pubData ?? []).map(group => group.id), ...membershipIds])];
     const { data: memberCounts } = allIds.length > 0
       ? await supabase.from("trivia_group_members").select("group_id").in("group_id", allIds)
       : { data: [] };
-
     const countMap: Record<string, number> = {};
-    (memberCounts ?? []).forEach(m => { countMap[m.group_id] = (countMap[m.group_id] ?? 0) + 1; });
+    (memberCounts ?? []).forEach(member => {
+      countMap[member.group_id] = (countMap[member.group_id] ?? 0) + 1;
+    });
 
-    if (user) {
-      const { data: myMemberships } = await supabase.from("trivia_group_members").select("group_id, role").eq("user_id", user.id);
-      const myIds = (myMemberships ?? []).map(m => m.group_id);
-
-      setMyGroups((pubData ?? []).filter(g => myIds.includes(g.id)).map(g => ({
-        ...g, member_count: countMap[g.id] ?? 1,
-        my_role: myMemberships?.find(m => m.group_id === g.id)?.role,
-      })));
-
-      setPublicGroups((pubData ?? []).filter(g => !myIds.includes(g.id)).map(g => ({
-        ...g, member_count: countMap[g.id] ?? 0,
-      })));
-    } else {
-      setMyGroups([]);
-      setPublicGroups((pubData ?? []).map(g => ({ ...g, member_count: countMap[g.id] ?? 0 })));
-    }
-
+    const groups = splitGroupsByMembership({
+      memberships,
+      memberCounts: countMap,
+      membershipGroups: (membershipGroups ?? []) as Group[],
+      publicGroups: (pubData ?? []) as Group[],
+    });
+    setMyGroups(groups.myGroups as Group[]);
+    setPublicGroups(groups.publicGroups as Group[]);
     setLoading(false);
   }
 
@@ -100,10 +106,18 @@ export default function GroupsPage() {
 
       {msg && <div className={`social-status-msg social-status-msg--${msgType}`}>{msg}</div>}
 
-      {user && (
-        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}>
+      {user ? (
+        <div className="social-page-actions">
           <button className="btn btn-primary" onClick={() => { setShowCreate(true); setShowJoin(false); }}>+ Create Group</button>
           <button className="btn btn-secondary" onClick={() => { setShowJoin(true); setShowCreate(false); }}>Join by Code</button>
+        </div>
+      ) : (
+        <div className="card social-signin-callout">
+          <div>
+            <h2 className="social-section-title">Save your groups</h2>
+            <p className="social-card-desc">Sign in to join public groups or return to private groups.</p>
+          </div>
+          <Link href={buildLoginHref("/groups")} className="btn btn-primary">Sign in</Link>
         </div>
       )}
 
@@ -122,7 +136,14 @@ export default function GroupsPage() {
             <label className="social-modal-label">Emoji</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
               {EMOJIS.map(e => (
-                <button key={e} onClick={() => setEmoji(e)} style={{ fontSize: "1.4rem", background: emoji === e ? "var(--accent-light)" : "var(--bg-subtle)", border: emoji === e ? "2px solid var(--accent)" : "2px solid transparent", borderRadius: "var(--radius-md)", padding: "0.2rem 0.35rem", cursor: "pointer" }}>{e}</button>
+                <button
+                  key={e}
+                  type="button"
+                  className={`groups-emoji-btn${emoji === e ? " is-selected" : ""}`}
+                  aria-label={`Use ${e} as the group emoji`}
+                  aria-pressed={emoji === e}
+                  onClick={() => setEmoji(e)}
+                >{e}</button>
               ))}
             </div>
           </div>
@@ -192,7 +213,7 @@ export default function GroupsPage() {
                     <div className="social-card-actions">
                       {user
                         ? <button className="btn btn-primary btn-compact" style={{ flex: 1 }} onClick={() => handleJoin(g.id)}>Join</button>
-                        : <Link href="/login" className="btn btn-secondary btn-compact" style={{ flex: 1, textAlign: "center" }}>Sign in to join</Link>
+                        : <Link href={buildLoginHref(`/groups/${g.id}`)} className="btn btn-secondary btn-compact" style={{ flex: 1, textAlign: "center" }}>Sign in to join</Link>
                       }
                     </div>
                   </div>

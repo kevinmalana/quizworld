@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { GameResultRow } from "@/lib/reporting/game-results";
 import { getBestHostedScore } from "@/lib/reporting/game-results";
 import type { QuizDraftRow, QuizVersionRow } from "@/lib/quiz-drafts";
+import { getDraftContinueHref } from "@/lib/quiz-lifecycle";
 
 export type DashboardQuizRow = {
   id: string;
@@ -38,7 +39,7 @@ export function DraftCard({ draft }: { draft: QuizDraftRow }) {
         </div>
       </div>
       <div className="dashboard-action-row">
-        <Link href={`/create?draft=${draft.id}`} className="btn btn-primary btn-compact dashboard-action">Continue</Link>
+        <Link href={getDraftContinueHref(draft.id)} className="btn btn-primary btn-compact dashboard-action">Continue Editing</Link>
         {draft.quiz_id ? (
           <Link href={`/host?quiz=${draft.quiz_id}`} className="btn btn-secondary btn-compact dashboard-action">Host Live</Link>
         ) : (

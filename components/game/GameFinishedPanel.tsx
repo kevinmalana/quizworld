@@ -6,6 +6,7 @@ import { GameNotice } from "./GameNotice";
 import { TeamLeaderboard } from "./TeamLeaderboard";
 import type { GamePlayer } from "@/lib/game/session-normalizers";
 import type { Team } from "./TeamScoreBar";
+import { buildScoreShareText } from "@/lib/game/score-sharing";
 
 type GameSessionData = { quiz_id?: string };
 
@@ -31,6 +32,7 @@ export function GameFinishedPanel({
   teamAssignments = {},
   eliminated = [],
   myTeamId,
+  currentPlayerId,
   onPlayAgain,
 }: {
   notice: string | null;
@@ -49,22 +51,20 @@ export function GameFinishedPanel({
   teamAssignments?: Record<string, string>;
   eliminated?: string[];
   myTeamId?: string | null;
+  currentPlayerId?: string | null;
   onPlayAgain?: () => void;
 }) {
   const quizId = (session as GameSessionData)?.quiz_id;
   const [shareCopied, setShareCopied] = useState(false);
 
-  // Compute final score for the share message (top score or player's own)
-  const topScore = leaderboard[0]?.score ?? 0;
-
   function handleShareScore() {
-    const shareScore = gameMode === "team" && myTeamId && teams[myTeamId]
-      ? teams[myTeamId].score
-      : topScore;
-    const shareMsg = gameMode === "team" && myTeamId && teams[myTeamId]
-      ? `My team scored ${shareScore.toLocaleString()} points on QuizWorld! Play at quizworld.xyz`
-      : `I scored ${shareScore.toLocaleString()} points on QuizWorld! Play at quizworld.xyz`;
-    const text = shareMsg;
+    const text = buildScoreShareText({
+      gameMode,
+      leaderboard,
+      currentPlayerId: currentPlayerId ?? null,
+      teams,
+      myTeamId: myTeamId ?? null,
+    });
     navigator.clipboard.writeText(text).then(() => {
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);

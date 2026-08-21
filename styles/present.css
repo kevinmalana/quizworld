@@ -35,6 +35,18 @@
     padding: 0.9rem !important;
   }
 
+  .present-create-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .present-create-row > div:last-child {
+    width: 100% !important;
+  }
+
+  .present-create-row > div:last-child button {
+    flex: 1 !important;
+  }
+
   .present-join-card input,
   .present-create-card input {
     min-height: 52px !important;
@@ -65,7 +77,7 @@
     overflow: visible !important;
   }
 
-  .present-slide-list {
+  .present-slide-list-panel {
     width: 100% !important;
     display: flex !important;
     gap: 0.5rem !important;
@@ -79,16 +91,33 @@
     z-index: 15 !important;
   }
 
-  .present-slide-list > div,
-  .present-slide-list > button {
+  .present-slide-list-panel .present-slide-thumb,
+  .present-slide-list-panel > button {
     flex: 0 0 145px !important;
     min-height: 58px !important;
     margin-bottom: 0 !important;
   }
 
-  .present-slide-editor {
+  .present-slide-editor-panel {
     padding: 0.9rem !important;
     overflow: visible !important;
+  }
+
+  .present-editor-main {
+    flex-direction: column !important;
+    overflow: visible !important;
+  }
+
+  .present-editor-form {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    overflow: visible !important;
+    border-right: none !important;
+  }
+
+  .present-editor-preview {
+    width: 100% !important;
+    min-height: 320px !important;
   }
 
   .present-slide-card {
@@ -1213,4 +1242,88 @@
 
 .present-join-pin-row {
   margin-bottom: 1rem;
+}
+
+/* AI presentation creation */
+.present-ai-launch {
+  display: flex;
+  width: 100%;
+  min-height: 72px;
+  align-items: center;
+  gap: 0.85rem;
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border: 1.5px solid color-mix(in srgb, var(--primary) 32%, var(--line));
+  border-radius: 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--surface)), var(--surface));
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.present-ai-launch > span:first-child { font-size: 1.6rem; }
+.present-ai-launch > span:nth-child(2) { display: flex; flex: 1; flex-direction: column; gap: 0.15rem; }
+.present-ai-launch strong { font-size: 0.98rem; }
+.present-ai-launch small { color: var(--muted); font-size: 0.78rem; }
+.present-ai-launch:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
+
+.present-ai-create {
+  margin-bottom: 1.5rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
+}
+
+.present-ai-create__header,
+.present-ai-create__actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.present-ai-create__header h2 { margin: 0.35rem 0 0.3rem; font-size: 1.25rem; }
+.present-ai-create__header p,
+.present-ai-create__actions p { margin: 0; color: var(--muted); font-size: 0.82rem; line-height: 1.5; }
+.present-ai-create__eyebrow { color: var(--primary); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.present-ai-create__fields {
+  display: grid;
+  grid-template-columns: 1.35fr 0.8fr 0.55fr 0.65fr;
+  gap: 0.75rem;
+  margin: 1.15rem 0;
+}
+
+.present-ai-create__fields label { display: flex; flex-direction: column; gap: 0.35rem; color: var(--ink); font-size: 0.75rem; font-weight: 800; }
+.present-ai-create__fields input,
+.present-ai-create__fields textarea,
+.present-ai-create__fields select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.68rem 0.75rem;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.present-ai-create__fields textarea { min-height: 112px; resize: vertical; }
+.present-ai-create__fields :is(input, textarea, select):focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); border-color: var(--accent); }
+.present-ai-create__brief { grid-row: span 2; }
+.present-ai-create__error { margin: -0.4rem 0 0.8rem; color: var(--error, #c53030); font-size: 0.82rem; font-weight: 700; }
+.present-ai-create__actions { align-items: center; }
+.present-ai-create__actions p { max-width: 430px; }
+
+@media (max-width: 720px) {
+  .present-ai-create__header,
+  .present-ai-create__actions { flex-direction: column; }
+  .present-ai-create__fields { grid-template-columns: 1fr 1fr; }
+  .present-ai-create__brief { grid-column: 1 / -1; grid-row: auto; }
+  .present-ai-create__actions .btn { width: 100%; }
+}
+
+@media (max-width: 460px) {
+  .present-ai-create__fields { grid-template-columns: 1fr; }
+  .present-ai-create__brief { grid-column: auto; }
 }
