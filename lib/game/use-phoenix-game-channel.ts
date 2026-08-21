@@ -18,6 +18,7 @@ function sessionFromPayload(payload: unknown) {
 
 export function usePhoenixGameChannel({ pin, joinPayload, onSnapshot, loadSnapshot }: PhoenixGameChannelOptions) {
   const [connected, setConnected] = useState(false);
+  const [hasConnectedOnce, setHasConnectedOnce] = useState(false);
 
   useEffect(() => {
     let stopped = false;
@@ -25,6 +26,7 @@ export function usePhoenixGameChannel({ pin, joinPayload, onSnapshot, loadSnapsh
     const handleSnapshot = (payload: unknown) => {
       if (stopped) return;
       setConnected(true);
+      setHasConnectedOnce(true);
       const session = sessionFromPayload(payload);
       if (session) onSnapshot(session);
     };
@@ -56,5 +58,5 @@ export function usePhoenixGameChannel({ pin, joinPayload, onSnapshot, loadSnapsh
     return () => window.clearInterval(fallbackInterval);
   }, [connected, loadSnapshot]);
 
-  return connected;
+  return { connected, hasConnectedOnce };
 }

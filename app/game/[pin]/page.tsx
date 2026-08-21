@@ -61,6 +61,7 @@ import {
 } from "@/lib/game/session-normalizers";
 import { useGameAudio } from "@/lib/game/use-game-audio";
 import { usePhoenixGameChannel } from "@/lib/game/use-phoenix-game-channel";
+import { shouldShowGameReconnectNotice } from "@/lib/game/reconnect-notice";
 import {
   calculatePlayerAchievements,
   countCorrectAnswersByPlayer,
@@ -404,7 +405,7 @@ export default function GamePage() {
       : {}),
   }), [hostSession?.hostToken, playerSession?.playerId, playerSession?.playerToken]);
 
-  const phoenixChannelConnected = usePhoenixGameChannel({
+  const { connected: phoenixChannelConnected, hasConnectedOnce: phoenixChannelConnectedOnce } = usePhoenixGameChannel({
     pin,
     joinPayload: gameChannelJoinPayload,
     onSnapshot: applySessionSnapshot,
@@ -420,13 +421,18 @@ export default function GamePage() {
       setNotice((prev) => prev === "🔄 Reconnecting to game server..." ? null : prev);
       return;
     }
-    if (loading || gameStatus === "finished") return;
-    // Only show after 4 seconds of no connection — avoids false alarm on page load
+    if (!shouldShowGameReconnectNotice({
+      connected: phoenixChannelConnected,
+      hasConnectedOnce: phoenixChannelConnectedOnce,
+      loading,
+      gameStatus,
+    })) return;
+    // Only alert after a previously healthy socket has stayed down for 4 seconds.
     const timer = setTimeout(() => {
       setNotice("🔄 Reconnecting to game server...");
     }, 4000);
     return () => clearTimeout(timer);
-  }, [phoenixChannelConnected, loading, gameStatus]);
+  }, [phoenixChannelConnected, phoenixChannelConnectedOnce, loading, gameStatus]);
 
   // Feature 6: Update streaks when reveal happens
   useEffect(() => {
