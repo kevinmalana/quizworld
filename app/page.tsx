@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CATEGORY_EMOJIS } from "@/lib/shared";
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
@@ -74,6 +74,30 @@ export default function HomePage() {
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
+  const [heroVideoEnabled, setHeroVideoEnabled] = useState(false);
+
+  useEffect(() => {
+    const videoEligible = window.matchMedia("(min-width: 960px) and (prefers-reduced-motion: no-preference)");
+    let enableTimer: number | undefined;
+
+    const syncVideo = () => {
+      if (enableTimer !== undefined) window.clearTimeout(enableTimer);
+      if (!videoEligible.matches) {
+        setHeroVideoEnabled(false);
+        return;
+      }
+
+      // Let the poster, text and controls win the initial loading race.
+      enableTimer = window.setTimeout(() => setHeroVideoEnabled(true), 1600);
+    };
+
+    syncVideo();
+    videoEligible.addEventListener("change", syncVideo);
+    return () => {
+      if (enableTimer !== undefined) window.clearTimeout(enableTimer);
+      videoEligible.removeEventListener("change", syncVideo);
+    };
+  }, []);
 
   // Game PINs are 6-char alphanumeric (Phoenix numeric-only or presentation codes).
   // Show an inline error instead of navigating to /join with a partial PIN that
@@ -104,8 +128,30 @@ export default function HomePage() {
         <div className="mesh-blob mesh-blob-2" />
       </div>
 
-      <section className="home-hero">
-        <div className="container">
+      <section className="home-hero home-hero--cinematic">
+        <div className="home-hero-media" aria-hidden="true">
+          {heroVideoEnabled && (
+            <video
+              className="home-hero-video"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="none"
+              poster="/media/quizworld/hero-orbital-globe-20260821.webp"
+              tabIndex={-1}
+              disablePictureInPicture
+            >
+              <source
+                src="/media/quizworld/hero-orbital-globe-20260821.mp4"
+                type="video/mp4"
+              />
+            </video>
+          )}
+          <div className="home-hero-scrim" />
+        </div>
+
+        <div className="container home-hero-content">
           <div className="home-hero-grid">
             <div className="animate-pop-in">
               <div className="tag tag-success mb-md">

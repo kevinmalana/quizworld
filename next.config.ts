@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
-        source: "/:all*(svg|png|jpg|jpeg|gif|webp|ico)",
+        source: "/:all*(svg|png|jpg|jpeg|gif|webp|ico|mp4|webm)",
         headers: [
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],

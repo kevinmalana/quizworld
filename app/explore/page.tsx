@@ -11,6 +11,7 @@ import { calcLevel } from "@/components/study/study-session-panels";
 import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/shared";
 import { canonicalizeCategory, catalogCursorFilter, catalogCursorForRow, categoryVariants, excludeFeaturedQuizzes, formatCatalogCount, mergeCatalogPage, type CatalogCursor } from "@/lib/catalog-discovery";
 import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/explore-quiz-card";
+import { CATEGORY_FAMILY_ART, type CategoryFamilyId } from "@/lib/category-families";
 
 const CATEGORY_LIST = ["All", ...new Set(Object.keys(CATEGORY_COLORS).map(canonicalizeCategory))];
 const PAGE_SIZE = 24;
@@ -25,7 +26,7 @@ const SORT_OPTIONS: { value: SortMode; label: string; icon: string }[] = [
 ];
 
 type SuperCategory = {
-  id: string;
+  id: CategoryFamilyId;
   label: string;
   emoji: string;
   subcategories: string[];
@@ -365,7 +366,7 @@ function SuperCategorySelector({
   activeCategory: string;
   onCategoryChange: (cat: string) => void;
 }) {
-  const [expandedSuperCat, setExpandedSuperCat] = useState<string | null>(null);
+  const [expandedSuperCat, setExpandedSuperCat] = useState<CategoryFamilyId | null>(null);
 
   // Determine which super-cat (if any) owns the active subcategory
   const activeSuperCat = useMemo(() => {
@@ -382,18 +383,16 @@ function SuperCategorySelector({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-      {/* Top row: All + super-category buttons */}
-      <div
-        className="hide-scrollbar"
-        style={{ display: "flex", gap: "0.375rem", overflowX: "auto", paddingBottom: "0.25rem", flexWrap: "nowrap" }}
-      >
-        {/* All button */}
+    <div className="explore-family-selector">
+      <div className="explore-family-strip hide-scrollbar" role="group" aria-label="Quiz families">
         <button
           onClick={() => { onCategoryChange("All"); setExpandedSuperCat(null); }}
-          className={activeCategory === "All" ? "btn btn-chip explore-chip is-active" : "btn btn-chip explore-chip"}
+          className={`explore-family-card explore-family-card--all ${activeCategory === "All" && expandedSuperCat === null ? "is-active" : ""}`}
+          aria-pressed={activeCategory === "All" && expandedSuperCat === null}
         >
-          🌐 All topics
+          <span className="explore-family-all-icon" aria-hidden="true">🌐</span>
+          <span className="explore-family-label">All topics</span>
+          <span className="explore-family-hint">Browse everything</span>
         </button>
 
         {SUPER_CATEGORIES.map((sc) => {
@@ -403,24 +402,22 @@ function SuperCategorySelector({
             <button
               key={sc.id}
               onClick={() => handleSuperClick(sc)}
-              className="btn btn-chip explore-chip"
-              style={{
-                background: hasActiveSub
-                  ? "var(--accent)"
-                  : isExpanded
-                  ? "var(--bg-subtle)"
-                  : "var(--surface)",
-                color: hasActiveSub ? "#fff" : isExpanded ? "var(--ink)" : "var(--muted)",
-                borderColor: hasActiveSub ? "var(--accent)" : isExpanded ? "var(--line-strong)" : "var(--line)",
-                fontWeight: isExpanded || hasActiveSub ? 700 : 600,
-                gap: "0.3rem",
-                display: "inline-flex",
-                alignItems: "center",
-              }}
+              className={`explore-family-card ${isExpanded || hasActiveSub ? "is-active" : ""}`}
+              aria-expanded={isExpanded}
+              aria-pressed={hasActiveSub}
+              aria-controls="explore-family-subcategories"
             >
-              {sc.emoji} {sc.label}
-              <span style={{ fontSize: "0.65rem", marginLeft: "0.1rem", opacity: 0.7 }}>
-                {isExpanded ? "▲" : "▼"}
+              <img
+                src={CATEGORY_FAMILY_ART[sc.id]}
+                alt=""
+                className="explore-family-art"
+                loading="lazy"
+                decoding="async"
+              />
+              <span className="explore-family-scrim" />
+              <span className="explore-family-card-content">
+                <span className="explore-family-label">{sc.emoji} {sc.label}</span>
+                <span className="explore-family-chevron" aria-hidden="true">{isExpanded ? "▲" : "▼"}</span>
               </span>
             </button>
           );
@@ -430,6 +427,7 @@ function SuperCategorySelector({
       {/* Expanded subcategories inline */}
       {expandedSuperCat && (
         <div
+          id="explore-family-subcategories"
           className="hide-scrollbar"
           style={{
             display: "flex",
@@ -783,7 +781,7 @@ function ExplorePageContent() {
 
       <div className="container explore-container">
         {/* Hero section */}
-        <section className="home-hero animate-pop-in">
+        <section className="explore-hero animate-pop-in">
           <div className="tag tag-success mb-md">
             <span className="home-tag-dot" />
             Live Multiplayer
@@ -969,22 +967,12 @@ function ExplorePageContent() {
       {!loading && quizzes.length > 0 && (
         <button
           onClick={handleSurpriseMe}
-          className="btn btn-primary"
-          style={{
-            position: "fixed",
-            bottom: "1.75rem",
-            left: "1.75rem",
-            zIndex: 1000,
-            boxShadow: "0 8px 24px rgba(124,58,237,0.4)",
-            gap: "0.4rem",
-            display: "flex",
-            alignItems: "center",
-            whiteSpace: "nowrap",
-          }}
+          className="btn btn-primary explore-surprise-button"
           aria-label="Surprise Me — pick a random quiz"
           title="Pick a random quiz"
         >
-          🎲 Surprise me
+          <span aria-hidden="true">🎲</span>
+          <span className="explore-surprise-label">Surprise me</span>
         </button>
       )}
 

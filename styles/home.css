@@ -9,6 +9,81 @@
   position: relative;
 }
 
+.home-hero--cinematic {
+  min-height: 620px;
+  display: flex;
+  align-items: center;
+  isolation: isolate;
+  overflow: hidden;
+  background: #070b24 url("/media/quizworld/hero-orbital-globe-20260821.webp") center / cover no-repeat;
+}
+
+.home-hero-media,
+.home-hero-scrim {
+  position: absolute;
+  inset: 0;
+}
+
+.home-hero-media {
+  z-index: -1;
+  overflow: hidden;
+}
+
+.home-hero-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.home-hero-scrim {
+  background:
+    linear-gradient(90deg, rgba(4, 7, 25, 0.98) 0%, rgba(5, 8, 29, 0.92) 34%, rgba(5, 8, 29, 0.42) 64%, rgba(5, 8, 29, 0.22) 100%),
+    linear-gradient(180deg, rgba(3, 6, 23, 0.1), rgba(3, 6, 23, 0.48));
+}
+
+.home-hero-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+.home-hero--cinematic .home-hero-title {
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.28);
+}
+
+.home-hero--cinematic .home-hero-desc {
+  color: rgba(226, 232, 240, 0.88);
+}
+
+.home-hero--cinematic .text-gradient {
+  background: linear-gradient(110deg, #ffffff 0%, #67e8f9 40%, #c4b5fd 70%, #f8d77c 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.home-hero--cinematic .tag-success {
+  color: #d1fae5;
+  background: rgba(5, 150, 105, 0.22);
+  border-color: rgba(110, 231, 183, 0.32);
+  backdrop-filter: blur(12px);
+}
+
+.home-hero--cinematic .btn-secondary {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(12px);
+}
+
+.home-hero--cinematic .btn-secondary:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
 .home-hero-grid {
   display: grid;
   gap: 3rem;
@@ -52,6 +127,14 @@
   text-align: center;
   background: linear-gradient(135deg, rgba(124,58,237,0.04), rgba(37,99,235,0.04));
   border: 1px solid var(--line);
+}
+
+.home-hero--cinematic .home-join-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.64);
+  box-shadow: 0 24px 70px rgba(2, 6, 23, 0.38);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
 }
 
 .home-join-icon {
@@ -273,4 +356,46 @@
   background: #fff;
   display: inline-block;
   margin-right: 6px;
+}
+
+@media (max-width: 959px) {
+  .home-hero--cinematic {
+    min-height: auto;
+    padding: 3.5rem 0 3rem;
+    background-position: 68% center;
+  }
+
+  .home-hero--cinematic .home-hero-scrim {
+    background:
+      linear-gradient(180deg, rgba(4, 7, 25, 0.68) 0%, rgba(4, 7, 25, 0.84) 48%, rgba(4, 7, 25, 0.96) 100%),
+      linear-gradient(90deg, rgba(4, 7, 25, 0.78), rgba(4, 7, 25, 0.34));
+  }
+
+  .home-hero-video {
+    display: none;
+  }
+
+  .home-hero-actions {
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .home-hero--cinematic {
+    padding-top: 2.75rem;
+  }
+
+  .home-hero--cinematic .home-hero-title {
+    font-size: 2.35rem;
+  }
+
+  .home-hero--cinematic .home-join-card {
+    padding: 1.75rem 1.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-hero-video {
+    display: none;
+  }
 }
