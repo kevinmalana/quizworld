@@ -782,11 +782,6 @@ function ExplorePageContent() {
       <div className="container explore-container">
         {/* Hero section */}
         <section className="explore-hero animate-pop-in">
-          <div className="tag tag-success mb-md">
-            <span className="home-tag-dot" />
-            Live Multiplayer
-          </div>
-
           <h1 className="font-display home-hero-title">
             Discover Quizzes
           </h1>

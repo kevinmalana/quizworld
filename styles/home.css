@@ -348,16 +348,6 @@
   border: 1.5px solid rgba(255,255,255,0.3);
 }
 
-/* Tag */
-.home-tag-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #fff;
-  display: inline-block;
-  margin-right: 6px;
-}
-
 @media (max-width: 959px) {
   .home-hero--cinematic {
     min-height: auto;
