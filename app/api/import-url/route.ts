@@ -1,30 +1,12 @@
 import { NextResponse } from "next/server";
-import { isIP } from "node:net";
 import {
   extractReadableTextFromHtml,
   extractTitleFromHtml,
 } from "@/lib/quiz-import";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { fetchSafeImportUrl, UnsafeImportUrlError } from "@/lib/url-import-security";
 
 const MAX_IMPORT_BYTES = 1_000_000;
-const PRIVATE_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
-
-function isPrivateHostname(hostname: string) {
-  const host = hostname.toLowerCase();
-  if (PRIVATE_HOSTS.has(host) || host.endsWith(".local")) return true;
-
-  const ipVersion = isIP(host);
-  if (ipVersion === 4) {
-    const [a, b] = host.split(".").map(Number);
-    return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
-  }
-
-  if (ipVersion === 6) {
-    return host === "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80");
-  }
-
-  return false;
-}
 
 export async function POST(request: Request) {
   const rateLimitResponse = await checkRateLimit(request as any);
@@ -51,21 +33,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Only http and https URLs are supported." }, { status: 400 });
     }
 
-    if (isPrivateHostname(parsedUrl.hostname)) {
-      return NextResponse.json({ error: "Private or local network URLs cannot be imported." }, { status: 400 });
-    }
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
 
-    const response = await fetch(parsedUrl.toString(), {
-      headers: {
-        "User-Agent": "QuizWorldImporter/1.0",
-        Accept: "text/html, text/plain;q=0.9, */*;q=0.1",
-      },
-      signal: controller.signal,
-      redirect: "follow",
-    }).finally(() => clearTimeout(timeout));
+    const response = await fetchSafeImportUrl(parsedUrl, { signal: controller.signal })
+      .finally(() => clearTimeout(timeout));
 
     if (!response.ok) {
       return NextResponse.json(
@@ -97,6 +69,10 @@ export async function POST(request: Request) {
       text: extractedText.slice(0, 24000),
     });
   } catch (error) {
+    if (error instanceof UnsafeImportUrlError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
     const message =
       error instanceof Error && error.name === "AbortError"
         ? "This URL took too long to respond."

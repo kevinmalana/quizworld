@@ -2,6 +2,9 @@
   "name": "quizworld",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
@@ -21,11 +24,13 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.100.1",
+    "ipaddr.js": "^2.5.0",
     "mammoth": "^1.12.0",
-    "next": "16.1.6",
-    "pdfjs-dist": "^5.7.284",
+    "next": "^16.3.3",
+    "pdfjs-dist": "^6.2.108",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "undici": "^8.10.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
