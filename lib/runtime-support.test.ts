@@ -11,8 +11,10 @@ test("the declared and CI Node runtimes satisfy production dependency requiremen
   };
   const workflow = readFileSync(resolve(repoRoot, ".github/workflows/ci.yml"), "utf8");
   const readme = readFileSync(resolve(repoRoot, "README.md"), "utf8");
+  const ogRoute = readFileSync(resolve(repoRoot, "app/api/og/route.tsx"), "utf8");
 
   assert.equal(packageJson.engines?.node, ">=22.19.0");
   assert.match(workflow, /node-version:\s*['"]22\.19\.0['"]/);
   assert.match(readme, /Node\.js 22\.19\.0\+/);
+  assert.match(ogRoute, /export const runtime = "nodejs";/);
 });
