@@ -36,7 +36,7 @@ Runtime ownership is strict:
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 22.19.0+
 - npm
 - Elixir 1.17 and Erlang/OTP 27 for Phoenix work
 - Redis when testing restart recovery end to end

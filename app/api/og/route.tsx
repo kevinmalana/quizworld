@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
         </div>
         <div
           style={{
+            display: "flex",
             fontSize: 28,
             color: "rgba(255,255,255,0.8)",
             marginBottom: 32,
