@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { calcLevel } from "@/components/study/study-session-panels";
@@ -22,6 +23,7 @@ type Classroom = {
 
 export default function ClassroomsPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -31,6 +33,7 @@ export default function ClassroomsPage() {
   const [joinCode, setJoinCode] = useState("");
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"success" | "error">("success");
+  const [creating, setCreating] = useState(false);
 
   async function load() {
     if (!user) return;
@@ -65,14 +68,27 @@ export default function ClassroomsPage() {
   useEffect(() => { load(); }, [user?.id]);
 
   async function handleCreate() {
-    if (!user || !createName.trim()) return;
-    const { data: room, error } = await supabase.from("classrooms").insert({ name: createName.trim(), description: createDesc.trim() || null, created_by: user.id }).select().single();
-    if (error || !room) { setMsg("Could not create classroom."); setMsgType("error"); return; }
-    await supabase.from("classroom_members").insert({ classroom_id: room.id, user_id: user.id, role: "teacher" });
-    setMsg(`Classroom "${room.name}" created!`); setMsgType("success");
-    setShowCreate(false); setCreateName(""); setCreateDesc("");
-    setTimeout(() => setMsg(""), 3000);
-    load();
+    if (!user || !createName.trim() || creating) return;
+    setCreating(true);
+    setMsg("");
+    try {
+      const { data, error } = await supabase.rpc("create_classroom_with_teacher", {
+        p_name: createName.trim(),
+        p_description: createDesc.trim() || null,
+      });
+      const room = (Array.isArray(data) ? data[0] : data) as { id?: string } | null;
+      if (error || !room?.id) {
+        setMsg("Could not create classroom. Please try again.");
+        setMsgType("error");
+        return;
+      }
+      router.push(`/classrooms/${room.id}`);
+    } catch {
+      setMsg("Could not create classroom. Please check your connection and try again.");
+      setMsgType("error");
+    } finally {
+      setCreating(false);
+    }
   }
 
   async function handleJoin() {
@@ -127,8 +143,8 @@ export default function ClassroomsPage() {
             <input className="social-modal-input" value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="What's this classroom for?" />
           </div>
           <div className="social-modal-actions">
-            <button className="btn btn-secondary btn-compact" onClick={() => setShowCreate(false)}>Cancel</button>
-            <button className="btn btn-primary btn-compact" onClick={handleCreate} disabled={!createName.trim()}>Create</button>
+            <button className="btn btn-secondary btn-compact" onClick={() => setShowCreate(false)} disabled={creating}>Cancel</button>
+            <button className="btn btn-primary btn-compact" onClick={handleCreate} disabled={!createName.trim() || creating}>{creating ? "Creating…" : "Create"}</button>
           </div>
         </div>
       )}

@@ -265,6 +265,7 @@ function DashboardPageContent() {
           </div>
           <div className="profile-hero-actions">
             <Link href="/create" className="btn btn-primary btn-compact">New Quiz</Link>
+            <Link href="/classrooms" className="btn btn-secondary btn-compact">Classrooms</Link>
             <Link href="/explore" className="btn btn-secondary btn-compact">Browse Quizzes</Link>
           </div>
         </div>
