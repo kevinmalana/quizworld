@@ -296,7 +296,7 @@ defmodule QuizworldRealtime.GamesTest do
                "game_mode" => "classic"
              })
 
-    assert_receive {:session_updated, _created_snapshot}
+    assert_receive {:session_updated, _created_public_snapshot}
 
     assert {:ok, joined_snapshot, _player_token, _player_id} =
              Games.join_player(pin, %{"nickname" => "Mia", "avatar" => "🦊"})
@@ -320,17 +320,80 @@ defmodule QuizworldRealtime.GamesTest do
                "game_mode" => "classic"
              })
 
-    assert_receive {:session_updated, _created_snapshot}
+    assert_receive {:session_updated, _created_public_snapshot}
 
     assert {:ok, _joined, player_token, player_id} =
              Games.join_player(pin, %{"nickname" => "Mia", "avatar" => "🦊"})
 
-    assert_receive {:session_updated, _joined_snapshot}
+    assert_receive {:session_updated, _joined_public_snapshot}
     assert {:ok, ready_snapshot} = Games.ready_player(pin, player_id, player_token)
     assert ready_snapshot.ready_player_ids == [player_id]
     assert_receive {:session_updated, public_snapshot}
     assert public_snapshot.ready_player_ids == ready_snapshot.ready_player_ids
     refute Map.has_key?(public_snapshot, :question_history)
+  end
+
+  test "answer updates stay on the host topic until the round is revealed" do
+    pin = "B" <> Integer.to_string(System.unique_integer([:positive]))
+    parent = self()
+    public_listener = start_topic_listener(Games.topic(pin), parent, :public)
+    host_listener = start_topic_listener(Games.host_topic(pin), parent, :host)
+
+    assert {:ok, _snapshot, host_token} =
+             Games.create_session(%{
+               "pin" => pin,
+               "host_id" => "host_test",
+               "quiz_id" => "quiz_test",
+               "questions" => [question()],
+               "game_mode" => "classic"
+             })
+
+    assert_receive {:public, {:session_updated, _}}
+    assert_receive {:host, {:host_session_updated, _}}
+    assert {:ok, _, token_one, player_one} = Games.join_player(pin, %{"nickname" => "One"})
+    assert_receive {:public, {:session_updated, _}}
+    assert_receive {:host, {:host_session_updated, _}}
+    assert {:ok, _, token_two, player_two} = Games.join_player(pin, %{"nickname" => "Two"})
+    assert_receive {:public, {:session_updated, _}}
+    assert_receive {:host, {:host_session_updated, _}}
+    assert {:ok, _} = Games.start_game(pin, host_token)
+    assert_receive {:public, {:session_updated, _}}
+    assert_receive {:host, {:host_session_updated, _}}
+
+    assert {:ok, %{status: "active"}} =
+             Games.submit_answer(pin, player_one, token_one, "a1", 100)
+
+    assert_receive {:host, {:host_session_updated, _}}
+    refute_receive {:public, {:session_updated, _}}, 100
+
+    assert {:ok, %{status: "reveal"}} =
+             Games.submit_answer(pin, player_two, token_two, "a1", 100)
+
+    assert_receive {:public, {:session_updated, _}}
+    assert_receive {:host, {:host_session_updated, _}}
+
+    send(public_listener, :stop)
+    send(host_listener, :stop)
+  end
+
+  defp start_topic_listener(topic, parent, tag) do
+    spawn_link(fn ->
+      Phoenix.PubSub.subscribe(QuizworldRealtime.PubSub, topic)
+      send(parent, {:listener_ready, tag})
+      topic_listener(parent, tag)
+    end)
+    |> tap(fn _pid -> assert_receive {:listener_ready, ^tag} end)
+  end
+
+  defp topic_listener(parent, tag) do
+    receive do
+      :stop ->
+        :ok
+
+      message ->
+        send(parent, {tag, message})
+        topic_listener(parent, tag)
+    end
   end
 
   test "the last eligible answer reveals the round on the server" do

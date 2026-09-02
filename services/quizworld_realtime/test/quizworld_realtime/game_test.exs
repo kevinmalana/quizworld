@@ -186,6 +186,33 @@ defmodule QuizworldRealtime.GameTest do
     refute Enum.any?(player.current_question["answers"], &Map.has_key?(&1, "count"))
   end
 
+  test "a precomputed host snapshot can be safely shaped for every channel role" do
+    game = new_game()
+    {game, token, id} = join(game, "Mia")
+    {:ok, game} = Game.start(game, Game.host_token(game))
+    {:ok, game} = Game.submit_answer(game, id, token, "a2", 0)
+
+    host = Game.snapshot(game, :host)
+
+    assert Game.snapshot_for_role(host, :host) == host
+    assert Game.snapshot_for_role(host, {:player, id}) == Game.snapshot(game, {:player, id})
+    assert Game.snapshot_for_role(host, :public) == Game.snapshot(game, :public)
+  end
+
+  test "active player snapshots acknowledge an answer without revealing its result" do
+    game = new_game()
+    {game, token_mia, id_mia} = join(game, "Mia")
+    {game, _token_bob, _id_bob} = join(game, "Bob")
+    {:ok, game} = Game.start(game, Game.host_token(game))
+    {:ok, game} = Game.submit_answer(game, id_mia, token_mia, "a2", 0)
+
+    assert game.status == "active"
+    assert [answer] = Game.snapshot(game, {:player, id_mia}).current_answers
+    assert Map.take(answer, [:player_id, :answer_id]) == %{player_id: id_mia, answer_id: "a2"}
+    refute Map.has_key?(answer, :is_correct)
+    refute Map.has_key?(answer, :points_awarded)
+  end
+
   test "submit_answer rejects late answers" do
     game = new_game()
     {game, token, id} = join(game, "Mia")

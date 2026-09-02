@@ -131,7 +131,13 @@ defmodule QuizworldRealtime.GameServer do
           {:error, reason}
       end
 
-    reply_with_transition(result, game, {:player, player_id})
+    broadcast_scope =
+      case result do
+        {:ok, %Game{status: "active"}} -> :host
+        _ -> :all
+      end
+
+    reply_with_transition(result, game, {:player, player_id}, broadcast_scope)
   end
 
   def handle_call({:reveal_current_question, host_token}, _from, game) do
@@ -263,30 +269,39 @@ defmodule QuizworldRealtime.GameServer do
   defp reply_with_transition(result, current_game),
     do: reply_with_transition(result, current_game, :host)
 
-  defp reply_with_transition({:ok, next_game}, current_game, role) do
+  defp reply_with_transition(result, current_game, role),
+    do: reply_with_transition(result, current_game, role, :all)
+
+  defp reply_with_transition({:ok, next_game}, current_game, role, scope) do
     next_game = next_game |> prepare_next_game(current_game) |> maybe_start_result_sync()
-    snapshot = persist_snapshot(next_game)
-    broadcast_update(next_game, snapshot)
-    {:reply, {:ok, Game.snapshot(next_game, role)}, next_game}
+    host_snapshot = persist_snapshot(next_game)
+    broadcast_update(next_game, host_snapshot, scope)
+    {:reply, {:ok, Game.snapshot_for_role(host_snapshot, role)}, next_game}
   end
 
-  defp reply_with_transition({:ok, next_game, player_token}, current_game, role) do
+  defp reply_with_transition({:ok, next_game, player_token}, current_game, role, scope) do
     next_game = next_game |> prepare_next_game(current_game) |> maybe_start_result_sync()
-    snapshot = persist_snapshot(next_game)
-    broadcast_update(next_game, snapshot)
-    {:reply, {:ok, Game.snapshot(next_game, role), player_token}, next_game}
+    host_snapshot = persist_snapshot(next_game)
+    broadcast_update(next_game, host_snapshot, scope)
+    {:reply, {:ok, Game.snapshot_for_role(host_snapshot, role), player_token}, next_game}
   end
 
-  defp reply_with_transition({:ok, next_game, player_token, player_id}, current_game, _role) do
+  defp reply_with_transition(
+         {:ok, next_game, player_token, player_id},
+         current_game,
+         _role,
+         scope
+       ) do
     next_game = next_game |> prepare_next_game(current_game) |> maybe_start_result_sync()
-    snapshot = persist_snapshot(next_game)
-    broadcast_update(next_game, snapshot)
+    host_snapshot = persist_snapshot(next_game)
+    broadcast_update(next_game, host_snapshot, scope)
 
-    {:reply, {:ok, Game.snapshot(next_game, {:player, player_id}), player_token, player_id},
+    {:reply,
+     {:ok, Game.snapshot_for_role(host_snapshot, {:player, player_id}), player_token, player_id},
      next_game}
   end
 
-  defp reply_with_transition({:error, reason}, game, _role) do
+  defp reply_with_transition({:error, reason}, game, _role, _scope) do
     {:reply, {:error, reason}, game}
   end
 
@@ -339,31 +354,66 @@ defmodule QuizworldRealtime.GameServer do
     %{game | result_sync_attempts: game.result_sync_attempts || 0}
   end
 
-  defp broadcast_update(game, snapshot) do
+  defp broadcast_update(game, host_snapshot, scope) do
+    public_snapshot = Game.snapshot_for_role(host_snapshot, :public)
+
+    if scope != :host do
+      Phoenix.PubSub.broadcast(
+        QuizworldRealtime.PubSub,
+        Games.topic(game.pin),
+        {:session_updated, public_snapshot}
+      )
+    end
+
     Phoenix.PubSub.broadcast(
       QuizworldRealtime.PubSub,
-      Games.topic(game.pin),
-      {:session_updated, snapshot}
+      Games.host_topic(game.pin),
+      {:host_session_updated, host_snapshot}
     )
+
+    broadcast_player_results(game.pin, host_snapshot)
   end
 
   defp noreply_transition(next_game) do
     next_game = maybe_start_result_sync(next_game)
-    snapshot = persist_snapshot(next_game)
+    host_snapshot = persist_snapshot(next_game)
+    public_snapshot = Game.snapshot_for_role(host_snapshot, :public)
 
     Phoenix.PubSub.broadcast(
       QuizworldRealtime.PubSub,
       Games.topic(next_game.pin),
-      {:session_updated, snapshot}
+      {:session_updated, public_snapshot}
     )
+
+    Phoenix.PubSub.broadcast(
+      QuizworldRealtime.PubSub,
+      Games.host_topic(next_game.pin),
+      {:host_session_updated, host_snapshot}
+    )
+
+    broadcast_player_results(next_game.pin, host_snapshot)
 
     {:noreply, next_game}
   end
 
+  defp broadcast_player_results(pin, %{status: status} = host_snapshot)
+       when status in ["reveal", "finished"] do
+    Enum.each(host_snapshot.players, fn player ->
+      player_snapshot = Game.snapshot_for_role(host_snapshot, {:player, player.id})
+
+      Phoenix.PubSub.broadcast(
+        QuizworldRealtime.PubSub,
+        Games.player_topic(pin, player.id),
+        {:player_session_updated, player_snapshot}
+      )
+    end)
+  end
+
+  defp broadcast_player_results(_pin, _host_snapshot), do: :ok
+
   defp persist_snapshot(game) do
-    snapshot = Game.snapshot(game, :public)
     GameStore.backend().persist_game(game)
-    snapshot
+    Game.snapshot(game, :host)
   end
 
   defp pin_for(%Game{pin: pin}), do: pin

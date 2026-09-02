@@ -61,6 +61,7 @@ import {
 } from "@/lib/game/session-normalizers";
 import { useGameAudio } from "@/lib/game/use-game-audio";
 import { usePhoenixGameChannel } from "@/lib/game/use-phoenix-game-channel";
+import { executePhoenixGameCommand } from "@/lib/game/command-transport";
 import { shouldShowGameReconnectNotice } from "@/lib/game/reconnect-notice";
 import {
   calculatePlayerAchievements,
@@ -405,7 +406,11 @@ export default function GamePage() {
       : {}),
   }), [hostSession?.hostToken, playerSession?.playerId, playerSession?.playerToken]);
 
-  const { connected: phoenixChannelConnected, hasConnectedOnce: phoenixChannelConnectedOnce } = usePhoenixGameChannel({
+  const {
+    connected: phoenixChannelConnected,
+    hasConnectedOnce: phoenixChannelConnectedOnce,
+    sendCommand: sendPhoenixCommand,
+  } = usePhoenixGameChannel({
     pin,
     joinPayload: gameChannelJoinPayload,
     onSnapshot: applySessionSnapshot,
@@ -639,7 +644,14 @@ export default function GamePage() {
           throw new Error("Host session is invalid.");
         }
 
-        const response = await startPhoenixSession(pin, hostSession.hostToken) as { session?: Record<string, unknown> };
+        const payload = { host_token: hostSession.hostToken };
+        const response = await executePhoenixGameCommand<{ session?: Record<string, unknown> }>({
+          connected: phoenixChannelConnected,
+          event: "host:start",
+          payload,
+          sendSocketCommand: sendPhoenixCommand,
+          sendRestCommand: () => startPhoenixSession(pin, hostSession.hostToken),
+        });
         if (response?.session) applySessionSnapshot(response.session);
       } else {
         const { error: startError } = await supabase.rpc("start_game_session", {
@@ -669,10 +681,17 @@ export default function GamePage() {
     if (!playerSession?.playerId || !playerSession.playerToken || gameStatus !== "waiting") return;
 
     try {
-      const response = await readyPhoenixSession(pin, {
+      const payload = {
         player_id: playerSession.playerId,
         player_token: playerSession.playerToken,
-      }) as { session?: Record<string, unknown> };
+      };
+      const response = await executePhoenixGameCommand<{ session?: Record<string, unknown> }>({
+        connected: phoenixChannelConnected,
+        event: "player:ready",
+        payload,
+        sendSocketCommand: sendPhoenixCommand,
+        sendRestCommand: () => readyPhoenixSession(pin, payload),
+      });
       if (response.session) applySessionSnapshot(response.session);
     } catch (readyError) {
       console.error("Error marking player ready:", readyError);
@@ -699,7 +718,14 @@ export default function GamePage() {
           throw new Error("Host session is invalid.");
         }
 
-        const response = await advancePhoenixSession(pin, hostSession.hostToken) as { session?: Record<string, unknown> };
+        const payload = { host_token: hostSession.hostToken };
+        const response = await executePhoenixGameCommand<{ session?: Record<string, unknown> }>({
+          connected: phoenixChannelConnected,
+          event: "host:advance",
+          payload,
+          sendSocketCommand: sendPhoenixCommand,
+          sendRestCommand: () => advancePhoenixSession(pin, hostSession.hostToken),
+        });
         if (response?.session) applySessionSnapshot(response.session);
       } else {
         if (isLastQuestion) {
@@ -758,12 +784,19 @@ export default function GamePage() {
     const responseTimeMs = Math.max(Date.now() - questionStart, 0);
     try {
       if (isPhoenixGameEngine) {
-        const response = await answerPhoenixSession(pin, {
+        const payload = {
           player_id: currentPlayer.id,
           player_token: playerSession.playerToken,
           answer_id: answer.id,
           response_time_ms: responseTimeMs,
-        }) as { session?: Record<string, unknown> };
+        };
+        const response = await executePhoenixGameCommand<{ session?: Record<string, unknown> }>({
+          connected: phoenixChannelConnected,
+          event: "player:answer",
+          payload,
+          sendSocketCommand: sendPhoenixCommand,
+          sendRestCommand: () => answerPhoenixSession(pin, payload),
+        });
         if (response?.session) applySessionSnapshot(response.session);
       } else {
         const { error: answerError } = await supabase.rpc("submit_player_answer", {
