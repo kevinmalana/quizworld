@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CATEGORY_EMOJIS } from "@/lib/shared";
+import { catalogCategoryHref } from "@/lib/catalog-discovery";
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   "General Knowledge": "Test your smarts",
@@ -143,6 +144,10 @@ export default function HomePage() {
               disablePictureInPicture
             >
               <source
+                src="/media/quizworld/hero-orbital-globe-20260821.webm"
+                type="video/webm"
+              />
+              <source
                 src="/media/quizworld/hero-orbital-globe-20260821.mp4"
                 type="video/mp4"
               />
@@ -165,8 +170,8 @@ export default function HomePage() {
               </p>
 
               <div className="home-hero-actions">
-                <Link href="/create" className="btn btn-primary btn-lg">Create a Quiz</Link>
-                <Link href="/explore" className="btn btn-secondary btn-lg">Explore Library</Link>
+                <Link prefetch={false} href="/create" className="btn btn-primary btn-lg">Create a Quiz</Link>
+                <Link prefetch={false} href="/explore" className="btn btn-secondary btn-lg">Explore Library</Link>
               </div>
             </div>
 
@@ -200,7 +205,7 @@ export default function HomePage() {
                   </button>
                 </form>
                 <p className="home-join-hint">No account needed</p>
-                <Link href="/present/join" className="home-join-present">🎤 Join a Presentation</Link>
+                <Link prefetch={false} href="/present/join" className="home-join-present">🎤 Join a Presentation</Link>
               </div>
             </div>
           </div>
@@ -213,12 +218,12 @@ export default function HomePage() {
         <div className="container">
           <div className="home-section-header">
             <h2 className="font-display home-section-title">Pick a topic</h2>
-            <p className="home-section-desc">Browse our most popular categories or <Link href="/explore" style={{ color: "var(--accent)" }}>explore all 28 topics →</Link></p>
+            <p className="home-section-desc">Browse our most popular categories or <Link prefetch={false} href="/explore" style={{ color: "var(--accent)" }}>explore all 28 topics →</Link></p>
           </div>
 
           <div className="grid-3">
             {categories_list.map((c) => (
-              <Link key={c.label} href={`/explore?category=${c.label}`} className="card card-hover home-category-card">
+              <Link prefetch={false} key={c.label} href={catalogCategoryHref(c.label)} className="card card-hover home-category-card">
                 <span className="home-category-emoji">{c.emoji}</span>
                 <span className="font-display home-category-name">{c.label}</span>
                 <span className="home-category-desc">{c.desc}</span>
@@ -256,8 +261,8 @@ export default function HomePage() {
               <h2 className="font-display home-cta-title">Ready to make learning epic?</h2>
               <p className="home-cta-desc">Turn any topic into a live multiplayer quiz in minutes. Start playing today.</p>
               <div className="home-cta-actions">
-                <Link href="/host" className="btn btn-lg home-cta-btn-primary">Host a Game</Link>
-                <Link href="/create" className="btn btn-lg home-cta-btn-secondary">Create a Quiz</Link>
+                <Link prefetch={false} href="/host" className="btn btn-lg home-cta-btn-primary">Host a Game</Link>
+                <Link prefetch={false} href="/create" className="btn btn-lg home-cta-btn-secondary">Create a Quiz</Link>
               </div>
             </div>
           </div>

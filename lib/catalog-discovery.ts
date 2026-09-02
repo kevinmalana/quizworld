@@ -40,8 +40,25 @@ export function categoryVariants(category: string): string[] {
   return CATEGORY_ALIASES[canonical] ?? [canonical];
 }
 
+export function catalogCategoryHref(category: string): string {
+  return `/explore?category=${encodeURIComponent(category)}`;
+}
+
 export type CatalogCursor = { primary: string | number; id: string };
 export type CatalogSort = "popular" | "newest" | "az" | "za";
+
+export const CATALOG_QUIZ_SELECT =
+  "id,slug,title,category,emoji,color,plays,creator_id,created_at,questions(id)";
+
+export function catalogQuestionCount(quiz: {
+  question_count?: number | null;
+  questions?: { id?: string }[] | null;
+}): number {
+  if (typeof quiz.question_count === "number" && Number.isFinite(quiz.question_count)) {
+    return Math.max(0, quiz.question_count);
+  }
+  return Array.isArray(quiz.questions) ? quiz.questions.length : 0;
+}
 
 function postgrestQuoted(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;

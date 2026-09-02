@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CATEGORY_EMOJIS, type Quiz } from "@/lib/shared";
+import { catalogQuestionCount } from "@/lib/catalog-discovery";
 import { HostIcon } from "@/components/shared/host-icon";
 
 export type QuizWithCreator = Quiz & {
@@ -87,7 +88,7 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
       <div className="explore-quiz-meta">
         <span className="explore-quiz-meta-item">
           <span className="explore-quiz-meta-icon">📝</span>
-          {quiz.questions?.length || 0} questions
+          {catalogQuestionCount(quiz)} questions
         </span>
         <span className="explore-quiz-meta-item">
           <span className="explore-quiz-meta-icon">▶️</span>
@@ -96,13 +97,13 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
       </div>
 
       <div className="explore-quiz-actions">
-        <Link href={`/host?quiz=${quiz.id}`} className="btn btn-primary btn-compact explore-quiz-action-host">
+        <Link prefetch={false} href={`/host?quiz=${quiz.id}`} className="btn btn-primary btn-compact explore-quiz-action-host">
           <HostIcon size={14} /> Host
         </Link>
-        <Link href={`/solo/${quiz.id}`} className="btn btn-accent btn-compact">
+        <Link prefetch={false} href={`/solo/${quiz.id}`} className="btn btn-accent btn-compact">
           ▶ Play
         </Link>
-        <Link href={`/study/${identifier}`} className="btn btn-secondary btn-compact">
+        <Link prefetch={false} href={`/study/${identifier}`} className="btn btn-secondary btn-compact">
           📖 Study
         </Link>
         <button
@@ -115,6 +116,7 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
       </div>
       <div style={{ marginTop: "0.5rem", textAlign: "center" }}>
         <Link
+          prefetch={false}
           href={`/quiz/${identifier}`}
           style={{ fontSize: "0.8rem", color: "var(--muted)", textDecoration: "none" }}
         >
