@@ -6,6 +6,8 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import { calcLevel } from "@/components/study/study-session-panels";
+import { TeacherJourneyCard } from "@/components/classroom/TeacherJourneyCard";
+import { buildClassroomInviteText, buildTeacherClassroomJourney } from "@/lib/classroom/teacher-journey";
 import { buildClassroomNudges, computeClassroomCompletion } from "@/lib/social-recovery";
 import "@/styles/social.css";
 import "@/styles/classroom-teacher.css";
@@ -128,6 +130,8 @@ export default function ClassroomDetailPage() {
   const [copied, setCopied] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [myQuizzes, setMyQuizzes] = useState<{ id: string; title: string }[]>([]);
+  const [teacherQuizzesLoaded, setTeacherQuizzesLoaded] = useState(false);
+  const [teacherQuizError, setTeacherQuizError] = useState("");
   const [assignQuizId, setAssignQuizId] = useState("");
   const [assignDue, setAssignDue] = useState("");
   const [msg, setMsg] = useState("");
@@ -338,12 +342,33 @@ export default function ClassroomDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    if (myRole === "teacher" && user) {
-      supabase.from("quizzes").select("id, title").eq("creator_id", user.id).is("archived_at", null)
-        .then(({ data }) => setMyQuizzes(data ?? []));
+  const loadTeacherQuizzes = useCallback(async () => {
+    if (myRole !== "teacher" || !user) {
+      setTeacherQuizzesLoaded(false);
+      setTeacherQuizError("");
+      return;
     }
+
+    setTeacherQuizzesLoaded(false);
+    setTeacherQuizError("");
+    const { data, error } = await supabase
+      .from("quizzes")
+      .select("id, title")
+      .eq("creator_id", user.id)
+      .is("archived_at", null);
+
+    if (error) {
+      setMyQuizzes([]);
+      setTeacherQuizError("Could not load your quizzes. Check your connection and try again.");
+    } else {
+      setMyQuizzes(data ?? []);
+    }
+    setTeacherQuizzesLoaded(true);
   }, [myRole, user?.id]);
+
+  useEffect(() => {
+    void loadTeacherQuizzes();
+  }, [loadTeacherQuizzes]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -455,10 +480,35 @@ export default function ClassroomDetailPage() {
     load();
   }
 
-  function copyCode() {
-    navigator.clipboard.writeText(classroom?.join_code ?? "");
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function copyInvite() {
+    if (!classroom) return;
+    try {
+      await navigator.clipboard.writeText(buildClassroomInviteText({
+        classroomName: classroom.name,
+        joinCode: classroom.join_code,
+      }));
+      setCopied(true);
+      setMsg("Student invite copied — share it with your class.");
+      setMsgType("success");
+      setTimeout(() => {
+        setCopied(false);
+        setMsg("");
+      }, 3000);
+    } catch {
+      setMsg("Could not copy the invite. Copy the join code shown above instead.");
+      setMsgType("error");
+    }
+  }
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(classroom?.join_code ?? "");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setMsg("Could not copy the join code. Select the code and copy it manually.");
+      setMsgType("error");
+    }
   }
 
   // ── Derived ─────────────────────────────────────────────────────────────────
@@ -467,8 +517,18 @@ export default function ClassroomDetailPage() {
   const leaderboard = [...members].sort((a, b) => b.total_xp - a.total_xp);
   const students = members.filter(m => m.role === "student");
   const assignedQuizIds = assignments.map(a => a.quiz_id);
+  const hostableAssignedQuizId = assignedQuizIds.find(quizId => myQuizzes.some(quiz => quiz.id === quizId));
   const totalAssignments = assignments.length;
   const overdueCount = assignments.filter(a => a.due_date && new Date(a.due_date) < new Date() && (a.completion_count ?? 0) < (a.member_count ?? 1)).length;
+  const currentAssignmentCompletionCount = assignments[0]?.completion_count ?? 0;
+  const teacherJourney = myRole === "teacher" && !loading && teacherQuizzesLoaded && !teacherQuizError
+    ? buildTeacherClassroomJourney({
+        studentCount: students.length,
+        quizCount: myQuizzes.length,
+        assignmentCount: assignments.length,
+        currentAssignmentCompletionCount,
+      })
+    : null;
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "members", label: `👥 Members (${members.length})` },
@@ -493,7 +553,7 @@ export default function ClassroomDetailPage() {
         <div className="social-header-meta">
           <div className="social-join-code">
             <span className="social-join-code__text">{classroom.join_code}</span>
-            <button onClick={copyCode} className="social-join-code__copy">{copied ? "✓" : "📋"}</button>
+            <button onClick={() => void copyCode()} className="social-join-code__copy" aria-label="Copy classroom join code">{copied ? "✓" : "📋"}</button>
           </div>
           <span className="social-header-stat">👥 {members.length} members</span>
           {myRole && <span className={`social-role-badge social-role-badge--${myRole}`}>{myRole}</span>}
@@ -501,7 +561,32 @@ export default function ClassroomDetailPage() {
         </div>
       </div>
 
-      {msg && <div className={`social-status-msg social-status-msg--${msgType}`}>{msg}</div>}
+      {msg && <div className={`social-status-msg social-status-msg--${msgType}`} role="status" aria-live="polite">{msg}</div>}
+
+      {myRole === "teacher" && !loading && teacherQuizError && (
+        <div className="card ct-journey ct-journey--error" role="alert">
+          <div>
+            <div className="ct-journey__eyebrow">Teacher launchpad</div>
+            <div className="ct-journey__title">We could not load your quizzes</div>
+            <p className="ct-journey__subtitle">{teacherQuizError}</p>
+          </div>
+          <button className="btn btn-primary btn-compact" onClick={() => void loadTeacherQuizzes()}>Try again</button>
+        </div>
+      )}
+
+      {teacherJourney && (
+        <TeacherJourneyCard
+          journey={teacherJourney}
+          joinCode={classroom.join_code}
+          onShareCode={() => void copyInvite()}
+          onAssignQuiz={() => {
+            setTab("assignments");
+            setShowAssign(true);
+          }}
+          onReviewProgress={() => setTab("assignments")}
+          onReviewInsights={() => setTab("insights")}
+        />
+      )}
 
       <div className="social-tabs">
         {tabs.map(t => (
@@ -558,23 +643,46 @@ export default function ClassroomDetailPage() {
             </div>
           )}
           {showAssign && (
-            <div className="card social-form-card">
-              <div className="social-modal-field">
-                <label className="social-modal-label">Select Quiz</label>
-                <select className="social-modal-input" value={assignQuizId} onChange={e => setAssignQuizId(e.target.value)}>
-                  <option value="">Choose a quiz...</option>
-                  {myQuizzes.map(q => <option key={q.id} value={q.id}>{q.title}</option>)}
-                </select>
+            !teacherQuizzesLoaded ? (
+              <div className="card social-form-card" role="status">Loading your quizzes…</div>
+            ) : teacherQuizError ? (
+              <div className="card social-form-card" role="alert">
+                <div className="social-empty-title">Your quizzes could not be loaded</div>
+                <div className="social-empty-text">{teacherQuizError}</div>
+                <div className="social-modal-actions">
+                  <button className="btn btn-secondary btn-compact" onClick={() => setShowAssign(false)}>Cancel</button>
+                  <button className="btn btn-primary btn-compact" onClick={() => void loadTeacherQuizzes()}>Try again</button>
+                </div>
               </div>
-              <div className="social-modal-field">
-                <label className="social-modal-label">Due Date (optional)</label>
-                <input type="datetime-local" className="social-modal-input" value={assignDue} onChange={e => setAssignDue(e.target.value)} />
+            ) : myQuizzes.length === 0 ? (
+              <div className="card social-form-card">
+                <div className="social-empty-icon" aria-hidden="true">✏️</div>
+                <div className="social-empty-title">Create a quiz before assigning work</div>
+                <div className="social-empty-text">Once it is published, return here to make it your class&apos;s first assignment.</div>
+                <div className="social-modal-actions">
+                  <button className="btn btn-secondary btn-compact" onClick={() => setShowAssign(false)}>Cancel</button>
+                  <Link className="btn btn-primary btn-compact" href="/create">Create a quiz</Link>
+                </div>
               </div>
-              <div className="social-modal-actions">
-                <button className="btn btn-secondary btn-compact" onClick={() => setShowAssign(false)}>Cancel</button>
-                <button className="btn btn-primary btn-compact" onClick={handleAssign} disabled={!assignQuizId}>Assign</button>
+            ) : (
+              <div className="card social-form-card">
+                <div className="social-modal-field">
+                  <label className="social-modal-label">Select Quiz</label>
+                  <select className="social-modal-input" value={assignQuizId} onChange={e => setAssignQuizId(e.target.value)}>
+                    <option value="">Choose a quiz...</option>
+                    {myQuizzes.map(q => <option key={q.id} value={q.id}>{q.title}</option>)}
+                  </select>
+                </div>
+                <div className="social-modal-field">
+                  <label className="social-modal-label">Due Date (optional)</label>
+                  <input type="datetime-local" className="social-modal-input" value={assignDue} onChange={e => setAssignDue(e.target.value)} />
+                </div>
+                <div className="social-modal-actions">
+                  <button className="btn btn-secondary btn-compact" onClick={() => setShowAssign(false)}>Cancel</button>
+                  <button className="btn btn-primary btn-compact" onClick={handleAssign} disabled={!assignQuizId}>Assign</button>
+                </div>
               </div>
-            </div>
+            )
           )}
           {assignments.length === 0 ? (
             <div className="social-empty">
@@ -832,6 +940,28 @@ export default function ClassroomDetailPage() {
               <li>Go to the Progress tab for the full student × quiz mastery grid.</li>
               <li>Export CSV to share progress with parents or your school admin.</li>
             </ul>
+          </div>
+          <div className="card ct-insight-next">
+            <div>
+              <div className="ct-insight-tip-title">Turn insight into action</div>
+              <p className="ct-progress-subtitle">Set the next practice task or bring an assigned quiz back to the room live.</p>
+            </div>
+            <div className="ct-insight-next__actions">
+              <button
+                className="btn btn-primary btn-compact"
+                onClick={() => {
+                  setTab("assignments");
+                  setShowAssign(true);
+                }}
+              >
+                Assign next quiz
+              </button>
+              {hostableAssignedQuizId && (
+                <Link className="btn btn-secondary btn-compact" href={`/host?quiz=${encodeURIComponent(hostableAssignedQuizId)}`}>
+                  Host assigned quiz
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       )}

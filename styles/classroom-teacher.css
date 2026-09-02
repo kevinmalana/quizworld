@@ -259,6 +259,20 @@
   line-height: 1.7;
 }
 
+.ct-insight-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+}
+
+.ct-insight-next__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 /* ── Who completed widget ─────────────────────────────────── */
 .ct-completion-who {
   display: flex;
@@ -295,4 +309,169 @@
   background: var(--bg-subtle);
   border: 1px solid var(--line);
   opacity: 0.7;
+}
+
+/* ── Teacher launch journey ───────────────────────────────── */
+.ct-journey {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+  background: linear-gradient(135deg, var(--surface) 0%, var(--accent-light) 150%);
+}
+
+.ct-journey__header,
+.ct-journey__next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ct-journey__eyebrow,
+.ct-journey__next-label {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ct-journey__title {
+  margin: 0.15rem 0 0.25rem;
+  color: var(--ink);
+  font-size: clamp(1.15rem, 3vw, 1.45rem);
+}
+
+.ct-journey__subtitle,
+.ct-journey__next-description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.ct-journey__progress {
+  display: grid;
+  min-width: 72px;
+  text-align: right;
+}
+
+.ct-journey__progress strong {
+  color: var(--ink);
+  font-size: 1.15rem;
+}
+
+.ct-journey__progress span {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.ct-journey__bar {
+  height: 7px;
+  margin: 1rem 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.ct-journey__bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  transition: width 0.35s ease;
+}
+
+.ct-journey__steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-journey-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.ct-journey-step.is-complete {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--line));
+  background: var(--success-light);
+}
+
+.ct-journey-step__marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: 0 0 1.6rem;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.ct-journey-step.is-complete .ct-journey-step__marker {
+  background: var(--success);
+  color: #fff;
+}
+
+.ct-journey-step__label {
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.ct-journey-step__description {
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.ct-journey__next {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.ct-journey__code {
+  margin-top: 0.35rem;
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.ct-journey--error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-color: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-journey__bar-fill { transition: none; }
+}
+
+@media (max-width: 760px) {
+  .ct-journey__steps { grid-template-columns: 1fr; }
+  .ct-journey__next,
+  .ct-journey--error,
+  .ct-insight-next { align-items: stretch; flex-direction: column; }
+  .ct-journey__next .btn,
+  .ct-journey--error .btn,
+  .ct-insight-next .btn { width: 100%; justify-content: center; }
 }

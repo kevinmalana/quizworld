@@ -5,13 +5,26 @@ import test from "node:test";
 const migrations = new URL("../supabase/migrations/", import.meta.url);
 const compatibilityName = "20260820140000_quizworld_recovery_compatibility.sql";
 const lockdownName = "20260820150000_quizworld_recovery_lockdown.sql";
+const classroomLaunchName = "20260902045027_teacher_classroom_launch.sql";
 const compatibility = readFileSync(new URL(compatibilityName, migrations), "utf8");
 const lockdown = readFileSync(new URL(lockdownName, migrations), "utf8");
+const classroomLaunch = existsSync(new URL(classroomLaunchName, migrations))
+  ? readFileSync(new URL(classroomLaunchName, migrations), "utf8")
+  : "";
 
 test("recovery uses ordered unique migrations and has no paste bundle", () => {
   const recoveryFiles = readdirSync(migrations).filter((name) => name.includes("20260820"));
   assert.deepEqual(recoveryFiles, [compatibilityName, lockdownName]);
   assert.equal(existsSync(new URL("../supabase/manual/20260820_quizworld_recovery_bundle.sql", import.meta.url)), false);
+});
+
+test("classroom creation atomically creates the teacher membership", () => {
+  assert.match(classroomLaunch, /CREATE OR REPLACE FUNCTION public\.create_classroom_with_teacher/i);
+  assert.match(classroomLaunch, /v_user_id UUID := auth\.uid\(\)/i);
+  assert.match(classroomLaunch, /INSERT INTO public\.classrooms[\s\S]*RETURNING \* INTO v_classroom/i);
+  assert.match(classroomLaunch, /INSERT INTO public\.classroom_members \(classroom_id, user_id, role\)[\s\S]*'teacher'/i);
+  assert.match(classroomLaunch, /SECURITY DEFINER[\s\S]*SET search_path = ''/i);
+  assert.match(classroomLaunch, /GRANT EXECUTE ON FUNCTION public\.create_classroom_with_teacher\(TEXT, TEXT\) TO authenticated/i);
 });
 
 test("presentation activity is scoped to immutable runs without deleting history", () => {
