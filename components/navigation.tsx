@@ -52,33 +52,33 @@ export function Navigation() {
         }}
       >
         <div className="nav-inner">
-          <Link href="/" className="nav-logo">
+          <Link prefetch={false} href="/" className="nav-logo">
             <span className="logo-quiz">Quiz</span>
             <span className="logo-world">World</span>
           </Link>
 
           <nav className="nav-primary" aria-label="Primary navigation">
-            <Link href="/join" className={`nav-item ${pathname === "/join" ? "active" : ""}`}>
+            <Link prefetch={false} href="/join" className={`nav-item ${pathname === "/join" ? "active" : ""}`}>
               <span>🎮</span>
               <span>Join</span>
             </Link>
-            <Link href="/explore" className={`nav-item ${pathname === "/explore" ? "active" : ""}`}>
+            <Link prefetch={false} href="/explore" className={`nav-item ${pathname === "/explore" ? "active" : ""}`}>
               <span>🔍</span>
               <span>Explore</span>
             </Link>
-            <Link href="/study" className={`nav-item ${pathname === "/study" || pathname.startsWith("/study/") ? "active" : ""}`}>
+            <Link prefetch={false} href="/study" className={`nav-item ${pathname === "/study" || pathname.startsWith("/study/") ? "active" : ""}`}>
               <span>📖</span>
               <span>Study</span>
             </Link>
-            <Link href="/leaderboard" className={`nav-item ${pathname === "/leaderboard" ? "active" : ""}`}>
+            <Link prefetch={false} href="/leaderboard" className={`nav-item ${pathname === "/leaderboard" ? "active" : ""}`}>
               <span>🏆</span>
               <span>Ranks</span>
             </Link>
-            <Link href="/present" className={`nav-item ${pathname === "/present" || pathname.startsWith("/present/") ? "active" : ""}`}>
+            <Link prefetch={false} href="/present" className={`nav-item ${pathname === "/present" || pathname.startsWith("/present/") ? "active" : ""}`}>
               <span>🎤</span>
               <span>Present</span>
             </Link>
-            <Link href="/create/activity" className={`nav-item nav-item-create ${pathname === "/create/activity" ? "active" : ""}`}>
+            <Link prefetch={false} href="/create/activity" className={`nav-item nav-item-create ${pathname === "/create/activity" ? "active" : ""}`}>
               <span aria-hidden="true">+</span>
               <span>Create</span>
             </Link>
@@ -89,15 +89,15 @@ export function Navigation() {
               user ? (
                 <>
                   <NotificationBell />
-                  <Link href="/profile" className="nav-icon-btn nav-profile-btn" data-tooltip="Profile">
+                  <Link prefetch={false} href="/profile" className="nav-icon-btn nav-profile-btn" data-tooltip="Profile">
                     <span>👤</span>
                     {needsProfile && <span className="nav-notification-dot" />}
                   </Link>
-                  <Link href="/dashboard" className="nav-icon-btn" data-tooltip="Dashboard">
+                  <Link prefetch={false} href="/dashboard" className="nav-icon-btn" data-tooltip="Dashboard">
                     <span>📚</span>
                   </Link>
                   {isAdmin && (
-                    <Link href="/admin" className="nav-icon-btn" data-tooltip="Admin">
+                    <Link prefetch={false} href="/admin" className="nav-icon-btn" data-tooltip="Admin">
                       <span>⚙️</span>
                     </Link>
                   )}
@@ -106,7 +106,7 @@ export function Navigation() {
                   </button>
                 </>
               ) : (
-                <Link href="/login" className="btn btn-sm" style={{ padding: "0.5rem 1rem", fontSize: "0.875rem" }}>
+                <Link prefetch={false} href="/login" className="btn btn-sm" style={{ padding: "0.5rem 1rem", fontSize: "0.875rem" }}>
                   Sign In
                 </Link>
               )
@@ -124,33 +124,33 @@ export function Navigation() {
         <div className="mobile-overlay" onClick={() => setMenuOpen(false)}>
           <div className="mobile-panel" onClick={(e) => e.stopPropagation()}>
             <div className="mobile-header">
-              <Link href="/" className="nav-logo" onClick={() => setMenuOpen(false)}>
+              <Link prefetch={false} href="/" className="nav-logo" onClick={() => setMenuOpen(false)}>
                 <span className="logo-quiz">Quiz</span>
                 <span className="logo-world">World</span>
               </Link>
               <button className="close-btn" onClick={() => setMenuOpen(false)}>✕</button>
             </div>
             <div className="mobile-links" style={{ padding: "1rem" }}>
-              <Link href="/join" className="mobile-link">🎮 Join</Link>
-              <Link href="/explore" className="mobile-link">🔍 Explore</Link>
-              <Link href="/study" className="mobile-link">📖 Study</Link>
-              <Link href="/leaderboard" className="mobile-link">🏆 Leaderboard</Link>
-              <Link href="/friends" className="mobile-link">👥 Friends</Link>
-              <Link href="/classrooms" className="mobile-link">🏫 Classrooms</Link>
-              <Link href="/groups" className="mobile-link">🎯 Trivia Groups</Link>
-              <Link href="/achievements" className="mobile-link">🏅 Achievements</Link>
-              <Link href="/present" className="mobile-link">🎤 Present</Link>
-              <Link href="/create/activity" className="mobile-link">✨ Create</Link>
-              <Link href="/host" className="mobile-link"><span style={{display:"inline-flex",alignItems:"center",gap:"0.4rem"}}><HostIcon size={16} /> Host</span></Link>
+              <Link prefetch={false} href="/join" className="mobile-link">🎮 Join</Link>
+              <Link prefetch={false} href="/explore" className="mobile-link">🔍 Explore</Link>
+              <Link prefetch={false} href="/study" className="mobile-link">📖 Study</Link>
+              <Link prefetch={false} href="/leaderboard" className="mobile-link">🏆 Leaderboard</Link>
+              <Link prefetch={false} href="/friends" className="mobile-link">👥 Friends</Link>
+              <Link prefetch={false} href="/classrooms" className="mobile-link">🏫 Classrooms</Link>
+              <Link prefetch={false} href="/groups" className="mobile-link">🎯 Trivia Groups</Link>
+              <Link prefetch={false} href="/achievements" className="mobile-link">🏅 Achievements</Link>
+              <Link prefetch={false} href="/present" className="mobile-link">🎤 Present</Link>
+              <Link prefetch={false} href="/create/activity" className="mobile-link">✨ Create</Link>
+              <Link prefetch={false} href="/host" className="mobile-link"><span style={{display:"inline-flex",alignItems:"center",gap:"0.4rem"}}><HostIcon size={16} /> Host</span></Link>
               {user ? (
                 <>
-                  <Link href="/profile" className="mobile-link">👤 Profile{needsProfile && " ⚠️"}</Link>
-                  <Link href="/dashboard" className="mobile-link">📚 Dashboard</Link>
-                  {isAdmin && <Link href="/admin" className="mobile-link">⚙️ Admin</Link>}
+                  <Link prefetch={false} href="/profile" className="mobile-link">👤 Profile{needsProfile && " ⚠️"}</Link>
+                  <Link prefetch={false} href="/dashboard" className="mobile-link">📚 Dashboard</Link>
+                  {isAdmin && <Link prefetch={false} href="/admin" className="mobile-link">⚙️ Admin</Link>}
                   <button onClick={handleSignOut} className="mobile-link" style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: "0.4rem" }}><SignOutIcon size={16} /> Sign Out</button>
                 </>
               ) : (
-                <Link href="/login" className="mobile-link">🔑 Sign In</Link>
+                <Link prefetch={false} href="/login" className="mobile-link">🔑 Sign In</Link>
               )}
             </div>
           </div>
