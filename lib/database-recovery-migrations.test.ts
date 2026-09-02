@@ -5,7 +5,7 @@ import test from "node:test";
 const migrations = new URL("../supabase/migrations/", import.meta.url);
 const compatibilityName = "20260820140000_quizworld_recovery_compatibility.sql";
 const lockdownName = "20260820150000_quizworld_recovery_lockdown.sql";
-const classroomLaunchName = "20260831043000_teacher_classroom_launch.sql";
+const classroomLaunchName = "20260902045027_teacher_classroom_launch.sql";
 const compatibility = readFileSync(new URL(compatibilityName, migrations), "utf8");
 const lockdown = readFileSync(new URL(lockdownName, migrations), "utf8");
 const classroomLaunch = existsSync(new URL(classroomLaunchName, migrations))
