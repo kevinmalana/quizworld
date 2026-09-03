@@ -81,14 +81,25 @@ defmodule QuizworldRealtime.Games do
   defp normalize_transition({:error, reason}), do: {:error, reason}
 
   defp broadcast(pin) do
-    with {:ok, snapshot} <- snapshot(pin) do
+    with host_snapshot <- call_or_restore(pin, fn -> GameServer.snapshot(pin, :host) end),
+         true <- is_map(host_snapshot) do
+      public_snapshot = Game.snapshot_for_role(host_snapshot, :public)
+
       Phoenix.PubSub.broadcast(
         QuizworldRealtime.PubSub,
         topic(pin),
-        {:session_updated, snapshot}
+        {:session_updated, public_snapshot}
       )
 
-      {:ok, snapshot}
+      Phoenix.PubSub.broadcast(
+        QuizworldRealtime.PubSub,
+        host_topic(pin),
+        {:host_session_updated, host_snapshot}
+      )
+
+      {:ok, public_snapshot}
+    else
+      _ -> {:error, :not_found}
     end
   end
 
@@ -102,6 +113,18 @@ defmodule QuizworldRealtime.Games do
       |> String.slice(0, @pubsub_topic_max_length - 5)
 
     "game:" <> sanitized
+  end
+
+  def host_topic(pin), do: topic(pin) <> ":host"
+
+  def player_topic(pin, player_id) do
+    sanitized_player_id =
+      player_id
+      |> to_string()
+      |> String.replace(~r/[:*\s]/, "")
+      |> String.slice(0, 64)
+
+    topic(pin) <> ":player:" <> sanitized_player_id
   end
 
   def sanitize_pin(pin) do

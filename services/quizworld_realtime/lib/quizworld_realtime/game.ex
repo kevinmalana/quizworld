@@ -165,11 +165,18 @@ defmodule QuizworldRealtime.Game do
     shape_snapshot(host_snapshot, role)
   end
 
+  def snapshot_for_role(host_snapshot, role) when is_map(host_snapshot) do
+    shape_snapshot(host_snapshot, role)
+  end
+
   defp shape_snapshot(snapshot, :host), do: snapshot
   defp shape_snapshot(snapshot, :host_player), do: snapshot
 
   defp shape_snapshot(snapshot, {:player, player_id}) do
-    own_answers = Enum.filter(snapshot.current_answers, &(&1.player_id == player_id))
+    own_answers =
+      snapshot.current_answers
+      |> Enum.filter(&(&1.player_id == player_id))
+      |> Enum.map(&shape_player_answer(&1, snapshot.status))
 
     snapshot
     |> Map.put(:current_answers, own_answers)
@@ -183,6 +190,9 @@ defmodule QuizworldRealtime.Game do
     |> Map.delete(:question_history)
     |> hide_live_answer_counts()
   end
+
+  defp shape_player_answer(answer, "active"), do: Map.take(answer, [:player_id, :answer_id])
+  defp shape_player_answer(answer, _status), do: answer
 
   defp hide_live_answer_counts(%{status: "active", current_question: %{} = question} = snapshot) do
     answers = Enum.map(question["answers"] || [], &Map.delete(&1, "count"))

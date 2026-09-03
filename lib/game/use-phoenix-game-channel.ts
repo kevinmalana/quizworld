@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { subscribeToPhoenixTopic } from "@/lib/game-engine/phoenix-socket";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  subscribeToPhoenixTopic,
+  type PhoenixTopicSubscription,
+} from "@/lib/game-engine/phoenix-socket";
 
 type PhoenixGameChannelOptions = {
   pin: string;
@@ -19,9 +22,17 @@ function sessionFromPayload(payload: unknown) {
 export function usePhoenixGameChannel({ pin, joinPayload, onSnapshot, loadSnapshot }: PhoenixGameChannelOptions) {
   const [connected, setConnected] = useState(false);
   const [hasConnectedOnce, setHasConnectedOnce] = useState(false);
+  const subscriptionRef = useRef<{
+    key: string;
+    subscription: PhoenixTopicSubscription;
+  } | null>(null);
+  const connectionKey = `${pin}:${JSON.stringify(joinPayload ?? {})}`;
 
   useEffect(() => {
     let stopped = false;
+    setConnected(false);
+    subscriptionRef.current = null;
+    const effectConnectionKey = connectionKey;
 
     const handleSnapshot = (payload: unknown) => {
       if (stopped) return;
@@ -43,20 +54,32 @@ export function usePhoenixGameChannel({ pin, joinPayload, onSnapshot, loadSnapsh
         if (!stopped) setConnected(false);
       },
     });
+    subscriptionRef.current = { key: effectConnectionKey, subscription: unsubscribe };
 
     return () => {
       stopped = true;
+      if (subscriptionRef.current?.subscription === unsubscribe) subscriptionRef.current = null;
       unsubscribe();
     };
-  }, [joinPayload, onSnapshot, pin]);
+  }, [connectionKey, joinPayload, onSnapshot, pin]);
+
+  const activeConnection = connected && subscriptionRef.current?.key === connectionKey;
 
   useEffect(() => {
     const fallbackInterval = window.setInterval(() => {
-      if (!connected) void loadSnapshot();
+      if (!activeConnection) void loadSnapshot();
     }, FALLBACK_INTERVAL_MS);
 
     return () => window.clearInterval(fallbackInterval);
-  }, [connected, loadSnapshot]);
+  }, [activeConnection, loadSnapshot]);
 
-  return { connected, hasConnectedOnce };
+  const sendCommand = useCallback((event: string, payload: Record<string, unknown>) => {
+    const current = subscriptionRef.current;
+    if (!current || current.key !== connectionKey) {
+      return Promise.reject(new Error("Game connection is not ready."));
+    }
+    return current.subscription.push(event, payload);
+  }, [connectionKey]);
+
+  return { connected: activeConnection, hasConnectedOnce, sendCommand };
 }
