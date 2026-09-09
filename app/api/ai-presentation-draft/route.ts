@@ -1,3 +1,4 @@
+import { fetchAICompletion } from "@/lib/ai-provider";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
@@ -9,12 +10,6 @@ import { sanitizeJsonString } from "@/lib/quiz-ai";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/utils/supabase/server";
 
-function requireEnv(name: string) {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`Missing ${name}`);
-  return value;
-}
-
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -25,19 +20,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const generationRequest = normalizeAIPresentationRequest(await request.json());
-    const apiKey = requireEnv("QUIZWORLD_AI_API_KEY");
-    const model = requireEnv("QUIZWORLD_AI_MODEL");
-    const apiUrl =
-      process.env.QUIZWORLD_AI_API_URL?.trim() || "https://api.openai.com/v1/chat/completions";
 
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
+    const response = await fetchAICompletion({
         response_format: { type: "json_object" },
         messages: [
           {
@@ -51,8 +35,7 @@ export async function POST(request: NextRequest) {
           },
         ],
         temperature: 0.35,
-      }),
-    });
+      }, 8192);
 
     const payload = (await response.json()) as {
       error?: { message?: string };
@@ -80,7 +63,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "AI generation is not configured. Set QUIZWORLD_AI_API_KEY and QUIZWORLD_AI_MODEL on the Next.js app.",
+            "AI generation is not configured. Set QUIZWORLD_AI_API_URL, QUIZWORLD_AI_API_KEY and QUIZWORLD_AI_MODEL on the Next.js app.",
         },
         { status: 503 },
       );

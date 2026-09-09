@@ -1,3 +1,4 @@
+import { fetchAICompletion } from "@/lib/ai-provider";
 import { NextResponse } from "next/server";
 import {
   buildAIQuizPrompt,
@@ -10,14 +11,6 @@ import {
 } from "@/lib/quiz-ai";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/utils/supabase/server";
-
-function requireEnv(name: string) {
-  const value = process.env[name]?.trim();
-  if (!value) {
-    throw new Error(`Missing ${name}`);
-  }
-  return value;
-}
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -68,12 +61,6 @@ export async function POST(request: Request) {
       }
     }
 
-    const apiKey = requireEnv("QUIZWORLD_AI_API_KEY");
-    const model = requireEnv("QUIZWORLD_AI_MODEL");
-    const apiUrl =
-      process.env.QUIZWORLD_AI_API_URL?.trim() ||
-      "https://api.openai.com/v1/chat/completions";
-
     const prompt = buildAIQuizPrompt({
       sourceTitle,
       sourceLabel,
@@ -83,14 +70,7 @@ export async function POST(request: Request) {
       sourceMode,
     });
 
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
+    const response = await fetchAICompletion({
         response_format: { type: "json_object" },
         messages: [
           {
@@ -126,8 +106,7 @@ OUTPUT: Valid JSON only. No markdown fences. No commentary outside JSON.`,
           },
         ],
         temperature: 0.3,
-      }),
-    });
+      }, 16384);
 
     const payload = (await response.json()) as {
       error?: { message?: string };
@@ -194,7 +173,7 @@ OUTPUT: Valid JSON only. No markdown fences. No commentary outside JSON.`,
       return NextResponse.json(
         {
           error:
-            "AI generation is not configured. Set QUIZWORLD_AI_API_KEY and QUIZWORLD_AI_MODEL on the Next.js app.",
+            "AI generation is not configured. Set QUIZWORLD_AI_API_URL, QUIZWORLD_AI_API_KEY and QUIZWORLD_AI_MODEL on the Next.js app.",
         },
         { status: 503 }
       );

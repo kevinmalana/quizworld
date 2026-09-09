@@ -1,3 +1,65 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export function normalizeCatalogSearch(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function literalLike(value: string): string {
+  return value.replace(/[\\%_*]/g, "\\$&");
+}
+
+export function catalogSearchFilter(search: string): string | null {
+  const term = normalizeCatalogSearch(search);
+  if (!term) return null;
+  const pattern = postgrestQuoted(`%${literalLike(term)}%`);
+  const filters = [`title.ilike.${pattern}`, `category.ilike.${pattern}`];
+  for (const [canonical, aliases] of Object.entries(CATEGORY_ALIASES)) {
+    if ([canonical, ...aliases].some(value => normalizeCatalogSearch(value).includes(term))) {
+      for (const alias of aliases) filters.push(`category.ilike.${postgrestQuoted(literalLike(alias))}`);
+    }
+  }
+  return [...new Set(filters)].join(",");
+}
+
+/** Matching/count filters are identical; only the page query gets a keyset cursor. */
+export async function fetchCatalogPage(client: SupabaseClient, options: {
+  search?: string; category?: string; sort?: CatalogSort; cursor?: CatalogCursor | null;
+  loadedCount?: number; pageSize?: number;
+}) {
+  const { search = "", category = "All", sort = "popular", cursor = null, loadedCount = 0, pageSize = 24 } = options;
+  if (!Number.isInteger(loadedCount) || loadedCount < 0 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+    throw new Error("Invalid catalog page bounds");
+  }
+  const filteredQuery = (head: boolean) => {
+    let query = client.from("quizzes").select(head ? "id" : CATALOG_QUIZ_SELECT, head ? { count: "exact", head: true } : {})
+      .eq("is_public", true).is("archived_at", null);
+    const searchFilter = catalogSearchFilter(search);
+    if (searchFilter) query = query.or(searchFilter);
+    if (normalizeCatalogSearch(category) !== "all") {
+      query = query.or(categoryVariants(category).map(value => `category.ilike.${postgrestQuoted(literalLike(value))}`).join(","));
+    }
+    return query;
+  };
+  let query = filteredQuery(false);
+  const countQuery = filteredQuery(true);
+  const cursorFilter = catalogCursorFilter(sort, cursor);
+  if (cursorFilter) query = query.or(cursorFilter);
+  const column = sort === "newest" ? "created_at" : sort === "az" || sort === "za" ? "title" : "plays";
+  query = query.order(column, { ascending: sort === "az" }).order("id", { ascending: true }).limit(pageSize);
+  const [{ data, error }, { count, error: countError }] = await Promise.all([query, countQuery]);
+  if (error || countError) throw new Error("Could not load the quiz catalog.");
+  const quizzes = (data ?? []) as unknown as CatalogRow[];
+  const totalCount = count ?? 0;
+  const last = quizzes.at(-1);
+  return { quizzes, totalCount, nextCursor: last ? catalogCursorForRow(sort, last) : null,
+    hasMore: quizzes.length > 0 && loadedCount + quizzes.length < totalCount };
+}
+
+export type CatalogRow = {
+  id: string; slug: string; title: string; category: string; emoji: string; color: string;
+  plays: number; creator_id: string; created_at: string; questions: { id: string }[];
+};
+
 export const CATEGORY_ALIASES: Record<string, string[]> = {
   "Animals & Pets": ["Animals & Pets", "Animals"],
   "Art & Literature": ["Art & Literature", "Art", "Books"],

@@ -1,3 +1,4 @@
+import { fetchAICompletion } from "@/lib/ai-provider";
 import { NextResponse } from "next/server";
 import {
   buildEnrichmentPrompt,
@@ -5,14 +6,6 @@ import {
   type AIDifficultyLevel,
 } from "@/lib/quiz-ai";
 import { checkRateLimit } from "@/lib/rate-limit";
-
-function requireEnv(name: string) {
-  const value = process.env[name]?.trim();
-  if (!value) {
-    throw new Error(`Missing ${name}`);
-  }
-  return value;
-}
 
 type EnrichmentResult = {
   explanation: string;
@@ -50,22 +43,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const apiKey = requireEnv("QUIZWORLD_AI_API_KEY");
-    const model = requireEnv("QUIZWORLD_AI_MODEL");
-    const apiUrl =
-      process.env.QUIZWORLD_AI_API_URL?.trim() ||
-      "https://api.openai.com/v1/chat/completions";
-
     const prompt = buildEnrichmentPrompt({ questions, sourceText });
 
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
+    const response = await fetchAICompletion({
         response_format: { type: "json_object" },
         messages: [
           {
@@ -90,8 +70,7 @@ OUTPUT: Valid JSON only. No markdown fences.`,
           },
         ],
         temperature: 0.3,
-      }),
-    });
+      }, 8192);
 
     const payload = (await response.json()) as {
       error?: { message?: string };
@@ -157,7 +136,7 @@ OUTPUT: Valid JSON only. No markdown fences.`,
       return NextResponse.json(
         {
           error:
-            "AI enrichment is not configured. Set QUIZWORLD_AI_API_KEY and QUIZWORLD_AI_MODEL on the Next.js app.",
+            "AI enrichment is not configured. Set QUIZWORLD_AI_API_URL, QUIZWORLD_AI_API_KEY and QUIZWORLD_AI_MODEL on the Next.js app.",
         },
         { status: 503 }
       );

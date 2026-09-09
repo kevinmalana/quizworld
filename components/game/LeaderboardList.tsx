@@ -1,3 +1,4 @@
+import { formatAccuracy } from "@/lib/game/game-analytics";
 import type { GamePlayer } from "@/lib/game/session-normalizers";
 
 export function LeaderboardList({
@@ -31,7 +32,7 @@ export function LeaderboardList({
               ))}
             </span>
             <span className="game-leaderboard-score">
-              {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
+              {formatAccuracy(playerCorrectCounts[player.id], totalQuestions)}{(player.score ?? 0).toLocaleString()} pts
             </span>
           </div>
         ))}

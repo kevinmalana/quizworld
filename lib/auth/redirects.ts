@@ -33,6 +33,11 @@ export function peekPostLoginRedirect(storage: Pick<RedirectStorage, "getItem">,
   return normalizePostLoginRedirect(requested || storage.getItem(REDIRECT_KEY));
 }
 
+export function prepareHostLogin(storage: RedirectStorage, quizId: string | null): string {
+  const next = quizId ? `/host?quiz=${encodeURIComponent(quizId)}` : "/host";
+  return buildLoginHref(rememberPostLoginRedirect(storage, next));
+}
+
 export function buildLoginHref(next: string): string {
   return `/login?next=${encodeURIComponent(normalizePostLoginRedirect(next))}`;
 }

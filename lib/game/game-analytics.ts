@@ -1,5 +1,22 @@
 import type { CurrentAnswer, GamePlayer, QuestionHistoryEntry } from "@/lib/game/session-normalizers";
 
+/** Accuracy is server-computed; absent private data is unknown, not zero. */
+export function getGameAccuracy(snapshot: Record<string, unknown> | null) {
+  return {
+    counts: (snapshot?.correct_counts ?? {}) as Record<string, number>,
+    total: (snapshot?.scored_question_count ?? 0) as number,
+  };
+}
+
+export function formatAccuracy(correct: number | undefined, total: number) {
+  if (correct === undefined) return "";
+  return total > 0 ? `${correct}/${total} ✓ · ` : "No scored questions · ";
+}
+
+export function getAnswerFeedback(questionType: string | undefined, correct: boolean | null | undefined) {
+  return questionType === "poll" ? "Vote recorded — unscored poll" : correct ? "✅ Correct" : "❌ Incorrect";
+}
+
 export type PlayerAchievement = { emoji: string; label: string };
 
 export function countCorrectAnswersByPlayer(

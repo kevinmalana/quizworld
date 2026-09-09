@@ -148,6 +148,12 @@ Before changing SQL or RLS:
 
 `supabase_setup.sql` and aggregate SQL bundles are historical references, not production migration instructions. Never paste an old bundle into production.
 
+### Account deletion requests
+
+Profile → Account → Request account deletion opens a reviewable email draft to the existing support address, with a copyable fallback. It does not send a request or delete anything automatically. Support must verify ownership using the account email/re-authentication before any deletion, confirm receipt, and follow the privacy-policy processing commitment.
+
+Automatic deletion is intentionally not exposed: migration history is not proof of live cascades. Before introducing a destructive API, verify deployed foreign keys, result JSON/nicknames, storage ownership and shared classroom/group content; test an isolated disposable account including session revocation and downstream erasure. Require authenticated server-derived ownership, recent re-authentication, same-origin/CSRF protection, explicit confirmation and auditable completion. Never treat a client-supplied account ID or an email draft as authorization or completion.
+
 ### Database recovery rollout
 
 The recovery migrations are deliberately split so application releases never depend on a schema change that has not landed yet:
@@ -161,7 +167,11 @@ Do not combine these stages into a SQL Editor paste bundle. If a stage fails, st
 
 ## AI source generation
 
-Quiz generation uses `POST /api/ai-source-draft`. Provider URL, model and API key come from environment variables documented in `.env.example`; do not hard-code provider configuration in the route.
+Quiz generation uses `POST /api/ai-source-draft`. All four AI routes share `lib/ai-provider.ts`. Configure the API key, model and **full HTTPS `/chat/completions` URL** from `.env.example`; base URLs are rejected, nothing is appended, and no provider is selected by default.
+
+Insights require cookie authentication and a same-origin request, enforce 10 requests/minute per account, a 32 KiB request limit, bounded summary fields, and an 800-token output ceiling. Participant nicknames, IDs, avatars and team names are not sent to the AI provider. Other AI output ceilings are 16,384 tokens for quiz generation and 8,192 for presentation/enrichment; all calls have a 60-second deadline, a 128 KiB serialized prompt limit, a 1 MiB response limit and no automatic retry.
+
+The shared limiter also allows at most 50 authenticated AI attempts per account per 24-hour window across AI routes. Both windows are **process-local** and reset on cold starts; this is not a durable quota or guaranteed spend budget. Before production approval, verify the configured model's output-token support and provider-side hard spend cap, and validate a shared durable quota if deploying across workers/regions. No paid provider call is part of deterministic tests.
 
 Supported generated question counts are **5, 10, 20, 30, 50 and 65**. Treat those values and the route's request/response shape as the module interface when changing clients or providers.
 

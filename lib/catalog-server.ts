@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import { calcLevel } from "@/components/study/study-session-panels";
 import type { QuizWithCreator } from "@/components/explore/explore-quiz-card";
-import { CATALOG_QUIZ_SELECT, categoryVariants } from "@/lib/catalog-discovery";
+import { fetchCatalogPage } from "@/lib/catalog-discovery";
 
 const PAGE_SIZE = 24;
 
@@ -20,22 +20,10 @@ async function fetchInitialExploreCatalog(category = "All"): Promise<InitialExpl
     auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
   });
 
-  let query = supabase
-    .from("quizzes")
-    .select(CATALOG_QUIZ_SELECT, { count: "exact" })
-    .eq("is_public", true)
-    .is("archived_at", null);
-
-  if (category !== "All") {
-    query = query.in("category", categoryVariants(category));
-  }
-
-  const { data, error, count } = await query
-    .order("plays", { ascending: false })
-    .order("id", { ascending: true })
-    .limit(PAGE_SIZE);
-
-  if (error || !data) return null;
+  let result;
+  try { result = await fetchCatalogPage(supabase, { category, pageSize: PAGE_SIZE }); }
+  catch { return null; }
+  const { quizzes: data, totalCount: count } = result;
 
   const creatorIds = [...new Set(data.map((quiz) => quiz.creator_id).filter(Boolean))] as string[];
   const creatorMap: Record<string, {
