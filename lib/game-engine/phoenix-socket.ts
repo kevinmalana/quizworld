@@ -111,10 +111,12 @@ export function subscribeToPhoenixTopic(options: SubscribeOptions) {
 
   const connect = () => {
     socket = new WebSocket(socketUrl);
+    const connection = socket;
+    let joinRef: string | null = null;
 
     socket.addEventListener("open", () => {
       reconnectAttempts = 0;
-      push(options.topic, "phx_join", options.joinPayload ?? {});
+      joinRef = push(options.topic, "phx_join", options.joinPayload ?? {});
 
       heartbeat = window.setInterval(() => {
         push("phoenix", "heartbeat", {});
@@ -122,6 +124,7 @@ export function subscribeToPhoenixTopic(options: SubscribeOptions) {
     });
 
     socket.addEventListener("message", (event) => {
+      if (intentionalClose || connection !== socket || connection.readyState !== WebSocket.OPEN) return;
       let parsed: PhoenixMessage;
 
       try {
@@ -148,7 +151,12 @@ export function subscribeToPhoenixTopic(options: SubscribeOptions) {
           return;
         }
 
-        if (reply.status === "ok") options.onJoin?.(reply.response);
+        // Only the outstanding phx_join can grant join-snapshot semantics.
+        // Expired/duplicate command replies are no longer in pendingCommands.
+        if (messageRef !== null && messageRef === joinRef) {
+          joinRef = null;
+          if (reply.status === "ok") options.onJoin?.(reply.response);
+        }
         return;
       }
 
