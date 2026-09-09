@@ -13,5 +13,6 @@ rel
 # Local/generated files
 .env.vercel
 playwright-report/
+e2e-evidence/
 test-results/
 supabase/.temp/

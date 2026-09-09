@@ -39,16 +39,23 @@ jobs:
       - name: Run deterministic verification
         run: npm run check
       
+      - name: Verify safe E2E evidence retention
+        run: node --test scripts/e2e-evidence.test.cjs
+
       - name: Run production E2E tests
+        id: e2e
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: npx playwright test
         env:
           BASE_URL: https://www.quizworld.xyz
       
-      - name: Upload test results
+      # Recovered retries exit successfully. Publish only the safe summary on
+      # either outcome, never raw test-results, HTML, screenshots or traces.
+      - name: Upload safe E2E evidence
         uses: actions/upload-artifact@v4
-        if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && (steps.e2e.outcome == 'success' || steps.e2e.outcome == 'failure')
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: e2e-evidence
+          path: e2e-evidence/summary.json
+          if-no-files-found: error
           retention-days: 7
