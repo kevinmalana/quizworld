@@ -61,6 +61,7 @@ defmodule QuizworldRealtime.ResultSync do
              }
            end),
          question_count: length(game.questions || []),
+         scored_question_count: Enum.count(question_breakdown, & &1.scored),
          finished_status: game.status,
          # Game mode data
          game_mode: game.game_mode || "classic",
@@ -84,6 +85,8 @@ defmodule QuizworldRealtime.ResultSync do
     |> Enum.with_index()
     |> Enum.map(fn {question, index} ->
       question_id = question["id"]
+      question_type = question["question_type"] || "multiple_choice"
+      scored = question_type != "poll"
       question_answers = question["answers"] || []
       player_answers = Map.get(answers_map, question_id, %{})
       total_responses = map_size(player_answers)
@@ -99,8 +102,8 @@ defmodule QuizworldRealtime.ResultSync do
             nickname: if(player, do: player.nickname, else: "Unknown"),
             avatar: if(player, do: Map.get(player, :avatar), else: nil),
             answer_id: row.answer_id,
-            is_correct: row.is_correct,
-            points_awarded: row.points_awarded,
+            is_correct: if(scored, do: row.is_correct, else: nil),
+            points_awarded: if(scored, do: row.points_awarded, else: 0),
             response_time_ms: row.response_time_ms
           }
         end)
@@ -122,7 +125,7 @@ defmodule QuizworldRealtime.ResultSync do
           %{
             answer_id: answer["id"],
             text: answer["text"],
-            is_correct: Map.get(answer, "is_correct", false),
+            is_correct: if(scored, do: Map.get(answer, "is_correct", false), else: nil),
             count: count,
             percentage: if(total_responses > 0, do: round(count / total_responses * 100), else: 0)
           }
@@ -141,16 +144,22 @@ defmodule QuizworldRealtime.ResultSync do
       %{
         index: index,
         question_id: question_id,
+        question_type: question_type,
+        scored: scored,
         text: question["text"],
-        correct_answer_text: if(correct_answer, do: correct_answer["text"], else: nil),
+        correct_answer_text: if(scored && correct_answer, do: correct_answer["text"], else: nil),
         time_limit: question["time_limit"] || 20,
-        points: question["points"] || 1000,
+        points: if(scored, do: question["points"] || 1000, else: 0),
         total_responses: total_responses,
-        correct_count: correct_count,
+        correct_count: if(scored, do: correct_count, else: nil),
         accuracy_pct:
-          if(total_responses > 0, do: round(correct_count / total_responses * 100), else: 0),
+          if(scored,
+            do:
+              if(total_responses > 0, do: round(correct_count / total_responses * 100), else: 0),
+            else: nil
+          ),
         avg_response_time_ms: avg_response_time,
-        difficulty: difficulty,
+        difficulty: if(scored, do: difficulty, else: nil),
         distribution: distribution,
         responses: responses
       }
