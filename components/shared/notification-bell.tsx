@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { loadFriendshipNotifications } from "@/lib/friendship-notifications";
 import { useAuth } from "@/components/supabase-provider";
 
 type NotifItem = {
@@ -100,10 +101,7 @@ export function NotificationBell() {
         .order("created_at", { ascending: false })
         .limit(20),
       // Pending friend requests TO me
-      supabase.from("friendships")
-        .select("id, requester_id, profiles!friendships_requester_id_fkey(username, display_name)")
-        .eq("addressee_id", user.id)
-        .eq("status", "pending"),
+      loadFriendshipNotifications(supabase, user.id),
       // Classrooms I was added to in the last 24h (teacher added me)
       supabase.from("classroom_members")
         .select("id, classroom_id, classrooms(name)")
@@ -133,13 +131,12 @@ export function NotificationBell() {
       });
     });
 
-    (friendRes.data ?? []).forEach((f: { id: string; requester_id: string; profiles: { username: string; display_name: string }[] }) => {
-      const name = f.profiles?.[0]?.display_name || f.profiles?.[0]?.username || "Someone";
+    (friendRes.data ?? []).forEach((f) => {
       notifs.push({
         id: `fr-${f.id}`,
         type: "friend_request",
         title: "Friend Request",
-        subtitle: `${name} wants to be friends`,
+        subtitle: `${f.name} wants to be friends`,
         href: "/friends",
       });
     });
