@@ -6,7 +6,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: 'html',
+  // Only the allowlisted JSON summary is published from CI (not HTML/traces).
+  reporter: process.env.CI
+    ? [['list'], ['./scripts/e2e-evidence-reporter.cjs']]
+    : 'html',
   use: {
     baseURL: process.env.BASE_URL || 'https://www.quizworld.xyz',
     trace: 'on-first-retry',
