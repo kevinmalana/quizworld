@@ -9,7 +9,7 @@ import {
 type PhoenixGameChannelOptions = {
   pin: string;
   joinPayload?: Record<string, unknown>;
-  onSnapshot: (session: Record<string, unknown>) => void;
+  onSnapshot: (session: Record<string, unknown>, options?: { allowEqual?: boolean }) => void;
   loadSnapshot: () => Promise<void> | void;
 };
 
@@ -34,18 +34,18 @@ export function usePhoenixGameChannel({ pin, joinPayload, onSnapshot, loadSnapsh
     subscriptionRef.current = null;
     const effectConnectionKey = connectionKey;
 
-    const handleSnapshot = (payload: unknown) => {
+    const handleSnapshot = (payload: unknown, options?: { allowEqual?: boolean }) => {
       if (stopped) return;
       setConnected(true);
       setHasConnectedOnce(true);
       const session = sessionFromPayload(payload);
-      if (session) onSnapshot(session);
+      if (session) onSnapshot(session, options);
     };
 
     const unsubscribe = subscribeToPhoenixTopic({
       topic: `game:${pin}`,
       joinPayload,
-      onJoin: handleSnapshot,
+      onJoin: payload => handleSnapshot(payload, { allowEqual: true }),
       onSessionUpdate: handleSnapshot,
       onError: () => {
         if (!stopped) setConnected(false);
