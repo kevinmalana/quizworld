@@ -52,6 +52,7 @@ import {
   getTimeLeft,
   normalizePhoenixSession,
   shouldApplySessionSnapshot,
+  shouldApplyFallbackSnapshot,
   sortQuizQuestions,
   type CurrentAnswer,
   type GamePlayer,
@@ -209,7 +210,9 @@ export default function GamePage() {
   const loadSession = useCallback(async () => {
     if (isPhoenixGameEngine) {
       try {
+        const sessionAtRequestStart = sessionRef.current;
         const response = await fetchPhoenixSession(pin) as { session: Record<string, unknown> };
+        if (!shouldApplyFallbackSnapshot(sessionRef.current, sessionAtRequestStart, response.session)) return;
         applySessionSnapshot(response.session, undefined, { allowEqual: true });
         return;
       } catch (_error) {
@@ -409,6 +412,11 @@ export default function GamePage() {
       : {}),
   }), [hostSession?.hostToken, playerSession?.playerId, playerSession?.playerToken]);
 
+  // Channel joins can restore role-private data at the same game revision.
+  const applyChannelSnapshot = useCallback((snapshot: Record<string, unknown>, options?: { allowEqual?: boolean }) => {
+    applySessionSnapshot(snapshot, undefined, options);
+  }, [applySessionSnapshot]);
+
   const {
     connected: phoenixChannelConnected,
     hasConnectedOnce: phoenixChannelConnectedOnce,
@@ -416,7 +424,7 @@ export default function GamePage() {
   } = usePhoenixGameChannel({
     pin,
     joinPayload: gameChannelJoinPayload,
-    onSnapshot: applySessionSnapshot,
+    onSnapshot: applyChannelSnapshot,
     loadSnapshot: loadSession,
   });
 

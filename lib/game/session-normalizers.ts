@@ -105,6 +105,19 @@ export function shouldApplySessionSnapshot(
     : incomingUpdatedAt > currentUpdatedAt;
 }
 
+/** A REST request started before a channel update must not downgrade that update
+ * at the same revision. A newly started disconnected fallback may still remove
+ * private fields; genuinely newer revisions always remain eligible. */
+export function shouldApplyFallbackSnapshot(
+  currentSession: Record<string, unknown> | null,
+  sessionAtRequestStart: Record<string, unknown> | null,
+  incomingSession: Record<string, unknown>
+) {
+  return shouldApplySessionSnapshot(currentSession, incomingSession, {
+    allowEqual: currentSession === sessionAtRequestStart,
+  });
+}
+
 export function normalizePhoenixSession(rawSession: Record<string, unknown>): PhoenixSessionSnapshot {
   const quiz = (rawSession?.quiz as { questions?: GameQuestion[] }) ?? {};
   const questions = sortQuestions(quiz.questions ?? []);
