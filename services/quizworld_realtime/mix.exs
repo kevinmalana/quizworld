@@ -28,10 +28,11 @@ defmodule QuizworldRealtime.MixProject do
       {:phoenix_live_view, "~> 1.0"},
       {:phoenix_pubsub, "~> 2.1"},
       {:bandit, "~> 1.5"},
+      {:plug, "~> 1.19.5"},
       {:jason, "~> 1.4"},
       {:cors_plug, "~> 3.0"},
       {:redix, "~> 1.5"},
-      {:req, "~> 0.5"}
+      {:req, "~> 0.6.1"}
     ]
   end
 end
