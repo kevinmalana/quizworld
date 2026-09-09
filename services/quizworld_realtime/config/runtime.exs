@@ -37,7 +37,7 @@ config :quizworld_realtime,
   allowed_origins: allowed_origins
 
 config :quizworld_realtime, QuizworldRealtimeWeb.Endpoint,
-  server: true,
+  server: config_env() != :test,
   url: [host: host, port: 443, scheme: "https"],
   http: [ip: {0, 0, 0, 0}, port: port],
   secret_key_base: secret_key_base,

@@ -89,13 +89,17 @@ defmodule QuizworldRealtime.Game do
     question_history =
       game.questions
       |> Enum.with_index()
-      |> Enum.filter(fn {_q, idx} -> idx < game.current_question_index end)
+      |> Enum.filter(fn {_q, idx} ->
+        idx < game.current_question_index or
+          (game.status == "finished" and idx == game.current_question_index)
+      end)
       |> Enum.map(fn {question, idx} ->
         question_answers = Map.get(game.answers, question["id"], %{})
         correct_answer = Enum.find(question["answers"] || [], &Map.get(&1, "is_correct", false))
 
         %{
           "index" => idx,
+          "question_type" => question["question_type"],
           "text" => question["text"],
           "correct_answer_id" => if(correct_answer, do: correct_answer["id"], else: nil),
           "correct_answer_text" => if(correct_answer, do: correct_answer["text"], else: nil),
@@ -119,7 +123,28 @@ defmodule QuizworldRealtime.Game do
         }
       end)
 
+    scored_questions =
+      game.questions
+      |> Enum.with_index()
+      |> Enum.filter(fn {question, idx} ->
+        question["question_type"] != "poll" and
+          (idx < game.current_question_index or
+             (game.status in ["reveal", "finished"] and idx == game.current_question_index))
+      end)
+
+    correct_counts =
+      Map.new(game.players, fn {pid, _player} ->
+        count =
+          Enum.count(scored_questions, fn {question, _idx} ->
+            get_in(game.answers, [question["id"], pid, :is_correct]) == true
+          end)
+
+        {pid, count}
+      end)
+
     host_snapshot = %{
+      correct_counts: correct_counts,
+      scored_question_count: length(scored_questions),
       pin: game.pin,
       quiz_id: game.quiz_id,
       category: game.category,
@@ -180,6 +205,7 @@ defmodule QuizworldRealtime.Game do
 
     snapshot
     |> Map.put(:current_answers, own_answers)
+    |> Map.put(:correct_counts, Map.take(snapshot.correct_counts, [player_id]))
     |> Map.delete(:question_history)
     |> hide_live_answer_counts()
   end
@@ -187,6 +213,7 @@ defmodule QuizworldRealtime.Game do
   defp shape_snapshot(snapshot, _public) do
     snapshot
     |> Map.delete(:current_answers)
+    |> Map.delete(:correct_counts)
     |> Map.delete(:question_history)
     |> hide_live_answer_counts()
   end
@@ -409,7 +436,7 @@ defmodule QuizworldRealtime.Game do
           answer -> answer["id"]
         end
 
-      if correct_answer_id == nil do
+      if correct_answer_id == nil and question["question_type"] != "poll" do
         require Logger
 
         Logger.warning(
@@ -425,7 +452,11 @@ defmodule QuizworldRealtime.Game do
         |> Enum.into(%{}, fn {pid, row} ->
           # Eliminated players (survival) get 0 points but still recorded
           already_eliminated = MapSet.member?(game.eliminated, pid)
-          is_correct = !already_eliminated and row.answer_id == correct_answer_id
+
+          is_correct =
+            if question["question_type"] == "poll",
+              do: nil,
+              else: !already_eliminated and row.answer_id == correct_answer_id
 
           points_awarded =
             if is_correct do
@@ -462,7 +493,7 @@ defmodule QuizworldRealtime.Game do
 
       # Survival: eliminate players who answered wrong (or didn't answer)
       next_eliminated =
-        if game.game_mode == "survival" do
+        if game.game_mode == "survival" and question["question_type"] != "poll" do
           alive_pids = Map.keys(game.players) |> Enum.reject(&MapSet.member?(game.eliminated, &1))
 
           newly_eliminated =
@@ -701,7 +732,7 @@ defmodule QuizworldRealtime.Game do
               "id" => fetch_string(answer, "id"),
               "text" => fetch_string(answer, "text"),
               "image_url" => Map.get(answer, "image_url"),
-              "is_correct" => Map.get(answer, "is_correct", false)
+              "is_correct" => question_type != "poll" and Map.get(answer, "is_correct", false)
             }
           end)
         else
@@ -742,6 +773,7 @@ defmodule QuizworldRealtime.Game do
     |> Enum.sort_by(& &1["order_index"])
   end
 
+  defp normalize_question_type("poll"), do: "poll"
   defp normalize_question_type("multiple_choice"), do: "multiple_choice"
   defp normalize_question_type("true_false"), do: "true_false"
   defp normalize_question_type(nil), do: "multiple_choice"

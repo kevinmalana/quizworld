@@ -21,14 +21,23 @@ defmodule QuizworldRealtime.GamesTest do
       start: {Agent, :start_link, [fn -> 0 end, [name: FlakyResultSync]]}
     })
 
-    previous_module = Application.get_env(:quizworld_realtime, :result_sync_module)
-    previous_delay = Application.get_env(:quizworld_realtime, :result_sync_retry_base_ms)
+    previous_module = Application.fetch_env(:quizworld_realtime, :result_sync_module)
+    previous_delay = Application.fetch_env(:quizworld_realtime, :result_sync_retry_base_ms)
     Application.put_env(:quizworld_realtime, :result_sync_module, FlakyResultSync)
     Application.put_env(:quizworld_realtime, :result_sync_retry_base_ms, 5)
 
     on_exit(fn ->
-      Application.put_env(:quizworld_realtime, :result_sync_module, previous_module)
-      Application.put_env(:quizworld_realtime, :result_sync_retry_base_ms, previous_delay)
+      # An absent key is not a key set to nil: nil defeats get_env defaults
+      # and made later channel tests crash in background result-sync retries.
+      for {key, previous} <- [
+            result_sync_module: previous_module,
+            result_sync_retry_base_ms: previous_delay
+          ] do
+        case previous do
+          :error -> Application.delete_env(:quizworld_realtime, key)
+          {:ok, value} -> Application.put_env(:quizworld_realtime, key, value)
+        end
+      end
     end)
 
     pin = "S" <> Integer.to_string(System.unique_integer([:positive]))
