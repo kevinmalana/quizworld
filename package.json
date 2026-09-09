@@ -38,6 +38,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "0.28.2",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "5.9.3"

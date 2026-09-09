@@ -26,8 +26,20 @@ type NotifItem = {
  */
 export function NotificationBell() {
   const { user } = useAuth();
+  // A direct account change must replace all display and dismissal state in
+  // the same render, not wait for an effect to clear the previous account.
+  return user ? <IdentityNotificationBell key={user.id} userId={user.id} /> : null;
+}
+
+function IdentityNotificationBell({ userId }: { userId: string }) {
   const pathname = usePathname();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const requestGeneration = useRef(0);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const [items, setItems] = useState<NotifItem[]>([]);
   const [open, setOpen] = useState(false);
   const [notificationError, setNotificationError] = useState("");
@@ -44,6 +56,7 @@ export function NotificationBell() {
     const persistedIds = items.flatMap(item => item.notificationId ? [item.notificationId] : []);
     if (persistedIds.length > 0) {
       const { error } = await supabase.rpc("mark_notifications_read", { p_notification_ids: persistedIds });
+      if (!mounted.current) return;
       if (error) {
         setNotificationError("Could not mark notifications as read. Please try again.");
         return;
@@ -61,6 +74,7 @@ export function NotificationBell() {
     setNotificationError("");
     if (item.notificationId) {
       const { error } = await supabase.rpc("mark_notifications_read", { p_notification_ids: [item.notificationId] });
+      if (!mounted.current) return;
       if (error) {
         setNotificationError("Could not mark this notification as read. Please try again.");
         return;
@@ -90,33 +104,33 @@ export function NotificationBell() {
   }, [open]);
 
   const fetchNotifs = useCallback(async () => {
-    if (!user) return;
-
+    const generation = ++requestGeneration.current;
     const [notificationRes, friendRes, classRes, groupRes] = await Promise.all([
       // Durable notifications such as teacher assignment reminders.
       supabase.from("notifications")
         .select("id, type, title, message, href")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .is("read_at", null)
         .order("created_at", { ascending: false })
         .limit(20),
       // Pending friend requests TO me
-      loadFriendshipNotifications(supabase, user.id),
+      loadFriendshipNotifications(supabase, userId),
       // Classrooms I was added to in the last 24h (teacher added me)
       supabase.from("classroom_members")
         .select("id, classroom_id, classrooms(name)")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("role", "student")
         .gte("joined_at", new Date(Date.now() - 86400000).toISOString())
         .limit(5),
       // Groups I joined or was added to in last 24h
       supabase.from("trivia_group_members")
         .select("id, group_id, trivia_groups(name)")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("joined_at", new Date(Date.now() - 86400000).toISOString())
         .limit(5),
     ]);
 
+    if (generation !== requestGeneration.current) return;
     const notifs: NotifItem[] = [];
 
     (notificationRes.data ?? []).forEach((notification: { id: string; type: string; title: string; message: string; href: string }) => {
@@ -164,15 +178,17 @@ export function NotificationBell() {
     });
 
     setItems(notifs.filter(n => !seenIds.has(n.id)));
-  }, [user?.id, seenIds]);
+  }, [userId, seenIds]);
 
   useEffect(() => {
     fetchNotifs();
     const interval = setInterval(fetchNotifs, 30_000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      // Invalidate in-flight polls on unmount or a changed seen-ID filter.
+      ++requestGeneration.current;
+    };
   }, [fetchNotifs]);
-
-  if (!user) return null;
 
   const count = items.length;
   const iconMap: Record<NotifItem["type"], string> = {

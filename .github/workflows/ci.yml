@@ -31,12 +31,13 @@ jobs:
         working-directory: services/quizworld_realtime
         run: mix deps.get
 
+      # Component identity regressions run in Chromium with synthetic transport;
+      # unlike production E2E, they also run on pull requests.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
       - name: Run deterministic verification
         run: npm run check
-      
-      - name: Install Playwright browsers
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npx playwright install --with-deps chromium
       
       - name: Run production E2E tests
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
