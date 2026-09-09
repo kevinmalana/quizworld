@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { prepareHostLogin } from "@/lib/auth/redirects";
 import { Suspense, useEffect, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
@@ -382,9 +383,9 @@ function HostPageContent() {
         <div className="card join-card">
           <div className="join-icon">🏁</div>
           <h1 className="font-display join-title">Host a Live Game</h1>
-          <p className="join-subtitle">Sign in to pick a quiz and launch a live multiplayer session. Players join from any device with a 6-character PIN.</p>
+          <p className="join-subtitle">Sign in to launch your selected quiz or choose a quiz for a live multiplayer session. Players join from any device with a 6-character PIN.</p>
           <button
-            onClick={() => { sessionStorage.setItem("qw_post_login_redirect", "/host"); router.push("/login"); }}
+            onClick={() => { router.push(prepareHostLogin(sessionStorage, searchParams.get("quiz"))); }}
             className="btn btn-primary btn-lg btn-full mb-sm"
           >Sign In to Host</button>
           <Link href="/explore" className="btn btn-secondary btn-full">Browse Quizzes First</Link>

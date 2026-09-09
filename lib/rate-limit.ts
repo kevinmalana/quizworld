@@ -6,9 +6,9 @@ import { createServerClient } from "@supabase/ssr";
  *
  * Strategy:
  * - Primary guard: require authentication (unauthenticated → 401)
- * - Secondary: per-user sliding window in-process store
- * - Limitation: resets on Vercel cold start (acceptable for current scale)
- * - Upgrade path: swap rateLimitStore for @upstash/ratelimit when multi-region needed
+ * - Secondary: per-user fixed window in-process store
+ * - Limitation: resets on Vercel cold start; not a durable budget
+ * - Upgrade path: verify a shared durable quota and provider hard spend cap before scaling
  */
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -31,6 +31,7 @@ const ROUTE_LIMITS: Record<string, { maxRequests: number; windowMs: number }> = 
 
 type RateEntry = { count: number; resetAt: number };
 const store = new Map<string, RateEntry>();
+const dailyStore = new Map<string, RateEntry>();
 const MAX_KEYS = 10_000;
 const EVICT_OLDER_THAN_MS = 5 * 60_000;
 
@@ -61,13 +62,16 @@ async function resolveUserId(request: NextRequest): Promise<string | null> {
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export async function checkRateLimit(request: NextRequest): Promise<NextResponse | null> {
+export async function checkRateLimit(
+  request: NextRequest,
+  resolveIdentity: (request: NextRequest) => Promise<string | null> = resolveUserId,
+): Promise<NextResponse | null> {
   const path = request.nextUrl.pathname;
   const limit = ROUTE_LIMITS[path];
   if (!limit) return null;
 
   // 1. Require authentication
-  const userId = await resolveUserId(request);
+  const userId = await resolveIdentity(request);
   if (!userId) {
     return NextResponse.json(
       { error: "Sign in to use AI features." },
@@ -75,7 +79,21 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
     );
   }
 
-  // 2. Per-user sliding window
+  // Shared per-account AI allowance. Process-local: not a durable billing budget.
+  if (path.startsWith("/api/ai-")) {
+    const now = Date.now();
+    for (const [id, entry] of dailyStore) if (entry.resetAt <= now) dailyStore.delete(id);
+    const entry = dailyStore.get(userId) ?? { count: 0, resetAt: now + 86_400_000 };
+    if (entry.count >= 50 || (!dailyStore.has(userId) && dailyStore.size >= MAX_KEYS)) {
+      return NextResponse.json({ error: "Daily AI allowance reached. Try again later." }, {
+        status: 429, headers: { "Retry-After": String(Math.max(1, Math.ceil((entry.resetAt - now) / 1000))) },
+      });
+    }
+    entry.count++;
+    dailyStore.set(userId, entry);
+  }
+
+  // 2. Per-user fixed window
   const key = `${userId}:${path}`;
   const now = Date.now();
   evictStale();

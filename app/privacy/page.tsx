@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "QuizWorld Privacy Policy — how we collect, use, and protect your personal information.",
 };
 
-const LAST_UPDATED = "23 May 2026";
+const LAST_UPDATED = "9 September 2026";
 
 export default function PrivacyPage() {
   return (
@@ -72,7 +72,7 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Access:</strong> Request a copy of the personal data we hold about you.</li>
           <li><strong>Correction:</strong> Update or correct your data via your Profile settings.</li>
-          <li><strong>Deletion:</strong> Delete your account and associated data from your Profile settings. We will process deletion within 30 days.</li>
+          <li><strong>Deletion:</strong> Request deletion using the email instructions in Profile settings or by emailing support@quizworld.xyz from your account email address. Opening the email draft does not send a request or delete your account. We verify account ownership before deletion and process deletion requests within 30 days.</li>
           <li><strong>Portability:</strong> Request an export of your quiz content and game history.</li>
           <li><strong>Objection:</strong> Object to processing of your data in certain circumstances.</li>
         </ul>
@@ -80,7 +80,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section title="9. Data Retention">
-        <p>We retain your account data for as long as your account is active. If you delete your account, we remove your personal data within 30 days, except where we are required to retain it for legal or compliance reasons. Anonymised usage data (e.g. aggregated game statistics) may be retained indefinitely.</p>
+        <p>We retain your account data for as long as your account is active. After receiving your account-deletion request and verifying ownership, we remove your personal data within 30 days, except where we are required to retain it for legal or compliance reasons. Anonymised usage data (e.g. aggregated game statistics) may be retained indefinitely.</p>
       </Section>
 
       <Section title="10. International Transfers">

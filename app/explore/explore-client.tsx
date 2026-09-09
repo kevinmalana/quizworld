@@ -9,7 +9,7 @@ import { SectionCard } from "@/components/section-card";
 import { calcLevel } from "@/components/study/study-session-panels";
 
 import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/shared";
-import { CATALOG_QUIZ_SELECT, canonicalizeCategory, catalogCursorFilter, catalogCursorForRow, catalogQuestionCount, categoryVariants, excludeFeaturedQuizzes, formatCatalogCount, mergeCatalogPage, type CatalogCursor } from "@/lib/catalog-discovery";
+import { canonicalizeCategory, catalogQuestionCount, excludeFeaturedQuizzes, formatCatalogCount, mergeCatalogPage, fetchCatalogPage, normalizeCatalogSearch, catalogCursorForRow, type CatalogCursor } from "@/lib/catalog-discovery";
 import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/explore-quiz-card";
 import { CATEGORY_FAMILY_ART, type CategoryFamilyId } from "@/lib/category-families";
 import type { InitialExploreCatalog } from "@/lib/catalog-server";
@@ -473,86 +473,43 @@ function ExplorePageContent({
   const { user } = useAuth();
   const seededCatalog = initialCatalog;
   const [quizzes, setQuizzes] = useState<QuizWithCreator[]>(seededCatalog?.quizzes ?? []);
-  const [searchResults, setSearchResults] = useState<QuizWithCreator[] | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const normalizedSearch = normalizeCatalogSearch(search);
   const [activeCategory, setActiveCategory] = useState(
-    CATEGORY_LIST.includes(initialCategory) ? initialCategory : "All"
+    CATEGORY_LIST.includes(canonicalizeCategory(initialCategory)) && initialCategory !== "All"
+      ? canonicalizeCategory(initialCategory) : "All"
   );
   const [sortMode, setSortMode] = useState<SortMode>("popular");
   const [loading, setLoading] = useState(!seededCatalog);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const [catalogCursor, setCatalogCursor] = useState<CatalogCursor | null>(() => {
-    const last = seededCatalog?.quizzes.at(-1) as any;
-    return last ? catalogCursorForRow("popular", last) : null;
-  });
-  const [hasMore, setHasMore] = useState(
-    Boolean(seededCatalog && seededCatalog.quizzes.length < seededCatalog.totalCount)
-  );
+  const [hasMore, setHasMore] = useState(Boolean(seededCatalog && seededCatalog.quizzes.length < seededCatalog.totalCount));
   const [totalCount, setTotalCount] = useState(seededCatalog?.totalCount ?? 0);
   const skipInitialFetchRef = useRef(Boolean(seededCatalog));
-
+  const requestVersion = useRef(0);
+  const loadedCount = useRef(seededCatalog?.quizzes.length ?? 0);
+  const catalogCursor = useRef<CatalogCursor | null>(null);
+  const seedLast = seededCatalog?.quizzes.at(-1);
+  if (skipInitialFetchRef.current && seedLast) catalogCursor.current = catalogCursorForRow("popular", {
+    id: seedLast.id, title: seedLast.title, plays: seedLast.plays, created_at: "",
+  });
   const [surpriseQuiz, setSurpriseQuiz] = useState<QuizWithCreator | null>(null);
   const [surprisePool, setSurprisePool] = useState<QuizWithCreator[]>([]);
 
+  async function fetchPage(append: boolean) {
+    const version = ++requestVersion.current;
+    if (append) setLoadingMore(true);
+    else { setLoading(true); setLoadingMore(false); }
+    setFetchError(null);
+    try {
+      const offset = append ? loadedCount.current : 0;
+      const result = await fetchCatalogPage(supabase, {
+        search: normalizedSearch, category: activeCategory, sort: sortMode, loadedCount: offset, cursor: append ? catalogCursor.current : null, pageSize: PAGE_SIZE,
+      });
+      if (version !== requestVersion.current) return;
+      const batch = result.quizzes;
+      let withCreator: QuizWithCreator[] = [];
 
-  async function fetchPage(pageIndex: number, append: boolean) {
-    if (pageIndex === 0) {
-      setLoading(true);
-      setFetchError(null);
-    } else {
-      setLoadingMore(true);
-    }
-
-    const cursor = append ? catalogCursor : null;
-
-    let query = supabase
-      .from("quizzes")
-      .select(CATALOG_QUIZ_SELECT)
-      .eq("is_public", true)
-      .is("archived_at", null);
-    let countQuery = supabase
-      .from("quizzes")
-      .select("id", { count: "exact", head: true })
-      .eq("is_public", true)
-      .is("archived_at", null);
-
-    if (activeCategory && activeCategory !== "All") {
-      const variants = categoryVariants(activeCategory);
-      query = query.in("category", variants);
-      countQuery = countQuery.in("category", variants);
-    }
-    if (sortMode === "newest") query = query.order("created_at", { ascending: false });
-    else if (sortMode === "az") query = query.order("title", { ascending: true });
-    else if (sortMode === "za") query = query.order("title", { ascending: false });
-    else query = query.order("plays", { ascending: false });
-    query = query.order("id", { ascending: true });
-
-    const cursorFilter = catalogCursorFilter(sortMode, cursor);
-    if (cursorFilter) query = query.or(cursorFilter);
-    query = query.limit(PAGE_SIZE);
-
-    const [{ data, error }, { count, error: countError }] = await Promise.all([query, countQuery]);
-
-    if (error || countError) {
-      console.error("Error fetching quizzes:", error || countError);
-      setFetchError("Could not load the quiz catalog. Please try again in a moment.");
-      setLoading(false);
-      setLoadingMore(false);
-      return;
-    }
-
-    const batch = data ?? [];
-    const exactTotal = count ?? batch.length;
-    setTotalCount(exactTotal);
-    setHasMore((append ? quizzes.length : 0) + batch.length < exactTotal);
-    const last = batch[batch.length - 1] as any;
-    if (last) setCatalogCursor(catalogCursorForRow(sortMode, last));
-    else if (!append) setCatalogCursor(null);
-
-    if (batch.length > 0) {
       const creatorIds = [...new Set(batch.map((q: any) => q.creator_id).filter(Boolean))];
       let creatorMap: Record<string, { name: string; username: string; avatar: string; level: number; levelTitle: string }> = {};
 
@@ -575,7 +532,7 @@ function ExplorePageContent({
         }
       }
 
-      const withCreator = batch.map((q: any) => ({
+      withCreator = batch.map((q: any) => ({
         ...q,
         creator_name: creatorMap[q.creator_id]?.name ?? undefined,
         creator_display_name: creatorMap[q.creator_id]?.name ?? undefined,
@@ -585,98 +542,35 @@ function ExplorePageContent({
         creator_level_title: creatorMap[q.creator_id]?.levelTitle ?? undefined,
       })) as QuizWithCreator[];
 
-      setQuizzes((prev) => append ? mergeCatalogPage(prev, withCreator) : withCreator);
-    } else if (!append) {
-      setQuizzes([]);
+      if (version !== requestVersion.current) return;
+      loadedCount.current = offset + batch.length;
+      catalogCursor.current = result.nextCursor;
+      setQuizzes(prev => append ? mergeCatalogPage(prev, withCreator) : withCreator);
+      setTotalCount(result.totalCount);
+      setHasMore(result.hasMore);
+    } catch {
+      if (version === requestVersion.current) setFetchError("Could not load the quiz catalog. Please try again.");
+    } finally {
+      if (version === requestVersion.current) { setLoading(false); setLoadingMore(false); }
     }
-
-    setLoading(false);
-    setLoadingMore(false);
   }
 
-      useEffect(() => {
-        if (skipInitialFetchRef.current && activeCategory === initialCategory && sortMode === "popular") {
-          skipInitialFetchRef.current = false;
-          return;
-        }
-        skipInitialFetchRef.current = false;
-        setPage(0);
-        void fetchPage(0, false);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, [activeCategory, initialCategory, sortMode]);
-
-  // When user types a search term, query the full DB — don't just filter the loaded page
   useEffect(() => {
-    const term = search.trim();
-    if (!term) {
-      const hadSearch = searchResults !== null;
-      setSearchResults(null);
-      if (hadSearch) { setPage(0); void fetchPage(0, false); }
+    if (skipInitialFetchRef.current && !normalizedSearch && sortMode === "popular") {
+      skipInitialFetchRef.current = false;
       return;
     }
-
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      setSearchLoading(true);
-      let query = supabase
-        .from("quizzes")
-        .select(CATALOG_QUIZ_SELECT, { count: "exact" })
-        .eq("is_public", true)
-        .is("archived_at", null)
-        .ilike("title", `%${term}%`)
-        .order("plays", { ascending: false })
-        .limit(50);
-      if (activeCategory !== "All") query = query.in("category", categoryVariants(activeCategory));
-      const { data, count } = await query;
-      if (cancelled) return;
-      setTotalCount(count ?? data?.length ?? 0);
-
-      const batch = data ?? [];
-
-      // Fetch creator profiles for search results
-      const creatorIds = [...new Set(batch.map((q: any) => q.creator_id).filter(Boolean))];
-      let creatorMap: Record<string, { name: string; username: string; avatar: string; level: number; levelTitle: string }> = {};
-      if (creatorIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, username, display_name, avatar, total_xp")
-          .in("id", creatorIds);
-        if (profiles) {
-          for (const p of profiles) {
-            const lv = calcLevel((p.total_xp as number) ?? 0);
-            creatorMap[p.id] = {
-              name: p.display_name || p.username || "",
-              username: p.username || "",
-              avatar: p.avatar || "👤",
-              level: lv.level,
-              levelTitle: lv.title,
-            };
-          }
-        }
-      }
-
-      const withCreator = batch.map((q: any) => ({
-        ...q,
-        creator_name: creatorMap[q.creator_id]?.name ?? undefined,
-        creator_display_name: creatorMap[q.creator_id]?.name ?? undefined,
-        creator_username: creatorMap[q.creator_id]?.username ?? undefined,
-        creator_avatar: creatorMap[q.creator_id]?.avatar ?? undefined,
-        creator_level: creatorMap[q.creator_id]?.level ?? undefined,
-        creator_level_title: creatorMap[q.creator_id]?.levelTitle ?? undefined,
-      })) as QuizWithCreator[];
-
-      if (cancelled) return;
-      setSearchResults(withCreator);
-      setSearchLoading(false);
-    }, 300);
-
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [search, activeCategory]);
+    skipInitialFetchRef.current = false;
+    // Invalidate old requests immediately, including delayed creator enrichment.
+    ++requestVersion.current;
+    setLoading(true);
+    const timer = setTimeout(() => { void fetchPage(false); }, normalizedSearch ? 300 : 0);
+    return () => { clearTimeout(timer); ++requestVersion.current; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [normalizedSearch, activeCategory, sortMode]);
 
   function handleLoadMore() {
-    const next = page + 1;
-    setPage(next);
-    fetchPage(next, true);
+    if (!loading && !loadingMore && hasMore) void fetchPage(true);
   }
 
   useEffect(() => {
@@ -705,37 +599,8 @@ function ExplorePageContent({
 
   const hasActiveFilter = activeCategory !== "All" || search.trim().length > 0;
 
-  const filtered = useMemo(() => {
-    // When searching: use live DB results (full catalog), not just the loaded page
-    const base = search.trim() && searchResults !== null ? searchResults : quizzes;
-
-    let result = base.filter((q) => {
-      const matchCat = activeCategory === "All" || canonicalizeCategory(q.category) === activeCategory;
-      const matchSearch =
-        !search.trim() ||
-        q.title.toLowerCase().includes(search.toLowerCase()) ||
-        (q.category ?? "").toLowerCase().includes(search.toLowerCase());
-      return matchCat && matchSearch;
-    });
-
-    if (sortMode === "popular") {
-      result = [...result].sort((a, b) => b.plays - a.plays);
-    } else if (sortMode === "newest") {
-      result = [...result].sort((a, b) => {
-        const aTime = (a as any).created_at ?? a.createdAt ?? 0;
-        const bTime = (b as any).created_at ?? b.createdAt ?? 0;
-        const aMs = typeof aTime === "string" ? new Date(aTime).getTime() : aTime;
-        const bMs = typeof bTime === "string" ? new Date(bTime).getTime() : bTime;
-        return bMs - aMs;
-      });
-    } else if (sortMode === "az") {
-      result = [...result].sort((a, b) => a.title.localeCompare(b.title));
-    } else if (sortMode === "za") {
-      result = [...result].sort((a, b) => b.title.localeCompare(a.title));
-    }
-
-    return result;
-  }, [quizzes, searchResults, search, activeCategory, sortMode]);
+  // The server query is the single source for matching, counts and ordering.
+  const filtered = quizzes;
 
   // Trending sections derived from all loaded quizzes
   const trendingThisWeek = useMemo(() => {
@@ -767,7 +632,7 @@ function ExplorePageContent({
     ? filtered
     : excludeFeaturedQuizzes(filtered, [trendingThisWeek, newAndFresh, allTimeGreatest]);
 
-  const catalogDescription = searchLoading
+  const catalogDescription = loading
     ? "Searching across all quizzes…"
     : formatCatalogCount(filtered.length, totalCount, hasActiveFilter ? "result" : "public quiz");
 
@@ -952,7 +817,7 @@ function ExplorePageContent({
                   <ExploreQuizCard key={q.id} quiz={q} />
                 ))}
               </div>
-              {!hasActiveFilter && hasMore && (
+              {hasMore && (
                 <div className="explore-load-more">
                   <button
                     onClick={handleLoadMore}

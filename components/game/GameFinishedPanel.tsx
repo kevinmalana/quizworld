@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { GameNotice } from "./GameNotice";
 import { TeamLeaderboard } from "./TeamLeaderboard";
+import { buildGameInsightsData } from "@/lib/game/game-insights-data";
+import { formatAccuracy } from "@/lib/game/game-analytics";
 import type { GamePlayer } from "@/lib/game/session-normalizers";
 import type { Team } from "./TeamScoreBar";
 import { buildScoreShareText } from "@/lib/game/score-sharing";
@@ -54,6 +56,7 @@ export function GameFinishedPanel({
   currentPlayerId?: string | null;
   onPlayAgain?: () => void;
 }) {
+  const aiAvailable = buildGameInsightsData(session, isHost) !== null;
   const quizId = (session as GameSessionData)?.quiz_id;
   const [shareCopied, setShareCopied] = useState(false);
 
@@ -189,7 +192,7 @@ export function GameFinishedPanel({
                     ))}
                   </span>
                   <span className="game-final-score">
-                    {playerCorrectCounts[player.id] ?? 0}/{totalQuestions} ✓ · {(player.score ?? 0).toLocaleString()} pts
+                    {formatAccuracy(playerCorrectCounts[player.id], totalQuestions)}{(player.score ?? 0).toLocaleString()} pts
                   </span>
                 </div>
               );
@@ -205,10 +208,11 @@ export function GameFinishedPanel({
         {isHost && (
           <div className="game-ai-section">
             {!aiSummary && !aiSummaryLoading && (
-              <button onClick={onGenerateAiSummary} className="btn btn-secondary" style={{ width: "100%" }}>
+              <button disabled={!aiAvailable} onClick={() => { if (aiAvailable) onGenerateAiSummary(); }} className="btn btn-secondary" style={{ width: "100%" }}>
                 🧠 Get AI Insights
               </button>
             )}
+            {!aiAvailable && <p role="status">Reconnect as host to load complete results before generating AI insights.</p>}
             {aiSummaryLoading && (
               <div className="game-ai-loading">🧠 Analyzing game data...</div>
             )}

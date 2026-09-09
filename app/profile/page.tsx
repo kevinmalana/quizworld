@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AccountDeletionRequest } from "@/components/profile/AccountDeletionRequest";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/supabase-provider";
 import { useRouter } from "next/navigation";
@@ -28,7 +29,6 @@ type ProfileStats = {
 };
 
 type Tab = "overview" | "edit" | "account";
-
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -414,11 +414,11 @@ export default function ProfilePage() {
                 <span className="profile-account-icon">⚠️</span>
                 <div>
                   <h3 className="profile-account-title" style={{ color: "var(--primary)" }}>Danger Zone</h3>
-                  <p className="profile-account-desc">Permanently delete your account and all associated data</p>
+                  <p className="profile-account-desc">Request deletion of your account and associated personal data</p>
                 </div>
               </div>
               <div className="profile-account-body">
-                <button className="btn btn-full" style={{ background: "var(--primary)", color: "#fff" }}>Delete Account</button>
+                <AccountDeletionRequest email={user?.email} />
               </div>
             </div>
           </div>

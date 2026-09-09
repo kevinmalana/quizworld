@@ -10,13 +10,14 @@ export type GamePlayer = {
 export type GameAnswer = {
   id: string;
   text: string;
-  is_correct?: boolean;
+  is_correct?: boolean | null;
   image_url?: string | null;
 };
 
 export type GameQuestion = {
   id: string;
   text: string;
+  question_type?: string;
   order_index?: number;
   time_limit?: number;
   image_url?: string | null;
@@ -27,20 +28,21 @@ export type GameQuestion = {
 export type CurrentAnswer = {
   player_id: string;
   answer_id: string;
-  is_correct?: boolean;
+  is_correct?: boolean | null;
   points_awarded?: number;
   response_time_ms?: number;
 };
 
 export type QuestionHistoryEntry = {
   index: number;
+  question_type?: string;
   text: string;
   correct_answer_text?: string;
   responses?: {
     player_id: string;
     nickname: string;
     avatar?: string;
-    is_correct: boolean;
+    is_correct: boolean | null;
     points_awarded: number;
     response_time_ms: number;
   }[];
@@ -51,6 +53,8 @@ export type PhoenixSessionSnapshot = Record<string, unknown> & {
   current_question?: GameQuestion | null;
   current_answers?: CurrentAnswer[];
   question_history?: QuestionHistoryEntry[];
+  correct_counts?: Record<string, number>;
+  scored_question_count?: number;
   ready_player_ids?: string[];
   // Game mode extensions
   game_mode?: "classic" | "survival" | "team";

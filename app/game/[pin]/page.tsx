@@ -65,9 +65,12 @@ import { executePhoenixGameCommand } from "@/lib/game/command-transport";
 import { shouldShowGameReconnectNotice } from "@/lib/game/reconnect-notice";
 import {
   calculatePlayerAchievements,
-  countCorrectAnswersByPlayer,
+  getGameAccuracy,
+  getAnswerFeedback,
   sortLeaderboard,
 } from "@/lib/game/game-analytics";
+
+import { buildGameInsightsData } from "@/lib/game/game-insights-data";
 
 export default function GamePage() {
   const params = useParams();
@@ -151,7 +154,7 @@ export default function GamePage() {
       explicitAnswers?: {
         player_id: string;
         answer_id: string;
-        is_correct?: boolean;
+        is_correct?: boolean | null;
         points_awarded?: number;
       }[],
       options: { allowEqual?: boolean } = {}
@@ -441,7 +444,7 @@ export default function GamePage() {
 
   // Feature 6: Update streaks when reveal happens
   useEffect(() => {
-    if (gameStatus !== "reveal" || !currentAnswers.length) return;
+    if (gameStatus !== "reveal" || !currentAnswers.length || currentQuestion?.question_type === "poll") return;
     setPlayerStreaks(prev => {
       const next = { ...prev };
       for (const ans of currentAnswers) {
@@ -538,11 +541,9 @@ export default function GamePage() {
   const totalQuestions = useMemo(() => ((session?.quiz as { questions?: unknown[] })?.questions?.length ?? 0), [session]);
   const currentIndex = ((session?.current_question_index as number) ?? 0);
 
-  // Feature 1: Correct count per player from history + current answers
-  const playerCorrectCounts = useMemo(
-    () => countCorrectAnswersByPlayer(questionHistory, currentAnswers, gameStatus === "reveal"),
-    [questionHistory, currentAnswers, gameStatus]
-  );
+  // Server aggregates include each revealed scored question once, scoped to this role.
+  const { counts: playerCorrectCounts, total: scoredQuestions } = useMemo(() => getGameAccuracy(session), [session]);
+  const isPoll = currentQuestion?.question_type === "poll";
 
   // Feature 10: Question breakdown
   const correctCountThisQ = currentAnswers.filter(a => a.is_correct).length;
@@ -570,40 +571,18 @@ export default function GamePage() {
       playerStreaks,
       questionHistory,
       leaderboard,
-      totalQuestions,
+      totalQuestions: scoredQuestions,
     }),
-    [players, playerCorrectCounts, playerStreaks, questionHistory, leaderboard, totalQuestions]
+    [players, playerCorrectCounts, playerStreaks, questionHistory, leaderboard, scoredQuestions]
   );
 
   // AI post-game summary
   const generateAiSummary = useCallback(async () => {
     if (aiSummary || aiSummaryLoading) return;
+    const gameData = buildGameInsightsData(sessionRef.current, isHost);
+    if (!gameData) return;
     setAiSummaryLoading(true);
     try {
-      const totalAnswers = players.length > 0
-        ? players.reduce((s, p) => s + (playerCorrectCounts[p.id] ?? 0), 0)
-        : 0;
-      const avgAccuracy = players.length > 0 && totalQuestions > 0
-        ? Math.round(totalAnswers / (players.length * totalQuestions) * 100)
-        : 0;
-      const teamList = Object.values(teams).sort((a, b) => b.score - a.score);
-      const gameData = {
-        game_mode: gameMode,
-        quiz_title: (session as any)?.quiz?.title || "Quiz",
-        total_players: players.length,
-        total_questions: totalQuestions,
-        avg_score: players.length > 0 ? Math.round(players.reduce((s, p) => s + (p.score ?? 0), 0) / players.length) : 0,
-        avg_accuracy: avgAccuracy,
-        leaderboard: leaderboard.slice(0, 5).map(p => ({ nickname: p.nickname, score: p.score ?? 0, correct: playerCorrectCounts[p.id] ?? 0 })),
-        question_stats: questionHistory.map(qh => ({
-          text: qh.text,
-          correct_pct: qh.responses?.length ? Math.round(qh.responses.filter(r => r.is_correct).length / qh.responses.length * 100) : 0,
-          avg_time: qh.responses?.length ? Math.round(qh.responses.reduce((s, r) => s + r.response_time_ms, 0) / qh.responses.length / 100) / 10 : 0,
-        })),
-        // Game mode specific
-        eliminated: gameMode === "survival" ? eliminated : [],
-        teams: gameMode === "team" ? teamList.map(t => ({ name: t.name, emoji: t.emoji, score: t.score })) : [],
-      };
       const res = await fetch("/api/ai-game-insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -616,7 +595,7 @@ export default function GamePage() {
       setAiSummary("Could not generate AI summary.");
     }
     setAiSummaryLoading(false);
-  }, [aiSummary, aiSummaryLoading, session, players, totalQuestions, leaderboard, playerCorrectCounts, questionHistory, gameMode, eliminated, teams]);
+  }, [aiSummary, aiSummaryLoading, isHost]);
 
   const currentPlayer = playerSession?.playerId
     ? players.find((player) => player.id === playerSession.playerId) ?? null
@@ -977,20 +956,20 @@ export default function GamePage() {
         <GameProgressBar currentIndex={currentIndex} totalQuestions={totalQuestions} compact />
         <div className="card game-question-card">
           <h2 className="font-display game-question-title">
-            Answer Reveal
+            {isPoll ? "Poll Results — unscored" : "Answer Reveal"}
           </h2>
           <p className="game-question-text">{currentQuestion.text}</p>
           {/* Feature 10: Question breakdown */}
           <div className="game-stats-bar">
-            {correctCountThisQ}/{totalAnsweredThisQ} correct ({totalAnsweredThisQ > 0 ? Math.round((correctCountThisQ / totalAnsweredThisQ) * 100) : 0}%)
+            {isPoll ? "Opinions have no right or wrong answer." : `${correctCountThisQ}/${totalAnsweredThisQ} correct (${totalAnsweredThisQ > 0 ? Math.round((correctCountThisQ / totalAnsweredThisQ) * 100) : 0}%)`}
           </div>
           <QuestionMedia question={currentQuestion} maxHeight={200} margin="0" />
 
           {ownAnswer && (
             <div
-              className={ownAnswer.is_correct ? "game-own-answer is-correct" : "game-own-answer is-incorrect"}
+              className={isPoll ? "game-own-answer" : ownAnswer.is_correct ? "game-own-answer is-correct" : "game-own-answer is-incorrect"}
             >
-              <strong>{ownAnswer.is_correct ? "✅ Correct" : "❌ Incorrect"}</strong>{" "}
+              <strong>{getAnswerFeedback(currentQuestion.question_type, ownAnswer.is_correct)}</strong>{" "}
               You earned {ownAnswer.points_awarded ?? 0} points.
               {(() => { const myRt = currentAnswers.find(a => a.player_id === playerSession?.playerId) as any; return myRt?.response_time_ms ? <span className="game-response-time">Answered in {(myRt.response_time_ms / 1000).toFixed(1)}s ⚡</span> : null; })()}
               {(playerStreaks[playerSession?.playerId ?? ''] ?? 0) >= 2 && <div className="game-streak">🔥 {playerStreaks[playerSession?.playerId ?? '']} in a row!</div>}
@@ -1030,7 +1009,7 @@ export default function GamePage() {
               playerStreaks={playerStreaks}
               playerAchievements={playerAchievements}
               playerCorrectCounts={playerCorrectCounts}
-              totalQuestions={totalQuestions}
+              totalQuestions={scoredQuestions}
             />
           )}
         </div>
@@ -1058,7 +1037,7 @@ export default function GamePage() {
       session={session}
       playerAchievements={playerAchievements}
       playerCorrectCounts={playerCorrectCounts}
-      totalQuestions={totalQuestions}
+      totalQuestions={scoredQuestions}
       aiSummary={aiSummary}
       aiSummaryLoading={aiSummaryLoading}
       onGenerateAiSummary={() => void generateAiSummary()}

@@ -35,7 +35,7 @@ export function ActiveHostDashboard({
     <div className="card game-host-dashboard">
       <div className="game-host-metrics">
         <HostMetric value={`${answered}/${expectedAnswers}`} label="Answered" color="var(--accent)" />
-        {showResults && (
+        {showResults && currentQuestion.question_type !== "poll" && (
           <HostMetric
             value={`${accuracy}%`}
             label="Accuracy"
