@@ -679,12 +679,14 @@ function ExplorePageContent({
           <div className="explore-filter-col">
             <div className="explore-search-row">
               <input
-                type="text"
+                type="search"
+                aria-label="Search public quizzes"
                 placeholder="Search topics or keywords..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="input-pin explore-search-input"
               />
+              {search.length > 0 && <button type="button" className="btn btn-secondary explore-clear-search" onClick={() => setSearch("")}>Clear search</button>}
 
               <div className="explore-sort-row">
                 <span className="explore-sort-label">Sort:</span>
@@ -693,13 +695,14 @@ function ExplorePageContent({
                     key={opt.value}
                     onClick={() => setSortMode(opt.value)}
                     title={opt.label}
+                    aria-pressed={sortMode === opt.value}
                     className={sortMode === opt.value ? "btn btn-pill explore-sort-btn is-active" : "btn btn-pill explore-sort-btn"}
                   >
                     <span className="explore-sort-icon">{opt.icon}</span>
                     <span>{opt.label}</span>
                   </button>
                 ))}
-                <span className="explore-results-badge">{totalCount} results</span>
+                <span className="explore-results-badge" role="status">{loading ? "Searching…" : fetchError ? "Search unavailable" : `${totalCount} results`}</span>
               </div>
             </div>
 

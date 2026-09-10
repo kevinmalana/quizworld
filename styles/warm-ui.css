@@ -1,0 +1,44 @@
+/* Scoped discovery/lobby refresh: gameplay and account surfaces are unchanged. */
+.home-warm { background: #fffaf2; }
+.home-warm .home-join-card { border-radius: 24px; }
+.home-warm .home-hero--cinematic .home-join-card { background: #fffaf2; border-color: #f1dec3; }
+.home-inline-join { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+.home-inline-join .input-pin { min-width: 0; font-size: 1rem; letter-spacing: .08em; margin: 0; height: 52px; }
+.home-inline-join .btn { width: auto; min-height: 52px; padding-inline: 16px; font-size: .95rem; }
+.home-inline-join .home-pin-error { grid-column: 1 / -1; grid-row: 2; text-align: left; }
+.explore-page { background: #fffaf2; }
+.explore-page .explore-hero { text-align: left; padding-block: 1.5rem; }
+.explore-page .explore-hero .home-hero-title { font-size: clamp(2rem, 5vw, 3.25rem); margin-bottom: .75rem; }
+.explore-page .explore-hero .home-hero-desc { margin-bottom: 1rem; }
+.explore-page .explore-hero .home-hero-actions { margin-bottom: 0; }
+.explore-page .explore-search-input { background: #fff; border: 2px solid #b5a18a; text-align: left; font-size: 1rem; border-radius: 14px; }
+.explore-page .explore-results-badge { color: #514539; background: #f4e7d5; }
+.explore-clear-search { justify-self: start; }
+.game-lobby { padding-top: 1.25rem; padding-bottom: 2rem; }
+.game-lobby-card { padding: 1.5rem; border-radius: 24px; background: #fffaf2; border-color: #e5d8c5; }
+.game-lobby-role { color: #725321; font-size: .8rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin-bottom: .5rem; }
+.game-lobby-title { font-size: clamp(1.5rem, 5vw, 2rem); }
+.game-lobby-pin-area { padding: 1rem; margin-block: 1rem; border: 1px solid #e5d8c5; border-radius: 16px; background: white; }
+.game-lobby-players { max-width: none; }
+.game-lobby-player { background: white; }
+.game-lobby-player-name { min-width: 0; overflow-wrap: anywhere; }
+.game-lobby-you { color: #725321; font-size: .7rem; margin-left: .4rem; }
+.game-lobby-empty { color: #655b4e; margin-block: 1rem; }
+@media (max-width: 959px) {
+  .home-warm .home-hero--cinematic { padding: 2rem 0; }
+  .home-warm .home-hero-grid { gap: 1.5rem; }
+  .home-warm .home-hero-title { font-size: clamp(2rem, 8vw, 3rem); margin-bottom: 1rem; }
+  .home-warm .home-hero-desc { font-size: 1rem; line-height: 1.5; margin-bottom: 1.25rem; }
+  .home-warm .home-hero--cinematic .home-join-card { padding: 1.25rem; text-align: left; }
+  .home-warm .home-join-icon { display: none; }
+  .home-warm .home-join-subtitle { margin-bottom: 1rem; }
+  .home-warm .home-join-hint, .home-warm .home-join-present { display: inline-block; margin-right: .75rem; }
+}
+@media (max-width: 520px) {
+  .game-lobby-card { padding: 1rem; }
+  .game-lobby-pin-area { gap: .75rem; flex-wrap: nowrap; justify-content: space-between; }
+  .game-lobby-pin-value { font-size: 1.7rem; letter-spacing: .12em; }
+  .game-lobby-pin-area .qr-code svg { width: 76px; height: 76px; }
+  .game-lobby-ready-badge { font-size: .8rem; }
+  .explore-page .explore-sort-row { flex-wrap: wrap; }
+}
