@@ -42,6 +42,10 @@
   .game-lobby-ready-badge { font-size: .8rem; }
   .explore-page .explore-sort-row { flex-wrap: wrap; }
 }
+/* Keep every entered PIN character visible on narrow phones. */
+@media (max-width: 374px) {
+  .home-inline-join { grid-template-columns: minmax(0, 1fr); }
+}
 /* Override the legacy stacked lobby only when both PIN and full QR fit. */
 @media (min-width: 375px) and (max-width: 520px) {
   .game-lobby .game-lobby-pin-area { flex-direction: row !important; gap: .75rem !important; }

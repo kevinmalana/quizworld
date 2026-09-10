@@ -15,6 +15,16 @@ test('mobile home keeps labelled PIN joining inline and preserves destination', 
   await expect(page).toHaveURL(/\/join\?pin=AB12CD$/);
 });
 
+test('narrow mobile home displays the entire entered PIN without input scrolling', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto('/');
+  const input = page.getByRole('textbox', { name: 'Game PIN or presentation code', exact: true });
+  await input.fill('ABC123');
+  expect(await input.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Enter Game', exact: true }).click();
+  await expect(page).toHaveURL(/\/join\?pin=ABC123$/);
+});
+
 test('library search is labelled and can be cleared without losing sort controls', async ({ page }) => {
   await page.goto('/explore');
   const search = page.getByRole('searchbox', { name: 'Search public quizzes' });
