@@ -23,7 +23,10 @@ test('library search is labelled and can be cleared without losing sort controls
   await expect(page.getByRole('heading', { name: 'No quizzes match your search' })).toBeVisible({ timeout: 20000 });
   await expect(page.getByRole('status').filter({ hasText: /^0 results$/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Clear search', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Clear search', exact: true }).click();
+  const clear = page.getByRole('button', { name: 'Clear search', exact: true });
+  await clear.focus();
+  await page.keyboard.press('Enter');
   await expect(search).toHaveValue('');
+  await expect(search).toBeFocused();
   await expect(page.getByRole('button', { name: /Most Played/ })).toHaveAttribute('aria-pressed', 'true');
 });

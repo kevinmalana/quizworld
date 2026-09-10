@@ -474,6 +474,7 @@ function ExplorePageContent({
   const seededCatalog = initialCatalog;
   const [quizzes, setQuizzes] = useState<QuizWithCreator[]>(seededCatalog?.quizzes ?? []);
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const normalizedSearch = normalizeCatalogSearch(search);
   const [activeCategory, setActiveCategory] = useState(
     CATEGORY_LIST.includes(canonicalizeCategory(initialCategory)) && initialCategory !== "All"
@@ -679,6 +680,7 @@ function ExplorePageContent({
           <div className="explore-filter-col">
             <div className="explore-search-row">
               <input
+                ref={searchInputRef}
                 type="search"
                 aria-label="Search public quizzes"
                 placeholder="Search topics or keywords..."
@@ -686,7 +688,7 @@ function ExplorePageContent({
                 onChange={(e) => setSearch(e.target.value)}
                 className="input-pin explore-search-input"
               />
-              {search.length > 0 && <button type="button" className="btn btn-secondary explore-clear-search" onClick={() => setSearch("")}>Clear search</button>}
+              {search.length > 0 && <button type="button" className="btn btn-secondary explore-clear-search" onClick={() => { setSearch(""); searchInputRef.current?.focus(); }}>Clear search</button>}
 
               <div className="explore-sort-row">
                 <span className="explore-sort-label">Sort:</span>

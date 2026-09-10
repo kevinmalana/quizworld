@@ -36,9 +36,14 @@
 }
 @media (max-width: 520px) {
   .game-lobby-card { padding: 1rem; }
-  .game-lobby-pin-area { gap: .75rem; flex-wrap: nowrap; justify-content: space-between; }
+  .game-lobby-pin-area { flex-wrap: nowrap; justify-content: space-between; }
   .game-lobby-pin-value { font-size: 1.7rem; letter-spacing: .12em; }
-  .game-lobby-pin-area .qr-code svg { width: 76px; height: 76px; }
+  .game-lobby-pin-area img.qr-code { width: 120px; height: 120px; max-width: none; }
   .game-lobby-ready-badge { font-size: .8rem; }
   .explore-page .explore-sort-row { flex-wrap: wrap; }
+}
+/* Override the legacy stacked lobby only when both PIN and full QR fit. */
+@media (min-width: 375px) and (max-width: 520px) {
+  .game-lobby .game-lobby-pin-area { flex-direction: row !important; gap: .75rem !important; }
+  .game-lobby .game-lobby-divider { display: none; }
 }
