@@ -13,6 +13,7 @@ import "../styles/groups.css";
 import "../styles/leaderboard.css";
 import "../styles/achievements.css";
 import "../styles/friends.css";
+import "../styles/warm-ui.css";
 import { Navigation } from "@/components/navigation";
 import { AuthProvider } from "@/components/supabase-provider";
 import { ErrorBoundary } from "@/components/error-boundary";

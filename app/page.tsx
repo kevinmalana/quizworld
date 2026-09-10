@@ -123,7 +123,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="home-root">
+    <div className="home-root home-warm">
       <div className="mesh-gradient">
         <div className="mesh-blob mesh-blob-1" />
         <div className="mesh-blob mesh-blob-2" />
@@ -180,9 +180,13 @@ export default function HomePage() {
                 <div className="home-join-icon">🎮</div>
                 <h2 className="font-display home-join-title">Ready to join?</h2>
                 <p className="home-join-subtitle">Enter a game PIN or presentation code</p>
-                <form onSubmit={handleJoin}>
+                <form onSubmit={handleJoin} className="home-inline-join">
                   <input
                     type="text"
+                    aria-label="Game PIN or presentation code"
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    spellCheck={false}
                     placeholder="Game PIN or Presentation Code"
                     className={`input-pin mb-sm ${pinError ? "input-pin--error" : ""}`}
                     value={pin}

@@ -36,7 +36,7 @@ export function WaitingLobbyPanel({
     <div className="container game-lobby">
       <GameNotice notice={notice} maxWidth={640} />
       <div className="card game-lobby-card">
-        <div className="game-lobby-icon">🎮</div>
+        <p className="game-lobby-role">{isHost ? currentPlayer ? "Hosting and playing" : "Hosting only" : currentPlayer ? "Playing" : "Viewing lobby"}</p>
         <h1 className="font-display game-lobby-title">{isHost ? "Waiting for players…" : "Waiting for host…"}</h1>
         {gameMode !== "classic" && (
           <div className="game-lobby-mode-pill">
@@ -56,11 +56,10 @@ export function WaitingLobbyPanel({
           </div>
         </div>
 
+        <p className="game-lobby-ready-count" role="status">{readyCount}/{players.length} players ready</p>
+        {players.length === 0 && <p className="game-lobby-empty">Share the PIN to bring everyone together.</p>}
         {players.length > 0 && (
           <>
-            {isHost && readyCount > 0 && (
-              <p className="game-lobby-ready-count">✅ {readyCount}/{players.length} players ready</p>
-            )}
             <div className="game-lobby-players">
               {players.map((player) => (
                 <div
@@ -68,7 +67,7 @@ export function WaitingLobbyPanel({
                   className={`game-lobby-player${readyPlayers.has(player.id) ? " is-ready" : ""}`}
                 >
                   <span>{player.avatar || "🎮"}</span>
-                  <span className="game-lobby-player-name">{player.nickname}</span>
+                  <span className="game-lobby-player-name">{player.nickname}{player.id === currentPlayer?.id && <small className="game-lobby-you"> You</small>}</span>
                   {readyPlayers.has(player.id) && (
                     <span className="game-lobby-ready-badge">✅ Ready</span>
                   )}
