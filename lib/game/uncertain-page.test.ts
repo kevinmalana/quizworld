@@ -3,14 +3,14 @@ import test from 'node:test';
 import {build} from 'esbuild';
 import {chromium} from '@playwright/test';
 
-async function fixture(executed: boolean, readFails=false, host=false) {
+async function fixture(executed: boolean, readFails=false, host=false, hostPlaying=false) {
  const bundle=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`
   import React from 'react';import {createRoot} from 'react-dom/client';import Page from './app/game/[pin]/page';
   window.executed=${executed};window.readFails=${readFails};window.commands=0;window.publicReads=0;window.privateReads=0;
   window.holdRead=false;window.pendingReads=[];window.events=[];window.advanceRevision=false;
-  window.holdCommand=false;window.pendingCommands=[];
+  window.holdCommand=false;window.pendingCommands=[];window.pendingReveals=[];
   window.snapshot={pin:'TEST01',game_instance_id:'instance-A',status:'active',updated_at:new Date().toISOString(),question_started_at:new Date().toISOString(),current_question_index:0,players:[{id:'me',nickname:'Me',score:0}],current_answers:[],quiz:{questions:[{id:'q',order_index:0}]},current_question:{id:'q',text:'Which answer?',question_type:'multiple_choice',time_limit:120,answers:[{id:'a',text:'First'},{id:'b',text:'Second'}]}};
-  if (${host}) {window.snapshot.status='waiting';window.snapshot.host_id='host-user'}
+  if (${host}) {window.snapshot.status='${hostPlaying?'active':'waiting'}';window.snapshot.host_id='host-user'}
   createRoot(document.getElementById('root')).render(<Page/>);
  `},bundle:true,write:false,platform:'browser',jsx:'automatic',define:{'process.env':'{}'},plugins:[{name:'boundaries',setup(b){
  b.onResolve({filter:/^(next\/link|next\/navigation|@\/components\/supabase-provider|@\/lib\/supabase\/client|@\/lib\/game-engine\/(client|config)|@\/lib\/(player-session|host-session)|@\/lib\/game\/(use-game-audio|use-phoenix-game-channel))$/},a=>({path:a.path,namespace:'fixture'}));
@@ -20,18 +20,18 @@ async function fixture(executed: boolean, readFails=false, host=false) {
  a.path.includes('supabase-provider')?`export const useAuth=()=>({user:${host?"{id:'host-user'}":"null"}});`:
  a.path.includes('supabase/client')?`export const supabase={};`:
  a.path.endsWith('/config')?`export const isPhoenixGameEngine=true,legacySupabaseGameEngine=false,liveGameEngineMisconfigured=false;`:
- a.path.endsWith('player-session')?`export const readPlayerSession=()=>(${host?"null":"{playerId:'me',playerToken:'own-token'}"});export const clearPlayerSession=()=>{};export const shouldDiscardPlayerSession=()=>false;`:
+ a.path.endsWith('player-session')?`export const readPlayerSession=()=>(${host&&!hostPlaying?"null":"{playerId:'me',playerToken:'own-token'}"});export const clearPlayerSession=()=>{};export const shouldDiscardPlayerSession=()=>false;`:
  a.path.endsWith('host-session')?`export const readHostSession=()=>(${host?"{hostToken:'host-token',hostId:'host-user'}":"null"});export const clearHostSession=()=>{};`:
  a.path.endsWith('use-game-audio')?`export const useGameAudio=()=>({playCorrect(){},playWrong(){},playTick(){},playFanfare(){}});`:
  a.path.endsWith('use-phoenix-game-channel')?`export const usePhoenixGameChannel=(options)=>{window.channel=options;return {connected:false,hasConnectedOnce:false,sendCommand(){throw Error('unexpected socket')}}};`:
  `export async function fetchPhoenixSession(){window.publicReads++;const s={...window.snapshot};delete s.current_answers;return {session:s}}
  export async function reconnectPhoenixSession(pin,payload){window.privateReads++;window.events.push({action:'read',commands:window.commands,payload});if(${host?"payload.host_token!=='host-token'":"payload.player_token!=='own-token'"})throw Error('wrong identity');const snapshot=structuredClone(window.snapshot);if(window.holdRead)return new Promise((resolve,reject)=>window.pendingReads.push({snapshot,resolve,reject}));if(window.commands&&window.readFails)throw Object.assign(Error('Read temporarily unavailable'),{reason:'unavailable'});return {session:snapshot}}
  export async function answerPhoenixSession(){window.commands++;window.events.push({action:'answer'});if(window.executed){window.snapshot.current_answers=[{player_id:'me',answer_id:'a'}];if(window.advanceRevision)window.snapshot.updated_at=new Date(Date.parse(window.snapshot.updated_at)+1000).toISOString();}if(window.holdCommand)return new Promise((resolve,reject)=>window.pendingCommands.push({resolve,reject}));throw Object.assign(Error('Outcome unknown'),{reason:'timeout'})}
- export async function advancePhoenixSession(){}export async function readyPhoenixSession(){}export async function revealPhoenixSession(){}export async function startPhoenixSession(){window.commands++;if(window.executed)window.snapshot.status='active';throw Object.assign(Error('Outcome unknown'),{reason:'timeout'})}`
+ export async function advancePhoenixSession(){}export async function readyPhoenixSession(){}export async function revealPhoenixSession(){window.events.push({action:'reveal'});return new Promise((resolve,reject)=>window.pendingReveals.push({resolve,reject}));}export async function startPhoenixSession(){window.commands++;if(window.executed)window.snapshot.status='active';throw Object.assign(Error('Outcome unknown'),{reason:'timeout'})}`
  }));
  }}]});
  const browser=await chromium.launch();const page=await browser.newPage();page.setDefaultTimeout(5000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',r=>r.abort());await page.route('http://fixture.local/',r=>r.fulfill({contentType:'text/html',body:'<div id="root"></div>'}));await page.goto('http://fixture.local/');await page.addScriptTag({content:bundle.outputFiles[0].text});
- try { await (host?page.getByRole('button',{name:/Start game/i}):page.locator('.game-answer-btn').first()).waitFor(); } catch(e) {console.log(errors,await page.locator('body').innerText());await browser.close();throw e;}
+ try { await (host&&!hostPlaying?page.getByRole('button',{name:/Start game/i}):page.locator('.game-answer-btn').first()).waitFor(); } catch(e) {console.log(errors,await page.locator('body').innerText());await browser.close();throw e;}
  return {browser,page};
 }
 
@@ -126,6 +126,33 @@ test('failed reconciliation retains unknown state and retries only the private r
   assert.equal(await page.locator('.game-answer-btn').filter({hasText:'Second'}).isEnabled(),true);
   const counts=await page.evaluate(()=>({commands:(window as unknown as {commands:number}).commands,publicReads:(window as unknown as {publicReads:number}).publicReads,privateReads:(window as unknown as {privateReads:number}).privateReads}));
   assert.equal(counts.commands,1);assert.equal(counts.publicReads,0);assert.ok(counts.privateReads>=2);
+ }finally{await browser.close()}
+});
+
+for(const executed of [false,true])for(const revealFirst of [false,true])test(`host-player overlapping commands settle independently (accepted=${executed}, revealFirst=${revealFirst})`,async()=>{
+ const {browser,page}=await fixture(executed,false,true,true);
+ try {
+  await page.evaluate('window.holdCommand=true');
+  if(revealFirst)await page.getByRole('button',{name:/Skip Question/}).click();
+  await page.locator('.game-answer-btn').filter({hasText:'First'}).click();
+  await page.waitForFunction('window.pendingCommands.length===1');
+  if(!revealFirst)await page.getByRole('button',{name:/Skip Question/}).click();
+  await page.waitForFunction('window.pendingReveals.length===1');
+  await page.evaluate(`window.pendingReveals.shift().reject(Object.assign(Error('Reveal not confirmed'),{reason:'timeout'}))`);
+  await page.waitForFunction('window.privateReads===2');
+  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+  await page.evaluate(`window.pendingCommands.shift().reject(Object.assign(Error('Answer not confirmed'),{reason:'timeout'}))`);
+  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+  await page.evaluate('void window.channel.loadSnapshot()');
+  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+  assert.equal(await page.locator('.game-answer-btn').filter({hasText:'Second'}).isEnabled(),!executed,'settled commands must retain only the authoritative answer lock');
+  assert.equal(await page.getByText('Sending your answer…',{exact:true}).count(),0);
+  assert.equal(await page.evaluate('window.commands'),1,'no answer replay');
+  await page.getByRole('button',{name:/Skip Question/}).click();
+  assert.equal(await page.evaluate('window.pendingReveals.length'),1,'a settled reveal must release its own loading lock');
+  assert.equal(await page.evaluate('window.events.filter(e=>e.action===\"reveal\").length'),2,'only a new explicit click retries reveal');
+  const reads=await page.evaluate('window.events.filter(e=>e.action===\"read\")') as {payload:{host_token:string;player_token:string}}[];
+  assert.ok(reads.every(r=>r.payload.host_token==='host-token'&&r.payload.player_token==='own-token'));
  }finally{await browser.close()}
 });
 
