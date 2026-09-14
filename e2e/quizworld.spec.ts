@@ -522,12 +522,19 @@ test.describe('P1: Study — search and filter', () => {
     const titles = cards.locator('.study-quiz-card__title');
     await expect(titles.first()).toContainText(/cricket/i, { timeout: 5000 });
     expect((await titles.allTextContents()).every(title => /cricket/i.test(title))).toBe(true);
+    const selectedTitle = await titles.first().innerText();
     const study = cards.first().getByRole('link', { name: 'Study Now', exact: true });
     await expect(study).toBeVisible();
     const destination = await study.getAttribute('href');
     expect(destination).toMatch(/^\/study\/[a-zA-Z0-9-]+$/);
     await study.click();
-    await expect(page).toHaveURL(new RegExp(`${destination}$`));
+    await expect(page.getByRole('heading', { name: selectedTitle, exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Flashcard/i })).toBeVisible();
+    // UUID entry URLs are replaced with canonical slugs after the quiz loads.
+    const canonical = page.locator('link[rel="canonical"]');
+    await expect(canonical).toHaveAttribute('href', /\/study\/[^/?#]+$/);
+    const canonicalPath = new URL((await canonical.getAttribute('href'))!).pathname;
+    await expect(page).toHaveURL(url => url.pathname === canonicalPath);
   });
 
   test('category chip filters quiz list', async ({ page }) => {
