@@ -13,7 +13,7 @@ import "../styles/groups.css";
 import "../styles/leaderboard.css";
 import "../styles/achievements.css";
 import "../styles/friends.css";
-import "../styles/warm-ui.css";
+import "../styles/primitives.css";
 import { Navigation } from "@/components/navigation";
 import { AuthProvider } from "@/components/supabase-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -68,10 +68,15 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preload" href="/fonts/dm-sans-latin.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/bricolage-latin.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+      </head>
       <body>
         <AuthProvider>
+          <a className="skip-link" href="#main-content">Skip to content</a>
           <Navigation />
-          <main className="app-shell">
+          <main id="main-content" className="app-shell" tabIndex={-1}>
             <ErrorBoundary>
               {children}
             </ErrorBoundary>

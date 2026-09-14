@@ -1,0 +1,10 @@
+.eyebrow { font-size: .7rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: .8rem; }
+.field-label { display: block; font-size: .8125rem; font-weight: 700; margin-bottom: .45rem; text-align: left; }
+.section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.section-heading h2 { font-size: clamp(1.6rem, 3vw, 2.25rem); letter-spacing: -.035em; line-height: 1.15; }
+.text-link { color: var(--accent); font-size: .875rem; font-weight: 700; }
+.skip-link { position: fixed; top: -100px; left: 1rem; z-index: 1000; background: var(--surface); padding: .75rem; color: var(--accent); }
+.skip-link:focus { top: 1rem; }
+.identity-avatars { border: 0; padding: 0; margin-block: 1.5rem; min-width: 0; }
+.join-footnote { margin-top: 1rem; font-size: .75rem; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

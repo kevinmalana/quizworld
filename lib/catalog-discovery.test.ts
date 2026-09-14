@@ -92,14 +92,12 @@ test("Explore server-renders the initial catalog and avoids a duplicate browser 
   assert.doesNotMatch(clientPage, /useSearchParams/);
 });
 
-test("Explore category artwork uses responsive images with reserved dimensions", () => {
+test("Explore families use named controls without a decorative image payload", () => {
   const clientPage = readFileSync(new URL("../app/explore/explore-client.tsx", import.meta.url), "utf8");
-  assert.match(clientPage, /from "next\/image"/);
-  assert.match(clientPage, /width=\{480\}/);
-  assert.match(clientPage, /height=\{336\}/);
-  assert.match(clientPage, /sizes=/);
-  assert.match(clientPage, /preload=\{index < 2\}/);
-  assert.doesNotMatch(clientPage, /<img[\s\S]*CATEGORY_FAMILY_ART/);
+  assert.match(clientPage, /aria-label="Quiz families"/);
+  assert.match(clientPage, /aria-expanded=\{isExpanded\}/);
+  assert.match(clientPage, /aria-controls="explore-family-subcategories"/);
+  assert.doesNotMatch(clientPage, /CATEGORY_FAMILY_ART|from "next\/image"/);
 });
 
 test("catalog count copy distinguishes loaded rows from the exact total", () => {

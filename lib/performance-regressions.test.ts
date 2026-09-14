@@ -23,15 +23,11 @@ test("high-traffic shell links do not eagerly prefetch every destination", () =>
   }
 });
 
-test("the decorative hero loop stays within its web delivery budget", () => {
-  const mp4 = statSync(new URL("../public/media/quizworld/hero-orbital-globe-20260821.mp4", import.meta.url));
-  const webm = statSync(new URL("../public/media/quizworld/hero-orbital-globe-20260821.webm", import.meta.url));
+test("the home explanation avoids decorative video delivery and uses locally licensed typography", () => {
   const home = read("../app/page.tsx");
-
-  assert.ok(mp4.size < 1_000_000, `MP4 is ${mp4.size} bytes`);
-  assert.ok(webm.size < 600_000, `WebM is ${webm.size} bytes`);
-  assert.ok(
-    home.indexOf("hero-orbital-globe-20260821.webm") < home.indexOf("hero-orbital-globe-20260821.mp4"),
-    "WebM should be offered before MP4",
-  );
+  assert.doesNotMatch(home, /<video|hero-orbital-globe/);
+  assert.match(home, /RoundPreview/);
+  for (const name of ["bricolage-latin.woff2", "dm-sans-latin.woff2"]) {
+    assert.ok(statSync(new URL(`../public/fonts/${name}`, import.meta.url)).size < 100_000);
+  }
 });

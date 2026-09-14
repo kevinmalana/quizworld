@@ -80,8 +80,9 @@ export async function joinPhoenixSession(
 export async function reconnectPhoenixSession(
   pin: string,
   payload: {
-    player_id: string;
-    player_token: string;
+    host_token?: string;
+    player_id?: string;
+    player_token?: string;
   }
 ) {
   return postPhoenixSessionAction<{ session?: Record<string, unknown> }>(
@@ -142,10 +143,10 @@ async function postPhoenixSessionAction<T extends Record<string, unknown> = Reco
     }
   );
 
-  const body = await response.json().catch(() => ({})) as { error?: string };
+  const body = await response.json().catch(() => ({})) as { error?: string; reason?: string };
 
   if (!response.ok) {
-    throw new Error(body.error || "Phoenix session action failed.");
+    throw Object.assign(new Error(body.error || "Phoenix session action failed."), {reason: body.reason});
   }
 
   return body as T;

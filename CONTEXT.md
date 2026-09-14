@@ -23,10 +23,11 @@ This file names the concepts and ownership rules that should remain stable acros
 
 ## Live-game invariants
 
-- Each accepted transition is committed and published once.
+- Each accepted in-process transition uses one commit/publication point; this is not a distributed exactly-once guarantee.
 - The server controls question start time and answer acceptance.
 - Host and player credentials are server-issued and validated server-side.
-- Reconnection restores the latest authoritative snapshot.
+- Reconnection restores the latest authoritative snapshot. An optimistic answer selection is not proof of acceptance.
+- A timed-out command has an uncertain outcome: do not replay it automatically. Private result reads bind authorization and snapshot to the same game-process mailbox turn.
 - Clients may ignore stale snapshots, but backend correctness must not depend on client-side deduplication.
 - Completion writes must be idempotent before browser-owned result writes are removed.
 
@@ -50,5 +51,6 @@ This file names the concepts and ownership rules that should remain stable acros
 1. Keep one publication point for Phoenix transitions.
 2. Replace false-confidence E2E checks with deterministic behaviour tests.
 3. Remove the legacy Supabase live-game adapter only after its rollback status is explicitly confirmed.
-4. Move live-game orchestration behind a small runtime interface.
-5. Move result, XP and achievement completion to an idempotent backend module.
+4. Deepen the route-orchestration seam without moving server authority into React.
+5. Preserve backend-owned, idempotent durable multiplayer results and transaction-owned study completion.
+6. Keep shared presentation behind controlled modules; the interface contracts and stylesheet owners are documented in `docs/product-design.md` and `docs/development.md`.

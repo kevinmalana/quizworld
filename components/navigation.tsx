@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { HostIcon } from "@/components/shared/host-icon";
 import { SignOutIcon } from "@/components/shared/signout-icon";
@@ -12,8 +12,16 @@ import { supabase } from "@/lib/supabase/client";
 export function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
+  const inGame = pathname.startsWith("/game/");
   const { user, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const menuDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    menuDialog.current?.showModal();
+    return () => { menuButton.current?.focus(); };
+  }, [menuOpen]);
   const [scrolled, setScrolled] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [needsProfile, setNeedsProfile] = useState(false);
@@ -45,7 +53,7 @@ export function Navigation() {
   return (
     <>
       <header
-        className="nav-header"
+        className={`nav-header${inGame ? " nav-header--game" : ""}`}
         style={{
           boxShadow: scrolled ? "0 1px 8px rgba(15,23,42,0.06)" : "none",
           borderBottomColor: scrolled ? "var(--line)" : "transparent",
@@ -57,25 +65,26 @@ export function Navigation() {
             <span className="logo-world">World</span>
           </Link>
 
+          {inGame && <span className="nav-game-label">Live game · {pathname.split("/").at(-1)}</span>}
           <nav className="nav-primary" aria-label="Primary navigation">
             <Link prefetch={false} href="/join" className={`nav-item ${pathname === "/join" ? "active" : ""}`}>
-              <span>🎮</span>
+              <span className="nav-symbol" aria-hidden="true">🎮</span>
               <span>Join</span>
             </Link>
             <Link prefetch={false} href="/explore" className={`nav-item ${pathname === "/explore" ? "active" : ""}`}>
-              <span>🔍</span>
+              <span className="nav-symbol" aria-hidden="true">🔍</span>
               <span>Explore</span>
             </Link>
             <Link prefetch={false} href="/study" className={`nav-item ${pathname === "/study" || pathname.startsWith("/study/") ? "active" : ""}`}>
-              <span>📖</span>
+              <span className="nav-symbol" aria-hidden="true">📖</span>
               <span>Study</span>
             </Link>
             <Link prefetch={false} href="/leaderboard" className={`nav-item ${pathname === "/leaderboard" ? "active" : ""}`}>
-              <span>🏆</span>
+              <span className="nav-symbol" aria-hidden="true">🏆</span>
               <span>Ranks</span>
             </Link>
             <Link prefetch={false} href="/present" className={`nav-item ${pathname === "/present" || pathname.startsWith("/present/") ? "active" : ""}`}>
-              <span>🎤</span>
+              <span className="nav-symbol" aria-hidden="true">🎤</span>
               <span>Present</span>
             </Link>
             <Link prefetch={false} href="/create/activity" className={`nav-item nav-item-create ${pathname === "/create/activity" ? "active" : ""}`}>
@@ -89,19 +98,19 @@ export function Navigation() {
               user ? (
                 <>
                   <NotificationBell />
-                  <Link prefetch={false} href="/profile" className="nav-icon-btn nav-profile-btn" data-tooltip="Profile">
+                  <Link prefetch={false} href="/profile" className="nav-icon-btn nav-profile-btn" aria-label="Profile" data-tooltip="Profile">
                     <span>👤</span>
                     {needsProfile && <span className="nav-notification-dot" />}
                   </Link>
-                  <Link prefetch={false} href="/dashboard" className="nav-icon-btn" data-tooltip="Dashboard">
+                  <Link prefetch={false} href="/dashboard" className="nav-icon-btn" aria-label="Dashboard" data-tooltip="Dashboard">
                     <span>📚</span>
                   </Link>
                   {isAdmin && (
-                    <Link prefetch={false} href="/admin" className="nav-icon-btn" data-tooltip="Admin">
+                    <Link prefetch={false} href="/admin" className="nav-icon-btn" aria-label="Admin" data-tooltip="Admin">
                       <span>⚙️</span>
                     </Link>
                   )}
-                  <button onClick={handleSignOut} className="nav-icon-btn" data-tooltip="Sign Out" style={{ background: "none", border: "none", cursor: "pointer" }}>
+                  <button onClick={handleSignOut} className="nav-icon-btn" aria-label="Sign Out" data-tooltip="Sign Out" style={{ background: "none", border: "none", cursor: "pointer" }}>
                     <SignOutIcon size={18} />
                   </button>
                 </>
@@ -111,7 +120,7 @@ export function Navigation() {
                 </Link>
               )
             )}
-            <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">
+            <button ref={menuButton} className="hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu" aria-expanded={menuOpen} aria-controls="mobile-navigation">
               <span></span>
               <span></span>
               <span></span>
@@ -121,14 +130,14 @@ export function Navigation() {
       </header>
 
       {menuOpen && (
-        <div className="mobile-overlay" onClick={() => setMenuOpen(false)}>
+        <dialog ref={menuDialog} id="mobile-navigation" className="mobile-overlay" aria-label="Navigation" onCancel={() => setMenuOpen(false)} onClick={event => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
           <div className="mobile-panel" onClick={(e) => e.stopPropagation()}>
             <div className="mobile-header">
               <Link prefetch={false} href="/" className="nav-logo" onClick={() => setMenuOpen(false)}>
                 <span className="logo-quiz">Quiz</span>
                 <span className="logo-world">World</span>
               </Link>
-              <button className="close-btn" onClick={() => setMenuOpen(false)}>✕</button>
+              <button className="close-btn" aria-label="Close navigation" onClick={() => setMenuOpen(false)}>✕</button>
             </div>
             <div className="mobile-links" style={{ padding: "1rem" }}>
               <Link prefetch={false} href="/join" className="mobile-link">🎮 Join</Link>
@@ -154,7 +163,7 @@ export function Navigation() {
               )}
             </div>
           </div>
-        </div>
+        </dialog>
       )}
     </>
   );

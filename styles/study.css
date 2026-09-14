@@ -464,12 +464,14 @@
 
 .study-quiz-card__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.75rem;
   align-items: center;
 }
 
 .study-quiz-card__button {
+  min-width: 6rem;
   font-size: 0.8rem;
   padding: 0.45rem 0.75rem;
 }

@@ -22,6 +22,7 @@ test("finished player rendering shows own final accuracy without inventing other
     isHost: false, session: {}, playerAchievements: {}, playerCorrectCounts: { me: 1 }, totalQuestions: 1,
     aiSummary: null, aiSummaryLoading: false, onGenerateAiSummary() {}, currentPlayerId: "me",
   }));
+  assert.match(html, /Your result/);
   assert.match(html, /1\/1 ✓/);
   assert.doesNotMatch(html, /0\/1 ✓/);
   assert.doesNotMatch(html, /Get AI Insights/);

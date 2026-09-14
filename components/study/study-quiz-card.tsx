@@ -27,10 +27,7 @@ export function AvailableStudyQuizCard({ quiz }: { quiz: StudyQuizCardQuiz }) {
   const questionCount = quiz.questions?.length ?? 0;
 
   return (
-    <Link
-      href={`/study/${quiz.id}`}
-      className="card card-hover study-quiz-card"
-    >
+    <article className="card card-hover study-quiz-card">
       <div className="study-quiz-card__header">
         <StudyQuizIcon quiz={quiz} />
         <div className="study-quiz-card__body">
@@ -39,9 +36,9 @@ export function AvailableStudyQuizCard({ quiz }: { quiz: StudyQuizCardQuiz }) {
         </div>
       </div>
       <div className="study-quiz-card__actions">
-        <button className="btn btn-primary study-quiz-card__button">
+        <Link href={`/study/${quiz.id}`} className="btn btn-primary study-quiz-card__button">
           Study Now
-        </button>
+        </Link>
         <button
           onClick={(e) => {
             e.preventDefault();
@@ -53,13 +50,13 @@ export function AvailableStudyQuizCard({ quiz }: { quiz: StudyQuizCardQuiz }) {
               navigator.clipboard.writeText(url).catch(() => {});
             }
           }}
-          className="btn btn-secondary btn-compact"
+          className="btn btn-secondary study-quiz-card__button"
           title="Share quiz"
         >
           📤 Share
         </button>
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -69,10 +66,7 @@ export function ContinueStudyQuizCard({ quiz, progress }: { quiz: StudyQuizCardQ
   const masteryColor = mastery >= 80 ? "var(--success)" : mastery >= 50 ? "#eab308" : "var(--primary)";
 
   return (
-    <Link
-      href={`/study/${quiz.id}`}
-      className="card card-hover study-quiz-card study-quiz-card--progress"
-    >
+    <article className="card card-hover study-quiz-card study-quiz-card--progress">
       {progress && (
         <div
           className="study-quiz-card__progress-bg"
@@ -86,7 +80,7 @@ export function ContinueStudyQuizCard({ quiz, progress }: { quiz: StudyQuizCardQ
       <div className="study-quiz-card__header study-quiz-card__layer">
         <StudyQuizIcon quiz={quiz} />
         <div className="study-quiz-card__body">
-          <div className="study-quiz-card__title study-quiz-card__title--truncate">
+          <div className="study-quiz-card__title">
             {quiz.title}
           </div>
           <div className="study-quiz-card__meta">{questionCount} Qs · {quiz.category}</div>
@@ -99,9 +93,9 @@ export function ContinueStudyQuizCard({ quiz, progress }: { quiz: StudyQuizCardQ
         )}
       </div>
       <div className="study-quiz-card__actions study-quiz-card__layer">
-        <button className="btn btn-primary study-quiz-card__button">
+        <Link href={`/study/${quiz.id}`} className="btn btn-primary study-quiz-card__button">
           Resume
-        </button>
+        </Link>
         <Link href={`/study/${quiz.id}`} className="btn btn-secondary study-quiz-card__button" onClick={(e) => e.stopPropagation()}>
           Study Again
         </Link>
@@ -116,7 +110,7 @@ export function ContinueStudyQuizCard({ quiz, progress }: { quiz: StudyQuizCardQ
               navigator.clipboard.writeText(url).catch(() => {});
             }
           }}
-          className="btn btn-secondary btn-compact"
+          className="btn btn-secondary study-quiz-card__button"
           title="Share quiz"
         >
           📤 Share
@@ -127,6 +121,6 @@ export function ContinueStudyQuizCard({ quiz, progress }: { quiz: StudyQuizCardQ
           Last studied {new Date(progress.last_studied).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
         </div>
       )}
-    </Link>
+    </article>
   );
 }

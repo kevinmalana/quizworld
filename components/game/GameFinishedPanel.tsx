@@ -57,6 +57,7 @@ export function GameFinishedPanel({
   onPlayAgain?: () => void;
 }) {
   const aiAvailable = buildGameInsightsData(session, isHost) !== null;
+  const ownResult = currentPlayerId ? leaderboard.find(player => player.id === currentPlayerId) : null;
   const quizId = (session as GameSessionData)?.quiz_id;
   const [shareCopied, setShareCopied] = useState(false);
 
@@ -126,6 +127,12 @@ export function GameFinishedPanel({
             <p className="game-finished-sub">Final leaderboard for PIN {pin}</p>
           </>
         )}
+
+        {ownResult && <section className="game-personal-result" aria-label="Your result">
+          <div><p className="eyebrow">Your result</p><strong>{ownResult.avatar} {ownResult.nickname}</strong></div>
+          <div><strong>{typeof ownResult.score === 'number' ? ownResult.score.toLocaleString() : '—'}</strong><span> points</span>
+            <small>{formatAccuracy(playerCorrectCounts[ownResult.id], totalQuestions)}</small></div>
+        </section>}
 
         {/* Classic + Survival: individual podium */}
         {gameMode !== "team" && leaderboard.length >= 1 && (
@@ -230,7 +237,7 @@ export function GameFinishedPanel({
         )}
 
         <div className="game-finished-actions">
-          {isHost && quizId && (
+          {isHost && quizId && !onPlayAgain && (
             <Link href={`/host?quiz=${quizId}`} className="btn btn-primary">Play Again 🔄</Link>
           )}
           {isHost && (

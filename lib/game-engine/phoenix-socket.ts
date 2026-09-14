@@ -21,6 +21,8 @@ const BASE_RECONNECT_DELAY_MS = 1_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const DEFAULT_COMMAND_TIMEOUT_MS = 10_000;
 const COMMAND_ERROR_MESSAGES: Record<string, string> = {
+  timeout: "The command outcome is not confirmed. Checking game state.",
+  unavailable: "The command outcome is not confirmed. Checking game state.",
   invalid_player_token: "Player session is invalid.",
   unknown_player: "Player session was not found.",
   already_answered: "Your answer is already locked in.",
@@ -37,7 +39,7 @@ function commandError(response: unknown) {
     error?.message ||
     (error?.reason ? COMMAND_ERROR_MESSAGES[error.reason] : undefined) ||
     "Game command failed.";
-  return new Error(message);
+  return Object.assign(new Error(message), {reason: error?.reason});
 }
 
 export function subscribeToPhoenixTopic(options: SubscribeOptions) {
@@ -88,7 +90,7 @@ export function subscribeToPhoenixTopic(options: SubscribeOptions) {
 
       const timeout = window.setTimeout(() => {
         if (!pendingCommands.delete(messageRef)) return;
-        reject(new Error("Game command timed out. Please try again."));
+        reject(Object.assign(new Error("Game command timed out. Its outcome is not confirmed."), {reason: "timeout"}));
       }, options.commandTimeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS);
 
       pendingCommands.set(messageRef, { resolve, reject, timeout });
@@ -97,7 +99,7 @@ export function subscribeToPhoenixTopic(options: SubscribeOptions) {
   const rejectPendingCommands = (message: string) => {
     for (const { reject, timeout } of pendingCommands.values()) {
       window.clearTimeout(timeout);
-      reject(new Error(message));
+      reject(Object.assign(new Error(message), {reason: "unavailable"}));
     }
     pendingCommands.clear();
   };

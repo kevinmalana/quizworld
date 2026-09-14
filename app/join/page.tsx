@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, Suspense } from "react";
+import { PlayerIdentityForm } from "@/components/game/PlayerIdentityForm";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { writePlayerSession, readPlayerSession } from "@/lib/player-session";
@@ -219,43 +220,8 @@ function JoinForm() {
   if (step === "nickname") {
     return (
       <div className="container join-shell">
-        <div className="card join-card">
-          <div className="join-icon">🙋</div>
-          <h2 className="font-display join-title">Enter Your Nickname</h2>
-          <p className="join-subtitle">Game PIN: <strong>{pin}</strong></p>
-
-          <input
-            type="text"
-            placeholder="Nickname"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            className="input-pin join-nickname-input"
-            maxLength={20}
-          />
-
-          <div className="mb-md">
-            <p className="join-pin-label">Pick Your Avatar</p>
-            <div className="join-pin-grid">
-              {AVATARS.map((a) => (
-                <button
-                  key={a}
-                  onClick={() => setAvatar(a)}
-                  className={avatar === a ? "nickname-avatar-btn is-selected" : "nickname-avatar-btn"}
-                >{a}</button>
-              ))}
-            </div>
-          </div>
-
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
-
-          <button onClick={handleJoinSubmit} disabled={joining} className="btn btn-primary btn-lg join-submit-btn">
-            {joining ? "Joining..." : `Join as ${nickname.trim() || "Player"} 🎮`}
-          </button>
-        </div>
+        <PlayerIdentityForm pin={pin} nickname={nickname} avatar={avatar} error={error} joining={joining}
+          onNicknameChange={setNickname} onAvatarChange={setAvatar} onSubmit={handleJoinSubmit} />
       </div>
     );
   }
@@ -264,7 +230,7 @@ function JoinForm() {
     <div className="container join-shell">
       <div className="card join-card">
         <div className="join-icon">🎮</div>
-        <h2 className="font-display join-title">Join a Game</h2>
+        <h1 className="font-display join-title">Join a Game</h1>
         <p className="join-subtitle">Enter your 6-character game PIN</p>
 
         <div className="join-pin-row">
@@ -311,7 +277,7 @@ function JoinForm() {
         </div>
 
         {error && (
-          <div className="error-message">
+          <div className="error-message" role="alert">
             {error}
           </div>
         )}
