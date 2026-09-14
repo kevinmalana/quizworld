@@ -75,6 +75,11 @@ defmodule QuizworldRealtimeWeb.SessionController do
       {:ok, snapshot} ->
         json(conn, %{session: snapshot})
 
+      {:error, reason} when reason in [:timeout, :unavailable] ->
+        conn
+        |> put_status(if(reason == :timeout, do: :gateway_timeout, else: :service_unavailable))
+        |> json(%{error: "Session temporarily unavailable", reason: reason})
+
       {:error, _reason} ->
         conn
         |> put_status(:not_found)
@@ -103,19 +108,19 @@ defmodule QuizworldRealtimeWeb.SessionController do
     player_id = params["player_id"]
     player_token = params["player_token"]
 
-    if blank?(player_id) or blank?(player_token) do
+    if blank?(params["host_token"]) and (blank?(player_id) or blank?(player_token)) do
       conn
       |> put_status(:unprocessable_entity)
       |> json(%{error: "player_id and player_token are required"})
     else
-      case Games.reconnect_player(pin, player_id, player_token) do
-        {:ok, snapshot} ->
+      case Games.authorized_snapshot(pin, params) do
+        {:ok, snapshot, _role} ->
           json(conn, %{session: snapshot, player_id: player_id})
 
         {:error, reason} ->
           conn
           |> put_status(:unprocessable_entity)
-          |> json(%{error: format_error(reason)})
+          |> json(%{error: format_error(reason), reason: reason})
       end
     end
   end
@@ -223,6 +228,6 @@ defmodule QuizworldRealtimeWeb.SessionController do
   defp transition(conn, {:error, reason}) do
     conn
     |> put_status(:unprocessable_entity)
-    |> json(%{error: format_error(reason)})
+    |> json(%{error: format_error(reason), reason: reason})
   end
 end

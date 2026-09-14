@@ -15,7 +15,12 @@ defmodule QuizworldRealtimeWeb.GameChannel do
         # Track presence so host can see real connected count
         send(self(), {:after_join, payload})
 
-        {:ok, %{session: snapshot}, socket |> assign(:pin, pin) |> assign(:role, role)}
+        {:ok, %{session: snapshot},
+         socket
+         |> assign(:pin, pin)
+         |> assign(:role, role)
+         |> assign(:game_instance_id, snapshot.game_instance_id)
+         |> assign(:credentials, Map.take(payload, ["host_token", "player_id", "player_token"]))}
 
       {:error, _reason} ->
         {:error, %{reason: "session_not_found"}}
@@ -39,6 +44,15 @@ defmodule QuizworldRealtimeWeb.GameChannel do
   end
 
   @impl true
+  def handle_info({event, snapshot}, socket)
+      when event in [:session_updated, :host_session_updated, :player_session_updated] and
+             (not is_map_key(snapshot, :game_instance_id) or
+                snapshot.game_instance_id != socket.assigns.game_instance_id) do
+    # Fence every publication with the atomically authorized instance, including
+    # delayed traffic in the initial snapshot/subscription gap and PIN reuse.
+    {:stop, :normal, socket}
+  end
+
   def handle_info(
         {:session_updated, _snapshot},
         %{assigns: %{role: role}} = socket
@@ -95,13 +109,29 @@ defmodule QuizworldRealtimeWeb.GameChannel do
   def handle_in("player:join", payload, socket) do
     pin = socket.assigns.pin
 
-    case Games.join_player(pin, payload) do
-      {:ok, snapshot, player_token, player_id} ->
-        role = if socket.assigns[:role] == :host, do: :host_player, else: {:player, player_id}
-        maybe_subscribe_after_join(pin, socket.assigns[:role], role)
+    result = with {:ok, _} <- reply_snapshot(pin, socket), do: Games.join_player(pin, payload)
 
-        {:reply, {:ok, %{session: snapshot, player_token: player_token, player_id: player_id}},
-         assign(socket, :role, role)}
+    case result do
+      {:ok, snapshot, player_token, player_id} ->
+        credentials =
+          Map.merge(socket.assigns.credentials, %{
+            "player_id" => player_id,
+            "player_token" => player_token
+          })
+
+        next_socket = assign(socket, :credentials, credentials)
+
+        with true <- snapshot.game_instance_id == socket.assigns.game_instance_id,
+             {:ok, private_snapshot, role} <- Games.authorized_snapshot(pin, credentials),
+             true <- private_snapshot.game_instance_id == socket.assigns.game_instance_id do
+          maybe_subscribe_after_join(pin, socket.assigns[:role], role)
+
+          {:reply,
+           {:ok, %{session: private_snapshot, player_token: player_token, player_id: player_id}},
+           assign(next_socket, :role, role)}
+        else
+          _ -> {:reply, {:error, %{reason: "session_replaced"}}, socket}
+        end
 
       {:error, :game_full} ->
         {:reply,
@@ -186,8 +216,11 @@ defmodule QuizworldRealtimeWeb.GameChannel do
 
   defp transition(pin, callback, socket) do
     case callback.() do
-      {:ok, snapshot} ->
-        {:reply, {:ok, %{session: reply_snapshot(pin, snapshot, socket.assigns[:role])}}, socket}
+      {:ok, _snapshot} ->
+        case reply_snapshot(pin, socket) do
+          {:ok, snapshot} -> {:reply, {:ok, %{session: snapshot}}, socket}
+          {:error, reason} -> {:reply, {:error, %{reason: to_string(reason)}}, socket}
+        end
 
       {:error, reason} ->
         {:reply, {:error, %{reason: to_string(reason)}}, socket}
@@ -210,12 +243,15 @@ defmodule QuizworldRealtimeWeb.GameChannel do
     subscribe_to_role_updates(pin, next_role)
   end
 
-  defp reply_snapshot(pin, snapshot, role) when role in [:host, :host_player] do
-    case Games.snapshot_for_role(pin, :host) do
-      {:ok, host_snapshot} -> host_snapshot
-      {:error, _reason} -> snapshot
+  defp reply_snapshot(pin, socket) do
+    # Cached roles are not credentials. Never fall back to the command's raw
+    # (possibly host-shaped) result on reauthorization or instance-fence failure.
+    with {:ok, snapshot, _role} <- Games.authorized_snapshot(pin, socket.assigns.credentials),
+         true <- snapshot.game_instance_id == socket.assigns.game_instance_id do
+      {:ok, snapshot}
+    else
+      {:error, reason} -> {:error, reason}
+      false -> {:error, :session_replaced}
     end
   end
-
-  defp reply_snapshot(_pin, snapshot, _role), do: snapshot
 end

@@ -443,7 +443,7 @@ defmodule QuizworldRealtime.GamesTest do
 
     [{pid, _value}] = Registry.lookup(QuizworldRealtime.GameRegistry, pin)
     monitor = Process.monitor(pid)
-    send(pid, :session_cleanup)
+    send(pid, {:timeout, :sys.get_state(pid).cleanup_timer_ref, :session_cleanup})
 
     assert_receive {:DOWN, ^monitor, :process, ^pid, :normal}, 1_000
     assert_game_stopped(pin)

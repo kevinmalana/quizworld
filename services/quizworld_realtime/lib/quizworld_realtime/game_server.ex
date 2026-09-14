@@ -19,7 +19,10 @@ defmodule QuizworldRealtime.GameServer do
   # is 5s — too long for /answer which must return before the client retries,
   # and too short for /start where Redis-backed state hydrate may take longer.
   def snapshot(pin, role \\ :public), do: GenServer.call(via(pin), {:snapshot, role}, 3_000)
-  def authorize(pin, credentials), do: GenServer.call(via(pin), {:authorize, credentials}, 3_000)
+
+  def authorized_snapshot(pin, credentials),
+    do: GenServer.call(via(pin), {:authorized_snapshot, credentials}, 3_000)
+
   def host_token(pin), do: GenServer.call(via(pin), :host_token, 1_000)
   def join_player(pin, player), do: GenServer.call(via(pin), {:join_player, player}, 3_000)
   def start_game(pin, host_token), do: GenServer.call(via(pin), {:start_game, host_token}, 5_000)
@@ -49,12 +52,14 @@ defmodule QuizworldRealtime.GameServer do
     GenServer.call(via(pin), {:advance, host_token}, 5_000)
   end
 
+  def via(pid) when is_pid(pid), do: pid
   def via(pin), do: {:via, Registry, {QuizworldRealtime.GameRegistry, pin}}
 
   @impl true
   def init(%Game{} = game) do
     restored_game =
       game
+      |> ensure_instance_id()
       |> normalize_recovery_state()
       |> restore_expired_question()
       |> schedule_question_timer()
@@ -70,8 +75,15 @@ defmodule QuizworldRealtime.GameServer do
     instance_id = Map.get(attrs, "instance_id")
 
     case GameStore.backend().fetch_game(Map.get(attrs, "pin")) do
-      {:ok, %Game{instance_id: ^instance_id} = game} when is_binary(instance_id) ->
+      {:ok, %Game{} = game}
+      when is_map_key(game, :instance_id) and game.instance_id == instance_id and
+             is_binary(instance_id) ->
         init(game)
+
+      {:ok, %Game{} = game} when not is_map_key(game, :instance_id) or is_nil(game.instance_id) ->
+        if Map.get(attrs, "restore_only", false) and is_binary(instance_id),
+          do: init(Map.put(game, :instance_id, instance_id)),
+          else: {:stop, :not_found}
 
       _ ->
         if Map.get(attrs, "restore_only", false) do
@@ -93,16 +105,21 @@ defmodule QuizworldRealtime.GameServer do
     {:reply, Game.snapshot(game, role), game}
   end
 
-  def handle_call({:authorize, credentials}, _from, game) do
-    role =
-      Game.authorized_role(
-        game,
-        credentials["host_token"],
-        credentials["player_id"],
-        credentials["player_token"]
-      )
+  def handle_call({:authorized_snapshot, credentials}, _from, game) do
+    # Never carry a bare role across calls: a room can be replaced between
+    # authorization and snapshot retrieval, invalidating that decision.
+    result =
+      with {:ok, role} <-
+             Game.authorized_role(
+               game,
+               credentials["host_token"],
+               credentials["player_id"],
+               credentials["player_token"]
+             ) do
+        {:ok, Game.snapshot(game, role), role}
+      end
 
-    {:reply, role, game}
+    {:reply, result, game}
   end
 
   def handle_call(:host_token, _from, game) do
@@ -195,16 +212,22 @@ defmodule QuizworldRealtime.GameServer do
   end
 
   @impl true
-  def handle_info(:session_cleanup, %Game{status: "finished", result_sync_status: status} = game)
+  def handle_info(
+        {:timeout, ref, :session_cleanup},
+        %Game{cleanup_timer_ref: ref, status: "finished", result_sync_status: status} = game
+      )
       when status != :succeeded do
     # Keep the Redis-backed game snapshot until durable result persistence succeeds.
     {:noreply, schedule_cleanup_timer(game)}
   end
 
-  def handle_info(:session_cleanup, game) do
+  def handle_info({:timeout, ref, :session_cleanup}, %Game{cleanup_timer_ref: ref} = game) do
     GameStore.backend().delete_snapshot(game.pin)
     {:stop, :normal, game}
   end
+
+  def handle_info({:timeout, _stale_ref, :session_cleanup}, game), do: {:noreply, game}
+  def handle_info(:session_cleanup, game), do: {:noreply, game}
 
   def handle_info(
         {:result_sync_complete, ref, result},
@@ -354,6 +377,17 @@ defmodule QuizworldRealtime.GameServer do
     %{game | result_sync_attempts: game.result_sync_attempts || 0}
   end
 
+  # Only the Registry-owning actor may upgrade and persist recovered state.
+  defp ensure_instance_id(%Game{instance_id: id} = game) when is_binary(id), do: game
+
+  defp ensure_instance_id(%Game{} = game),
+    do:
+      Map.put(
+        game,
+        :instance_id,
+        16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+      )
+
   defp broadcast_update(game, host_snapshot, scope) do
     public_snapshot = Game.snapshot_for_role(host_snapshot, :public)
 
@@ -500,7 +534,7 @@ defmodule QuizworldRealtime.GameServer do
         _ -> @waiting_cleanup_ms
       end
 
-    timer_ref = Process.send_after(self(), :session_cleanup, timeout_ms)
+    timer_ref = :erlang.start_timer(timeout_ms, self(), :session_cleanup)
     Game.with_cleanup_timer_ref(game, timer_ref)
   end
 

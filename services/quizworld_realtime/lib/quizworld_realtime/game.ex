@@ -143,6 +143,7 @@ defmodule QuizworldRealtime.Game do
       end)
 
     host_snapshot = %{
+      game_instance_id: game.instance_id,
       correct_counts: correct_counts,
       scored_question_count: length(scored_questions),
       pin: game.pin,
