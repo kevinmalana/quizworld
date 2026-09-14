@@ -66,12 +66,17 @@ test.describe('P0: Explore Page', () => {
 
   test('category filters work', async ({ page }) => {
     await page.goto('/explore');
-    // Super-category chips are always visible
+    // Topics are disclosed on demand so actual quizzes stay near the top.
+    await page.locator('.explore-topics summary').click();
     await expect(page.getByRole('button', { name: /Academic/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Entertainment/i })).toBeVisible();
     // Click a super-category to expand subcategory chips
     await page.getByRole('button', { name: /Academic/i }).click();
     await expect(page.locator('.explore-chip').filter({ hasText: 'Science & Nature' }).first()).toBeVisible({ timeout: 5000 });
+    await page.locator('.explore-chip').filter({ hasText: 'Science & Nature' }).first().click();
+    await expect(page.locator('.explore-topics summary')).toContainText('Science & Nature');
+    await expect(page.getByRole('button', { name: /Academic/i })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.explore-quiz-card').first()).toContainText('Science & Nature', { timeout: 10000 });
   });
 
   test('sort buttons work', async ({ page }) => {
@@ -325,8 +330,12 @@ test.describe('P2: Mobile Responsive', () => {
   test('explore page is mobile friendly', async ({ page }) => {
     await page.goto('/explore');
     await expect(page.locator('h1')).toContainText('Discover Quizzes');
-    // Category chips should be horizontally scrollable
-    await expect(page.locator('text=All topics')).toBeVisible();
+    const topics = page.locator('.explore-topics');
+    await expect(topics.locator('summary')).toBeVisible();
+    await expect(topics.locator('summary')).toContainText('All topics');
+    await topics.locator('summary').click();
+    await expect(topics.getByRole('button', { name: /Academic/i })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   });
 
   test('create page is mobile friendly', async ({ page }) => {
@@ -509,7 +518,16 @@ test.describe('P1: Study — search and filter', () => {
     const search = page.locator('input[type="search"]');
     await expect(search).toBeVisible({ timeout: 8000 });
     await search.fill('cricket');
-    await expect(page.getByRole('link').filter({ hasText: /cricket/i }).first()).toBeVisible({ timeout: 5000 });
+    const cards = page.locator('.study-quiz-card');
+    const titles = cards.locator('.study-quiz-card__title');
+    await expect(titles.first()).toContainText(/cricket/i, { timeout: 5000 });
+    expect((await titles.allTextContents()).every(title => /cricket/i.test(title))).toBe(true);
+    const study = cards.first().getByRole('link', { name: 'Study Now', exact: true });
+    await expect(study).toBeVisible();
+    const destination = await study.getAttribute('href');
+    expect(destination).toMatch(/^\/study\/[a-zA-Z0-9-]+$/);
+    await study.click();
+    await expect(page).toHaveURL(new RegExp(`${destination}$`));
   });
 
   test('category chip filters quiz list', async ({ page }) => {
