@@ -9,12 +9,14 @@ export function PlayerAnswerGrid({
   timeLeft,
   onSubmit,
   myTeam,
+  answerAccepted = false,
 }: {
   currentQuestion: GameQuestion;
   selectedAnswer: string | null;
   submittingAnswer: boolean;
   timeLeft: number;
   onSubmit: (answer: { id: string }) => void;
+  answerAccepted?: boolean;
   myTeam?: { name: string; color: string; emoji: string } | null;
 }) {
   const locked = selectedAnswer !== null || submittingAnswer || timeLeft <= 0;
@@ -34,14 +36,19 @@ export function PlayerAnswerGrid({
             key={answer.id}
             onClick={() => onSubmit(answer)}
             disabled={locked}
+            aria-pressed={selected}
             className={`game-answer-btn${selected ? " is-selected" : ""}`}
           >
             <span className="game-answer-badge">{String.fromCharCode(65 + index)}</span>
             {a.image_url && <img src={a.image_url} alt="" className="game-answer-img" />}
-            {answer.text}
+            <span className="game-answer-text">{answer.text}</span>
           </button>
         );
       })}
+      <p className="game-answer-guidance" role="status">{submittingAnswer ? 'Sending your answer…'
+        : answerAccepted ? 'Answer locked. Waiting for the reveal.'
+        : selectedAnswer !== null ? 'Answer not yet confirmed. Checking with the game server.'
+        : timeLeft <= 0 ? 'Time’s up. Waiting for the reveal.' : 'Choose one answer. Your choice submits immediately.'}</p>
     </div>
   );
 }

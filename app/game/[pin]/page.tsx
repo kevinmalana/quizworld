@@ -62,6 +62,7 @@ import {
 } from "@/lib/game/session-normalizers";
 import { useGameAudio } from "@/lib/game/use-game-audio";
 import { usePhoenixGameChannel } from "@/lib/game/use-phoenix-game-channel";
+import { useRequestEpoch } from "@/lib/game/use-request-epoch";
 import { executePhoenixGameCommand } from "@/lib/game/command-transport";
 import { shouldShowGameReconnectNotice } from "@/lib/game/reconnect-notice";
 import {
@@ -89,6 +90,7 @@ export default function GamePage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
+  const [commandUnknown, setCommandUnknown] = useState(false);
   const [answerFeedback, setAnswerFeedback] = useState<"correct" | "wrong" | null>(null);
   const [scorePop, setScorePop] = useState<number | null>(null);
   const [questionKey, setQuestionKey] = useState("");
@@ -149,6 +151,14 @@ export default function GamePage() {
     }
   }, [hostSession, pin, user?.id]);
 
+  const gameChannelJoinPayload = useMemo(() => ({
+    ...(hostSession?.hostToken ? { host_token: hostSession.hostToken } : {}),
+    ...(playerSession?.playerId && playerSession.playerToken
+      ? { player_id: playerSession.playerId, player_token: playerSession.playerToken }
+      : {}),
+  }), [hostSession?.hostToken, playerSession?.playerId, playerSession?.playerToken]);
+  const {captureRequestGuard, beginCommand, invalidateRequests} = useRequestEpoch(`${pin}:${JSON.stringify(gameChannelJoinPayload)}`);
+
   const applySessionSnapshot = useCallback(
     (
       rawSession: Record<string, unknown>,
@@ -185,6 +195,14 @@ export default function GamePage() {
           ? (normalizedSession.current_answers as typeof currentAnswers) ?? []
           : []);
 
+      const sameRound = sessionRef.current?.game_instance_id === normalizedSession.game_instance_id &&
+        sessionRef.current?.current_question_index === normalizedSession.current_question_index;
+      if (!sameRound || sessionRef.current?.status !== normalizedSession.status) {
+        invalidateRequests();
+        setSubmittingAnswer(false);
+        revealRequestLock.current = false;
+      }
+      const hasPrivateAnswers = Object.hasOwn(rawSession, "current_answers");
       setSession(normalizedSession as Record<string, unknown>);
       sessionRef.current = normalizedSession as Record<string, unknown>;
       setPlayers(nextPlayers);
@@ -193,30 +211,52 @@ export default function GamePage() {
       setCurrentQuestion(nextQuestion);
       setQuestionKey(nextQuestion?.id ?? "");
       setQuestionHistory((normalizedSession.question_history as typeof questionHistory) ?? []);
-      setSelectedAnswer(
+      setSelectedAnswer(previous => !hasPrivateAnswers && sameRound && rawSession.status === "active" ? previous :
         playerSession?.playerId
           ? nextAnswers.find((answer) => answer.player_id === playerSession.playerId)?.answer_id ??
               null
           : null
       );
+      if (hasPrivateAnswers || !sameRound || rawSession.status !== "active") setCommandUnknown(false);
       setTimeLeft(getTimeLeft(nextQuestion, (normalizedSession.question_started_at as string) ?? null));
       setError(null);
       setLoading(false);
       phaseTransitionLock.current = false;
     },
-    [playerSession?.playerId]
+    [invalidateRequests, playerSession?.playerId]
   );
 
   const loadSession = useCallback(async () => {
     if (isPhoenixGameEngine) {
+      if (!playerSessionReady) return;
+      const isCurrentRequest = captureRequestGuard();
+      const sessionAtRequestStart = sessionRef.current;
       try {
-        const sessionAtRequestStart = sessionRef.current;
-        const response = await fetchPhoenixSession(pin) as { session: Record<string, unknown> };
+        const credentialed = Object.keys(gameChannelJoinPayload).length > 0;
+        const response = credentialed
+          ? await reconnectPhoenixSession(pin, gameChannelJoinPayload)
+          : await fetchPhoenixSession(pin);
+        if (!isCurrentRequest() || !response.session) return;
+        if (sessionAtRequestStart?.game_instance_id && sessionAtRequestStart.game_instance_id !== response.session.game_instance_id) {
+          setNotice("This PIN now belongs to a different game. Rejoin from the PIN screen.");
+          return;
+        }
         if (!shouldApplyFallbackSnapshot(sessionRef.current, sessionAtRequestStart, response.session)) return;
         applySessionSnapshot(response.session, undefined, { allowEqual: true });
+        setCommandUnknown(false);
+        setNotice(null);
         return;
-      } catch (_error) {
-        setError("Game not found. Check the PIN.");
+      } catch (readError) {
+        if (!isCurrentRequest()) return;
+        if (shouldDiscardPlayerSession(readError) || (readError as {reason?:string}).reason === "invalid_token") {
+          clearPlayerSession(pin); setPlayerSession(null);
+          clearHostSession(pin); setHostSession(null);
+          setNotice("Your game credentials expired. Rejoin from the PIN screen.");
+        } else if (sessionRef.current) {
+          setNotice("Game state is not confirmed. Check your connection, then check game status.");
+        } else {
+          setError((readError as Error).message === "Session not found" ? "Game not found. Check the PIN." : "Game service temporarily unavailable. Please reconnect.");
+        }
         setLoading(false);
         return;
       }
@@ -278,34 +318,15 @@ export default function GamePage() {
       nextAnswers,
       { allowEqual: true }
     );
-  }, [applySessionSnapshot, pin]);
-
-  useEffect(() => {
-    if (!isPhoenixGameEngine || !playerSessionReady || !playerSession) return;
-
-    reconnectPhoenixSession(pin, {
-      player_id: playerSession.playerId,
-      player_token: playerSession.playerToken,
-    })
-      .then((response: { session?: Record<string, unknown> }) => {
-        if (response?.session) {
-          applySessionSnapshot(response.session);
-        }
-      })
-      .catch((reconnectError) => {
-        if (shouldDiscardPlayerSession(reconnectError)) {
-          clearPlayerSession(pin);
-          setPlayerSession(null);
-        }
-      });
-  }, [pin, playerSession, playerSessionReady, applySessionSnapshot]);
+  }, [applySessionSnapshot, captureRequestGuard, pin, playerSessionReady, gameChannelJoinPayload]);
 
   const revealCurrentQuestion = useCallback(async () => {
-    if (!isHost || !session) return false;
+    if (!isHost || !session || commandUnknown) return false;
     if (gameStatus !== "active") return true;
     if (revealRequestLock.current) return true;
 
     revealRequestLock.current = true;
+    const isCurrentCommand = beginCommand();
 
     try {
       if (isPhoenixGameEngine) {
@@ -314,6 +335,7 @@ export default function GamePage() {
         }
 
         const response = await revealPhoenixSession(pin, hostSession.hostToken) as { session?: Record<string, unknown> };
+        if (!isCurrentCommand()) return false;
         if (response?.session) applySessionSnapshot(response.session);
       } else {
         const { error: revealError } = await supabase.rpc("reveal_current_question", {
@@ -329,17 +351,20 @@ export default function GamePage() {
 
       return true;
     } catch (revealError) {
+      if (!isCurrentCommand()) return false;
       const msg = (revealError as Error)?.message ?? "";
       if (msg === "This action is not allowed right now.") {
         return true;
       }
       console.error("Error revealing question:", revealError);
-      setError("Could not score and reveal this round.");
+      setCommandUnknown(true);
+      setNotice("The reveal is not confirmed. Checking game status without resubmitting.");
+      await loadSession();
       return false;
     } finally {
-      revealRequestLock.current = false;
+      if (isCurrentCommand()) revealRequestLock.current = false;
     }
-  }, [applySessionSnapshot, gameStatus, hostSession?.hostToken, isHost, loadSession, pin, session]);
+  }, [applySessionSnapshot, beginCommand, commandUnknown, gameStatus, hostSession?.hostToken, isHost, loadSession, pin, session]);
 
   useEffect(() => {
     loadSession();
@@ -404,13 +429,6 @@ export default function GamePage() {
       void supabase.removeChannel(channel);
     };
   }, [(session as { id?: string })?.id, loadSession]);
-
-  const gameChannelJoinPayload = useMemo(() => ({
-    ...(hostSession?.hostToken ? { host_token: hostSession.hostToken } : {}),
-    ...(playerSession?.playerId && playerSession.playerToken
-      ? { player_id: playerSession.playerId, player_token: playerSession.playerToken }
-      : {}),
-  }), [hostSession?.hostToken, playerSession?.playerId, playerSession?.playerToken]);
 
   // Channel joins can restore role-private data at the same game revision.
   const applyChannelSnapshot = useCallback((snapshot: Record<string, unknown>, options?: { allowEqual?: boolean }) => {
@@ -523,13 +541,17 @@ export default function GamePage() {
     phaseTransitionLock.current = true;
 
     void (async () => {
-      const scored = await revealCurrentQuestion();
+      const reveal = revealCurrentQuestion();
+      const isCurrentRequest = captureRequestGuard();
+      const scored = await reveal;
+      if (!isCurrentRequest()) return;
       if (!scored) {
         phaseTransitionLock.current = false;
         return;
       }
     })();
   }, [
+    captureRequestGuard,
     currentAnswers.length,
     currentQuestion,
     gameStatus,
@@ -617,6 +639,7 @@ export default function GamePage() {
   })) ?? [];
 
   const startGame = async () => {
+    if (commandUnknown) return;
     if (
       !isHost ||
       gameStatus !== "waiting" ||
@@ -625,6 +648,7 @@ export default function GamePage() {
       return;
     }
 
+    const isCurrentCommand = beginCommand();
     try {
       if (isPhoenixGameEngine) {
         if (!hostSession?.hostToken) {
@@ -639,6 +663,7 @@ export default function GamePage() {
           sendSocketCommand: sendPhoenixCommand,
           sendRestCommand: () => startPhoenixSession(pin, hostSession.hostToken),
         });
+        if (!isCurrentCommand()) return;
         if (response?.session) applySessionSnapshot(response.session);
       } else {
         const { error: startError } = await supabase.rpc("start_game_session", {
@@ -652,6 +677,7 @@ export default function GamePage() {
         await loadSession();
       }
     } catch (startError) {
+      if (!isCurrentCommand()) return;
       const msg = (startError as Error)?.message ?? "";
       console.error("Error starting game:", startError);
       if (msg === "Only the host can perform this action." || msg === "Host session is invalid.") {
@@ -659,7 +685,9 @@ export default function GamePage() {
         setHostSession(null);
         setError("Your host session expired. Return to host and launch the game again.");
       } else {
-        setError("Could not start the game.");
+        setCommandUnknown(true);
+        setNotice("Start is not confirmed. Checking game status without resubmitting.");
+        await loadSession();
       }
     }
   };
@@ -667,6 +695,7 @@ export default function GamePage() {
   const markReady = async () => {
     if (!playerSession?.playerId || !playerSession.playerToken || gameStatus !== "waiting") return;
 
+    const isCurrentCommand = beginCommand();
     try {
       const payload = {
         player_id: playerSession.playerId,
@@ -679,14 +708,17 @@ export default function GamePage() {
         sendSocketCommand: sendPhoenixCommand,
         sendRestCommand: () => readyPhoenixSession(pin, payload),
       });
+      if (!isCurrentCommand()) return;
       if (response.session) applySessionSnapshot(response.session);
     } catch (readyError) {
+      if (!isCurrentCommand()) return;
       console.error("Error marking player ready:", readyError);
       setNotice("Could not update your ready status. Please try again.");
     }
   };
 
   const goToNextQuestion = async () => {
+    if (commandUnknown) return;
     if (
       !isHost ||
       gameStatus !== "reveal" ||
@@ -699,6 +731,7 @@ export default function GamePage() {
     const currentIndex = (session as { current_question_index?: number })?.current_question_index ?? 0;
     const isLastQuestion = currentIndex >= questions.length - 1;
 
+    const isCurrentCommand = beginCommand();
     try {
       if (isPhoenixGameEngine) {
         if (!hostSession?.hostToken) {
@@ -713,6 +746,7 @@ export default function GamePage() {
           sendSocketCommand: sendPhoenixCommand,
           sendRestCommand: () => advancePhoenixSession(pin, hostSession.hostToken),
         });
+        if (!isCurrentCommand()) return;
         if (response?.session) applySessionSnapshot(response.session);
       } else {
         if (isLastQuestion) {
@@ -731,6 +765,7 @@ export default function GamePage() {
         await loadSession();
       }
     } catch (advanceError) {
+      if (!isCurrentCommand()) return;
       const msg = (advanceError as Error)?.message ?? "";
       console.error("Error advancing game:", advanceError);
       if (msg === "Only the host can perform this action." || msg === "Host session is invalid.") {
@@ -738,7 +773,9 @@ export default function GamePage() {
         setHostSession(null);
         setError("Your host session expired. Return to host and relaunch the session.");
       } else {
-        setError("Could not move to the next question.");
+        setCommandUnknown(true);
+        setNotice("The next round is not confirmed. Checking game status without resubmitting.");
+        await loadSession();
       }
     }
   };
@@ -751,12 +788,14 @@ export default function GamePage() {
       !playerSession?.playerToken ||
       selectedAnswer ||
       submittingAnswer ||
+      commandUnknown ||
       timeLeft <= 0
     ) {
       return;
     }
 
     setSubmittingAnswer(true);
+    const isCurrentCommand = beginCommand();
     setNotice(null);
     setSelectedAnswer(answer.id);
 
@@ -784,6 +823,7 @@ export default function GamePage() {
           sendSocketCommand: sendPhoenixCommand,
           sendRestCommand: () => answerPhoenixSession(pin, payload),
         });
+        if (!isCurrentCommand()) return;
         if (response?.session) applySessionSnapshot(response.session);
       } else {
         const { error: answerError } = await supabase.rpc("submit_player_answer", {
@@ -799,9 +839,8 @@ export default function GamePage() {
 
         await loadSession();
       }
-
-      setSubmittingAnswer(false);
     } catch (answerError) {
+      if (!isCurrentCommand()) return;
       const msg = (answerError as { message?: string; code?: string })?.message ?? "";
       const code = (answerError as { code?: string })?.code ?? "";
       console.error("Error submitting answer:", answerError);
@@ -814,13 +853,20 @@ export default function GamePage() {
       } else if (msg === "Answer window has closed.") {
         setNotice("Time is up for this question.");
       } else {
-        setNotice("Could not submit your answer. Please try again.");
+        setCommandUnknown(true);
+        setNotice("Your answer is not confirmed. Checking game status without resubmitting.");
       }
       await loadSession();
-      setSubmittingAnswer(false);
-      return;
+    } finally {
+      if (isCurrentCommand()) setSubmittingAnswer(false);
     }
   };
+
+  const reconciliationControl = commandUnknown ? (
+    <div className="game-notice">
+      <button className="btn btn-secondary" onClick={() => void loadSession()}>Check game status</button>
+    </div>
+  ) : null;
 
   if (loading) return <GameLoadingPanel />;
 
@@ -846,6 +892,7 @@ export default function GamePage() {
           onReady={() => void markReady()}
           onStart={() => void startGame()}
         />
+        {reconciliationControl}
         {gameMode === "survival" && (
           <div className="container"><div className="game-mode-lobby-badge game-mode-lobby-badge--survival">
             <span>💀 Survival Mode</span>
@@ -877,9 +924,10 @@ export default function GamePage() {
         )}
 
         <GameNotice notice={notice} />
+        {reconciliationControl}
         <GameProgressBar currentIndex={currentIndex} totalQuestions={totalQuestions} />
 
-        <div key={questionKey} className="card game-question-card game-question-enter">
+        <div key={questionKey} className="card game-question-card game-question-card--active game-question-enter">
           <div className="game-question-header">
             <span className="game-question-label">
               {currentQuestionIndexLabel(session)}
@@ -935,6 +983,7 @@ export default function GamePage() {
             currentQuestion={currentQuestion}
             selectedAnswer={selectedAnswer}
             submittingAnswer={submittingAnswer}
+            answerAccepted={currentAnswers.some(answer => answer.player_id === currentPlayer?.id)}
             timeLeft={timeLeft}
             myTeam={myTeamId && teams[myTeamId] ? teams[myTeamId] : null}
             onSubmit={(answer) => void submitAnswer(answer)}
@@ -961,6 +1010,7 @@ export default function GamePage() {
     return (
       <div className="container game-container">
         <GameNotice notice={notice} />
+        {reconciliationControl}
         <GameProgressBar currentIndex={currentIndex} totalQuestions={totalQuestions} compact />
         <div className="card game-question-card">
           <h2 className="font-display game-question-title">

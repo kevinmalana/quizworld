@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('mobile home keeps labelled PIN joining inline and preserves destination', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  const input = page.getByRole('textbox', { name: 'Game PIN or presentation code', exact: true });
+  const input = page.getByRole('textbox', { name: 'Game PIN', exact: true });
   await expect(input).toBeVisible();
   const bounds = await input.boundingBox();
   expect(bounds!.y + bounds!.height).toBeLessThan(700);
@@ -18,7 +18,7 @@ test('mobile home keeps labelled PIN joining inline and preserves destination', 
 test('narrow mobile home displays the entire entered PIN without input scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('/');
-  const input = page.getByRole('textbox', { name: 'Game PIN or presentation code', exact: true });
+  const input = page.getByRole('textbox', { name: 'Game PIN', exact: true });
   await input.fill('ABC123');
   expect(await input.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   await page.getByRole('button', { name: 'Enter Game', exact: true }).click();

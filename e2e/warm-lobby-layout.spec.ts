@@ -17,7 +17,7 @@ test('mobile lobby keeps readable PIN beside full-sized QR at 390px', async ({ p
       onReady() {}, onStart() {},
     })));
   `], { encoding: 'utf8' });
-  const css = ['styles/game.css', 'styles/warm-ui.css'].map(path => readFileSync(path, 'utf8')).join('\n');
+  const css = ['app/globals.css', 'styles/game.css', 'styles/primitives.css'].map(path => readFileSync(path, 'utf8')).join('\n');
   await page.setContent(`<style>*{box-sizing:border-box}body{margin:0}.container{padding:16px}${css}</style>${html}`);
   await expect(page.locator('.game-lobby-pin-area')).toHaveCSS('flex-direction', 'row');
   await expect(page.getByRole('img', { name: 'Scan to join' })).toHaveCSS('width', '120px');

@@ -36,6 +36,7 @@ export function WaitingLobbyPanel({
     <div className="container game-lobby">
       <GameNotice notice={notice} maxWidth={640} />
       <div className="card game-lobby-card">
+        <header className="game-lobby-heading">
         <p className="game-lobby-role">{isHost ? currentPlayer ? "Hosting and playing" : "Hosting only" : currentPlayer ? "Playing" : "Viewing lobby"}</p>
         <h1 className="font-display game-lobby-title">{isHost ? "Waiting for players…" : "Waiting for host…"}</h1>
         {gameMode !== "classic" && (
@@ -44,18 +45,21 @@ export function WaitingLobbyPanel({
           </div>
         )}
 
+        </header>
         <div className="game-lobby-pin-area lobby-pin-qr">
           <div>
             <div className="game-lobby-pin-label">Game PIN</div>
             <div className="game-lobby-pin-value">{pin}</div>
+            <p className="game-lobby-address">quizworld.xyz/join</p>
           </div>
           <div className="game-lobby-divider" />
           <div>
-            <QrCode value={joinUrl} size={120} label="Scan to join" className="qr-code qr-code-sm" />
+            <QrCode value={joinUrl} size={160} label="Scan to join" className="qr-code qr-code-sm" />
             <div className="game-lobby-qr-label">Scan to join</div>
           </div>
         </div>
 
+        <section className="game-lobby-roster" aria-label="Players and game controls">
         <p className="game-lobby-ready-count" role="status">{readyCount}/{players.length} players ready</p>
         {players.length === 0 && <p className="game-lobby-empty">Share the PIN to bring everyone together.</p>}
         {players.length > 0 && (
@@ -86,7 +90,8 @@ export function WaitingLobbyPanel({
           <div className="game-lobby-you-ready">✅ You&apos;re ready!</div>
         )}
         {isHost && (
-          <>
+          <div className="game-lobby-host-controls">
+            <p className="eyebrow">Host controls</p>
             {gameMode === "survival" && players.length < 2 && players.length > 0 && (
               <div className="game-lobby-warning">⚠️ Survival needs at least 2 players</div>
             )}
@@ -104,13 +109,14 @@ export function WaitingLobbyPanel({
                 : gameMode === "survival" && players.length < 2 ? "Need 2+ players for Survival"
                 : "Start Game 🚀"}
             </button>
-          </>
+          </div>
         )}
         {!isHost && !currentPlayer && playerSessionReady && (
           <Link href={`/join?pin=${pin}`} className="btn btn-secondary">
             Join this game
           </Link>
         )}
+        </section>
       </div>
     </div>
   );

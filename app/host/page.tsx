@@ -317,14 +317,7 @@ function HostPageContent() {
 
   // ── Launch splash overlay ────────────────────────────────────────────────
   if (launching) {
-    const messages = [
-      "Connecting to game server…",
-      "Waking up the game engine…",
-      "Loading quiz questions…",
-      "Setting up your lobby…",
-      "Almost ready…",
-    ];
-    const msg = messages[Math.min(Math.floor(launchSeconds / 3), messages.length - 1)];
+    const msg = "Opening your live lobby…";
     const isSlow = launchSeconds >= 6;
     return (
       <div style={{
@@ -348,19 +341,11 @@ function HostPageContent() {
           </p>
           {isSlow && (
             <p style={{ fontSize: "0.875rem", color: "var(--muted)", lineHeight: 1.5 }}>
-              The game server is cold-starting — this takes up to 30 seconds on first launch. Hang tight!
+              This is taking longer than usual. Keep this page open while we connect. The first question will not start until you choose Start Game.
             </p>
           )}
         </div>
-        <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.5rem" }}>
-          {messages.map((_, i) => (
-            <div key={i} style={{
-              width: 8, height: 8, borderRadius: "50%",
-              background: i <= Math.floor(launchSeconds / 3) ? "var(--accent)" : "var(--line)",
-              transition: "background 0.3s",
-            }} />
-          ))}
-        </div>
+
       </div>
     );
   }
@@ -401,7 +386,7 @@ function HostPageContent() {
       <div className="host-header">
         <div>
           <h1 className="font-display host-title"><HostIcon size={24} /> Host a Game</h1>
-          <p className="host-subtitle">Pick a quiz · Share the PIN · Play live</p>
+          <p className="host-subtitle">Choose your quiz and mode. Launch opens a lobby — you decide when the first question starts.</p>
         </div>
         {selectedQuiz && (
           <button
@@ -409,23 +394,26 @@ function HostPageContent() {
             disabled={launching}
             className="btn btn-primary btn-lg host-launch-btn--header"
           >
-            {launching ? "Starting..." : `Launch ${gameMode === "survival" ? "💀" : gameMode === "team" ? "👥" : "🚀"}`}
+            {launching ? "Starting..." : `Launch lobby ${gameMode === "survival" ? "💀" : gameMode === "team" ? "👥" : "🚀"}`}
           </button>
         )}
       </div>
 
+      <div className="host-workspace">
+      <section className="host-setup" aria-label="Lobby setup">
       <HostSelectedQuiz quiz={selectedQuiz} gameMode={gameMode} onChange={() => setSelectedId(null)} />
 
-      {error && <div className="error-message">{error}</div>}
+      {error && <div className="error-message" role="alert">{error}</div>}
 
       {/* Game mode selector — top of page */}
       <div className="host-modes-section">
-        <h3 className="host-modes-title">Game Mode</h3>
+        <h2 className="host-modes-title">Choose the kind of game</h2>
         <div className="host-modes-grid">
           {GAME_MODES.map(mode => (
             <button
               key={mode.id}
               disabled={!mode.available}
+              aria-pressed={gameMode === mode.id}
               onClick={() => mode.available && setGameMode(mode.id)}
               className={`host-mode-btn${gameMode === mode.id && mode.available ? " host-mode-btn--selected" : ""}${!mode.available ? " host-mode-btn--locked" : ""}`}
             >
@@ -451,6 +439,8 @@ function HostPageContent() {
         onAvatarChange={setHostPlayerAvatar}
       />
 
+      </section>
+      <section className="host-picker" aria-label="Choose a quiz">
       {/* Quiz picker */}
       <div className="social-tabs host-section-tabs">
         <button className={`social-tab${section === "mine" ? " is-active" : ""}`} onClick={() => setSection("mine")}>
@@ -471,6 +461,7 @@ function HostPageContent() {
         <div className="host-search-wrap">
           <input
             className="host-search-input"
+            aria-label="Search public quizzes to host"
             placeholder="Search public quizzes..."
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -505,6 +496,8 @@ function HostPageContent() {
         </div>
       )}
 
+      </section>
+      </div>
       {/* Launch button — bottom sticky on mobile */}
       {selectedQuiz && (
         <div className="host-launch-bar">
@@ -513,7 +506,7 @@ function HostPageContent() {
             disabled={launching}
             className="btn btn-primary btn-lg btn-full"
           >
-            {launching ? "Starting game..." : `Launch "${selectedQuiz.title}" ${gameMode === "survival" ? "💀" : gameMode === "team" ? "👥" : "🚀"}`}
+            {launching ? "Opening lobby..." : `Launch lobby ${gameMode === "survival" ? "💀" : gameMode === "team" ? "👥" : "🚀"}`}
           </button>
           {launching && <p className="host-launch-hint">Setting up live lobby...</p>}
         </div>

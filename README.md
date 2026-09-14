@@ -11,7 +11,10 @@ A new developer should read these sources in order:
 1. **This README** — setup, verification, repository map and contribution workflow.
 2. [`CONTEXT.md`](CONTEXT.md) — product language, runtime ownership and live-game invariants.
 3. [`docs/adr/`](docs/adr/) — decisions that should not be reversed casually.
-4. [`services/quizworld_realtime/README.md`](services/quizworld_realtime/README.md) — Phoenix-specific setup and runtime details.
+4. [`docs/product-design.md`](docs/product-design.md) — audience, interface language and journey contracts.
+5. [`docs/development.md`](docs/development.md) — presentation ownership, regression tests and isolated multiplayer acceptance.
+6. [`docs/release.md`](docs/release.md) — independent review, backend-first rollout and external readback gates.
+7. [`services/quizworld_realtime/README.md`](services/quizworld_realtime/README.md) and [`docs/engine/README.md`](docs/engine/README.md) — Phoenix setup, reliability boundaries and engine verification.
 
 Those are the authoritative documents. Git history preserves old handoffs, audits and release notes; do not recreate them as active documents.
 
@@ -22,9 +25,9 @@ Browser
   ├─ Vercel / Next.js       website, auth UI, authoring, study and social features
   ├─ Render / Phoenix       live-game state, timers, scoring and WebSockets
   └─ Supabase               Postgres, authentication, storage and durable results
-                             ↕
-                           Redis
-                     Phoenix recovery snapshots
+
+Phoenix ── Redis             recovery snapshots (not browser-accessible)
+Phoenix ── Supabase          verified quiz reads and durable result writes
 ```
 
 Runtime ownership is strict:
@@ -117,7 +120,7 @@ The live-game browser interface is intentionally split by responsibility:
 - `lib/game/session-normalizers.ts` — snapshot normalization and revision checks
 - `lib/game/game-analytics.ts` — derived leaderboard and achievement calculations
 - `lib/shared.ts` — canonical category colour and emoji mappings
-- `components/game/` — rendering modules
+- `components/game/` — controlled presentation (identity, phase explanation, lobby, answers and results)
 - `app/game/[pin]/page.tsx` — route orchestration
 
 The backend interface is:
@@ -128,7 +131,7 @@ The backend interface is:
 - `GameStore` — recovery-store seam
 - `StateStore` — Redis adapter used in production
 
-Every accepted transition must be committed and published once. Do not add publication to controllers, channels or callers.
+Each accepted in-process transition has one commit/publication point. This is not a distributed exactly-once guarantee. Do not add publication to controllers/channels, replay uncertain commands after a GenServer timeout, or resolve private answers in a separate unauthenticated follow-up read. See the engine context for the recovery and persistence boundaries.
 
 ## Authentication and user data
 
@@ -182,9 +185,13 @@ app/                         Next.js routes and server handlers
 components/                  reusable rendering modules
 lib/                         domain, browser and infrastructure modules
 e2e/                         Playwright behaviour and integration checks
+styles/                      owned home/discovery/game presentation and shared primitives
+public/fonts/                local OFL fonts and license notices
 services/quizworld_realtime/ Phoenix application
 supabase/migrations/         reviewed database changes
 docs/adr/                    architecture decisions
+docs/engine/                 backend contracts, reliability audit and local probe
+docs/{product-design,development,release}.md  durable product/developer/release guides
 CONTEXT.md                   domain and ownership glossary
 ```
 

@@ -144,7 +144,9 @@ export default async function QuizDetailPage({ params }: PageProps) {
     <div className="container quiz-detail-container">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // JSON escaping alone does not protect HTML script raw text. Escape every
+        // '<' so quiz content cannot terminate the element; JSON.parse restores it.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       {/* Back link */}
       <Link
@@ -155,9 +157,10 @@ export default async function QuizDetailPage({ params }: PageProps) {
         ← Back to Explore
       </Link>
 
+      <div className="quiz-detail-layout">
       {/* Header card */}
-      <div className="card" style={{ marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
+      <div className="card quiz-detail-overview">
+        <div className="quiz-detail-masthead">
           {/* Emoji */}
           <div
             className="explore-quiz-emoji"
@@ -177,11 +180,11 @@ export default async function QuizDetailPage({ params }: PageProps) {
           </div>
 
           {/* Title + meta */}
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="quiz-detail-summary">
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
               <span className="tag explore-quiz-category">{quiz.category as string}</span>
             </div>
-            <h1 className="font-display" style={{ fontSize: "1.75rem", margin: "0 0 0.5rem 0", lineHeight: 1.2 }}>
+            <h1 className="font-display quiz-detail-title">
               {quiz.title as string}
             </h1>
 
@@ -236,12 +239,13 @@ export default async function QuizDetailPage({ params }: PageProps) {
           )}
         </div>
 
+        <p className="eyebrow quiz-detail-choose">Choose how to play</p>
         {/* CTA buttons */}
         <div className="explore-quiz-actions" style={{ marginTop: "1.25rem" }}>
           <Link href={`/host?quiz=${quiz.id}`} className="btn btn-primary">
             🎮 Host Game
           </Link>
-          <Link href={`/solo/${quiz.id}`} className="btn btn-accent">
+          <Link href={`/solo/${quiz.id}`} className="btn btn-secondary">
             ▶️ Play Solo
           </Link>
           <Link href={`/study/${quiz.id}`} className="btn btn-secondary">
@@ -253,7 +257,7 @@ export default async function QuizDetailPage({ params }: PageProps) {
 
       {/* Question preview */}
       {previewQuestions.length > 0 && (
-        <div className="card" style={{ marginBottom: "1.5rem" }}>
+        <div className="quiz-detail-preview">
           <h2 className="font-display" style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>
             Preview ({previewQuestions.length} of {questions.length} questions)
           </h2>
@@ -293,6 +297,7 @@ export default async function QuizDetailPage({ params }: PageProps) {
         </div>
       )}
 
+      </div>
       {/* Bottom nav */}
       <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
         <Link href="/explore" className="btn btn-secondary">

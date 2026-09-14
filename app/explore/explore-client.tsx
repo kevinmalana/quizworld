@@ -1,23 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
-import { SectionCard } from "@/components/section-card";
 import { calcLevel } from "@/components/study/study-session-panels";
 
 import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/shared";
-import { canonicalizeCategory, catalogQuestionCount, excludeFeaturedQuizzes, formatCatalogCount, mergeCatalogPage, fetchCatalogPage, normalizeCatalogSearch, catalogCursorForRow, type CatalogCursor } from "@/lib/catalog-discovery";
+import { canonicalizeCategory, catalogQuestionCount, formatCatalogCount, mergeCatalogPage, fetchCatalogPage, normalizeCatalogSearch, catalogCursorForRow, type CatalogCursor } from "@/lib/catalog-discovery";
 import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/explore-quiz-card";
-import { CATEGORY_FAMILY_ART, type CategoryFamilyId } from "@/lib/category-families";
+import { type CategoryFamilyId } from "@/lib/category-families";
 import type { InitialExploreCatalog } from "@/lib/catalog-server";
 
 const CATEGORY_LIST = ["All", ...new Set(Object.keys(CATEGORY_COLORS).map(canonicalizeCategory))];
 const PAGE_SIZE = 24;
 
 type SortMode = "popular" | "newest" | "az" | "za";
+type FailedCatalogRequest = { append: boolean; options: Parameters<typeof fetchCatalogPage>[1] };
 
 const SORT_OPTIONS: { value: SortMode; label: string; icon: string }[] = [
   { value: "popular", label: "Most Played", icon: "🔥" },
@@ -90,61 +89,6 @@ const SUPER_CATEGORIES: SuperCategory[] = [
   },
 ];
 
-type Collection = {
-  emoji: string;
-  title: string;
-  subtitle: string;
-  quizCount: number;
-  difficulty: string;
-  category: string;
-  gradientFrom: string;
-  gradientTo: string;
-};
-
-
-const COLLECTIONS: Collection[] = [
-  {
-    emoji: "🌍",
-    title: "World Geography Series",
-    subtitle: "From capitals to continents — master every region",
-    quizCount: 5,
-    difficulty: "Beginner → Expert",
-    category: "Geography",
-    gradientFrom: "#22c55e20",
-    gradientTo: "#14b8a620",
-  },
-  {
-    emoji: "💻",
-    title: "Tech Interview Prep",
-    subtitle: "Coding, systems, and behavioural rounds covered",
-    quizCount: 8,
-    difficulty: "Professional",
-    category: "Programming",
-    gradientFrom: "#0ea5e920",
-    gradientTo: "#6366f120",
-  },
-  {
-    emoji: "🎬",
-    title: "Ultimate Movie Buff",
-    subtitle: "Classic cinema to modern blockbusters",
-    quizCount: 6,
-    difficulty: "Pop Culture",
-    category: "Movies",
-    gradientFrom: "#f9731620",
-    gradientTo: "#e11d4820",
-  },
-  {
-    emoji: "🧠",
-    title: "Brain Training Pack",
-    subtitle: "Logic puzzles, trivia & lateral thinking",
-    quizCount: 7,
-    difficulty: "Mixed",
-    category: "General Knowledge",
-    gradientFrom: "#8b5cf620",
-    gradientTo: "#a855f720",
-  },
-];
-
 function SurpriseModal({
   quiz,
   onSkip,
@@ -154,11 +98,14 @@ function SurpriseModal({
   onSkip: () => void;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => { dialogRef.current?.showModal(); }, []);
   return (
-    <div
+    <dialog ref={dialogRef} aria-label="Surprise Quiz" onCancel={onClose}
       style={{
         position: "fixed",
         inset: 0,
+        width: "100%", maxWidth: "100%", height: "100dvh", maxHeight: "100dvh", border: 0,
         zIndex: 9999,
         display: "flex",
         alignItems: "center",
@@ -237,12 +184,12 @@ function SurpriseModal({
         <div style={{ display: "flex", gap: "0.625rem" }}>
           <Link
             prefetch={false}
-            href={`/join`}
+            href={`/quiz/${quiz.slug || quiz.id}`}
             className="btn btn-primary"
             style={{ flex: 1, textAlign: "center" }}
             onClick={onClose}
           >
-            🎮 Play Now
+            View quiz →
           </Link>
           <button
             onClick={onSkip}
@@ -253,111 +200,7 @@ function SurpriseModal({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function CollectionCard({
-  collection,
-  onCategorySelect,
-}: {
-  collection: Collection;
-  onCategorySelect: (cat: string) => void;
-}) {
-  return (
-    <div
-      className="card card-hover"
-      style={{
-        background: `linear-gradient(135deg, ${collection.gradientFrom}, ${collection.gradientTo})`,
-        border: "1px solid var(--line)",
-        padding: "1.5rem",
-        display: "flex",
-        flexDirection: "column",
-        gap: "0.5rem",
-        minWidth: 0,
-      }}
-    >
-      <div style={{ fontSize: "2rem" }}>{collection.emoji}</div>
-      <h3 className="font-display" style={{ fontSize: "1rem", fontWeight: 800, color: "var(--ink)", lineHeight: 1.3 }}>
-        {collection.title}
-      </h3>
-      <p style={{ fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5, flexGrow: 1 }}>
-        {collection.subtitle}
-      </p>
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.25rem" }}>
-        <span
-          style={{
-            fontSize: "0.7rem",
-            fontWeight: 600,
-            background: "var(--surface)",
-            color: "var(--muted)",
-            borderRadius: "999px",
-            padding: "0.2rem 0.55rem",
-            border: "1px solid var(--line)",
-          }}
-        >
-          {collection.difficulty}
-        </span>
-      </div>
-      <button
-        onClick={() => onCategorySelect(collection.category)}
-        className="btn btn-secondary btn-compact"
-        style={{ marginTop: "0.75rem", alignSelf: "flex-start" }}
-      >
-        Explore →
-      </button>
-    </div>
-  );
-}
-
-function TrendingRow({
-  title,
-  quizzes,
-  onSeeAll,
-}: {
-  title: string;
-  quizzes: QuizWithCreator[];
-  onSeeAll: () => void;
-}) {
-  if (quizzes.length === 0) return null;
-
-  return (
-    <div style={{ marginBottom: "2.5rem" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", gap: "0.75rem" }}>
-        <h2 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 900, color: "var(--ink)" }}>
-          {title}
-        </h2>
-        <button
-          onClick={onSeeAll}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "var(--accent)",
-            fontSize: "0.825rem",
-            fontWeight: 700,
-            whiteSpace: "nowrap",
-            padding: "0.25rem 0",
-          }}
-        >
-          See all →
-        </button>
-      </div>
-
-      {/* Mobile: horizontal scroll; Desktop: 3-col grid */}
-      <div
-        className="trending-row-scroll"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "1rem",
-        }}
-      >
-        {quizzes.slice(0, 6).map((q) => (
-          <ExploreQuizCard key={q.id} quiz={q} />
-        ))}
-      </div>
-    </div>
+    </dialog>
   );
 }
 
@@ -409,16 +252,6 @@ function SuperCategorySelector({
               aria-pressed={hasActiveSub}
               aria-controls="explore-family-subcategories"
             >
-              <Image
-                src={CATEGORY_FAMILY_ART[sc.id]}
-                alt=""
-                className="explore-family-art"
-                width={480}
-                height={336}
-                sizes="(max-width: 767px) 143px, 180px"
-                preload={index < 2}
-              />
-              <span className="explore-family-scrim" />
               <span className="explore-family-card-content">
                 <span className="explore-family-label">{sc.emoji} {sc.label}</span>
                 <span className="explore-family-chevron" aria-hidden="true">{isExpanded ? "▲" : "▼"}</span>
@@ -484,6 +317,7 @@ function ExplorePageContent({
   const [loading, setLoading] = useState(!seededCatalog);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [failedRequest, setFailedRequest] = useState<FailedCatalogRequest | null>(null);
   const [hasMore, setHasMore] = useState(Boolean(seededCatalog && seededCatalog.quizzes.length < seededCatalog.totalCount));
   const [totalCount, setTotalCount] = useState(seededCatalog?.totalCount ?? 0);
   const skipInitialFetchRef = useRef(Boolean(seededCatalog));
@@ -497,16 +331,20 @@ function ExplorePageContent({
   const [surpriseQuiz, setSurpriseQuiz] = useState<QuizWithCreator | null>(null);
   const [surprisePool, setSurprisePool] = useState<QuizWithCreator[]>([]);
 
-  async function fetchPage(append: boolean) {
+  async function fetchPage(append: boolean, retry?: FailedCatalogRequest) {
     const version = ++requestVersion.current;
+    const options = retry?.options ?? {
+      search: normalizedSearch, category: activeCategory, sort: sortMode,
+      loadedCount: append ? loadedCount.current : 0,
+      cursor: append ? catalogCursor.current : null, pageSize: PAGE_SIZE,
+    };
     if (append) setLoadingMore(true);
     else { setLoading(true); setLoadingMore(false); }
     setFetchError(null);
+    setFailedRequest(null);
     try {
-      const offset = append ? loadedCount.current : 0;
-      const result = await fetchCatalogPage(supabase, {
-        search: normalizedSearch, category: activeCategory, sort: sortMode, loadedCount: offset, cursor: append ? catalogCursor.current : null, pageSize: PAGE_SIZE,
-      });
+      const offset = options.loadedCount ?? 0;
+      const result = await fetchCatalogPage(supabase, options);
       if (version !== requestVersion.current) return;
       const batch = result.quizzes;
       let withCreator: QuizWithCreator[] = [];
@@ -550,7 +388,10 @@ function ExplorePageContent({
       setTotalCount(result.totalCount);
       setHasMore(result.hasMore);
     } catch {
-      if (version === requestVersion.current) setFetchError("Could not load the quiz catalog. Please try again.");
+      if (version === requestVersion.current) {
+        setFetchError("Could not load the quiz catalog. Please try again.");
+        setFailedRequest({append, options});
+      }
     } finally {
       if (version === requestVersion.current) { setLoading(false); setLoadingMore(false); }
     }
@@ -564,6 +405,8 @@ function ExplorePageContent({
     skipInitialFetchRef.current = false;
     // Invalidate old requests immediately, including delayed creator enrichment.
     ++requestVersion.current;
+    setFailedRequest(null);
+    setFetchError(null);
     setLoading(true);
     const timer = setTimeout(() => { void fetchPage(false); }, normalizedSearch ? 300 : 0);
     return () => { clearTimeout(timer); ++requestVersion.current; };
@@ -603,41 +446,11 @@ function ExplorePageContent({
   // The server query is the single source for matching, counts and ordering.
   const filtered = quizzes;
 
-  // Trending sections derived from all loaded quizzes
-  const trendingThisWeek = useMemo(() => {
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const recent = quizzes.filter((q) => {
-      const t = (q as any).created_at ?? q.createdAt ?? 0;
-      const ms = typeof t === "string" ? new Date(t).getTime() : t;
-      return ms >= thirtyDaysAgo;
-    });
-    const pool = recent.length >= 3 ? recent : quizzes;
-    return [...pool].sort((a, b) => b.plays - a.plays).slice(0, 6);
-  }, [quizzes]);
-
-  const newAndFresh = useMemo(() => {
-    return [...quizzes].sort((a, b) => {
-      const aTime = (a as any).created_at ?? a.createdAt ?? 0;
-      const bTime = (b as any).created_at ?? b.createdAt ?? 0;
-      const aMs = typeof aTime === "string" ? new Date(aTime).getTime() : aTime;
-      const bMs = typeof bTime === "string" ? new Date(bTime).getTime() : bTime;
-      return bMs - aMs;
-    }).slice(0, 6);
-  }, [quizzes]);
-
-  const allTimeGreatest = useMemo(() => {
-    return [...quizzes].sort((a, b) => b.plays - a.plays).slice(0, 6);
-  }, [quizzes]);
-
-  const catalogGridQuizzes = hasActiveFilter
-    ? filtered
-    : excludeFeaturedQuizzes(filtered, [trendingThisWeek, newAndFresh, allTimeGreatest]);
+  const catalogGridQuizzes = filtered;
 
   const catalogDescription = loading
     ? "Searching across all quizzes…"
     : formatCatalogCount(filtered.length, totalCount, hasActiveFilter ? "result" : "public quiz");
-
-  const showTrendingSections = !hasActiveFilter && !loading && !fetchError && quizzes.length > 0;
 
   return (
     <div className="explore-page">
@@ -649,11 +462,6 @@ function ExplorePageContent({
           onClose={() => setSurpriseQuiz(null)}
         />
       )}
-
-      <div className="mesh-gradient">
-        <div className="mesh-blob mesh-blob-1" />
-        <div className="mesh-blob mesh-blob-2" />
-      </div>
 
       <div className="container explore-container">
         {/* Hero section */}
@@ -667,26 +475,23 @@ function ExplorePageContent({
           </p>
 
           <div className="home-hero-actions">
-            <Link prefetch={false} href="/create" className="btn btn-primary btn-lg">Create a Quiz</Link>
-            <Link prefetch={false} href="/host" className="btn btn-secondary btn-lg">Host a Game</Link>
+            <Link prefetch={false} href="/host" className="btn btn-secondary">Host a Game ↗</Link>
+            <Link prefetch={false} href="/create" className="text-link">Create a Quiz ↗</Link>
           </div>
         </section>
 
         {/* Search + Sort + Super-category filter */}
-        <SectionCard
-          title="Search And Filter"
-          description="Browse by category or search for a specific topic."
-        >
+        <section className="explore-controls" aria-label="Find your next round">
           <div className="explore-filter-col">
             <div className="explore-search-row">
               <input
                 ref={searchInputRef}
                 type="search"
                 aria-label="Search public quizzes"
-                placeholder="Search topics or keywords..."
+                placeholder="Search titles or categories"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="input-pin explore-search-input"
+                className="explore-search-input"
               />
               {search.length > 0 && <button type="button" className="btn btn-secondary explore-clear-search" onClick={() => { setSearch(""); searchInputRef.current?.focus(); }}>Clear search</button>}
 
@@ -709,43 +514,12 @@ function ExplorePageContent({
             </div>
 
             {/* Super-category selector (replaces flat chip row) */}
-            <SuperCategorySelector
-              activeCategory={activeCategory}
-              onCategoryChange={setActiveCategory}
-            />
+            <details className="explore-topics">
+              <summary><span>Browse topics</span><span>{activeCategory === "All" ? "All topics" : activeCategory}</span></summary>
+              <SuperCategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+            </details>
           </div>
-        </SectionCard>
-
-        {/* Collections section — only when no active filter */}
-        {!hasActiveFilter && !loading && (
-          <div style={{ marginBottom: "2.5rem" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-              <div>
-                <h2 className="font-display" style={{ fontSize: "1.375rem", fontWeight: 900, color: "var(--ink)" }}>
-                  📚 Collections
-                </h2>
-                <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: "0.25rem" }}>
-                  Curated quiz paths for focused learning
-                </p>
-              </div>
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                gap: "1rem",
-              }}
-            >
-              {COLLECTIONS.map((collection) => (
-                <CollectionCard
-                  key={collection.title}
-                  collection={collection}
-                  onCategorySelect={(category) => setActiveCategory(category)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        </section>
 
         {/* Main content area */}
         {loading ? (
@@ -753,12 +527,12 @@ function ExplorePageContent({
             <div className="explore-status-icon">📡</div>
             <p className="font-600">Loading quizzes...</p>
           </div>
-        ) : fetchError ? (
+        ) : fetchError && !failedRequest?.append ? (
           <div className="explore-status-panel">
             <div className="explore-status-icon">⚠️</div>
             <h3 className="font-display explore-status-title">Could not load quizzes</h3>
             <p className="explore-status-text">{fetchError}</p>
-            <button onClick={() => window.location.reload()} className="btn btn-primary mt-sm">
+            <button onClick={() => void fetchPage(false, failedRequest ?? undefined)} className="btn btn-primary mt-sm">
               Retry
             </button>
           </div>
@@ -791,38 +565,21 @@ function ExplorePageContent({
           )
         ) : (
           <>
-            {/* Trending rows — only when no active filter */}
-            {showTrendingSections && (
-              <>
-                <TrendingRow
-                  title="🔥 Trending this week"
-                  quizzes={trendingThisWeek}
-                  onSeeAll={() => setSortMode("popular")}
-                />
-                <TrendingRow
-                  title="✨ New & Fresh"
-                  quizzes={newAndFresh}
-                  onSeeAll={() => setSortMode("newest")}
-                />
-                <TrendingRow
-                  title="🏆 All-Time Greatest"
-                  quizzes={allTimeGreatest}
-                  onSeeAll={() => setSortMode("popular")}
-                />
-              </>
-            )}
-
             {/* Main grid / search results */}
-            <SectionCard
-              title={hasActiveFilter ? "Search Results" : "All Quizzes"}
-              description={catalogDescription}
-            >
+            <section className="explore-results" aria-label="Quiz results">
+              <header className="explore-results-heading"><h2 className="font-display">{hasActiveFilter ? "Search Results" : "All Quizzes"}</h2><p>{catalogDescription}</p></header>
               <div className="grid-3">
                 {catalogGridQuizzes.map((q) => (
                   <ExploreQuizCard key={q.id} quiz={q} />
                 ))}
               </div>
-              {hasMore && (
+              {failedRequest?.append && (
+                <div className="explore-load-more" role="status">
+                  <p>{fetchError}</p>
+                  <button className="btn btn-secondary" onClick={() => void fetchPage(true, failedRequest)}>Retry loading more</button>
+                </div>
+              )}
+              {hasMore && !failedRequest?.append && (
                 <div className="explore-load-more">
                   <button
                     onClick={handleLoadMore}
@@ -833,7 +590,7 @@ function ExplorePageContent({
                   </button>
                 </div>
               )}
-            </SectionCard>
+            </section>
           </>
         )}
       </div>
@@ -851,22 +608,7 @@ function ExplorePageContent({
         </button>
       )}
 
-      {/* Inline responsive style for trending rows */}
-      <style>{`
-        @media (max-width: 767px) {
-          .trending-row-scroll {
-            display: flex !important;
-            overflow-x: auto !important;
-            gap: 0.875rem !important;
-            padding-bottom: 0.5rem !important;
-            scroll-snap-type: x mandatory;
-          }
-          .trending-row-scroll > * {
-            flex: 0 0 280px;
-            scroll-snap-align: start;
-          }
-        }
-      `}</style>
+
     </div>
   );
 }

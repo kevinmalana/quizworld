@@ -60,7 +60,7 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
         <span className="tag explore-quiz-category">{quiz.category}</span>
       </div>
 
-      <h3 className="font-display explore-quiz-title">{quiz.title}</h3>
+      <h3 className="font-display explore-quiz-title"><Link prefetch={false} href={`/quiz/${identifier}`}>{quiz.title}</Link></h3>
 
       <div className="explore-quiz-creator">
         {avatar.startsWith('http') ? (
@@ -100,7 +100,7 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
         <Link prefetch={false} href={`/host?quiz=${quiz.id}`} className="btn btn-primary btn-compact explore-quiz-action-host">
           <HostIcon size={14} /> Host
         </Link>
-        <Link prefetch={false} href={`/solo/${quiz.id}`} className="btn btn-accent btn-compact">
+        <Link prefetch={false} href={`/solo/${quiz.id}`} className="btn btn-secondary btn-compact">
           ▶ Play
         </Link>
         <Link prefetch={false} href={`/study/${identifier}`} className="btn btn-secondary btn-compact">

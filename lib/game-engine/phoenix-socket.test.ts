@@ -36,6 +36,23 @@ class FakeWebSocket {
 Object.defineProperty(globalThis, "WebSocket", { value: FakeWebSocket, configurable: true });
 Object.defineProperty(globalThis, "window", { value: globalThis, configurable: true });
 
+test("uncertain replies preserve structured reasons without inviting mutation retry", async () => {
+  const { subscribeToPhoenixTopic } = await import("./phoenix-socket");
+  for (const reason of ["timeout", "unavailable"]) {
+    const subscription=subscribeToPhoenixTopic({topic:"game:UNCERTAIN"});
+    const socket=FakeWebSocket.instances.at(-1)!;
+    socket.readyState=FakeWebSocket.OPEN; socket.emit("open");
+    const pending=subscription.push("player:answer",{answer_id:"a"});
+    const [,ref,topic]=JSON.parse(socket.sent.at(-1)!);
+    socket.emit("message",{data:JSON.stringify([null,ref,topic,"phx_reply",{status:"error",response:{reason}}])});
+    try {
+      await assert.rejects(pending,(error: Error & {reason?:string})=>{
+        assert.equal(error.reason,reason); assert.doesNotMatch(error.message,/try again/i); return true;
+      });
+    } finally { subscription(); }
+  }
+});
+
 test("the game socket joins with host-player credentials", async () => {
   FakeWebSocket.instances = [];
   const { subscribeToPhoenixTopic } = await import("./phoenix-socket");
