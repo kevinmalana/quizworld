@@ -48,15 +48,25 @@ There is no generated database types file or typed Database generic in this sour
 - Removed users who still know a valid code can rejoin. There is no ban/revocation model; no permanent-removal guarantee is introduced.
 - RPC errors remain generic in UI, including expired auth/network failures. No private names/code values are logged.
 
-## Bounded adjacent findings (not silently widened)
+## Bounded adjacent findings (updated by hardening follow-up)
 
-1. **Fixed security hole**: direct membership inserts previously allowed choosing teacher/admin or joining by private UUID; assignment inserts required no teacher authority.
-2. **Fixed misleading UX, backend feature still blocked**: co-teacher promotion has no UPDATE policy; group admin removal is denied by self-only DELETE. UI now shows an error. No role-promotion or admin-delete permission is added without dedicated governance review.
-3. **Deferred**: sole group admin can leave; only client code prevents sole classroom teacher leave. Server-side last-manager enforcement needs race-safe ownership/transfer semantics. Redemption preserves existing roles but does not restore a deleted owner membership automatically.
-4. **Deferred**: group creation is still two requests and ignores owner-membership failure. Needs atomic creation RPC, separate test/rollout.
-5. **Deferred, security relevant**: `group_pinned_quizzes` SELECT policy is `true`, INSERT only checks `pinned_by=self`; private pin metadata can be enumerated and nonmembers can create pins by ID. No pin policies were changed in this bounded proposal.
-6. **Deferred**: manual completion INSERT checks self/source but not assignment membership; helper `is_*_member`/`is_classroom_teacher` functions are public executable, accept arbitrary user IDs and lack pinned search_path. These were observed, not exploited against unrelated users.
-7. Student classroom counts are limited by self/teacher membership SELECT; do not call the displayed count an independently verified full roster count.
+The follow-up migration `20260915133000_adjacent_membership_hardening.sql` supersedes the earlier privacy deferrals:
+
+1. **Fixed**: private pins now follow the existing group SELECT policy (public, creator, or member); INSERT requires actual current group membership and pinned_by=self. Public-group browsing remains public, but public nonmembers must join before pinning. Pin errors no longer claim success.
+2. **Fixed**: manual completion INSERT **and UPDATE WITH CHECK** require assignment-classroom membership, self identity and manual source. This also closes retargeting an existing completion into another classroom. Own historical completion reads/deletes remain allowed.
+3. **Fixed**: all three membership/teacher helpers use fully qualified tables and empty search_path; arbitrary-other-user lookups return false. PUBLIC EXECUTE is revoked; explicit anon/authenticated EXECUTE remains because existing public SELECT policies call these functions. Anonymous helper calls return false, preserving public-group SELECT without enabling private enumeration. Read-only live dependency inspection found only policies passing auth.uid(), and no function-body callers; repository search found no direct app RPC calls to these helpers. Existing service_role ACL is retained, but the function result is still current-identity-scoped.
+4. **Safely unavailable**: co-teacher promotion and group admin removal have explanatory text instead of clickable controls; defensive handlers send no mutation. No new membership UPDATE/DELETE authority is granted. Classroom student-removal behavior remains unchanged. The sole-teacher message no longer recommends unavailable promotion.
+5. **Still separate governance work**: group creation remains two requests with unchecked owner-membership insertion; server-side last-manager enforcement/ownership transfer is absent. These are concrete existing integrity/product limitations, not fixed by this patch. Adding safe concurrent manager transfer/atomic creation was not necessary to disable unsupported removal/promotion and would expand this bounded privacy repair. Do not claim complete membership lifecycle governance.
+6. Invitation throttling/rotation, removed-user rejoin using a still-valid code, historical unauthorized membership audit, and student roster-count limitations remain unchanged.
+
+No generated schema shape or RPC signature changed; there is still no generated Database types file to regenerate. Independent review and live acceptance remain release gates.
+
+### Follow-up verification and rollback
+
+- 20 original SQL tests and 12 adjacent SQL tests pass on local PostgreSQL; 17 frontend handler/transport/wiring tests pass (original 15 retained).
+- Exact forward bytes validated transactionally on a new baseline fixture; rollback restores baseline. Exact `supabase/tests/hardening-safe-disable.sql` validated transactionally and committed on that disposable fixture, followed by safe re-enable.
+- Safe-disable denies all pin reads/inserts and manual completion inserts/updates while retaining hardened helpers and all original stricter membership/assignment INSERT protections. Never roll back to unrestricted pin reads or self-only completion writes.
+- Evidence and exact hashes are in `/root/quizworld-repair-evidence/permissions/hardening-report.md`. No production changes. Minimal fixtures are not a production-schema clone, PostgREST, or browser proof.
 
 ## Verification
 
@@ -71,7 +81,7 @@ Evidence lives outside the repository at `/root/quizworld-repair-evidence/permis
 
 1. Review exact bytes/hash, diff, tests and remaining security findings. Reinspect live target/history for drift.
 2. Prefer exact-file transactional validation on a disposable production-schema clone; the minimal local fixture is not that clone.
-3. Apply only reviewed migration to verified project, in a transaction, then record only version `20260915120000` if provider history tooling does not do so. Read back exact definitions, ACLs and policy expressions.
+3. Apply only reviewed migrations in order (`20260915120000`, then `20260915133000`) to the verified project, transactionally, then record only those versions if provider history tooling does not do so. Do not generic db push. Read back exact definitions, ACLs and policy expressions.
 4. Exercise ordinary authenticated dedicated-account code joins and negative controls after migration. Coordinate retained QA inventory before mutations. Verify membership role/readback, same-resource teacher deletion and actual row absence; assignment cascades are destructive to dependent QA records.
 5. Only then build/deploy frontend from parent-integrated reviewed source; verify UI errors and mobile code paste, join/leave/rejoin and promotion/removal denial. No production/browser positive claim is made here.
 

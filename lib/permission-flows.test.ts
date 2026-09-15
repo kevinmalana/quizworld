@@ -32,6 +32,7 @@ function fixture(file: string, name: string, reply: (url: URL, init: RequestInit
     group: { id: "group", name: "Group" }, classroom: { id: "classroom", name: "Classroom" },
     members: [{ role: "teacher" }, { role: "teacher" }],
     router: { push: () => state.loads++ },
+    setPinSearchVal: () => {}, setPinSearchResults: () => {}, setShowPinSearch: () => {},
     setPinMsg: (v: string) => { state.msg = v; state.type = "error"; },
     setMutationError: (v: string) => { state.msg = v; state.type = "error"; },
   });
@@ -55,6 +56,25 @@ for (const [kind, rpc] of [["groups", "join_trivia_group_by_code"], ["classrooms
     assert.equal(f.state.loads, 0);
   });
 }
+
+test("unavailable membership governance never sends a mutation", async () => {
+  for (const [kind, name] of [["groups", "handleRemoveMember"], ["classrooms", "handlePromoteToTeacher"]]) {
+    const f = fixture(`app/${kind}/[id]/page.tsx`, name, () => json([{ id: "member" }]));
+    await f.run("other-user", "Other user");
+    assert.equal(f.requests.length, 0);
+    assert.match(f.state.msg, /not.*available|unavailable/i);
+    assert.equal(f.state.loads, 0);
+    const source = fs.readFileSync(`app/${kind}/[id]/page.tsx`, "utf8");
+    assert.ok(!source.includes(`onClick={() => ${name}(`), "unavailable action is not advertised as clickable");
+  }
+});
+
+test("pin permission errors do not claim success", async () => {
+  const f = fixture("app/groups/[id]/page.tsx", "handlePin", () => json({ message: "denied" }, 403));
+  await f.run("quiz");
+  assert.match(f.state.msg, /could not|unable/i);
+  assert.equal(f.state.loads, 0);
+});
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 

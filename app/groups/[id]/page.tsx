@@ -92,7 +92,12 @@ export default function GroupDetailPage() {
   async function handlePin(quizId: string) {
     if (!user || !group) return;
     const { error } = await supabase.from("group_pinned_quizzes").insert({ group_id: group.id, quiz_id: quizId, pinned_by: user.id });
-    if (error?.message?.includes("duplicate")) { setPinMsg("Already pinned."); } else { setPinMsg("Quiz pinned! 📌"); }
+    if (error) {
+      setMutationError(error.message?.includes("duplicate") ? "Already pinned." : "Quiz could not be pinned. Check your membership and try again.");
+      return;
+    }
+    setMutationError("");
+    setPinMsg("Quiz pinned! 📌");
     setPinSearchVal(""); setPinSearchResults([]); setShowPinSearch(false);
     setTimeout(() => setPinMsg(""), 2000);
     load();
@@ -112,11 +117,7 @@ export default function GroupDetailPage() {
   }
 
   async function handleRemoveMember(userId: string, memberName: string) {
-    if (!confirm(`Remove ${memberName} from this group?`)) return;
-    const { data, error } = await supabase.from("trivia_group_members").delete().eq("group_id", group!.id).eq("user_id", userId).select("id");
-    if (error || data?.length !== 1) { setMutationError("Member could not be removed. Check your permission."); return; }
-    setMutationError("");
-    load();
+    setMutationError("Member could not be removed: admin removal is not available. Members can leave voluntarily.");
   }
 
   if (loading) return <div className="container social-shell"><div className="social-empty"><div className="social-empty-icon">📡</div><div>Loading...</div></div></div>;
@@ -174,7 +175,7 @@ export default function GroupDetailPage() {
                   <span className={`social-role-badge social-role-badge--${m.role}`}>{m.role}</span>
                   <div className="social-xp-label">{m.total_xp.toLocaleString()} XP</div>
                   {myRole === "admin" && m.user_id !== user?.id && (
-                    <button className="btn btn-secondary btn-compact social-btn-sm" onClick={() => handleRemoveMember(m.user_id, m.display_name || m.username)}>Remove</button>
+                    <span className="social-member-meta">Admin removal unavailable; members can leave voluntarily.</span>
                   )}
                 </div>
               </div>

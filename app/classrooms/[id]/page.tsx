@@ -468,18 +468,14 @@ export default function ClassroomDetailPage() {
   }
 
   async function handlePromoteToTeacher(userId: string, memberName: string) {
-    if (!confirm(`Make ${memberName} a co-teacher?`)) return;
-    const { data, error } = await supabase.from("classroom_members").update({ role: "teacher" }).eq("classroom_id", id).eq("user_id", userId).select("id");
-    if (error || data?.length !== 1) { setMsg("Role could not be changed. Check your permission."); setMsgType("error"); return; }
-    setMsg(`${memberName} is now a co-teacher.`); setMsgType("success");
-    setTimeout(() => setMsg(""), 3000);
-    load();
+    setMsg("Role could not be changed: co-teacher promotion is not available. Ownership transfer requires a separate governance release.");
+    setMsgType("error");
   }
 
   async function handleLeave() {
     if (!user || !classroom) return;
     if (myRole === "teacher" && members.filter(m => m.role === "teacher").length <= 1) {
-      alert("You're the only teacher — promote a co-teacher before leaving.");
+      alert("You are the only teacher and cannot leave. Co-teacher promotion and ownership transfer are not currently available.");
       return;
     }
     if (!confirm(`Leave "${classroom.name}"?`)) return;
@@ -633,9 +629,7 @@ export default function ClassroomDetailPage() {
                   <span className={`social-role-badge social-role-badge--${m.role}`}>{m.role}</span>
                   <div className="social-xp-label">{m.total_xp.toLocaleString()} XP</div>
                   {myRole === "teacher" && m.user_id !== user?.id && m.role === "student" && (
-                    <button className="btn btn-secondary btn-compact social-btn-sm" onClick={() => handlePromoteToTeacher(m.user_id, m.display_name || m.username)}>
-                      ⬆️ Co-teacher
-                    </button>
+                    <span className="social-member-meta">Co-teacher promotion unavailable.</span>
                   )}
                   {myRole === "teacher" && m.user_id !== user?.id && (
                     <button className="btn btn-secondary btn-compact social-btn-sm" onClick={() => handleRemoveMember(m.user_id, m.display_name || m.username)}>
