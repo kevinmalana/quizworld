@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { installPublicCatalogFixture } from './fixtures/public-catalog';
 
 // Only run on a local candidate. No live games or production mutations.
 test.beforeEach(async ({ page, baseURL }) => {
   expect(new URL(baseURL!).hostname).toMatch(/^(127\.0\.0\.1|localhost)$/);
+  await installPublicCatalogFixture(page, baseURL!);
   await page.route('**/api/sessions**', route => route.abort());
 });
 
@@ -10,6 +12,7 @@ test('quiz cards prioritize hosting and preview while retaining solo, study and 
   await page.goto('/explore', { waitUntil: 'networkidle' });
   const card = page.locator('.explore-quiz-card').first();
   await expect(card).toBeVisible();
+  await expect(card).toContainText('Local UX fixture quiz');
   const hostHref = await card.getByRole('link', { name: 'Host', exact: true }).getAttribute('href');
   const detailHref = await card.getByRole('link', { name: 'View details →', exact: true }).getAttribute('href');
   await expect(card.getByRole('link', { name: /Play solo/ })).not.toBeVisible();

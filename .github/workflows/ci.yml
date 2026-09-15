@@ -38,14 +38,39 @@ jobs:
 
       - name: Run deterministic verification
         run: npm run check
-      
+        env:
+          # Embedded at build time: local fixture lookups must not reach live rooms.
+          NEXT_PUBLIC_GAME_SERVICE_URL: https://quizworld-ux-test.invalid
+          # Non-secret SDK configuration, not a live Supabase project. These
+          # public values must exist during next build, not only next start.
+          NEXT_PUBLIC_SUPABASE_URL: https://quizworld-local-fixture.invalid
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_local_fixture_not_a_real_key
+
+      - name: Verify E2E project selection
+        run: node --test scripts/e2e-selection.test.cjs
+
       - name: Verify safe E2E evidence retention
         run: node --test scripts/e2e-evidence.test.cjs
+
+      # Runs on PRs and pushes, against the build produced by npm run check.
+      # Playwright owns the loopback server and shuts it down on either outcome.
+      - name: Run local fixture E2E tests
+        id: local_e2e
+        run: npx playwright test --config=playwright.local.config.ts --project=local-fixtures
+
+      - name: Upload safe local fixture evidence
+        uses: actions/upload-artifact@v4
+        if: always() && (steps.local_e2e.outcome == 'success' || steps.local_e2e.outcome == 'failure')
+        with:
+          name: local-e2e-evidence
+          path: e2e-evidence/summary.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Run production E2E tests
         id: e2e
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npx playwright test
+        run: npx playwright test --project=chromium
         env:
           BASE_URL: https://www.quizworld.xyz
       
