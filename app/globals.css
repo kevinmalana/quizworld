@@ -402,18 +402,9 @@ button { font-family: inherit; }
   align-items: center;
   gap: 0.25rem;
 }
-@media (min-width: 768px) { .nav-primary { display: flex; } }
-
-/* Tighter nav items at tablet breakpoint */
-@media (min-width: 768px) and (max-width: 1024px) {
-  .nav-item { padding: 0.4rem 0.5rem; gap: 0.2rem; font-size: 0.8rem; }
-  .nav-inner { gap: 0.5rem; }
-}
-/* Extra tight at narrow tablet to prevent overflow */
-@media (min-width: 768px) and (max-width: 860px) {
-  .nav-item { padding: 0.35rem 0.4rem; font-size: 0.75rem; }
-  .nav-primary { gap: 0.125rem; }
-}
+/* Fit the full logo, seven destinations and five admin account controls.
+   Below this content-fit boundary, keep every destination in the native menu. */
+@media (min-width: 960px) { .nav-primary { display: flex; } }
 
 .nav-item {
   display: flex;
@@ -458,6 +449,11 @@ button { font-family: inherit; }
   color: var(--muted);
 }
 @media (min-width: 640px) { .nav-icon-btn { display: flex; } }
+/* Account destinations remain in the dialog on phones. Match href specificity
+   so the generic a[href] display rule cannot force these duplicates back in. */
+@media (max-width: 639px) { .nav-right a.nav-icon-btn { display: none; } }
+/* Unlike account links, notifications have no duplicate in the compact menu. */
+.nav-icon-btn.notif-bell-btn { display: flex; }
 .nav-icon-btn:hover { background: var(--bg-subtle); color: var(--ink); }
 
 .hamburger {
@@ -476,7 +472,7 @@ button { font-family: inherit; }
 }
 .hamburger:hover { background: var(--bg-subtle); border-color: var(--line-strong); }
 .hamburger span { width: 18px; height: 2px; background: var(--ink); border-radius: 1px; transition: all 0.2s; }
-@media (min-width: 768px) { .hamburger { display: none; } }
+@media (min-width: 960px) { .hamburger { display: none; } }
 
 /* Mobile Panel */
 dialog.mobile-overlay {
