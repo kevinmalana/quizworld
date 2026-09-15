@@ -366,14 +366,21 @@ function HostPageContent() {
     return (
       <div className="container join-shell">
         <div className="card join-card">
-          <div className="join-icon">🏁</div>
+          <p className="entry-eyebrow">Your room. Your pace.</p>
           <h1 className="font-display join-title">Host a Live Game</h1>
-          <p className="join-subtitle">Sign in to launch your selected quiz or choose a quiz for a live multiplayer session. Players join from any device with a 6-character PIN.</p>
+          <p className="join-subtitle">Bring everyone together with a quiz. You control when the first question starts.</p>
+          {searchParams.get("quiz") && <p className="entry-selection" role="status">Your quiz choice will follow you after sign-in.</p>}
           <button
             onClick={() => { router.push(prepareHostLogin(sessionStorage, searchParams.get("quiz"))); }}
             className="btn btn-primary btn-lg btn-full mb-sm"
           >Sign In to Host</button>
           <Link href="/explore" className="btn btn-secondary btn-full">Browse Quizzes First</Link>
+          <ol className="entry-steps" aria-label="How hosting works">
+            <li><strong>Sign in & choose a quiz</strong><span>Use your selection or find another quiz.</span></li>
+            <li><strong>Set up your lobby</strong><span>Choose a mode. Host the show or play along.</span></li>
+            <li><strong>Invite your players</strong><span>Share the PIN. Players need no account.</span></li>
+          </ol>
+          <p className="entry-reassurance">Opening a lobby does not start the game.</p>
         </div>
       </div>
     );

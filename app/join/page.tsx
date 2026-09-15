@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { PlayerIdentityForm } from "@/components/game/PlayerIdentityForm";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { writePlayerSession, readPlayerSession } from "@/lib/player-session";
 import { fetchPhoenixSession, joinPhoenixSession } from "@/lib/game-engine/client";
@@ -142,8 +143,10 @@ function JoinForm() {
 
       setError("Game not found. Check the PIN and try again.");
       setJoining(false);
-    } catch (_error) {
-      setError("Game not found. Check the PIN and try again.");
+    } catch (error) {
+      setError(error instanceof Error && (error.message === "Session not found" || error.message === "Session not found.")
+        ? "Game not found. Check the PIN with your host and try again."
+        : "Could not reach the game service. Your PIN is still here. Check your connection and try again.");
       setJoining(false);
     }
   };
@@ -229,9 +232,9 @@ function JoinForm() {
   return (
     <div className="container join-shell">
       <div className="card join-card">
-        <div className="join-icon">🎮</div>
+        <p className="entry-eyebrow">Step 1 of 2 · Game PIN</p>
         <h1 className="font-display join-title">Join a Game</h1>
-        <p className="join-subtitle">Enter your 6-character game PIN</p>
+        <p className="join-subtitle" id="join-pin-help">Enter the 6-character PIN from your host. You’ll choose your nickname next.</p>
 
         <div className="join-pin-row">
           {digits.map((d, i) => (
@@ -272,12 +275,14 @@ function JoinForm() {
                 }}
                 className="input-pin join-digit-input"
                 aria-label={`PIN character ${i + 1}`}
+                aria-describedby={error ? "join-pin-help join-pin-error" : "join-pin-help"}
+                aria-invalid={error.startsWith("Game not found") || error === "Enter the full 6-character PIN"}
               />
           ))}
         </div>
 
         {error && (
-          <div className="error-message" role="alert">
+          <div className="error-message" id="join-pin-error" role="alert">
             {error}
           </div>
         )}
@@ -285,6 +290,10 @@ function JoinForm() {
         <button onClick={handlePinSubmit} disabled={joining || digits.join("").length !== 6} className="btn btn-primary btn-lg join-submit-btn">
           {joining ? "Finding..." : "Enter Game"}
         </button>
+        <div className="entry-help">
+          <span>No account needed</span>
+          <Link href="/present/join">Join a presentation</Link>
+        </div>
       </div>
     </div>
   );

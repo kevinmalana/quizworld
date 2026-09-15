@@ -100,29 +100,20 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
         <Link prefetch={false} href={`/host?quiz=${quiz.id}`} className="btn btn-primary btn-compact explore-quiz-action-host">
           <HostIcon size={14} /> Host
         </Link>
-        <Link prefetch={false} href={`/solo/${quiz.id}`} className="btn btn-secondary btn-compact">
-          ▶ Play
-        </Link>
-        <Link prefetch={false} href={`/study/${identifier}`} className="btn btn-secondary btn-compact">
-          📖 Study
-        </Link>
-        <button
-          onClick={handleShare}
-          className="btn btn-secondary btn-compact"
-          title={shareCopied ? "Link copied!" : "Share quiz link"}
-        >
-          {shareCopied ? "✅ Copied" : "📤 Share"}
-        </button>
-      </div>
-      <div style={{ marginTop: "0.5rem", textAlign: "center" }}>
-        <Link
-          prefetch={false}
-          href={`/quiz/${identifier}`}
-          style={{ fontSize: "0.8rem", color: "var(--muted)", textDecoration: "none" }}
-        >
+        <Link prefetch={false} href={`/quiz/${identifier}`} className="btn btn-secondary btn-compact">
           View details →
         </Link>
       </div>
+      <details className="explore-quiz-options">
+        <summary>More options</summary>
+        <div className="explore-quiz-secondary-actions">
+          <Link prefetch={false} href={`/solo/${quiz.id}`} className="btn btn-secondary btn-compact">Play solo</Link>
+          <Link prefetch={false} href={`/study/${identifier}`} className="btn btn-secondary btn-compact">Study</Link>
+          <button onClick={handleShare} className="btn btn-secondary btn-compact" title={shareCopied ? "Link copied!" : "Share quiz link"}>
+            {shareCopied ? "Copied" : "Share"}
+          </button>
+        </div>
+      </details>
     </div>
   );
 }

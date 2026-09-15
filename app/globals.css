@@ -1198,6 +1198,18 @@ body.qw-present-live-route main {
   margin-bottom: 2rem;
 }
 
+.entry-eyebrow { color: var(--muted); font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 1rem; }
+.entry-help { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem 1rem; margin-top: 1rem; color: var(--muted); font-size: .8125rem; }
+.entry-help a { min-height: 44px; display: inline-flex; align-items: center; text-decoration: underline; text-underline-offset: 3px; }
+.entry-selection { background: var(--signal); color: var(--ink); border-radius: 8px; padding: .75rem 1rem; font-size: .875rem; margin-bottom: 1.25rem; }
+.entry-steps { list-style: decimal-leading-zero; padding: 1.25rem 0 0 1.75rem; display: grid; gap: 1rem; margin-block: 1.5rem 1.25rem; border-top: 1px solid var(--line); }
+.entry-steps li { padding-left: .35rem; }
+.entry-steps li::marker { font-size: .75rem; font-weight: 700; color: var(--muted); }
+.entry-steps strong, .entry-steps span { display: block; }
+.entry-steps strong { font-size: .9375rem; }
+.entry-steps span, .entry-reassurance { color: var(--muted); font-size: .8125rem; }
+.entry-reassurance { margin-bottom: 1.25rem; }
+
 .join-pin-label {
   font-size: 0.875rem;
   font-weight: 700;

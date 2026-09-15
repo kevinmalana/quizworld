@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { HostIcon } from "@/components/shared/host-icon";
 import { SignOutIcon } from "@/components/shared/signout-icon";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { usePathname, useRouter } from "next/navigation";
@@ -70,6 +69,9 @@ export function Navigation() {
             <Link prefetch={false} href="/join" className={`nav-item ${pathname === "/join" ? "active" : ""}`}>
               <span className="nav-symbol" aria-hidden="true">🎮</span>
               <span>Join</span>
+            </Link>
+            <Link prefetch={false} href="/host" className={`nav-item ${pathname === "/host" ? "active" : ""}`} aria-current={pathname === "/host" ? "page" : undefined}>
+              <span>Host</span>
             </Link>
             <Link prefetch={false} href="/explore" className={`nav-item ${pathname === "/explore" ? "active" : ""}`}>
               <span className="nav-symbol" aria-hidden="true">🔍</span>
@@ -140,7 +142,8 @@ export function Navigation() {
               <button className="close-btn" aria-label="Close navigation" onClick={() => setMenuOpen(false)}>✕</button>
             </div>
             <div className="mobile-links" style={{ padding: "1rem" }}>
-              <Link prefetch={false} href="/join" className="mobile-link">🎮 Join</Link>
+              <Link prefetch={false} href="/join" className="mobile-link">Join with a PIN</Link>
+              <Link prefetch={false} href="/host" className="mobile-link">Host a game</Link>
               <Link prefetch={false} href="/explore" className="mobile-link">🔍 Explore</Link>
               <Link prefetch={false} href="/study" className="mobile-link">📖 Study</Link>
               <Link prefetch={false} href="/leaderboard" className="mobile-link">🏆 Leaderboard</Link>
@@ -150,7 +153,6 @@ export function Navigation() {
               <Link prefetch={false} href="/achievements" className="mobile-link">🏅 Achievements</Link>
               <Link prefetch={false} href="/present" className="mobile-link">🎤 Present</Link>
               <Link prefetch={false} href="/create/activity" className="mobile-link">✨ Create</Link>
-              <Link prefetch={false} href="/host" className="mobile-link"><span style={{display:"inline-flex",alignItems:"center",gap:"0.4rem"}}><HostIcon size={16} /> Host</span></Link>
               {user ? (
                 <>
                   <Link prefetch={false} href="/profile" className="mobile-link">👤 Profile{needsProfile && " ⚠️"}</Link>
