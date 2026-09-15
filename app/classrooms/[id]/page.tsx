@@ -400,8 +400,20 @@ export default function ClassroomDetailPage() {
 
   async function handleDeleteAssignment(assignmentId: string) {
     if (!confirm("Remove this assignment from the classroom?")) return;
-    await supabase.from("classroom_assignments").delete().eq("id", assignmentId);
-    load();
+    try {
+      const { data, error } = await supabase.from("classroom_assignments").delete()
+        .eq("id", assignmentId).eq("classroom_id", id).select("id");
+      if (error || data?.length !== 1) {
+        setMsg("Assignment could not be removed. It may no longer exist or you may not have permission.");
+        setMsgType("error");
+        return;
+      }
+      setMsg("Assignment removed."); setMsgType("success");
+      load();
+    } catch {
+      setMsg("Assignment could not be removed. Check your connection and try again.");
+      setMsgType("error");
+    }
   }
 
   async function handleNudge(assignmentId: string, assignmentTitle: string) {
@@ -457,7 +469,8 @@ export default function ClassroomDetailPage() {
 
   async function handlePromoteToTeacher(userId: string, memberName: string) {
     if (!confirm(`Make ${memberName} a co-teacher?`)) return;
-    await supabase.from("classroom_members").update({ role: "teacher" }).eq("classroom_id", id).eq("user_id", userId);
+    const { data, error } = await supabase.from("classroom_members").update({ role: "teacher" }).eq("classroom_id", id).eq("user_id", userId).select("id");
+    if (error || data?.length !== 1) { setMsg("Role could not be changed. Check your permission."); setMsgType("error"); return; }
     setMsg(`${memberName} is now a co-teacher.`); setMsgType("success");
     setTimeout(() => setMsg(""), 3000);
     load();
@@ -470,13 +483,15 @@ export default function ClassroomDetailPage() {
       return;
     }
     if (!confirm(`Leave "${classroom.name}"?`)) return;
-    await supabase.from("classroom_members").delete().eq("classroom_id", id).eq("user_id", user.id);
+    const { data, error } = await supabase.from("classroom_members").delete().eq("classroom_id", id).eq("user_id", user.id).select("id");
+    if (error || data?.length !== 1) { setMsg("Could not leave classroom. Please try again."); setMsgType("error"); return; }
     router.push("/classrooms");
   }
 
   async function handleRemoveMember(userId: string, memberName: string) {
     if (!confirm(`Remove ${memberName} from this classroom?`)) return;
-    await supabase.from("classroom_members").delete().eq("classroom_id", id).eq("user_id", userId);
+    const { data, error } = await supabase.from("classroom_members").delete().eq("classroom_id", id).eq("user_id", userId).select("id");
+    if (error || data?.length !== 1) { setMsg("Member could not be removed. Check your permission."); setMsgType("error"); return; }
     load();
   }
 

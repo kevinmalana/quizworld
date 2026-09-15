@@ -27,6 +27,7 @@ export default function GroupDetailPage() {
   const [pinSearchVal, setPinSearchVal] = useState("");
   const [pinSearchResults, setPinSearchResults] = useState<{ id: string; title: string; category: string }[]>([]);
   const [pinMsg, setPinMsg] = useState("");
+  const [mutationError, setMutationError] = useState("");
 
   async function load() {
     setLoading(true);
@@ -76,7 +77,9 @@ export default function GroupDetailPage() {
 
   async function handleJoin() {
     if (!user || !group) return;
-    await supabase.from("trivia_group_members").insert({ group_id: group.id, user_id: user.id, role: "member" });
+    const { data, error } = await supabase.from("trivia_group_members").insert({ group_id: group.id, user_id: user.id, role: "member" }).select("id");
+    if (error || data?.length !== 1) { setMutationError("Could not join group. Please try again."); return; }
+    setMutationError("");
     load();
   }
 
@@ -103,13 +106,16 @@ export default function GroupDetailPage() {
   async function handleLeave() {
     if (!user || !group) return;
     if (!confirm(`Leave "${group.name}"?`)) return;
-    await supabase.from("trivia_group_members").delete().eq("group_id", group.id).eq("user_id", user.id);
+    const { data, error } = await supabase.from("trivia_group_members").delete().eq("group_id", group.id).eq("user_id", user.id).select("id");
+    if (error || data?.length !== 1) { setMutationError("Could not leave group. Please try again."); return; }
     router.push("/groups");
   }
 
   async function handleRemoveMember(userId: string, memberName: string) {
     if (!confirm(`Remove ${memberName} from this group?`)) return;
-    await supabase.from("trivia_group_members").delete().eq("group_id", group!.id).eq("user_id", userId);
+    const { data, error } = await supabase.from("trivia_group_members").delete().eq("group_id", group!.id).eq("user_id", userId).select("id");
+    if (error || data?.length !== 1) { setMutationError("Member could not be removed. Check your permission."); return; }
+    setMutationError("");
     load();
   }
 
@@ -125,6 +131,7 @@ export default function GroupDetailPage() {
       </div>
 
       <div className="social-header social-header--compact">
+        {mutationError && <div role="alert" className="social-status-msg social-status-msg--error">{mutationError}</div>}
         <h1>{group.emoji} {group.name}</h1>
         {group.description && <p>{group.description}</p>}
         <div className="social-header-meta">
