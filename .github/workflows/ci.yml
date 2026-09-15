@@ -41,6 +41,10 @@ jobs:
         env:
           # Embedded at build time: local fixture lookups must not reach live rooms.
           NEXT_PUBLIC_GAME_SERVICE_URL: https://quizworld-ux-test.invalid
+          # Non-secret SDK configuration, not a live Supabase project. These
+          # public values must exist during next build, not only next start.
+          NEXT_PUBLIC_SUPABASE_URL: https://quizworld-local-fixture.invalid
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_local_fixture_not_a_real_key
 
       - name: Verify E2E project selection
         run: node --test scripts/e2e-selection.test.cjs

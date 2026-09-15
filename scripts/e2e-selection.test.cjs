@@ -107,6 +107,18 @@ test('local configuration cannot inherit a production URL and owns loopback serv
   assert.equal(local.webServer.url, 'http://127.0.0.1:3000/join');
   assert.equal(local.webServer.command, 'npm run start -- --hostname 127.0.0.1 --port 3000');
   assert.equal(local.webServer.reuseExistingServer, false);
+  // Public values are compiled into client chunks: runtime-only configuration
+  // cannot repair an unconfigured build. Both phases must use isolated dummies.
+  const fixtureEnv = {
+    NEXT_PUBLIC_GAME_SERVICE_URL: 'https://quizworld-ux-test.invalid',
+    NEXT_PUBLIC_SUPABASE_URL: 'https://quizworld-local-fixture.invalid',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_local_fixture_not_a_real_key',
+  };
+  assert.deepEqual(local.webServer.env, fixtureEnv);
+  const buildStep = steps().find(step => step.includes('run: npm run check\n'));
+  for (const [name, value] of Object.entries(fixtureEnv)) {
+    assert.ok(buildStep.includes(`${name}: ${value}\n`), `${name} must be supplied at build time`);
+  }
   assert.equal(local.workers, 1);
   for (const url of ['https://www.quizworld.xyz', 'http://127.0.0.1.evil.example', 'http://user:secret@localhost:3000', 'http://localhost:3000/path']) {
     const invalid = spawnSync(process.execPath, [require.resolve('@playwright/test/cli'), 'test', '--list', '--project=local-fixtures'], {

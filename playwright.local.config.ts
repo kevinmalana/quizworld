@@ -12,6 +12,12 @@ export default defineConfig({
     url: `${localFixtureURL.replace(/\/$/, '')}/join`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
-    env: { NEXT_PUBLIC_GAME_SERVICE_URL: 'https://quizworld-ux-test.invalid' },
+    // Match CI build-time values; never inherit a developer's live project.
+    // The invalid origin makes SSR fail closed into the client catalog fixture.
+    env: {
+      NEXT_PUBLIC_GAME_SERVICE_URL: 'https://quizworld-ux-test.invalid',
+      NEXT_PUBLIC_SUPABASE_URL: 'https://quizworld-local-fixture.invalid',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_local_fixture_not_a_real_key',
+    },
   },
 });
