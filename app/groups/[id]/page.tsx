@@ -27,6 +27,7 @@ export default function GroupDetailPage() {
   const [pinSearchVal, setPinSearchVal] = useState("");
   const [pinSearchResults, setPinSearchResults] = useState<{ id: string; title: string; category: string }[]>([]);
   const [pinMsg, setPinMsg] = useState("");
+  const [mutationError, setMutationError] = useState("");
 
   async function load() {
     setLoading(true);
@@ -76,7 +77,9 @@ export default function GroupDetailPage() {
 
   async function handleJoin() {
     if (!user || !group) return;
-    await supabase.from("trivia_group_members").insert({ group_id: group.id, user_id: user.id, role: "member" });
+    const { data, error } = await supabase.from("trivia_group_members").insert({ group_id: group.id, user_id: user.id, role: "member" }).select("id");
+    if (error || data?.length !== 1) { setMutationError("Could not join group. Please try again."); return; }
+    setMutationError("");
     load();
   }
 
@@ -89,7 +92,12 @@ export default function GroupDetailPage() {
   async function handlePin(quizId: string) {
     if (!user || !group) return;
     const { error } = await supabase.from("group_pinned_quizzes").insert({ group_id: group.id, quiz_id: quizId, pinned_by: user.id });
-    if (error?.message?.includes("duplicate")) { setPinMsg("Already pinned."); } else { setPinMsg("Quiz pinned! 📌"); }
+    if (error) {
+      setMutationError(error.message?.includes("duplicate") ? "Already pinned." : "Quiz could not be pinned. Check your membership and try again.");
+      return;
+    }
+    setMutationError("");
+    setPinMsg("Quiz pinned! 📌");
     setPinSearchVal(""); setPinSearchResults([]); setShowPinSearch(false);
     setTimeout(() => setPinMsg(""), 2000);
     load();
@@ -103,14 +111,13 @@ export default function GroupDetailPage() {
   async function handleLeave() {
     if (!user || !group) return;
     if (!confirm(`Leave "${group.name}"?`)) return;
-    await supabase.from("trivia_group_members").delete().eq("group_id", group.id).eq("user_id", user.id);
+    const { data, error } = await supabase.from("trivia_group_members").delete().eq("group_id", group.id).eq("user_id", user.id).select("id");
+    if (error || data?.length !== 1) { setMutationError("Could not leave group. Please try again."); return; }
     router.push("/groups");
   }
 
   async function handleRemoveMember(userId: string, memberName: string) {
-    if (!confirm(`Remove ${memberName} from this group?`)) return;
-    await supabase.from("trivia_group_members").delete().eq("group_id", group!.id).eq("user_id", userId);
-    load();
+    setMutationError("Member could not be removed: admin removal is not available. Members can leave voluntarily.");
   }
 
   if (loading) return <div className="container social-shell"><div className="social-empty"><div className="social-empty-icon">📡</div><div>Loading...</div></div></div>;
@@ -125,6 +132,7 @@ export default function GroupDetailPage() {
       </div>
 
       <div className="social-header social-header--compact">
+        {mutationError && <div role="alert" className="social-status-msg social-status-msg--error">{mutationError}</div>}
         <h1>{group.emoji} {group.name}</h1>
         {group.description && <p>{group.description}</p>}
         <div className="social-header-meta">
@@ -167,7 +175,7 @@ export default function GroupDetailPage() {
                   <span className={`social-role-badge social-role-badge--${m.role}`}>{m.role}</span>
                   <div className="social-xp-label">{m.total_xp.toLocaleString()} XP</div>
                   {myRole === "admin" && m.user_id !== user?.id && (
-                    <button className="btn btn-secondary btn-compact social-btn-sm" onClick={() => handleRemoveMember(m.user_id, m.display_name || m.username)}>Remove</button>
+                    <span className="social-member-meta">Admin removal unavailable; members can leave voluntarily.</span>
                   )}
                 </div>
               </div>

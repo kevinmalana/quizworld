@@ -178,13 +178,10 @@ export function GameReport({ result, pin, initialTab = "overview" }: { result: G
             <div className="card report-podium">
               <h3 className="report-podium-title">🏆 Top Players</h3>
               <div className="report-podium-row">
-                {sortedPlayers.slice(0, 3).map((player, i) => {
+                {[1, 0, 2].filter(idx => idx < sortedPlayers.length).map(idx => {
                   const medals = ["🥇", "🥈", "🥉"];
                   const heights = [120, 95, 75];
-                  const order = [1, 0, 2];
-                  const idx = order[i] ?? i;
                   const p = sortedPlayers[idx];
-                  if (!p) return null;
                   const acc = playerAccuracy[p.id];
                   return (
                     <div key={p.id} className="report-podium-player">

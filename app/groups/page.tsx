@@ -80,21 +80,23 @@ export default function GroupsPage() {
     load();
   }
 
-  async function handleJoin(groupId?: string, code?: string) {
+  async function handleJoin(groupId?: string) {
     if (!user) return;
-    let gId = groupId;
-    if (!gId) {
-      const c = joinCode.trim().toUpperCase();
-      const { data: g } = await supabase.from("trivia_groups").select("id, name").eq("join_code", c).maybeSingle();
-      if (!g) { setMsg("Group not found."); setMsgType("error"); return; }
-      gId = g.id;
+    try {
+      // Public discovery may join by id; private records are redeemed only by code.
+      const result = groupId
+        ? await supabase.from("trivia_group_members").insert({ group_id: groupId, user_id: user.id, role: "member" }).select("id").single()
+        : await supabase.rpc("join_trivia_group_by_code", { p_code: joinCode.trim().toUpperCase() });
+      if (result.error || !result.data) {
+        setMsg("Could not join group. Check the code or your permission and try again."); setMsgType("error"); return;
+      }
+      setMsg("Joined!"); setMsgType("success"); setShowJoin(false); setJoinCode("");
+      setTimeout(() => setMsg(""), 2000);
+      checkAndGrantAchievements({ userId: user.id, supabase }).catch(() => {});
+      load();
+    } catch {
+      setMsg("Could not join group. Check your connection and try again."); setMsgType("error");
     }
-    const { error } = await supabase.from("trivia_group_members").insert({ group_id: gId, user_id: user.id, role: "member" });
-    if (error?.message?.includes("duplicate")) { setMsg("Already a member."); setMsgType("error"); return; }
-    setMsg("Joined!"); setMsgType("success"); setShowJoin(false); setJoinCode("");
-    setTimeout(() => setMsg(""), 2000);
-    if (user) checkAndGrantAchievements({ userId: user.id, supabase }).catch(() => {});
-    load();
   }
 
   return (
@@ -163,7 +165,7 @@ export default function GroupsPage() {
       {showJoin && (
         <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem" }}>
           <div className="social-add-row">
-            <input className="social-add-input" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="6-character group code" maxLength={6} />
+            <input className="social-add-input" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="6-character group code" maxLength={64} />
             <button className="btn btn-primary btn-compact" onClick={() => handleJoin()}>Join</button>
           </div>
         </div>

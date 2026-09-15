@@ -46,7 +46,14 @@
 .explore-quiz-meta-item { display: flex; gap: .35rem; align-items: center; }
 .explore-quiz-meta-icon { font-size: .7rem; }
 .explore-quiz-actions { display: flex; flex-wrap: wrap; gap: .45rem; align-items: center; margin-top: auto; }
-.explore-quiz-actions .btn { font-size: .75rem; padding: .5rem .7rem; flex: 1 1 auto; }
+.explore-quiz-actions .btn { font-size: .875rem; padding: .65rem .8rem; flex: 1 1 auto; }
+.explore-quiz-options { margin-top: .5rem; border-top: 1px solid var(--line); }
+.explore-quiz-options summary { min-height: 44px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: var(--muted); font-size: .8125rem; font-weight: 600; }
+.explore-quiz-options summary::after { content: '+'; font-size: 1.125rem; }
+.explore-quiz-options[open] summary::after { content: '−'; }
+.explore-quiz-options summary:focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; border-radius: 4px; }
+.explore-quiz-secondary-actions { display: flex; flex-wrap: wrap; gap: .5rem; padding-block: .5rem .25rem; }
+.explore-quiz-secondary-actions .btn { flex: 1 1 auto; font-size: .8125rem; }
 .explore-quiz-action-host { flex: 1; }
 .explore-load-more { display: flex; justify-content: center; padding-top: 1.5rem; }
 .explore-surprise-button { position: static; display: flex; margin: 1.5rem auto 0; background: var(--surface); border: 1px solid var(--line-strong); color: var(--ink); box-shadow: none; }

@@ -93,17 +93,19 @@ export default function ClassroomsPage() {
 
   async function handleJoin() {
     if (!user || !joinCode.trim()) return;
-    const code = joinCode.trim().toUpperCase();
-    const { data: room } = await supabase.from("classrooms").select("id, name").eq("join_code", code).maybeSingle();
-    if (!room) { setMsg("Classroom not found. Check the code."); setMsgType("error"); return; }
-    const { error } = await supabase.from("classroom_members").insert({ classroom_id: room.id, user_id: user.id, role: "student" });
-    if (error?.message?.includes("duplicate")) { setMsg("You're already in this classroom."); setMsgType("error"); return; }
-    setMsg(`Joined "${room.name}"!`); setMsgType("success");
-    setShowJoin(false); setJoinCode("");
-    setTimeout(() => setMsg(""), 3000);
-    // Check join_classroom achievement
-    if (user) checkAndGrantAchievements({ userId: user.id, supabase }).catch(() => {});
-    load();
+    try {
+      const { data, error } = await supabase.rpc("join_classroom_by_code", { p_code: joinCode.trim().toUpperCase() });
+      if (error || !data) {
+        setMsg("Could not join classroom. Check the code and try again."); setMsgType("error"); return;
+      }
+      setMsg("Joined classroom!"); setMsgType("success");
+      setShowJoin(false); setJoinCode("");
+      setTimeout(() => setMsg(""), 3000);
+      checkAndGrantAchievements({ userId: user.id, supabase }).catch(() => {});
+      load();
+    } catch {
+      setMsg("Could not join classroom. Check your connection and try again."); setMsgType("error");
+    }
   }
 
   if (!user) return (
@@ -153,7 +155,7 @@ export default function ClassroomsPage() {
         <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem" }}>
           <div className="social-section-title" style={{ marginTop: 0 }}>Join Classroom</div>
           <div className="social-add-row">
-            <input className="social-add-input" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="Enter 6-character code" maxLength={6} />
+            <input className="social-add-input" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="Enter 6-character code" maxLength={64} />
             <button className="btn btn-primary btn-compact" onClick={handleJoin}>Join</button>
           </div>
         </div>

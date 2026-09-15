@@ -400,8 +400,20 @@ export default function ClassroomDetailPage() {
 
   async function handleDeleteAssignment(assignmentId: string) {
     if (!confirm("Remove this assignment from the classroom?")) return;
-    await supabase.from("classroom_assignments").delete().eq("id", assignmentId);
-    load();
+    try {
+      const { data, error } = await supabase.from("classroom_assignments").delete()
+        .eq("id", assignmentId).eq("classroom_id", id).select("id");
+      if (error || data?.length !== 1) {
+        setMsg("Assignment could not be removed. It may no longer exist or you may not have permission.");
+        setMsgType("error");
+        return;
+      }
+      setMsg("Assignment removed."); setMsgType("success");
+      load();
+    } catch {
+      setMsg("Assignment could not be removed. Check your connection and try again.");
+      setMsgType("error");
+    }
   }
 
   async function handleNudge(assignmentId: string, assignmentTitle: string) {
@@ -456,27 +468,26 @@ export default function ClassroomDetailPage() {
   }
 
   async function handlePromoteToTeacher(userId: string, memberName: string) {
-    if (!confirm(`Make ${memberName} a co-teacher?`)) return;
-    await supabase.from("classroom_members").update({ role: "teacher" }).eq("classroom_id", id).eq("user_id", userId);
-    setMsg(`${memberName} is now a co-teacher.`); setMsgType("success");
-    setTimeout(() => setMsg(""), 3000);
-    load();
+    setMsg("Role could not be changed: co-teacher promotion is not available. Ownership transfer requires a separate governance release.");
+    setMsgType("error");
   }
 
   async function handleLeave() {
     if (!user || !classroom) return;
     if (myRole === "teacher" && members.filter(m => m.role === "teacher").length <= 1) {
-      alert("You're the only teacher — promote a co-teacher before leaving.");
+      alert("You are the only teacher and cannot leave. Co-teacher promotion and ownership transfer are not currently available.");
       return;
     }
     if (!confirm(`Leave "${classroom.name}"?`)) return;
-    await supabase.from("classroom_members").delete().eq("classroom_id", id).eq("user_id", user.id);
+    const { data, error } = await supabase.from("classroom_members").delete().eq("classroom_id", id).eq("user_id", user.id).select("id");
+    if (error || data?.length !== 1) { setMsg("Could not leave classroom. Please try again."); setMsgType("error"); return; }
     router.push("/classrooms");
   }
 
   async function handleRemoveMember(userId: string, memberName: string) {
     if (!confirm(`Remove ${memberName} from this classroom?`)) return;
-    await supabase.from("classroom_members").delete().eq("classroom_id", id).eq("user_id", userId);
+    const { data, error } = await supabase.from("classroom_members").delete().eq("classroom_id", id).eq("user_id", userId).select("id");
+    if (error || data?.length !== 1) { setMsg("Member could not be removed. Check your permission."); setMsgType("error"); return; }
     load();
   }
 
@@ -618,9 +629,7 @@ export default function ClassroomDetailPage() {
                   <span className={`social-role-badge social-role-badge--${m.role}`}>{m.role}</span>
                   <div className="social-xp-label">{m.total_xp.toLocaleString()} XP</div>
                   {myRole === "teacher" && m.user_id !== user?.id && m.role === "student" && (
-                    <button className="btn btn-secondary btn-compact social-btn-sm" onClick={() => handlePromoteToTeacher(m.user_id, m.display_name || m.username)}>
-                      ⬆️ Co-teacher
-                    </button>
+                    <span className="social-member-meta">Co-teacher promotion unavailable.</span>
                   )}
                   {myRole === "teacher" && m.user_id !== user?.id && (
                     <button className="btn btn-secondary btn-compact social-btn-sm" onClick={() => handleRemoveMember(m.user_id, m.display_name || m.username)}>

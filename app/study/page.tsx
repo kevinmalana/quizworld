@@ -202,6 +202,7 @@ export default function StudyListPage() {
           const { data: assignedRows } = await supabase
             .from("quizzes")
             .select("id, title, emoji, color, category, created_at, questions(id)")
+            .is("archived_at", null)
             .in("id", ids);
           if (!ignore && assignedRows) {
             const normalized = assignedRows.map(row => ({ ...row, category: canonicalizeCategory(row.category) })) as QuizRow[];
@@ -362,7 +363,7 @@ export default function StudyListPage() {
             totalXp={totalXp}
             streak={streak}
             longestStreak={longestStreak}
-            studiedCount={studiedQuizzes.length}
+            studiedCount={progress.length}
             avgMastery={avgMastery}
             accuracyRate={accuracyRate}
             totalSessionXp={totalSessionXp}
