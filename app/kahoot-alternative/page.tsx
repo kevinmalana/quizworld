@@ -194,7 +194,7 @@ export default function KahootAlternativePage() {
           No credit card. No participant limits. No paywalls. Just great quizzes.
         </p>
         <Link href="/create" className="btn btn-primary" style={{ fontSize: "1.05rem", padding: "0.75rem 2rem" }}>
-          Create Your First Quiz Free →
+          Create Your First Quiz Free
         </Link>
       </div>
     </div>

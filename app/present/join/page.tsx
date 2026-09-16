@@ -133,7 +133,7 @@ function JoinForm() {
           disabled={loading || !codeComplete}
           className="btn btn-primary btn-lg present-join-btn"
         >
-          {loading ? "Joining..." : "Join →"}
+          {loading ? "Joining..." : "Join"}
         </button>
       </div>
     </div>

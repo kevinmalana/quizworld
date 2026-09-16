@@ -14,7 +14,7 @@ test('quiz cards prioritize hosting and preview while retaining solo, study and 
   await expect(card).toBeVisible();
   await expect(card).toContainText('Local UX fixture quiz');
   const hostHref = await card.getByRole('link', { name: 'Host', exact: true }).getAttribute('href');
-  const detailHref = await card.getByRole('link', { name: 'View details →', exact: true }).getAttribute('href');
+  const detailHref = await card.getByRole('link', { name: 'View details', exact: true }).getAttribute('href');
   await expect(card.getByRole('link', { name: /Play solo/ })).not.toBeVisible();
   const options = card.getByText('More options', { exact: true });
   await options.focus();

@@ -191,7 +191,7 @@ export default async function QuizLandingPage() {
       {/* More CTA */}
       <div style={{ textAlign: "center" }}>
         <Link href="/explore" className="btn btn-secondary" style={{ marginRight: "1rem" }}>
-          View All Quizzes →
+          View All Quizzes
         </Link>
         <Link href="/create" className="btn btn-primary">
           ✨ Create a Free Quiz

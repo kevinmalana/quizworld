@@ -192,7 +192,7 @@ export default function GroupsPage() {
                       <span>{g.is_public ? "🌐 Public" : "🔒 Private"}</span>
                     </div>
                     <div className="social-card-actions">
-                      <Link href={`/groups/${g.id}`} className="btn btn-primary btn-compact" style={{ flex: 1, textAlign: "center" }}>View →</Link>
+                      <Link href={`/groups/${g.id}`} className="btn btn-primary btn-compact" style={{ flex: 1, textAlign: "center" }}>View</Link>
                     </div>
                   </div>
                 ))}

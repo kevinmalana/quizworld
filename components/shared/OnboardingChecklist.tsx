@@ -145,10 +145,6 @@ export function OnboardingChecklist({
               )}
             </div>
 
-            {/* Arrow */}
-            {!item.completed && (
-              <span style={{ fontSize: "0.8rem", color: "var(--accent)", fontWeight: 700, flexShrink: 0 }}>→</span>
-            )}
           </Link>
         ))}
       </div>

@@ -78,7 +78,7 @@ export default function CreateActivityPage() {
         aria-disabled={deckNeedsPresentation}
         onClick={(event) => { if (deckNeedsPresentation) event.preventDefault(); }}
       >
-        Continue with {sources.find((item) => item.id === source)?.title} →
+        Continue with {sources.find((item) => item.id === source)?.title}
       </Link>
     </main>
   );

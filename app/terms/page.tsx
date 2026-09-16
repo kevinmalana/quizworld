@@ -100,7 +100,7 @@ export default function TermsPage() {
       </Section>
 
       <div style={{ marginTop: "2.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--line)", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-        <Link href="/privacy" className="btn btn-secondary btn-compact">Privacy Policy →</Link>
+        <Link href="/privacy" className="btn btn-secondary btn-compact">Privacy Policy</Link>
         <Link href="/" className="btn btn-secondary btn-compact">← Back to QuizWorld</Link>
       </div>
     </div>

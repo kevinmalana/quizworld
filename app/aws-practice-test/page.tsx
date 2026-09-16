@@ -181,7 +181,7 @@ export default function AWSPracticeTestPage() {
           Join thousands of students using QuizWorld to ace their AWS exams.
         </p>
         <Link href="/create" className="btn btn-primary" style={{ fontSize: "1.05rem", padding: "0.75rem 2rem" }}>
-          Create a Free Practice Test →
+          Create a Free Practice Test
         </Link>
       </div>
     </div>
