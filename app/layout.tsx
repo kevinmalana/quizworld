@@ -27,8 +27,11 @@ export const metadata: Metadata = {
   description: "Free Kahoot alternative with unlimited questions. Host live multiplayer quizzes, create AWS & certification practice exams, run classroom games or trivia nights. Join by PIN — no app needed.",
   metadataBase: new URL("https://www.quizworld.xyz"),
   icons: {
-    icon: "/favicon.svg",
-    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/favicon.ico?v=wordmark-1", sizes: "16x16 32x32 48x48" },
+      { url: "/favicon.svg?v=wordmark-1", type: "image/svg+xml", sizes: "any" },
+    ],
+    apple: { url: "/apple-touch-icon.png?v=wordmark-1", sizes: "180x180", type: "image/png" },
   },
   openGraph: {
     type: "website",
