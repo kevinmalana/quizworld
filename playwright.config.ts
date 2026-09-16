@@ -7,7 +7,7 @@ if (localURL.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(localU
     || localURL.username || localURL.password || localURL.pathname !== '/' || localURL.search || localURL.hash) {
   throw new Error('LOCAL_FIXTURE_BASE_URL must be an HTTP loopback origin');
 }
-const localFixtures = ['**/navigation-boundaries.spec.ts', '**/ux-polish.spec.ts'];
+const localFixtures = ['**/navigation-boundaries.spec.ts', '**/ux-polish.spec.ts', '**/analytics-consent.spec.ts'];
 
 export default defineConfig({
   testDir: './e2e',

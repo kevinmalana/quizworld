@@ -5,7 +5,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
-const localFiles = ['navigation-boundaries.spec.ts', 'ux-polish.spec.ts'];
+const localFiles = ['navigation-boundaries.spec.ts', 'ux-polish.spec.ts', 'analytics-consent.spec.ts'];
 function inventory(args = [], env = {}) {
   const run = spawnSync(process.execPath, [require.resolve('@playwright/test/cli'), 'test', '--list', '--reporter=json', ...args], {
     cwd: root, encoding: 'utf8', timeout: 30000,
@@ -33,11 +33,11 @@ const keys = cases => cases.map(item => item.key).sort();
 test('production and local projects partition every existing case without skips or duplicates', () => {
   const all = inventory();
   const production = inventory(['--project=chromium']);
-  assert.equal(all.cases.length, 311);
+  assert.equal(all.cases.length, 313);
   assert.equal(production.cases.length, 274);
   const local = inventory(['--config=playwright.local.config.ts', '--project=local-fixtures']);
-  assert.equal(local.cases.length, 37);
-  assert.equal(new Set(keys(all.cases)).size, 311);
+  assert.equal(local.cases.length, 39);
+  assert.equal(new Set(keys(all.cases)).size, 313);
   assert.deepEqual(keys([...production.cases, ...local.cases]), keys(all.cases));
   assert.deepEqual(keys(local.cases), keys(all.cases.filter(item => localFiles.includes(item.file))));
   assert.equal(production.cases.filter(item => localFiles.includes(item.file)).length, 0);
@@ -67,12 +67,12 @@ test('CI runs the built loopback fixture gate on PRs before explicitly selected 
   assert.match(workflowSteps[buildIndex], /NEXT_PUBLIC_GAME_SERVICE_URL: https:\/\/quizworld-ux-test\.invalid/);
   assert.match(production, /if: github.event_name == 'push' && github.ref == 'refs\/heads\/main'/);
   assert.match(production, /BASE_URL: https:\/\/www\.quizworld\.xyz/);
-  for (const [step, expectedCount, expectedFile] of [[local, 37, true], [production, 274, false]]) {
+  for (const [step, expectedCount, expectedFile] of [[local, 39, true], [production, 274, false]]) {
     const command = step.match(/        run: npx playwright test([^\n]*)/);
     assert.ok(command, 'workflow uses an explicit Playwright invocation');
     const selected = inventory(command[1].trim().split(/\s+/)).cases;
     assert.equal(selected.length, expectedCount);
-    assert.equal(selected.filter(item => localFiles.includes(item.file)).length, expectedFile ? 37 : 0);
+    assert.equal(selected.filter(item => localFiles.includes(item.file)).length, expectedFile ? 39 : 0);
     assert.doesNotMatch(step, /continue-on-error|--pass-with-no-tests|--grep-invert/);
   }
   assert.ok(workflowSteps.some(step => step.includes('node --test scripts/e2e-selection.test.cjs')));
