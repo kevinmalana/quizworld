@@ -10,7 +10,7 @@ test("favicon uses the header's outlined Bricolage Q and current palette", () =>
   const navigation = read("components/navigation.tsx").toString();
   assert.match(navigation, /className="logo-quiz">Quiz<\/span>/);
   assert.match(css, /font-family: "Bricolage"/);
-  assert.match(css, /\.nav-logo\s*\{[^}]*font-weight: 800/s);
+  assert.match(css, /\.nav-logo\s*\{[^}]*font-weight: 800/);
   assert.match(svg, /viewBox="0 0 32 32"/);
   assert.match(svg, /<path fill="#172c4b" d="M/);
   for (const color of ["#172c4b", "#f3f6fc", "#78869b"]) {
