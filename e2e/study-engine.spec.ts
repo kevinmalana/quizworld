@@ -32,7 +32,7 @@ test.describe('Study Engine: Availability', () => {
 test.describe('Study Engine: Quiz Detail', () => {
   test('quiz detail page loads from explore', async ({ page }) => {
     await page.goto('/explore');
-    const detailsLink = page.getByRole('link', { name: 'View details →' }).first();
+    const detailsLink = page.getByRole('link', { name: 'View details' }).first();
     await expect(detailsLink).toBeVisible({ timeout: 10_000 });
 
     const destination = await detailsLink.getAttribute('href');
