@@ -40,6 +40,17 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
+        // Automatic measurement runs in an empty, disposable document,
+        // not in the app document with its private history/forms/content.
+        source: '/analytics-frame.html',
+        headers: [
+          { key: 'Content-Security-Policy', value: "default-src 'none'; script-src 'self' https://www.googletagmanager.com; connect-src https://*.google-analytics.com https://*.analytics.google.com; img-src https://*.google-analytics.com; frame-ancestors 'self'; base-uri 'none'; form-action 'none'" },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+          { key: 'Cache-Control', value: 'no-store' },
+        ],
+      },
+      {
         source: "/:all*(svg|png|jpg|jpeg|gif|webp|ico|mp4|webm)",
         headers: [
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },

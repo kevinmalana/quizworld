@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "QuizWorld Privacy Policy — how we collect, use, and protect your personal information.",
 };
 
-const LAST_UPDATED = "9 September 2026";
+const LAST_UPDATED = "16 September 2026";
 
 export default function PrivacyPage() {
   return (
@@ -29,7 +29,7 @@ export default function PrivacyPage() {
         <p><strong>Quiz content:</strong> Quizzes, questions, and answers you create are stored on our servers.</p>
         <p><strong>Game session data:</strong> Player nicknames, scores, and answers during live game sessions. This data is used to run the game and generate results.</p>
         <p><strong>Usage data:</strong> XP points, study progress, streak counts, and leaderboard position — used to power your profile and game features.</p>
-        <p><strong>Technical data:</strong> Browser type, device type, and IP address collected automatically when you use the Platform. Used for security and performance monitoring only.</p>
+        <p><strong>Technical data:</strong> Browser type, device type, and IP address collected automatically when you use the Platform. Used for security and performance monitoring; optional analytics is described below.</p>
       </Section>
 
       <Section title="3. How We Use Your Data">
@@ -50,18 +50,25 @@ export default function PrivacyPage() {
       </Section>
 
       <Section title="5. Cookies">
-        <p>We use essential cookies to keep you logged in and maintain your session. We do not use tracking or advertising cookies. You can disable cookies in your browser settings, but this may affect your ability to log in.</p>
+        <p>We use essential cookies to keep you logged in and maintain your session. Optional Google Analytics 4 is off until you confirm you are 18 or older and choose to allow it. Rejecting analytics does not limit QuizWorld. Your choice is stored in this browser, separately from essential cookies. You can change it using Analytics preferences on any page.</p>
+      </Section>
+
+      <Section title="Optional Google Analytics">
+        <p>For opted-in, signed-out adults, we measure visits only to our home page, Kahoot alternative page and AWS practice test information page. Analytics is not loaded on login, account, discovery, quiz, game, study, classroom or other private routes, or while you are signed in.</p>
+        <p>We send fixed public page labels, not your actual URL, query string, fragment, page title or referrer. We do not send names, emails, quiz content, answers, room codes or account/student identifiers. Google also receives a pseudonymous browser identifier, device/browser information and your IP address when your browser connects. This is not anonymous data. See <a href="https://policies.google.com/technologies/partner-sites" rel="noreferrer">how Google uses information from partner sites</a>.</p>
+        <p>Analytics uses host-only session cookies with the qwga_ prefix. Rejecting or withdrawing consent stops future analytics and removes those cookies; it does not affect sign-in cookies. We do not keep a local browsing-history log. Browser settings can also delete cookies and your saved preference.</p>
+        <p>Google Analytics runs in a separate empty frame. Enhanced Measurement can remain enabled, but does not measure your forms, site searches, downloads, videos or clicks in the QuizWorld application. Automatic frame engagement or scroll events may occur and are not measurements of those application interactions. Advertising storage, advertising user data, ad personalization and Google signals are disabled by this integration. We do not configure User-ID or share your account details with Google.</p>
       </Section>
 
       <Section title="6. Children&rsquo;s Privacy">
         <p>QuizWorld requires users to be at least 13 years old. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has created an account, please contact us at <strong>support@quizworld.xyz</strong> and we will delete the account promptly.</p>
-        <p>For classroom use involving students under 18, teachers are responsible for ensuring appropriate consent has been obtained from parents or guardians.</p>
+        <p>For classroom use involving students under 18, teachers are responsible for ensuring appropriate consent has been obtained from parents or guardians. Optional analytics is intended only for signed-out adults, not students or classroom activity.</p>
       </Section>
 
       <Section title="7. Sharing Your Data">
         <p>We only share your data in these circumstances:</p>
         <ul>
-          <li><strong>Service providers:</strong> Supabase (database), Render (game engine), Vercel (website hosting). These providers process data only as needed to deliver the service.</li>
+          <li><strong>Service providers:</strong> Supabase (database), Render (game engine), Vercel (website hosting), and Google (optional analytics after your opt-in). These providers process data only as needed to deliver the service.</li>
           <li><strong>Legal requirements:</strong> If required by law, court order, or to protect the safety of users or the public.</li>
           <li>We do not share your data with advertisers or data brokers.</li>
         </ul>
@@ -84,7 +91,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section title="10. International Transfers">
-        <p>QuizWorld is based in Australia. Our service providers (Supabase, Vercel, Render) may process data in the United States and other countries. These providers maintain appropriate safeguards including Standard Contractual Clauses for transfers from the EU/UK.</p>
+        <p>QuizWorld is based in Australia. Our service providers (Supabase, Vercel, Render and, if you opt in, Google) may process data in the United States and other countries. These providers maintain appropriate safeguards including Standard Contractual Clauses for transfers from the EU/UK.</p>
       </Section>
 
       <Section title="11. Australian Privacy Act">
@@ -94,6 +101,7 @@ export default function PrivacyPage() {
       <Section title="12. GDPR (EU &amp; UK Users)">
         <p>If you are located in the European Union or United Kingdom, you have additional rights under the General Data Protection Regulation (GDPR). Our legal basis for processing your data is:</p>
         <ul>
+          <li><strong>Consent</strong> — for optional analytics; withdraw it at any time using Analytics preferences. Withdrawal stops future analytics but does not delete data already received by Google. Contact us about deletion requests.</li>
           <li><strong>Contract performance</strong> — to provide the QuizWorld service you signed up for.</li>
           <li><strong>Legitimate interests</strong> — to operate, improve, and secure the Platform.</li>
           <li><strong>Legal obligation</strong> — where required by law.</li>
