@@ -89,7 +89,7 @@ export function BuilderToolbar({
         )}
 
         {/* Publish */}
-        <button onClick={onPublish} disabled={!canPublish} className="builder-toolbar__publish">{isEditing ? "Update" : "Publish"} →</button>
+        <button onClick={onPublish} disabled={!canPublish} className="builder-toolbar__publish">{isEditing ? "Update" : "Publish"}</button>
       </div>
     </div>
   );

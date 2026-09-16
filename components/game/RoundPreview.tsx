@@ -12,7 +12,7 @@ export function RoundPreview() {
   const [phase,setPhase]=useState<typeof PHASES[number]['id']>('join');
   const current=PHASES.find(item=>item.id===phase)!;
   return <section className="round-preview" data-phase={phase} aria-label="How a live round works">
-    <div className="round-preview-top"><p className="eyebrow">How a live round works</p><span aria-hidden="true">↗</span></div>
+    <div className="round-preview-top"><p className="eyebrow">How a live round works</p></div>
     <svg className="round-scene" viewBox="0 0 500 240" fill="none" aria-hidden="true">
       <ellipse cx="250" cy="132" rx="211" ry="80" stroke="#5a6d8b" strokeDasharray="3 8"/>
       <path className="round-connect" d="m105 170 92-72 108 0 90 72" stroke="#dcfa60" strokeWidth="3" strokeDasharray="6 8"/>

@@ -110,7 +110,7 @@ export default function PrivacyPage() {
       </Section>
 
       <div style={{ marginTop: "2.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--line)", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-        <Link href="/terms" className="btn btn-secondary btn-compact">Terms of Service →</Link>
+        <Link href="/terms" className="btn btn-secondary btn-compact">Terms of Service</Link>
         <Link href="/" className="btn btn-secondary btn-compact">← Back to QuizWorld</Link>
       </div>
     </div>

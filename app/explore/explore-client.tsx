@@ -189,7 +189,7 @@ function SurpriseModal({
             style={{ flex: 1, textAlign: "center" }}
             onClick={onClose}
           >
-            View quiz →
+            View quiz
           </Link>
           <button
             onClick={onSkip}
@@ -475,8 +475,8 @@ function ExplorePageContent({
           </p>
 
           <div className="home-hero-actions">
-            <Link prefetch={false} href="/host" className="btn btn-secondary">Host a Game ↗</Link>
-            <Link prefetch={false} href="/create" className="text-link">Create a Quiz ↗</Link>
+            <Link prefetch={false} href="/host" className="btn btn-secondary">Host a Game</Link>
+            <Link prefetch={false} href="/create" className="text-link">Create a Quiz</Link>
           </div>
         </section>
 

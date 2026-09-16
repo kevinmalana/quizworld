@@ -236,7 +236,7 @@ export default function PresentPage() {
             <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: "0.5rem" }}>A title is required to create the presentation</p>
           )}
           <button onClick={handleCreateFromImport} disabled={importCreating || !importTitle.trim()} className="btn btn-primary btn-lg" style={{ width: "100%", marginTop: "1rem" }}>
-            {importCreating ? "Creating…" : "Create Presentation →"}
+            {importCreating ? "Creating…" : "Create Presentation"}
           </button>
           <button onClick={() => setPendingImport(null)} className="btn btn-secondary" style={{ width: "100%", marginTop: "0.5rem" }}>← Start over</button>
         </div>
@@ -252,7 +252,7 @@ export default function PresentPage() {
           <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 900, marginBottom: "0.25rem" }}>🎤 Presentations</h1>
           <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Create and manage your interactive presentations</p>
         </div>
-        <Link href="/present/join" className="btn btn-secondary" style={{ fontSize: "0.875rem" }}>Join a presentation →</Link>
+        <Link href="/present/join" className="btn btn-secondary" style={{ fontSize: "0.875rem" }}>Join a presentation</Link>
       </div>
 
       {showAI ? (
@@ -343,7 +343,7 @@ export default function PresentPage() {
               onClick={() => void handleGenerateAI()}
               disabled={aiGenerating || (aiSourceMode === "url" ? !aiUrl.trim() : aiBrief.trim().length < 10)}
             >
-              {aiGenerating ? "Generating draft…" : "Generate editable draft →"}
+              {aiGenerating ? "Generating draft…" : "Generate editable draft"}
             </button>
           </div>
         </section>
@@ -351,7 +351,6 @@ export default function PresentPage() {
         <button type="button" className="present-ai-launch" onClick={() => setShowAI(true)}>
           <span aria-hidden="true">✨</span>
           <span><strong>Generate with AI</strong><small>Topic or brief → editable interactive deck</small></span>
-          <span aria-hidden="true">→</span>
         </button>
       )}
 
@@ -372,7 +371,7 @@ export default function PresentPage() {
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button onClick={handleCreate} disabled={creating || !title.trim()} className="btn btn-primary">
-            {creating ? "…" : "Create →"}
+            {creating ? "…" : "Create"}
           </button>
           <button
             onClick={() => {

@@ -101,7 +101,7 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
           <HostIcon size={14} /> Host
         </Link>
         <Link prefetch={false} href={`/quiz/${identifier}`} className="btn btn-secondary btn-compact">
-          View details →
+          View details
         </Link>
       </div>
       <details className="explore-quiz-options">

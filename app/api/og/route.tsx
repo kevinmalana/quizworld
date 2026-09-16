@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
             fontWeight: 700,
           }}
         >
-          Play Free on QuizWorld →
+          Play Free on QuizWorld
         </div>
       </div>
     ),

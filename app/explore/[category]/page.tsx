@@ -152,7 +152,7 @@ export default async function CategoryPage({ params }: PageProps) {
           <p style={{ fontSize: "1.5rem", margin: "0 0 0.5rem" }}>🔍</p>
           <p className="text-muted">No quizzes in this category yet.</p>
           <Link href="/create" className="btn btn-primary" style={{ marginTop: "1rem" }}>
-            Create the first one →
+            Create the first one
           </Link>
         </div>
       ) : (

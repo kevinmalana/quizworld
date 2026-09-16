@@ -184,7 +184,7 @@ export default function ClassroomsPage() {
                 <span className="social-join-code" style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>{c.join_code}</span>
               </div>
               <div className="social-card-actions">
-                <Link href={`/classrooms/${c.id}`} className="btn btn-primary btn-compact" style={{ flex: 1, textAlign: "center" }}>View Classroom →</Link>
+                <Link href={`/classrooms/${c.id}`} className="btn btn-primary btn-compact" style={{ flex: 1, textAlign: "center" }}>View Classroom</Link>
               </div>
             </div>
           ))}

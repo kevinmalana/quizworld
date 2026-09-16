@@ -511,7 +511,7 @@ export function StudyResultPanel({
                 <span key={slug} className="study-new-achievement-badge">{slug.replace(/_/g, " ")}</span>
               ))}
             </div>
-            <a href="/achievements" className="study-new-achievements__link">View all achievements →</a>
+            <a href="/achievements" className="study-new-achievements__link">View all achievements</a>
           </div>
         )}
 

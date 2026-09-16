@@ -65,7 +65,6 @@ export function SourcePicker({ onSelect, onTemplateSelect }: Props) {
                 <h3 className="builder-source-option__title">{s.title}</h3>
                 <p className="builder-source-option__desc">{s.desc}</p>
               </div>
-              <span className="builder-source-option__arrow">→</span>
             </button>
           ))}
         </div>

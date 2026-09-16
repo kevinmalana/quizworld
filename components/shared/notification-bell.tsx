@@ -244,7 +244,7 @@ function IdentityNotificationBell({ userId }: { userId: string }) {
             </div>
           )}
           <Link href="/friends" className="notif-footer">
-            View friends →
+            View friends
           </Link>
         </div>
       )}
