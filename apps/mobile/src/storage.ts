@@ -4,10 +4,21 @@ import { stateSchema } from './schema';
 export const STORAGE_KEY = 'quizworld:guest-study:v1';
 export const MAX_STORAGE_BYTES = 2_000_000;
 export type StorageAdapter = { getItem(key: string): Promise<string | null>; setItem(key: string, value: string): Promise<void> };
-export function createRepository(storage: StorageAdapter) {
+// Survive provider remounts: a restored A cannot read before A's old write settles.
+const queues = new WeakMap<StorageAdapter, Map<string, Promise<unknown>>>();
+export function createRepository(storage: StorageAdapter, accountId?: string) {
+  // Immutable per repository: an old in-flight write can never target a new user.
+  const key = accountId ? `quizworld:account-study:v1:${encodeURIComponent(accountId)}` : STORAGE_KEY;
+  let tails = queues.get(storage);
+  if (!tails) { tails = new Map(); queues.set(storage, tails); }
+  const serialize = <T>(action: () => Promise<T>): Promise<T> => {
+    const result = (tails.get(key) ?? Promise.resolve()).then(action, action);
+    tails.set(key, result.catch(() => {}));
+    return result;
+  };
   return {
     async load(): Promise<StudyState> {
-      const raw = await storage.getItem(STORAGE_KEY);
+      const raw = await serialize(() => storage.getItem(key));
       if (raw === null) return emptyState();
       try {
         if (raw.length * 2 > MAX_STORAGE_BYTES) throw new Error('Too large');
@@ -20,7 +31,7 @@ export function createRepository(storage: StorageAdapter) {
       const raw = JSON.stringify(parsed.data);
       if (raw.length * 2 > MAX_STORAGE_BYTES) throw new Error('Device practice storage limit reached. Clear review items to continue.');
       // One whole-state write. Callers await success before publishing state.
-      await storage.setItem(STORAGE_KEY, raw);
+      await serialize(() => storage.setItem(key, raw));
     },
   };
 }

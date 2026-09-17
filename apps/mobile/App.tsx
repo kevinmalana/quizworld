@@ -8,6 +8,7 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import type {Routes} from './src/navigation';
 import {PracticeProvider,usePractice} from './src/state';
+import {AuthProvider,AccountBoundary,useAuth} from './src/auth-state';
 import {Home} from './src/screens/Home';
 import {Library} from './src/screens/Library';
 import {Account} from './src/screens/Account';
@@ -25,4 +26,5 @@ function Shell(){const store=usePractice();const [confirm,setConfirm]=useState(f
  if(!store.ready)return <Page><Heading>Your data needs attention</Heading><Notice message={store.error}/><Button label="Retry saved practice" onPress={store.retry}/>{confirm?<><Body>Reset will permanently remove local practice. It will not affect your website account.</Body><Button label="Confirm reset" disabled={store.busy} onPress={()=>{void store.reset();}}/><Button label="Cancel reset" secondary onPress={()=>setConfirm(false)}/></>:<Button label="Reset device practice" secondary onPress={()=>setConfirm(true)}/>}</Page>;
  return <NavigationContainer theme={theme}><Stack.Navigator screenOptions={{headerStyle:{backgroundColor:'#fff'},headerTintColor:colors.ink,headerShadowVisible:false,animation:'none'}}><Stack.Screen name="Main" component={Main} options={{headerShown:false}}/><Stack.Screen name="Detail" component={Detail} options={{title:'Choose your practice'}}/><Stack.Screen name="Study" component={Study} options={{title:'Practice',headerBackTitle:'Back'}}/><Stack.Screen name="Live" component={Live} options={{title:'Join live game'}}/><Stack.Screen name="Review" component={Review} options={{title:'Your review queue'}}/></Stack.Navigator></NavigationContainer>;
 }
-export default function App(){useFonts({Bricolage:require('./assets/fonts/BricolageGrotesque.ttf')});return <SafeAreaProvider><StatusBar style="dark"/><PracticeProvider><Shell/></PracticeProvider></SafeAreaProvider>;}
+function AccountPractice(){const auth=useAuth();return <PracticeProvider accountId={auth.user?.id}><Shell/></PracticeProvider>;}
+export default function App(){useFonts({Bricolage:require('./assets/fonts/BricolageGrotesque.ttf')});return <SafeAreaProvider><StatusBar style="dark"/><AuthProvider><AccountBoundary><AccountPractice/></AccountBoundary></AuthProvider></SafeAreaProvider>;}

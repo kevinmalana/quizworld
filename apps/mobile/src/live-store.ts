@@ -3,8 +3,9 @@ export function playerStore(adapter: {
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<void>;
   remove(key: string): Promise<void>;
-}) {
-  const key = "quizworld.live-player.v1";
+}, accountId?: string) {
+  if (accountId && !/^[A-Za-z0-9_-]+$/.test(accountId)) throw new Error('Invalid account scope');
+  const key = accountId ? `quizworld.live-player.v1.account.${accountId}` : "quizworld.live-player.v1";
   let tail: Promise<unknown> = Promise.resolve();
   const serialize = <T>(action: () => Promise<T>) => {
     const next = tail.then(action, action);

@@ -4,10 +4,15 @@ import { createRepository } from './storage';
 import { emptyState } from './study/model';
 import type { StudyState } from './study/types';
 
-const repository = createRepository(AsyncStorage);
+
 type Store = { state:StudyState; ready:boolean; loading:boolean; busy:boolean; error:string; retry:()=>void; update:(change:(state:StudyState)=>StudyState)=>Promise<boolean>; reset:()=>Promise<boolean> };
 const Context = createContext<Store | null>(null);
-export function PracticeProvider({children}:{children:React.ReactNode}) {
+export function PracticeProvider({children,accountId}:{children:React.ReactNode;accountId?:string}) {
+ return <ScopedPracticeProvider key={accountId??'guest'} accountId={accountId}>{children}</ScopedPracticeProvider>;
+}
+function ScopedPracticeProvider({children,accountId}:{children:React.ReactNode;accountId?:string}) {
+ const [repository]=useState(()=>createRepository(AsyncStorage,accountId));
+ const alive=useRef(true);
  const [state,setState] = useState(emptyState);
  const [loading,setLoading] = useState(true);
  const [ready,setReady]=useState(false);
@@ -17,17 +22,17 @@ export function PracticeProvider({children}:{children:React.ReactNode}) {
  const load = useCallback(async()=>{
   if(locked.current) return;
   locked.current=true; setLoading(true); setError('');
-  try {const data=await repository.load(); current.current=data; setState(data); readable.current=true;setReady(true);}
-  catch(e){setError(e instanceof Error ? e.message : 'Could not load device practice.');}
-  finally{locked.current=false;setLoading(false);}
- },[]);
- useEffect(()=>{void load();},[load]);
+  try {const data=await repository.load(); if(!alive.current)return;current.current=data; setState(data); readable.current=true;setReady(true);}
+  catch(e){if(alive.current)setError(e instanceof Error ? e.message : 'Could not load device practice.');}
+  finally{locked.current=false;if(alive.current)setLoading(false);}
+ },[repository]);
+ useEffect(()=>{alive.current=true;void load();return()=>{alive.current=false;};},[load]);
  const write = async(change:(s:StudyState)=>StudyState, reset=false)=>{
-  if(locked.current || (!readable.current && !reset)) return false;
+  if(!alive.current || locked.current || (!readable.current && !reset)) return false;
   locked.current=true;setBusy(true);setError('');
-  try {const next=change(current.current); await repository.save(next);current.current=next;setState(next);readable.current=true;setReady(true);return true;}
-  catch(e){setError(e instanceof Error ? e.message : 'Could not save. Please retry.');return false;}
-  finally{locked.current=false;setBusy(false);}
+  try {const next=change(current.current); await repository.save(next);if(!alive.current)return false;current.current=next;setState(next);readable.current=true;setReady(true);return true;}
+  catch(e){if(alive.current)setError(e instanceof Error ? e.message : 'Could not save. Please retry.');return false;}
+  finally{locked.current=false;if(alive.current)setBusy(false);}
  };
  return <Context.Provider value={{state,ready,loading,busy,error,retry:()=>{void load();},update:change=>write(change),reset:()=>write(emptyState,true)}}>{children}</Context.Provider>;
 }

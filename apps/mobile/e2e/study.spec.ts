@@ -30,7 +30,7 @@ test('guest sample, persisted mistake, resume, offline review and truthful accou
   await page.getByRole('button',{name:'Back to Home',exact:true}).click();
   await page.getByRole('tab',{name:'Account'}).click();
   await expect(page.getByText('Subscriptions are not available in this build.',{exact:true})).toBeVisible();
-  await expect(page.getByText('Native sign-in is not connected.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Sign in with your existing email and password.',{exact:true})).toBeVisible();
   expect(errors).toEqual([]);
 });
 

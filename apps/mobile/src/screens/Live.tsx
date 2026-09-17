@@ -6,7 +6,8 @@ import {
   gameServiceUrl,
   productionGameService,
 } from "../live-transport";
-import { livePlayerStore } from "../live-device-store";
+import { livePlayerStoreFor } from "../live-device-store";
+import { useAuth } from "../auth-state";
 import {
   Page,
   Heading,
@@ -21,6 +22,7 @@ import {
 } from "../ui";
 
 export function Live() {
+  const accountId = useAuth().user?.id;
   const [state, setState] = useState<LiveState>({
     session: null,
     connected: false,
@@ -37,6 +39,7 @@ export function Live() {
   const [nameStep, setNameStep] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   useEffect(() => {
+    const livePlayerStore = livePlayerStoreFor(accountId);
     let current = true;
     const game = new LiveGame(
       createLiveTransport(),
@@ -70,7 +73,7 @@ export function Live() {
       game.dispose();
       controller.current = null;
     };
-  }, []);
+  }, [accountId]);
   const leave = async () => {
     try {
       await controller.current?.leave();

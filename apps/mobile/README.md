@@ -65,16 +65,16 @@ The protocol tests cover native-Origin transport, join/ready/answer/reconnect/re
 - Guest quickfire and self-assessed flashcards; explicit check/reveal/continue.
 - Persisted checked-answer checkpoint, result history (last 100 sessions), saved revision-aware missed questions, deterministic 1/3/7-day retry schedule.
 - Bundled samples support offline practice and review. Web preview uses browser storage; native uses AsyncStorage. The preview has no offline-installed PWA/service-worker guarantee.
-- Local export and confirmed device-data reset/removal; truthful unavailable native authentication/billing.
+- Local export and confirmed scoped device-data reset/removal; existing-account email/password sign-in and truthful unavailable billing.
 - Navy/lime design with platform system fonts as the brief's permitted fallback. No fonts are downloaded as an offline prerequisite.
 
 ## Trust boundaries and unfinished work
 
-Local storage is unencrypted, guest-only, bounded, and not authoritative. It is **not SQLite**, an immutable sync outbox, an authenticated cache, paid entitlement evidence, verified XP, or classroom completion. Checked answers are saved before state advances; unchecked selection is transient. A corrupt saved payload is not silently overwritten.
+Practice storage is unencrypted, identity-scoped, bounded, and not authoritative. It is **not SQLite**, an immutable sync outbox, server-authorized private content, paid entitlement evidence, verified XP, or classroom completion. Checked answers are saved before state advances; unchecked selection is transient. A corrupt saved payload is not silently overwritten.
 
 Public packs are cached as personal text snapshots, not licensed permanent offline downloads. Starting any public session (including from an already-open detail), saved review, or resumed session rechecks visibility online. Ongoing sessions do not continuously recheck access. Revocation does not yet automatically purge previously cached text: manual removal/reset remains available. Do not use this prototype for private/classroom/student records or a commercial offline catalog.
 
-Missing store/commercial gates include native auth/secure token storage, account isolation, sync APIs and conflict handling, transactional licensed pack downloads, automatic restricted-content purge, verified real IAP/restore/manage, authenticated in-app account deletion, curated content rights/accuracy, privacy/store metadata, final app identifiers/icons, and physical Android/iOS QA. Generic Expo app metadata/icons remain placeholders. No purchase or deletion success is simulated.
+Missing store/commercial gates include installed-device auth/keychain acceptance, native MFA/social/email callback flows, sync APIs and conflict handling, transactional licensed pack downloads, automatic restricted-content purge, verified real IAP/restore/manage, authenticated in-app account deletion, curated content rights/accuracy, privacy/store metadata, final app identifiers/icons, and physical Android/iOS QA. Generic Expo app metadata/icons remain placeholders. No purchase or deletion success is simulated.
 
 Accessibility semantics, expanding answer rows, safe areas and disabled states exist, but VoiceOver/TalkBack, largest text, meaningful focus restoration and native back/lifecycle behavior still require device verification. The initial tab is labeled Home rather than the proposed Study. Sticky answer actions, review Skip, current-session-only review filtering, and all brief-level acceptance details are not complete. Existing free review is not paywalled.
 
@@ -85,3 +85,29 @@ Recovery verification originally passed mobile TypeScript, 6 unique unit cases, 
 The separate path-scoped `.github/workflows/mobile.yml` installs this package and runs TypeScript/unit checks, a deterministic web export and local Chromium E2E, then Android/iOS JS exports serially with one worker. It requires no secrets or production backend. Root CI remains separate; a root green check is not mobile or signed-native evidence. Complete root checks are not run locally without root dependencies. The recovery dependency audit reported 10 moderate transitive advisories, no high/critical; review advisories again before release.
 
 Independent standards/spec/security review is still required before merge. Do not merge or announce store availability based on these browser/export results. Local recovery evidence and exact source/artifact checksums are recorded in `/root/quizworld-mobile-build/IMPLEMENTATION.md` and sibling artifacts on the build host.
+
+## Native accounts — bounded implementation, not production acceptance
+
+Existing **email/password** accounts use the official Supabase client with only the public project URL and anon/publishable key. Service/secret keys are refused by the auth configuration guard. SDK browser persistence, URL token detection and background auto-refresh are disabled. A serialized controller owns login, rotation and logout; `getUser(access_token)` validates identity with the server before account practice is mounted. Accounts with verified MFA factors fail closed and must use the website until native challenges are implemented.
+
+Only the refresh capability is persisted: native `expo-secure-store` with `WHEN_UNLOCKED_THIS_DEVICE_ONLY`; access tokens/user responses remain in SDK memory. The web **test preview** deliberately uses tab-only sessionStorage and is not encrypted-native-storage evidence. SecureStore may survive iOS uninstall; no uninstall-erasure guarantee. Storage failures block authenticated UI and offer explicit retry/forget; a failed keychain deletion is not successful logout.
+
+App resume and a foreground timer before expiry revalidate the session. While checking or after an authentication/network/storage error, the account/navigation subtree is removed: no cached account names, exported practice, mistakes or old async UI can bleed into guest/B. Revalidation conservatively returns to Study; saved checked-answer checkpoints remain resumable. Reopening an account offline requires reconnect/retry or explicit forget-to-guest; authenticated offline entitlement/sync is **not** implemented.
+
+Guest practice retains its original key and is **not merged**. Account practice uses an immutable `quizworld:account-study:v1:<server-user-id>` key; player reconnect capabilities also use per-account SecureStore keys. Signing out hides retained local practice rather than deleting unsynced work. Clear/export affects only the current scope. These are application identity boundaries, not encryption of practice data or protection against someone extracting/editing the app sandbox. Private/classroom content remains excluded.
+
+Sign-out immediately hides account UI and serially clears local credentials before best-effort current-session (`scope: local`) server revocation. Other website sessions are unchanged. Network failure is disclosed; issued JWTs may remain valid until expiry under Supabase's normal logout semantics. No global revocation or account deletion is claimed.
+
+### Provider and release boundary
+
+No production settings changed and no test account was created or real user authenticated. Tests use synthetic HTTP/auth/storage fixtures. Existing website source supports email/password; live provider password settings, confirmed-account login and native secure storage must be accepted with a separately authorized disposable account and physical Android/iOS devices before release.
+
+Password login needs **no native callback or redirect allowlist change**. This slice does not initiate signup, magic links, OAuth or reset emails, consume arbitrary deep links, or claim native password recovery. Account help opens `https://www.quizworld.xyz/login` in the browser; its existing website callback is `/auth/callback`. Future native email/OAuth flows need an approved app identifier/scheme or universal link, exact callback implementation, explicit provider allowlist review/configuration and real PKCE mailbox/device acceptance. No invented native redirect has been enabled.
+
+Cloud/offline sync, deletion backend, native MFA/social/email flows, billing/store signing/publishing and independent review are still open. This is **not core complete or production-ready**.
+
+### Focused auth verification
+
+`npm run check` includes controller races, server validation errors, lifecycle timers, public-only key validation, account-local repositories and a bundle of the **actual native adapter** with a mocked Expo SecureStore boundary. `npm run test:e2e` includes Account → practice → sign-out → B → A/reload/failed-session flows with intercepted synthetic Supabase transport, plus the real PracticeProvider under deferred native-storage fixtures. None is real-account or installed-device proof.
+
+When changing public environment variables between fixture/native exports, add `--clear` to `expo export` to avoid Metro reusing previously inlined configuration. Auth E2E blocks every external request except the intercepted `.invalid` fixture, so a stale build cannot submit synthetic credentials to production. Do not publish the fixture export.
