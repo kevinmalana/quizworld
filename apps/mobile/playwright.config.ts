@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test';
+export default defineConfig({ testDir:'./e2e', workers:1, timeout:45000, use:{ launchOptions:{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}, baseURL:'http://127.0.0.1:8085', viewport:{width:390,height:844}, screenshot:'only-on-failure', trace:'retain-on-failure' }, webServer:{ command:'npm run preview', url:'http://127.0.0.1:8085', reuseExistingServer:!process.env.CI, timeout:120000, env:{ CI:'1', EXPO_NO_TELEMETRY:'1', NODE_OPTIONS:'--max-old-space-size=768' } } });

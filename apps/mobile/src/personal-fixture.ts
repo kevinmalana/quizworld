@@ -1,0 +1,2 @@
+// Synthetic public catalog row for personal-sync contract tests only.
+export const publicRow={id:'20000000-0000-4000-8000-000000000001',title:'Unicode é 🧠',category:null,is_public:true,archived_at:null,questions:[{id:'30000000-0000-4000-8000-000000000001',text:'a|b\n"é"',explanation:null,image_url:null,video_url:null,question_type:'multiple_choice',order_index:0,answers:[{id:'40000000-0000-4000-8000-000000000001',text:'Yes',is_correct:true},{id:'40000000-0000-4000-8000-000000000002',text:'No',is_correct:false}]}]};

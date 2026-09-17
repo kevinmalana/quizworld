@@ -1,0 +1,75 @@
+name: Mobile prototype
+
+on:
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'supabase/migrations/20260917210000_personal_sync_v1.sql'
+      - 'supabase/rollback/20260917210000_personal_sync_v1_disable.sql'
+      - 'supabase/tests/*personal*'
+      - 'lib/study/types.ts'
+      - '.github/workflows/mobile.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - 'supabase/migrations/20260917210000_personal_sync_v1.sql'
+      - 'supabase/rollback/20260917210000_personal_sync_v1_disable.sql'
+      - 'supabase/tests/*personal*'
+      - 'lib/study/types.ts'
+      - '.github/workflows/mobile.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_NO_DOTENV: '1'
+      NODE_OPTIONS: --max-old-space-size=768
+      # Local intercepted E2E fixtures only; never production credentials.
+      EXPO_PUBLIC_GAME_SERVICE_URL: http://127.0.0.1:4187
+      EXPO_PUBLIC_SUPABASE_URL: https://quizworld-mobile-fixture.invalid
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_local_fixture_not_a_real_key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - name: Personal sync exact local SQL and real transport
+        working-directory: .
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-16
+          mkdir -p "$RUNNER_TEMP/personal-postgrest"
+          curl -fL --retry 2 https://github.com/PostgREST/postgrest/releases/download/v16.3/postgrest-v16.3-linux-static-x86-64.tar.xz -o "$RUNNER_TEMP/personal-postgrest/postgrest.tar.xz"
+          python3 -c "import hashlib,pathlib,os; p=pathlib.Path(os.environ['RUNNER_TEMP'])/'personal-postgrest/postgrest.tar.xz'; assert hashlib.sha256(p.read_bytes()).hexdigest()=='4eb414eb948c8800863cc8c9896a17b611b2dccf9ff581f4d57f42ec9ccee40d'"
+          tar -xJf "$RUNNER_TEMP/personal-postgrest/postgrest.tar.xz" -C "$RUNNER_TEMP/personal-postgrest"
+          sudo env PATH="$PATH" python3 supabase/tests/test_personal_sync.py
+          sudo env PATH="$PATH" POSTGREST_BIN="$RUNNER_TEMP/personal-postgrest/postgrest" python3 supabase/tests/run_personal_sync_transport.py
+      - run: npx playwright install --with-deps chromium
+      - run: npm run export:web
+      - run: npm run test:e2e
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27'
+          elixir-version: '1.17'
+      - run: mix deps.get
+        working-directory: services/quizworld_realtime
+        env:
+          MIX_ENV: test
+      - run: npm run test:live
+      # JS/bytecode/assets only, not signed native builds or device QA.
+      - run: npx expo export --platform android --max-workers 1 --output-dir export-android
+      - run: npx expo export --platform ios --max-workers 1 --output-dir export-ios
