@@ -39,6 +39,27 @@ npm start
 
 Exports are **not APK/AAB/IPA files**, signed applications, device tests, or proof of App Store/Play approval. No EAS/cloud build or developer-account purchase is required by the commands above. Development signing, native toolchains and device setup are separate gates.
 
+## Live games — same website PIN, same Phoenix authority
+
+Study → **Join live game** opens native PIN/name/lobby/ready/question/answer/reveal/results screens, not a web wrapper. The default service is `https://quizworld-xs0g.onrender.com`, verified from deployed `www.quizworld.xyz` game-page assets. Hosting and classroom administration remain on the website; the app joins as a guest player without a host token. It does not calculate multiplayer scores/timing, award XP or write results.
+
+Player ID/token are server-issued and saved separately from guest practice: Expo SecureStore on native, tab-scoped sessionStorage in the browser preview. Backgrounding suspends the connection; foregrounding reauthorizes the same identity. Phoenix reconnect restores snapshots. Duplicate taps are locked immediately; timed-out answers are uncertain and never automatically replayed. Finished games stop realtime activity. Invalid/closed/full games show actual server errors. Leaving forgets local identity, not the host's roster/history.
+
+Android React Native otherwise supplies the backend URL as WebSocket Origin, which the existing Phoenix website-origin allowlist rejects. The native-only adapter supplies the canonical QuizWorld website Origin, without weakening backend checks or granting any role. Browsers retain their genuine Origin. Tests exercise that adapter against real isolated Phoenix with Node `ws`; **this is not Android/iOS installation evidence**.
+
+HTTPS question/answer images render; embedded video is explicitly delegated to the host's screen for now. Classic gameplay has end-to-end local acceptance. Team and survival snapshots render their server fields, but full native mode/media/accessibility parity still requires device acceptance. No native countdown claims: the answer window and reveal are controlled by Phoenix.
+
+### Deterministic isolated live acceptance
+
+Requires the repository's Elixir/OTP toolchain and test dependencies (`MIX_ENV=test mix deps.get` in `services/quizworld_realtime`). No Redis, Supabase credentials, result writes or production games are used. Port 4187 must be free; the runner owns and stops only its fixture process. It refuses an already-running backend. Build the test web export first:
+
+```sh
+CI=1 EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 EXPO_PUBLIC_GAME_SERVICE_URL=http://127.0.0.1:4187 EXPO_PUBLIC_SUPABASE_URL=https://quizworld-mobile-fixture.invalid EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_local_fixture_not_a_real_key npm run export:web
+CI=1 PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/google-chrome npm run test:live
+```
+
+The protocol tests cover native-Origin transport, join/ready/answer/reconnect/reveal/finish and missing/closed/full games. Playwright exercises the actual mobile components and reload recovery against real Phoenix; host actions are real HTTP commands from the harness, **not the full website host UI**. Synthetic answer artwork is intercepted locally. Browser evidence and JS exports do not close native-device, secure-storage-on-device or full web-host-to-installed-app gates.
+
 ## Working scope
 
 - Guest quickfire and self-assessed flashcards; explicit check/reveal/continue.

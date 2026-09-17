@@ -7,6 +7,11 @@ test('small-screen sample is honest, usable and motion-optional',async({page})=>
  await expect(page.getByText('QUESTION PREVIEW',{exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Open review queue',exact:true})).toHaveCount(0);
  await expect(page.getByRole('tab',{name:'Study',exact:true})).toBeVisible();
+ for(const name of ['Study','Library','Account']){
+  const label=page.getByRole('tab',{name,exact:true}).getByText(name,{exact:true});
+  expect((await label.boundingBox())!.height).toBeGreaterThanOrEqual(20);
+ }
+ await page.screenshot({path:test.info().outputPath('navigation-360.png')});
  const start=page.getByRole('button',{name:'Try a sample',exact:true});
  const box=await start.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(48);
  await start.click();await page.getByRole('button',{name:'Start quickfire',exact:true}).click();

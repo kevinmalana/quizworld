@@ -29,6 +29,7 @@ jobs:
       EXPO_NO_DOTENV: '1'
       NODE_OPTIONS: --max-old-space-size=768
       # Local intercepted E2E fixtures only; never production credentials.
+      EXPO_PUBLIC_GAME_SERVICE_URL: http://127.0.0.1:4187
       EXPO_PUBLIC_SUPABASE_URL: https://quizworld-mobile-fixture.invalid
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_local_fixture_not_a_real_key
     steps:
@@ -43,6 +44,15 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run export:web
       - run: npm run test:e2e
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27'
+          elixir-version: '1.17'
+      - run: mix deps.get
+        working-directory: services/quizworld_realtime
+        env:
+          MIX_ENV: test
+      - run: npm run test:live
       # JS/bytecode/assets only, not signed native builds or device QA.
       - run: npx expo export --platform android --max-workers 1 --output-dir export-android
       - run: npx expo export --platform ios --max-workers 1 --output-dir export-ios
