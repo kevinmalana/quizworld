@@ -37,6 +37,12 @@ test("native-rendered UI plays a real isolated Phoenix game and restores after r
     .fill("Mobile UI tester");
   await page.getByRole("button", { name: "Join game", exact: true }).click();
   await expect(
+    page.getByText(
+      "Local test game · synthetic room · guest player · no account required",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
     page.getByText("You’re in the lobby.", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "I’m ready", exact: true }).click();

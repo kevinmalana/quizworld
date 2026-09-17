@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AppState, Image, Platform, TextInput } from "react-native";
 import { LiveGame, type LiveState } from "../live";
-import { createLiveTransport } from "../live-transport";
+import {
+  createLiveTransport,
+  gameServiceUrl,
+  productionGameService,
+} from "../live-transport";
 import { livePlayerStore } from "../live-device-store";
 import {
   Page,
@@ -104,7 +108,10 @@ export function Live() {
             : "Join the room."}
       </Heading>
       <Meta>
-        Live with www.quizworld.xyz · guest player · no account required
+        {gameServiceUrl() === productionGameService
+          ? "Live with www.quizworld.xyz"
+          : "Local test game · synthetic room"}{" "}
+        · guest player · no account required
       </Meta>
       <Notice message={localError || state.error} />
       {!session && !state.playerId && !localError ? (
