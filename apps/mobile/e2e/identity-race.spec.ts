@@ -17,7 +17,7 @@ test('real PracticeProvider fences old reads/writes and synchronously resets on 
   b.onResolve({filter:/^@react-native-async-storage\/async-storage$/},()=>({path:'storage',namespace:'fixture'}));
   b.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:`export default {
    getItem:key=>new Promise(resolve=>{window.fixture.reads[key]=()=>resolve(window.fixture.memory[key]??null);}),
-   setItem:(key,value)=>new Promise(resolve=>{const done=()=>{window.fixture.memory[key]=value;window.fixture.writes.push(key);resolve();};if(window.fixture.holdWrites)window.fixture.pendingWrites.push(done);else done();})
+   setItem:(key,value)=>new Promise((resolve,reject)=>{if(window.fixture.failWrites){reject(new Error("Device full"));return;}const done=()=>{window.fixture.memory[key]=value;window.fixture.writes.push(key);resolve();};if(window.fixture.holdWrites)window.fixture.pendingWrites.push(done);else done();})
   };`}));
  }}]});
  await page.route('**/*',route=>route.abort());
@@ -37,4 +37,18 @@ test('real PracticeProvider fences old reads/writes and synchronously resets on 
  expect(await page.evaluate('writeResult')).toBe(false);
  expect(await page.evaluate('fixture.writes')).toEqual(['quizworld:account-study:v1:A']);
  expect(await page.evaluate(`fixture.memory['quizworld:account-study:v1:B']??null`)).toBeNull();
+ // Clearing invalidates callbacks captured before the clear and remounts navigation.
+ await page.evaluate(`fixture.holdWrites=false;window.staleUpdate=store.update;window.oldStore=store;store.clearDownloads()`);
+ await expect.poll(()=>page.evaluate(`store!==oldStore`)).toBe(true);
+ expect(await page.evaluate(`staleUpdate(()=>JSON.parse(fixture.sample))`)).toBe(false);
+ await expect(page.locator('#state')).toHaveText('{"ready":true,"id":null}');
+ expect(await page.evaluate(`JSON.parse(fixture.memory['quizworld:account-study:v1:B']).active`)).toBeNull();
+ expect(await page.evaluate(`JSON.parse(fixture.memory['quizworld:account-study:v1:A']).active.id`)).toBe('late-A');
+ await page.evaluate(`store.update(()=>JSON.parse(fixture.sample))`);
+ await expect(page.locator('#state')).toContainText('A-only');
+ await page.evaluate(`fixture.failWrites=true;window.beforeClear=fixture.memory['quizworld:account-study:v1:B']`);
+ expect(await page.evaluate(`store.clearDownloads()`)).toBe(false);
+ expect(await page.evaluate(`store.error`)).toBe('Device full');
+ expect(await page.evaluate(`fixture.memory['quizworld:account-study:v1:B']`)).toBe(await page.evaluate(`beforeClear`));
+ await expect(page.locator('#state')).toContainText('A-only');
 });

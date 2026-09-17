@@ -43,6 +43,9 @@ export function publicPackUrl(origin: string, id: string): string {
   url.searchParams.set('select','id,title,category,is_public,archived_at,questions(id,text,explanation,image_url,video_url,question_type,order_index,answers(id,text,is_correct,image_url))');
   return url.toString();
 }
+export class CatalogConnectionError extends Error {
+  constructor() { super('Could not connect. Try again when you are online.'); }
+}
 export async function getJson(url: string, publicKey: string, transport: typeof fetch = fetch): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12000);
@@ -53,8 +56,7 @@ export async function getJson(url: string, publicKey: string, transport: typeof 
     if (text.length > 1_000_000) throw new Error('This quiz is too large for this version.');
     return JSON.parse(text);
   } catch (error) {
-    if (controller.signal.aborted) throw new Error('The connection timed out. Try again when you are online.');
-    if (error instanceof TypeError) throw new Error('Could not connect. Try again when you are online.');
+    if (controller.signal.aborted || error instanceof TypeError) throw new CatalogConnectionError();
     throw error;
   } finally { clearTimeout(timer); }
 }

@@ -1,0 +1,48 @@
+# Personal sync prerequisite and offline lifecycle boundary
+
+Status: **bounded offline lifecycle implemented; cloud sync is NOT implemented or enabled.** This proposal is not a migration or production-apply authorization. Preserve the existing website/Phoenix authority.
+
+## Contract survey (production metadata only)
+
+Project `tqmygnkwkjtkteguemya` was inspected through catalog queries, not learner/content rows:
+
+- `complete_study_session_atomic(uuid,uuid,text,jsonb,integer DEFAULT NULL)` derives `auth.uid()` and checks current quiz access before entering a postgres-only internal implementation. Client roles cannot execute the internal function.
+- Internal implementation scores submitted question/answer IDs against **current** questions, awards XP, updates `study_progress`, and inserts classroom `assignment_completions`. Existing `(user_id, attempt_id)` unique index prevents duplicate persisted sessions; simultaneous first requests may still get a unique violation because the initial lookup and insert are separate. An old attempt ID is not bound to the new request payload on replay.
+- Neither function accepts content revision, offline provenance or a personal-only flag. An HTTP success cannot be treated as a personal-only sync receipt.
+- `study_sessions` contains aggregates, not durable question-level mistakes. `study_progress` is visible to current assigned teachers and is unsuitable for private personal-history storage; it also retains legacy own-row write policies. This client does not use those policies to invent official progress.
+- No personal-history, mistake-sync or offline-access endpoint/table was found in the public catalog. `quiz_versions` has creator/version/snapshot metadata, but the completion RPC does not reference it. Its existence is not evidence of a licensed-download or immutable published-attempt contract.
+- Native quickfire is untimed personal practice; flashcards store recall booleans with null answer IDs; review is a subset. Existing server recomputation is not proof of online/proctored participation. No native saved answers are sent to this RPC.
+
+## Shipped bounded lifecycle
+
+Only bundled samples are deliberately usable offline. Public text snapshots are convenience caches, not downloads with an offline license. Full source revision and current anonymous public/unarchived access are checked on start/resume/review, Study focus/foreground, each answer, and advancement. A review subset keeps the full source revision; it is not hashed as a new quiz. Checks show pending, unavailable/offline, or current access; **current access is not “synced.”**
+
+Pending checks are generation-fenced on blur/background, account unmount and replacement checks. Duplicate answer actions are locked. A successful check cannot resurrect a disposed account or a cleared cache. Confirmed clearing removes public checkpoint/review and all legacy history (history lacks source metadata), preserves bundled practice and other accounts, and remounts navigation to discard cached route/export state. Failed persistence reports an error without claiming erasure. Saved public question text is hidden in the unvalidated review listing.
+
+This does not revoke screenshots, exports, OS backups or extracted AsyncStorage. Public metadata and local results can remain until explicit clear; already-rendered content cannot be remotely erased instantly. Revocation is checked at interaction/request boundaries, not by a continuous subscription. No private/classroom content download, paid permission, token storage or server mutation was added.
+
+## Narrow approval request: personal-only sync v1
+
+Approve these semantics before writing an additive SQL migration:
+
+1. **Separate destination:** `personal_practice_events`, owned by server `auth.uid()`, never `study_sessions`, `study_progress`, profiles, assignments or multiplayer results. Immutable bounded events contain format version, client event UUID, session UUID, source kind, quiz/question/answer identifiers, content revision, client-observed answer/recall and client time; server receipt time and monotonic cursor are server-generated. No question/answer text, email, credential, entitlement or official XP field. Correctness/recall is explicitly learner-reported personal practice, not an official result.
+2. **Initial scope:** current public text quizzes only for cross-device review; bundled demo results remain device-only initially. Private/assigned/archived quizzes are rejected even if website roles could read them. Publication is not offline-download permission. Historic failed/revoked/stale submissions remain locally unsent with a clear reason; do not silently upgrade or relabel them as synced.
+3. **Version and access:** authenticated submission validates shape/size and exact source revision plus current public availability. The server must compute/bind its own canonical revision, not accept a client's assertion of authority. Adopt and test one canonical encoding before migration. Existing native hashes/authoring snapshots are not automatically that contract. Readback exposes only own metadata; rehydrating review text must independently pass current public access and revision checks. No private-content snapshots in event JSON.
+4. **Replay/concurrency:** unique `(user_id,event_id)`; identical retry returns the same durable receipt, a changed payload under the same ID returns conflict. Use an atomic conflict path, not check-then-insert. No arbitrary `user_id` input. Bound batch size and payload. Prefer an immutable event stream with server cursor over overwriting whole-device JSON; due review is derived deterministically in receipt order. An explicit remove/clear event must win over older already-known work and remain a tombstone through the supported replay window; define that window and storage limits before enabling retention cleanup.
+5. **RLS/grants:** enable RLS, own-row SELECT only; revoke client INSERT/UPDATE/DELETE and anonymous RPC execution. Use a narrow authenticated SECURITY DEFINER RPC with empty search_path, qualified identifiers and identity-derived ownership. No helper executable by unintended roles; no inherited permissive policy. Account FK deliberate `ON DELETE CASCADE`; keep quiz refs as identifiers or define deliberate deletion behavior without leaking revoked text. No teacher or friend reads.
+6. **Client outbox:** atomically save account-scoped events before marking pending; fixed UUID/content across retries. Fetch acknowledgments/read back accepted IDs before showing synced. Abort/fence logout, account switch, background and cache deletion. Guest events never migrate automatically. A request already accepted before logout may exist for A, but cannot appear in B or be relabeled as B. An uncertain timeout stays pending, never “synced”; retry must use the identical event. UI distinguishes personal synced/pending/offline/error from official results. Tokens remain SDK/SecureStore-only and are absent from all cache/export/debug payloads.
+
+No SQL is included because revision binding, clear/tombstone semantics and retention must be accepted together; shipping only a writable JSON table would not satisfy those requirements.
+
+## Separate online completion bridge decision
+
+Do not replay the existing local checkpoint/history as verified completion. The smallest safe bridge needs a **new, explicitly online session flow**, defined mode compatibility, revision binding at server scoring, and a stable attempt/payload receipt. It can delegate scoring to the existing guarded RPC without changing that RPC's website contract. Review and self-assessed recall must not masquerade as fully answered scored quizzes. Native lifecycle/network interruption must fall back to personal-only, except exact readback of an already-submitted uncertain online attempt. A client network flag is not server proof of participation. The next implementation must explicitly document what “server verified” means (recomputed correctness, not exam integrity).
+
+## Approval / execution order
+
+1. Parent approves the exact personal-event/revision/clear/retention scope and offline rights policy. No arbitrary grace period or paid gate is assumed.
+2. Author the additive migration, exact rollback and native client contract. Apply only to a disposable local database; test authenticated A/B, anonymous, outsider, private/revoked/archive/revision errors, duplicate/concurrent/conflicting replays, tombstones, interrupted responses, logout/switch and readback. Verify migration rollback leaves existing official objects unchanged. Generate types after actual local schema creation.
+3. Independent review before merge. Separate authorization for the **exact SQL** on `tqmygnkwkjtkteguemya`; no generic production `db push`, no other project, no existing-user mutation.
+4. Gate any client enablement on deployed contract readback, disposable-account ordinary-client acceptance, then installed Android/iOS lifecycle/cache/keychain acceptance. Mock/browser/export tests do not close these gates.
+
+Future licensed offline packs need explicit creator/content-owner authorization and server-issued scoped revision/expiry policy. Default remains no private or arbitrary public offline entitlement. Choose a grace duration only with the parent/content owner; do not invent one in client code.

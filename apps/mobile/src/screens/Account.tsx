@@ -9,6 +9,7 @@ export function Account(){
  const store=usePractice();
  const auth=useAuth();
  const [confirm,setConfirm]=useState(false);
+ const [confirmDownloads,setConfirmDownloads]=useState(false);
  const [confirmSignOut,setConfirmSignOut]=useState(false);
  const [exported,setExported]=useState('');
  const [message,setMessage]=useState('');
@@ -46,6 +47,7 @@ export function Account(){
    <Button label="Account help on website" secondary onPress={()=>{void open('/login');}}/>
   </Card>
   <Card><Title>Study Plus · in development</Title><Body>Subscriptions are not available in this build.</Body><Meta>A seven-day trial and US$5.99/month are proposed, not an available offer. Pricing, eligibility and store configuration are not finalized.</Meta><Meta>No trial has started and no charge can be made here. Purchase, restore and subscription management will appear only after verified store billing is connected.</Meta></Card>
+  {!confirmDownloads?<Button label="Clear downloaded data" secondary disabled={store.busy} onPress={()=>setConfirmDownloads(true)}/>:<Card><Title>Remove saved public content?</Title><Body>This clears the current account or guest’s public checkpoint, public review questions and all local session history titles. Bundled practice and bundled review remain. You will return to Home. Other accounts, secure sign-in and website results are unchanged.</Body><Meta>Device practice is unencrypted. This is an app-level clear, not guaranteed forensic erasure or deletion from device backups. Nothing has been uploaded.</Meta><Button label="Confirm clear downloaded data" disabled={store.busy} onPress={()=>{setExported('');void store.clearDownloads();}}/><Button label="Keep downloaded data" secondary onPress={()=>setConfirmDownloads(false)}/></Card>}
   <Title>Your practice data</Title><Button label="Export device practice" secondary disabled={store.busy} onPress={()=>{void exportData();}}/>
   {exported?<><Meta>Only share this with people you choose. Select and copy if your device cannot share.</Meta><TextInput accessibilityLabel="Practice export JSON" multiline editable={false} value={exported} style={s.input}/><Button label="Close export" secondary onPress={()=>setExported('')}/></>:null}
   {!confirm?<Button label="Clear device practice" secondary disabled={store.busy} onPress={()=>setConfirm(true)}/>:<Card><Title>Clear practice on this device?</Title><Body>This removes only the current {auth.user?'account’s':'guest’s'} checkpoint, review queue and local history. It does not delete your QuizWorld website account, another account’s local practice or cancel a subscription.</Body><Button label="Confirm clear device practice" disabled={store.busy} onPress={()=>{void store.reset().then(ok=>{if(ok){setConfirm(false);setExported('');setMessage('');}});}}/><Button label="Keep my practice" secondary onPress={()=>setConfirm(false)}/></Card>}
