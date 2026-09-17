@@ -1,0 +1,35 @@
+import { test, expect } from '@playwright/test';
+
+test('guest sample, persisted mistake, resume, offline review and truthful account', async ({ page, context }) => {
+  const errors: string[] = [];
+  page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('/');
+  await page.getByRole('button',{name:'Try a sample'}).click();
+  await page.getByRole('button',{name:'Start quickfire'}).click();
+  await expect(page.getByText('Which is the largest continent by area?',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Africa',exact:true}).click();
+  await page.getByRole('button',{name:'Check answer',exact:true}).click();
+  await expect(page.getByText('Not quite',{exact:true})).toBeVisible();
+  await page.reload();
+  await page.getByRole('button',{name:'Resume practice'}).click();
+  await expect(page.getByText('Not quite',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Next question',exact:true}).click();
+  await page.getByRole('button',{name:'Tokyo',exact:true}).click();
+  await page.getByRole('button',{name:'Check answer',exact:true}).click();
+  await page.getByRole('button',{name:'See results',exact:true}).click();
+  await expect(page.getByText('1 of 2 correct',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Back to Home',exact:true}).click();
+  await page.getByRole('button',{name:'Review mistakes',exact:true}).click();
+  await page.getByRole('button',{name:/Review World Geography Basics/}).click();
+  await context.setOffline(true);
+  await page.getByRole('button',{name:'Asia',exact:true}).click();
+  await page.getByRole('button',{name:'Check answer',exact:true}).click();
+  await page.getByRole('button',{name:'See results',exact:true}).click();
+  await expect(page.getByText('1 of 1 correct',{exact:true})).toBeVisible();
+  await context.setOffline(false);
+  await page.getByRole('button',{name:'Back to Home',exact:true}).click();
+  await page.getByRole('tab',{name:'Account'}).click();
+  await expect(page.getByText('Subscriptions are not available in this build.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Native sign-in is not connected.',{exact:true})).toBeVisible();
+  expect(errors).toEqual([]);
+});

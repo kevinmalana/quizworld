@@ -1,0 +1,32 @@
+import React,{useEffect,useState} from 'react';
+import {AccessibilityInfo,Pressable,StyleSheet,Text,View} from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import type {Navigation} from '../navigation';
+import {usePractice} from '../state';
+import {answerCurrent,advanceSession} from '../study/model';
+import {Page,Heading,Title,Body,Meta,Card,Button,Notice,colors,s} from '../ui';
+export function Study(){
+ const nav=useNavigation<Navigation>();const {state,busy,error,update}=usePractice();const session=state.active;
+ const [selected,setSelected]=useState<string|null>(null);const [revealed,setRevealed]=useState(false);
+ useEffect(()=>{setSelected(null);setRevealed(false);},[session?.id,session?.index]);
+ const question=session?.pack.questions[session.index];const response=session?.responses[session.index];
+ useEffect(()=>{if(response)AccessibilityInfo.announceForAccessibility(response.correct?'Correct. Your answer is saved on this device.':'Not quite. Your answer is saved for review.');},[response]);
+ if(!session||!question)return <Page><Heading>No active session</Heading><Button label="Back to Home" onPress={()=>nav.popToTop()}/></Page>;
+ if(session.completedAt!==null){const correct=session.responses.filter(r=>r.correct).length;return <Page><Meta>SESSION COMPLETE</Meta><Heading>You made time
+to practise.</Heading><Card dark><Text style={[s.heading,s.white]}>{correct} of {session.responses.length} {session.mode==='flashcard'?'recalled':'correct'}</Text><Text style={[s.body,s.pale]}>{session.pack.title}</Text><Text style={[s.meta,s.pale]}>{session.mode==='flashcard'?'Self-assessed recall, not a scored test.':'Your result for this practice session.'}</Text></Card><Body>{session.responses.length-correct?`${session.responses.length-correct} missed questions are in your review queue. Try them again whenever you are ready.`:'Nothing missed this round. You can come back for more practice.'}</Body><Button label="Review mistakes" onPress={()=>nav.replace('Review')}/><Button label="Back to Home" secondary onPress={()=>nav.popToTop()}/><Meta>Saved on this device only. No sync, global XP, leaderboard or assignment completion.</Meta></Page>;}
+ const correctAnswer=question.answers.find(a=>a.is_correct)!;
+ const record=async(answer:string|boolean)=>{await update(s=>answerCurrent(s,answer,Date.now()));};
+ return <Page><View style={s.row}><Meta>{session.mode==='flashcard'?'FLASHCARDS':session.mode==='review'?'MISTAKE REVIEW':'QUICKFIRE · YOUR PACE'}</Meta></View><Body>{session.pack.title}</Body><Meta>Question {session.index+1} of {session.pack.questions.length}</Meta>
+ <View accessible accessibilityLabel={`Progress: question ${session.index+1} of ${session.pack.questions.length}`} style={local.track}><View style={[local.fill,{width:`${(session.index+1)/session.pack.questions.length*100}%`}]}/></View>
+ <Card><Text accessibilityRole="header" style={local.question}>{question.text}</Text></Card>
+ {session.mode==='flashcard'?<>{!revealed&&!response?<Button label="Show answer" onPress={()=>setRevealed(true)}/>:<Card><Meta>ANSWER</Meta><Title>{correctAnswer.text}</Title><Body>{question.explanation||'No explanation was supplied for this question.'}</Body></Card>}{revealed&&!response?<><Button label="I recalled this" disabled={busy} onPress={()=>{void record(true);}}/><Button secondary label="I need more practice" disabled={busy} onPress={()=>{void record(false);}}/></>:null}</>:<>
+ <View style={local.answers}>{question.answers.map((answer,i)=>{
+ const chosen=response?response.answerId===answer.id:selected===answer.id;
+ return <Pressable key={answer.id} accessibilityRole="button" accessibilityLabel={answer.text} accessibilityState={{selected:chosen,disabled:!!response||busy}} disabled={!!response||busy} onPress={()=>setSelected(answer.id)} style={({pressed})=>[local.answer,chosen&&local.selected,response&&answer.is_correct&&local.correct,pressed&&s.pressed]}><Text style={[local.letter,chosen&&local.selectedLetter]}>{String.fromCharCode(65+i)}</Text><Text style={local.answerText}>{answer.text}</Text>{chosen?<Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={local.selectedMark}>✓</Text>:null}</Pressable>;
+ })}</View>{!response?<Button label="Check answer" disabled={!selected||busy} onPress={()=>{if(selected)void record(selected);}}/>:null}</>}
+ <Notice message={error}/>{busy?<Meta>Saving on this device…</Meta>:null}
+ {response?<><View accessibilityLiveRegion="polite" style={[local.feedback,response.correct?local.positive:local.negative]}><Title>{response.correct?'Correct':'Not quite'}</Title>{session.mode!=='flashcard'?<><Body>Your answer: {question.answers.find(a=>a.id===response.answerId)?.text}</Body><Body>Correct answer: {correctAnswer.text}</Body><Body>{question.explanation||'No explanation was supplied for this question.'}</Body></>:<Body>{response.correct?'Marked as recalled.':'Saved to your review queue.'} This is your own recall assessment.</Body>}<Meta>Saved on this device.</Meta></View><Button label={session.index+1===session.pack.questions.length?'See results':'Next question'} disabled={busy} onPress={()=>{void update(s=>advanceSession(s,Date.now()));}}/></>:null}
+ <Button label="Save and exit" secondary disabled={busy} onPress={()=>nav.popToTop()}/><Meta>{session.pack.source==='public'?'Saved public snapshot. Access and content updates are not checked while offline.':'Bundled sample · works offline'} · Personal practice only.</Meta>
+ </Page>;
+}
+const local=StyleSheet.create({question:{fontSize:24,lineHeight:33,fontWeight:'700',color:colors.ink},track:{height:6,borderRadius:3,backgroundColor:colors.line,overflow:'hidden'},fill:{height:6,backgroundColor:colors.blue},answers:{gap:12},answer:{minHeight:64,borderWidth:1,borderColor:colors.strong,borderRadius:14,padding:16,backgroundColor:'#fff',flexDirection:'row',alignItems:'center',gap:12},selected:{borderWidth:2,borderColor:colors.blue,backgroundColor:'#e9efff'},correct:{borderColor:colors.success,backgroundColor:colors.successBg},letter:{fontSize:15,fontWeight:'800',color:colors.muted},selectedLetter:{color:colors.blue},answerText:{fontSize:17,lineHeight:25,color:colors.ink,flex:1},selectedMark:{color:colors.ink,fontWeight:'700'},feedback:{padding:20,borderRadius:16,gap:12,borderWidth:1},positive:{backgroundColor:colors.successBg,borderColor:colors.success},negative:{backgroundColor:colors.dangerBg,borderColor:colors.danger}});
