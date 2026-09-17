@@ -1,4 +1,5 @@
 import { createClient, type Session } from '@supabase/supabase-js';
+import { createPersonalRpc } from './personal-transport';
 import type { AuthSession, AuthTransport } from './auth';
 
 export function createSupabaseAuthTransport(url: string, key: string, request: typeof fetch = fetch): AuthTransport {
@@ -13,6 +14,7 @@ export function createSupabaseAuthTransport(url: string, key: string, request: t
       finally { clearTimeout(timer); }
     } },
   });
+  let personalSession:Session|null=null;
   async function verified(session: Session | null): Promise<AuthSession> {
     if (!session) throw new Error('No session');
     const { data, error } = await client.auth.getUser(session.access_token);
@@ -20,9 +22,17 @@ export function createSupabaseAuthTransport(url: string, key: string, request: t
     // MFA challenge UI is not implemented; do not silently treat aal1 as complete sign-in.
     if (data.user.factors?.some(f => f.status === 'verified')) throw new Error('MFA requires website');
     if (!session.expires_at || session.expires_at * 1000 <= Date.now()) throw new Error('Session expired');
+    personalSession=session;
     return { user: { id: data.user.id, email: data.user.email }, refreshToken: session.refresh_token, expiresAt: session.expires_at * 1000 };
   }
   return {
+    async personalRpc(owner,action,payload) {
+      return createPersonalRpc(url,key,async()=>{
+        const session=personalSession;
+        if(!session||session.user.id!==owner||!session.expires_at||session.expires_at*1000<=Date.now())throw new Error('Session unavailable');
+        return session.access_token;
+      },request)(action,payload);
+    },
     async login(email, password) {
       const { data, error } = await client.auth.signInWithPassword({ email, password });
       if (error) throw error;
@@ -34,6 +44,7 @@ export function createSupabaseAuthTransport(url: string, key: string, request: t
       return verified(data.session);
     },
     async logout() {
+      personalSession=null;
       const { error } = await client.auth.signOut({ scope: 'local' });
       if (error) throw error;
     },

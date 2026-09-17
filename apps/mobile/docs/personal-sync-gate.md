@@ -1,6 +1,6 @@
 # Personal sync prerequisite and offline lifecycle boundary
 
-Status: **bounded offline lifecycle implemented; cloud sync is NOT implemented or enabled.** This proposal is not a migration or production-apply authorization. Preserve the existing website/Phoenix authority.
+Status: **personal sync v1 implemented and tested locally; NOT deployed to production.** Parent accepted the bounded scope for local implementation. The historical proposal below is superseded by the [exact migration/deployment proposal](personal-sync-deployment.md), including permanent server generations, operational caps, local test commands and rollback. Production SQL approval and independent review remain separate. Preserve the existing website/Phoenix authority.
 
 ## Contract survey (production metadata only)
 
@@ -23,7 +23,7 @@ This does not revoke screenshots, exports, OS backups or extracted AsyncStorage.
 
 ## Narrow approval request: personal-only sync v1
 
-Approve these semantics before writing an additive SQL migration:
+These semantics were approved for LOCAL implementation only; the following records the original decision boundary:
 
 1. **Separate destination:** `personal_practice_events`, owned by server `auth.uid()`, never `study_sessions`, `study_progress`, profiles, assignments or multiplayer results. Immutable bounded events contain format version, client event UUID, session UUID, source kind, quiz/question/answer identifiers, content revision, client-observed answer/recall and client time; server receipt time and monotonic cursor are server-generated. No question/answer text, email, credential, entitlement or official XP field. Correctness/recall is explicitly learner-reported personal practice, not an official result.
 2. **Initial scope:** current public text quizzes only for cross-device review; bundled demo results remain device-only initially. Private/assigned/archived quizzes are rejected even if website roles could read them. Publication is not offline-download permission. Historic failed/revoked/stale submissions remain locally unsent with a clear reason; do not silently upgrade or relabel them as synced.
@@ -32,7 +32,7 @@ Approve these semantics before writing an additive SQL migration:
 5. **RLS/grants:** enable RLS, own-row SELECT only; revoke client INSERT/UPDATE/DELETE and anonymous RPC execution. Use a narrow authenticated SECURITY DEFINER RPC with empty search_path, qualified identifiers and identity-derived ownership. No helper executable by unintended roles; no inherited permissive policy. Account FK deliberate `ON DELETE CASCADE`; keep quiz refs as identifiers or define deliberate deletion behavior without leaking revoked text. No teacher or friend reads.
 6. **Client outbox:** atomically save account-scoped events before marking pending; fixed UUID/content across retries. Fetch acknowledgments/read back accepted IDs before showing synced. Abort/fence logout, account switch, background and cache deletion. Guest events never migrate automatically. A request already accepted before logout may exist for A, but cannot appear in B or be relabeled as B. An uncertain timeout stays pending, never “synced”; retry must use the identical event. UI distinguishes personal synced/pending/offline/error from official results. Tokens remain SDK/SecureStore-only and are absent from all cache/export/debug payloads.
 
-No SQL is included because revision binding, clear/tombstone semantics and retention must be accepted together; shipping only a writable JSON table would not satisfy those requirements.
+The accepted local implementation now includes exact SQL, shared revision tests and permanent-generation clear semantics; see the deployment proposal. No production application is implied.
 
 ## Separate online completion bridge decision
 

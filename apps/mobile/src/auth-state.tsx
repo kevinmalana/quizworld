@@ -10,6 +10,7 @@ import {Page,Heading,Body,Button,Loading,Notice} from './ui';
 
 type AuthContextValue=AuthState & {
  configured:boolean;
+ personalRpc:import('./personal-contract').PersonalRpc;
  signIn(email:string,password:string):Promise<void>;
  signOut():Promise<void>;
  retry():Promise<void>;
@@ -27,7 +28,7 @@ export function AuthProvider({children}:{children:React.ReactNode}){
   void auth.restore();
   return cleanup;
  },[auth]);
- return <Context.Provider value={{...state,configured,signIn:(email,password)=>auth?.signIn(email,password)??Promise.resolve(),signOut:()=>auth?.signOut()??Promise.resolve(),retry:()=>auth?.restore()??Promise.resolve()}}>{children}</Context.Provider>;
+ return <Context.Provider value={{...state,configured,personalRpc:(action,payload)=>auth&&state.user?auth.personalRpc(state.user.id,action,payload):Promise.reject(new Error('Cloud sync unavailable')),signIn:(email,password)=>auth?.signIn(email,password)??Promise.resolve(),signOut:()=>auth?.signOut()??Promise.resolve(),retry:()=>auth?.restore()??Promise.resolve()}}>{children}</Context.Provider>;
 }
 export function useAuth(){const auth=useContext(Context);if(!auth)throw new Error('Missing auth provider');return auth;}
 /** Remove the entire account/navigation subtree, including exports and async callbacks, before a new identity can render. */

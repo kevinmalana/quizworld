@@ -1,0 +1,10 @@
+import {z} from 'zod';
+const generation=z.string().regex(/^(0|[1-9][0-9]{0,18})$/);
+export const personalEventSchema=z.object({version:z.literal(1),eventId:z.string().uuid(),generation,sessionId:z.string().uuid(),quizId:z.string().uuid(),revision:z.string().regex(/^[a-f0-9]{64}$/),questionId:z.string().uuid(),answerId:z.string().uuid().nullable(),correct:z.boolean(),kind:z.enum(['answer','remove']),clientAt:z.number().int().min(0).max(8640000000000000)}).strict();
+export type PersonalEvent=z.infer<typeof personalEventSchema>;
+export const personalStateSchema=z.object({generation,outbox:z.array(personalEventSchema).max(2000),clearExpected:generation.optional(),localOnlyKeys:z.array(z.string().max(1000)).max(500).optional()}).strict();
+export type PersonalState=z.infer<typeof personalStateSchema>;
+export const capabilitySchema=z.object({contract:z.literal(1),owner:z.string().uuid(),generation,eventLimit:z.number().int().min(1).max(2000)});
+export const receiptSchema=z.object({event:personalEventSchema,cursor:z.string().regex(/^[1-9][0-9]*$/),receivedAt:z.string().datetime({offset:true})});
+export const pullSchema=capabilitySchema.extend({events:z.array(receiptSchema).max(2000)});
+export type PersonalRpc=(action:'status'|'submit'|'pull'|'clear',payload?:unknown)=>Promise<unknown>;

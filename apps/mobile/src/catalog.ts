@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
+import { personalRevision } from './personal-revision';
 import { packSchema } from './schema';
 import type { Pack } from './study/types';
 
@@ -19,7 +18,7 @@ export function parsePublicPack(value: unknown): Pack {
     throw new Error('This quiz is not available for native practice. Only public text quizzes with one correct answer per question are supported. Try another quiz or open the website.');
   }
   const questions = [...raw.data.questions].sort((a,b) => a.order_index - b.order_index || a.id.localeCompare(b.id)).map(q => ({ id:q.id, text:q.text, explanation:q.explanation, answers: [...q.answers].sort((a,b)=>a.id.localeCompare(b.id)).map(a=>({id:a.id,text:a.text,is_correct:a.is_correct})) }));
-  const result = packSchema.safeParse({ id: raw.data.id, title: raw.data.title, category: raw.data.category || 'Other', source: 'public', sourceLabel: 'Public QuizWorld quiz · author-provided answers', revision: bytesToHex(sha256(utf8ToBytes(JSON.stringify(questions)))), questions });
+  const result = packSchema.safeParse({ id: raw.data.id, title: raw.data.title, category: raw.data.category || 'Other', source: 'public', sourceLabel: 'Public QuizWorld quiz · author-provided answers', revision: personalRevision({id:raw.data.id,title:raw.data.title,category:raw.data.category||'Other',questions}), questions });
   if (!result.success) throw new Error('This quiz needs a complete set of text answers and exactly one correct answer per question.');
   return result.data;
 }

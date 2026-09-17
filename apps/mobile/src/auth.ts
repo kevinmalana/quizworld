@@ -4,6 +4,7 @@ export type AuthTransport = {
   login(email: string, password: string): Promise<AuthSession>;
   restore(refreshToken: string): Promise<AuthSession>;
   logout(): Promise<void>;
+  personalRpc?(owner:string,action:Parameters<import('./personal-contract').PersonalRpc>[0],payload?:unknown):Promise<unknown>;
 };
 export type CredentialStore = {
   get(): Promise<string | null>;
@@ -43,6 +44,13 @@ export function createAuthController(transport: AuthTransport, storage: Credenti
   };
   return {
     getSnapshot: () => state,
+    async personalRpc(owner:string,action:Parameters<import('./personal-contract').PersonalRpc>[0],payload?:unknown) {
+      const epoch=generation;
+      if(state.phase!=='ready'||state.user?.id!==owner||!transport.personalRpc)throw new Error('Cloud sync unavailable');
+      const result=await transport.personalRpc(owner,action,payload);
+      if(epoch!==generation||state.phase!=='ready'||state.user?.id!==owner)throw new Error('Cloud identity changed');
+      return result;
+    },
     subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
     restore() {
       if (state.phase === 'busy') return queue;

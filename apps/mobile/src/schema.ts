@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import {personalStateSchema} from './personal-contract';
 const text = z.string().min(1).max(12000);
 const id = z.string().min(1).max(200);
 const timestamp = z.number().finite().nonnegative();
@@ -7,6 +8,7 @@ export const packSchema = z.object({ id, revision: id, title: text, category: te
 const mode = z.enum(['quickfire', 'flashcard', 'review']);
 export const stateSchema = z.object({
   version: z.literal(1),
+  sync: personalStateSchema.optional(),
   active: z.object({ id, pack: packSchema, mode, index: z.number().int().nonnegative(), responses: z.array(z.object({ questionId: id, correct: z.boolean(), answerId: id.nullable() })).max(100), startedAt: timestamp, completedAt: timestamp.nullable() }).refine(s => s.index < s.pack.questions.length && s.responses.length >= s.index && s.responses.length <= s.index + 1 && s.responses.every((r, i) => {
     const question = s.pack.questions[i];
     if (!question || r.questionId !== question.id) return false;
