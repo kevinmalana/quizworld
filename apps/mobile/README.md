@@ -20,6 +20,9 @@ npm run preview
 The samples require no configuration, sign-in, network, or payment. The public library is opt-in, uses anonymous GET requests to public/unarchived quizzes, and rejects unsupported/media/multiple-correct-answer packs. Public community content is not a reviewed exam bank.
 
 ```sh
+# Deterministic E2E build with intercepted synthetic public-catalog fixtures.
+# These are NOT live catalog credentials or live content evidence.
+CI=1 EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 EXPO_PUBLIC_SUPABASE_URL=https://quizworld-mobile-fixture.invalid EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_local_fixture_not_a_real_key npm run export:web
 # Install Chromium separately if necessary; no production E2E targets.
 # Set PLAYWRIGHT_CHROMIUM_EXECUTABLE to an existing Chrome if using one.
 CI=1 PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/google-chrome npm run test:e2e
@@ -48,7 +51,7 @@ Exports are **not APK/AAB/IPA files**, signed applications, device tests, or pro
 
 Local storage is unencrypted, guest-only, bounded, and not authoritative. It is **not SQLite**, an immutable sync outbox, an authenticated cache, paid entitlement evidence, verified XP, or classroom completion. Checked answers are saved before state advances; unchecked selection is transient. A corrupt saved payload is not silently overwritten.
 
-Public packs are cached as personal text snapshots, not licensed permanent offline downloads. Starting a saved public review or resuming a public session rechecks visibility online. Ongoing sessions do not continuously recheck access. Revocation does not yet automatically purge previously cached text: manual removal/reset remains available. Do not use this prototype for private/classroom/student records or a commercial offline catalog.
+Public packs are cached as personal text snapshots, not licensed permanent offline downloads. Starting any public session (including from an already-open detail), saved review, or resumed session rechecks visibility online. Ongoing sessions do not continuously recheck access. Revocation does not yet automatically purge previously cached text: manual removal/reset remains available. Do not use this prototype for private/classroom/student records or a commercial offline catalog.
 
 Missing store/commercial gates include native auth/secure token storage, account isolation, sync APIs and conflict handling, transactional licensed pack downloads, automatic restricted-content purge, verified real IAP/restore/manage, authenticated in-app account deletion, curated content rights/accuracy, privacy/store metadata, final app identifiers/icons, and physical Android/iOS QA. Generic Expo app metadata/icons remain placeholders. No purchase or deletion success is simulated.
 
@@ -56,8 +59,8 @@ Accessibility semantics, expanding answer rows, safe areas and disabled states e
 
 ## Verification and review
 
-Recovery verification produced: mobile TypeScript pass; 7 passing unit test invocations (6 unique cases because the storage test imports the model test's fixture); 1 Chromium E2E pass covering guest practice, mistake persistence/reload, resume, offline retry and truthful account; web, Android and iOS exports pass. A separate 390×844 browser check captured real screenshots and loaded 20 live public catalog rows using GET-only requests with zero page errors.
+Recovery verification originally passed mobile TypeScript, 6 unique unit cases, one Chromium E2E and web/Android/iOS JS exports. Review removed duplicate fixture registration and added checked-answer corruption, storage bounds, public access/revocation, and revision/schedule coverage. The E2E suite also covers stale-detail revocation and explicit corrupt-storage reset. Synthetic catalog tests are not evidence of live content or backend authorization. Exact-head results are recorded in the review report, not inferred from earlier exports.
 
-The existing root CI does not install or run this package's checks. Run mobile commands explicitly. Root quality passed using the mobile TypeScript module via `NODE_PATH`; complete root web typecheck/build was not run in the recovery worktree because root dependencies are not installed. Root config parsing verified zero mobile files in the web TypeScript file list. The saved dependency audit reports 10 moderate transitive advisories, no high/critical; no forced incompatible Expo downgrade was applied.
+The separate path-scoped `.github/workflows/mobile.yml` installs this package and runs TypeScript/unit checks, a deterministic web export and local Chromium E2E, then Android/iOS JS exports serially with one worker. It requires no secrets or production backend. Root CI remains separate; a root green check is not mobile or signed-native evidence. Complete root checks are not run locally without root dependencies. The recovery dependency audit reported 10 moderate transitive advisories, no high/critical; review advisories again before release.
 
 Independent standards/spec/security review is still required before merge. Do not merge or announce store availability based on these browser/export results. Local recovery evidence and exact source/artifact checksums are recorded in `/root/quizworld-mobile-build/IMPLEMENTATION.md` and sibling artifacts on the build host.

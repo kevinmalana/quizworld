@@ -1,0 +1,48 @@
+name: Mobile prototype
+
+on:
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'lib/study/types.ts'
+      - '.github/workflows/mobile.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - 'lib/study/types.ts'
+      - '.github/workflows/mobile.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_NO_DOTENV: '1'
+      NODE_OPTIONS: --max-old-space-size=768
+      # Local intercepted E2E fixtures only; never production credentials.
+      EXPO_PUBLIC_SUPABASE_URL: https://quizworld-mobile-fixture.invalid
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_local_fixture_not_a_real_key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run export:web
+      - run: npm run test:e2e
+      # JS/bytecode/assets only, not signed native builds or device QA.
+      - run: npx expo export --platform android --max-workers 1 --output-dir export-android
+      - run: npx expo export --platform ios --max-workers 1 --output-dir export-ios

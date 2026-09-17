@@ -7,7 +7,13 @@ export const packSchema = z.object({ id, revision: id, title: text, category: te
 const mode = z.enum(['quickfire', 'flashcard', 'review']);
 export const stateSchema = z.object({
   version: z.literal(1),
-  active: z.object({ id, pack: packSchema, mode, index: z.number().int().nonnegative(), responses: z.array(z.object({ questionId: id, correct: z.boolean(), answerId: id.nullable() })).max(100), startedAt: timestamp, completedAt: timestamp.nullable() }).refine(s => s.index < s.pack.questions.length && s.responses.length >= s.index && s.responses.length <= s.index + 1 && s.responses.every((r, i) => r.questionId === s.pack.questions[i].id) && (s.completedAt === null || s.responses.length === s.pack.questions.length)).nullable(),
+  active: z.object({ id, pack: packSchema, mode, index: z.number().int().nonnegative(), responses: z.array(z.object({ questionId: id, correct: z.boolean(), answerId: id.nullable() })).max(100), startedAt: timestamp, completedAt: timestamp.nullable() }).refine(s => s.index < s.pack.questions.length && s.responses.length >= s.index && s.responses.length <= s.index + 1 && s.responses.every((r, i) => {
+    const question = s.pack.questions[i];
+    if (!question || r.questionId !== question.id) return false;
+    if (s.mode === 'flashcard') return r.answerId === null;
+    const answer = question.answers.find(a => a.id === r.answerId);
+    return !!answer && r.correct === answer.is_correct;
+  }) && (s.completedAt === null || s.responses.length === s.pack.questions.length)).nullable(),
   reviews: z.array(z.object({ key: z.string().max(1000), packId: id, revision: id, title: text, category: text, source: z.enum(['bundled', 'public']), sourceLabel: text, question: questionSchema, dueAt: timestamp, successes: z.number().int().nonnegative() })).max(500),
   history: z.array(z.object({ id, title: text, mode, correct: z.number().int().nonnegative(), total: z.number().int().positive(), completedAt: timestamp }).refine(h => h.correct <= h.total)).max(100),
 });
