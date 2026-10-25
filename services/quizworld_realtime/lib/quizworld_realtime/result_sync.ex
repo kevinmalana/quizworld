@@ -60,7 +60,7 @@ defmodule QuizworldRealtime.ResultSync do
                score: player.score
              }
            end),
-         question_count: length(game.questions || []),
+         question_count: length(question_breakdown),
          scored_question_count: Enum.count(question_breakdown, & &1.scored),
          finished_status: game.status,
          # Game mode data
@@ -83,6 +83,10 @@ defmodule QuizworldRealtime.ResultSync do
 
     questions
     |> Enum.with_index()
+    |> Enum.filter(fn {_question, index} ->
+      index < game.current_question_index or
+        (index == game.current_question_index and game.status in ["reveal", "finished"])
+    end)
     |> Enum.map(fn {question, index} ->
       question_id = question["id"]
       question_type = question["question_type"] || "multiple_choice"

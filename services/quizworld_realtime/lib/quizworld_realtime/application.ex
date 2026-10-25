@@ -16,7 +16,7 @@ defmodule QuizworldRealtime.Application do
         # with no monitoring. With Task.Supervisor + Logger.metadata, failures are
         # visible in process listings and we can add retries/metrics later.
         {Task.Supervisor, name: QuizworldRealtime.TaskSupervisor}
-      ] ++ redis_child() ++ [QuizworldRealtimeWeb.Endpoint]
+      ] ++ redis_child() ++ [QuizworldRealtime.ResultRecovery, QuizworldRealtimeWeb.Endpoint]
 
     opts = [strategy: :one_for_one, name: QuizworldRealtime.Supervisor]
     Supervisor.start_link(children, opts)

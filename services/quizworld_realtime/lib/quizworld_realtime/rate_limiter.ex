@@ -8,24 +8,20 @@ defmodule QuizworldRealtime.RateLimiter do
 
   @limits %{
     "POST:/api/sessions" => {20, 60},
-    "POST:/api/sessions/*/join" => {30, 60},
+    "POST:/api/sessions/*/join" => {2_000, 60},
     "POST:/api/sessions/*/start" => {20, 60},
     "POST:/api/sessions/*/reveal" => {60, 60},
     "POST:/api/sessions/*/advance" => {60, 60},
-    "POST:/api/sessions/*/answer" => {240, 60},
-    # 2026-08-13: GET /api/sessions/:pin/show is polled every 5s by every connected
-    # player as a fallback when the WebSocket is disconnected. With many
-    # players behind a NAT (classroom), this can spike. A generous but
-    # bounded limit protects against PIN brute-forcing (10s polling from
-    # 200 IPs in 60s = 1200 reqs vs limit 600).
-    "GET:/api/sessions/*" => {600, 60},
+    "POST:/api/sessions/*/answer" => {24_000, 60},
+    # Shared-IP budgets cover four simultaneous 200-player classes, including
+    # 2x retries: 1,600 joins, 19,200 five-second polls/answers per minute.
+    # Buckets remain IP-wide (not PIN-wide), so rotating rooms cannot evade caps.
+    "GET:/api/sessions/*" => {24_000, 60},
     # Presentation snapshots are fetched by audience clients during reconnects.
-    "GET:/api/presentations/*" => {600, 60},
-    # Live audience activity is polled roughly every 2.5 seconds. Keep this
-    # higher than the snapshot cap so a classroom sharing one NAT IP remains
-    # usable, while still bounding automated abuse.
-    "GET:/api/presentations/*/slides/*/activity" => {3_000, 60},
-    "POST:/api/presentations/join" => {40, 60},
+    "GET:/api/presentations/*" => {24_000, 60},
+    # 800 audience clients x 24 polls/minute x 2 retry headroom = 38,400.
+    "GET:/api/presentations/*/slides/*/activity" => {48_000, 60},
+    "POST:/api/presentations/join" => {2_000, 60},
     "POST:/api/presentations/*/start" => {20, 60}
   }
 

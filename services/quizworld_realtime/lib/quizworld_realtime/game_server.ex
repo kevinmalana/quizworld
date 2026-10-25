@@ -1,5 +1,6 @@
 defmodule QuizworldRealtime.GameServer do
   use GenServer, restart: :transient
+  require Logger
 
   alias QuizworldRealtime.Game
   alias QuizworldRealtime.Games
@@ -258,6 +259,12 @@ defmodule QuizworldRealtime.GameServer do
 
   def handle_info({:result_sync_complete, _stale_ref, _result}, game), do: {:noreply, game}
 
+  def handle_info(:retry_checkpoint, game) do
+    Process.delete(:checkpoint_retry_ref)
+    persist_snapshot(game)
+    {:noreply, game}
+  end
+
   def handle_info(:retry_result_sync, game) do
     next_game = maybe_start_result_sync(game)
     persist_snapshot(next_game)
@@ -329,6 +336,9 @@ defmodule QuizworldRealtime.GameServer do
   end
 
   defp maybe_start_result_sync(%Game{status: "finished", result_sync_status: :pending} = game) do
+    # Write the durable outbox before dispatch. Sync can finish immediately, and
+    # a process/VM crash must leave a discoverable pending completion.
+    persist_snapshot(game)
     owner = self()
     ref = make_ref()
 
@@ -446,8 +456,35 @@ defmodule QuizworldRealtime.GameServer do
   defp broadcast_player_results(_pin, _host_snapshot), do: :ok
 
   defp persist_snapshot(game) do
-    GameStore.backend().persist_game(game)
+    result = checkpoint(game)
+
+    case result do
+      :ok ->
+        if ref = Process.delete(:checkpoint_retry_ref), do: Process.cancel_timer(ref)
+
+      {:error, reason} ->
+        Logger.error(
+          "Game checkpoint failed; gameplay continues with retry pending: #{inspect(reason)}"
+        )
+
+        :telemetry.execute([:quizworld_realtime, :checkpoint, :failure], %{count: 1}, %{
+          reason: reason
+        })
+
+        unless Process.get(:checkpoint_retry_ref) do
+          Process.put(:checkpoint_retry_ref, Process.send_after(self(), :retry_checkpoint, 1_000))
+        end
+    end
+
     Game.snapshot(game, :host)
+  end
+
+  defp checkpoint(game) do
+    GameStore.backend().persist_game(game)
+  rescue
+    error -> {:error, error}
+  catch
+    kind, reason -> {:error, {kind, reason}}
   end
 
   defp pin_for(%Game{pin: pin}), do: pin
