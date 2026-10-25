@@ -24,7 +24,7 @@ export function catalogSearchFilter(search: string): string | null {
 /** Matching/count filters are identical; only the page query gets a keyset cursor. */
 export async function fetchCatalogPage(client: SupabaseClient, options: {
   search?: string; category?: string; sort?: CatalogSort; cursor?: CatalogCursor | null;
-  loadedCount?: number; pageSize?: number;
+  loadedCount?: number; pageSize?: number; creatorId?: string;
 }) {
   const { search = "", category = "All", sort = "popular", cursor = null, loadedCount = 0, pageSize = 24 } = options;
   if (!Number.isInteger(loadedCount) || loadedCount < 0 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
@@ -32,7 +32,8 @@ export async function fetchCatalogPage(client: SupabaseClient, options: {
   }
   const filteredQuery = (head: boolean) => {
     let query = client.from("quizzes").select(head ? "id" : CATALOG_QUIZ_SELECT, head ? { count: "exact", head: true } : {})
-      .eq("is_public", true).is("archived_at", null);
+      .is("archived_at", null);
+    query = options.creatorId ? query.eq("creator_id", options.creatorId) : query.eq("is_public", true);
     const searchFilter = catalogSearchFilter(search);
     if (searchFilter) query = query.or(searchFilter);
     if (normalizeCatalogSearch(category) !== "all") {

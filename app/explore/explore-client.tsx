@@ -299,14 +299,16 @@ function SuperCategorySelector({
 function ExplorePageContent({
   initialCatalog,
   initialCategory,
+  initialSearch = "",
 }: {
   initialCatalog: InitialExploreCatalog | null;
   initialCategory: string;
+  initialSearch?: string;
 }) {
   const { user } = useAuth();
   const seededCatalog = initialCatalog;
   const [quizzes, setQuizzes] = useState<QuizWithCreator[]>(seededCatalog?.quizzes ?? []);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const normalizedSearch = normalizeCatalogSearch(search);
   const [activeCategory, setActiveCategory] = useState(
@@ -616,9 +618,11 @@ function ExplorePageContent({
 export default function ExploreClient({
   initialCatalog,
   initialCategory,
+  initialSearch = "",
 }: {
   initialCatalog: InitialExploreCatalog | null;
   initialCategory: string;
+  initialSearch?: string;
 }) {
-  return <ExplorePageContent initialCatalog={initialCatalog} initialCategory={initialCategory} />;
+  return <ExplorePageContent initialSearch={initialSearch} initialCatalog={initialCatalog} initialCategory={initialCategory} />;
 }

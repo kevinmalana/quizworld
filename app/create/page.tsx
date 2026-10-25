@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSourceLoginRecovery } from "@/lib/builder/use-source-login-recovery";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
@@ -65,7 +66,7 @@ function CreatePageContent() {
   const remoteDraftIdRef = useRef<string | null>(null);
   const remoteRevisionRef = useRef<number | null>(null);
 
-  const [aiTopic, setAiTopic] = useState(sourceParam === "template" ? "Educational quiz covering key concepts, definitions, and important facts" : "");
+  const [aiTopic, setAiTopic] = useState(searchParams.get("topic") ?? (sourceParam === "template" ? "Educational quiz covering key concepts, definitions, and important facts" : ""));
   const [aiUrl, setAiUrl] = useState("");
   const [aiCount, setAiCount] = useState<AIQuestionCount>(10);
   const [aiLoading, setAiLoading] = useState(false);
@@ -95,7 +96,7 @@ function CreatePageContent() {
   }, []);
 
   useQuizAuthoringRecovery({
-    authLoading, userId: user?.id ?? null,
+    authLoading, userId: user?.id ?? null, skipLocalRecovery: Boolean(sourceParam),
     draftParam, quizParam, versionParam, duplicateParam, router,
     storageKey: CREATE_DRAFT_KEY,
     currentRemoteDraftId: remoteDraftId,
@@ -181,11 +182,12 @@ function CreatePageContent() {
     setDraftState("dirty");
   }, []);
 
+  const signInForSource = useSourceLoginRecovery({ sourceType, aiTopic, aiUrl, pasteText, aiCount, aiOptions,
+    setSourceType, setAiTopic, setAiUrl, setPasteText, setAiCount, setAiOptions, setAiError, onRestore: () => setStep("source"), next: `/create?${searchParams.toString()}`, navigate: router.push });
+
   const handleSourceSelect = useCallback((type: SourceType) => {
     setSourceType(type);
-    if (type === "manual") {
-      setStep("builder");
-    }
+    if (type === "manual") setStep("builder");
     // Other types show their input inline
   }, []);
 
@@ -228,13 +230,8 @@ function CreatePageContent() {
   const handlePasteImport = useCallback(async () => {
         if (!pasteText.trim()) return;
 
-        if (!user) {
-          setAiError("Sign in to use AI quiz generation.");
-          return;
-        }
         setAiError("");
-    
-        // Try regex parsing first (structured format)
+        // Structured imports are local and do not need an AI account.
         const parsed = parseImportedQuestions(pasteText);
     if (parsed.questions && parsed.questions.length > 0) {
       const generated = parsed.questions.map((q: any) => legacyToQuestionData(q));
@@ -244,7 +241,7 @@ function CreatePageContent() {
       setDraftState("dirty");
       return;
     }
-
+    if (!user) { setAiError("Sign in to use AI quiz generation. Structured questions can be imported without an account."); return; }
     // Fallback: treat as source text for AI generation
     if (pasteText.trim().length < 200) {
       setAiError("Paste more text — at least a paragraph for AI to work with.");
@@ -546,6 +543,8 @@ function CreatePageContent() {
         />
         <CreateSourceModals
           sourceType={sourceType}
+          isSignedIn={Boolean(user)}
+          onSignIn={signInForSource}
           aiTopic={aiTopic}
           aiUrl={aiUrl}
           pasteText={pasteText}

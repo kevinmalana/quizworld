@@ -444,6 +444,9 @@ export function StudyResultPanel({
   result,
   mode,
   saving,
+  saved = false,
+  onRetrySave,
+  onSignIn,
   saveMessage,
   totalXp,
   newAchievements = [],
@@ -454,6 +457,9 @@ export function StudyResultPanel({
   result: SessionResult;
   mode: StudyMode;
   saving: boolean;
+  saved?: boolean;
+  onRetrySave?: () => void;
+  onSignIn?: () => void;
   saveMessage: string;
   totalXp?: number;
   newAchievements?: string[];
@@ -478,7 +484,7 @@ export function StudyResultPanel({
         {/* XP breakdown */}
         {sessionXp > 0 && (
           <div className="study-xp-breakdown">
-            <div className="study-xp-breakdown__title">⭐ XP Earned</div>
+            <div className="study-xp-breakdown__title">{saved ? "⭐ XP Earned" : "XP preview — not saved"}</div>
             <div className="study-xp-breakdown__rows">
               <div className="study-xp-breakdown__row">
                 <span>{result.correct} correct × {xpPerCorrect} XP</span>
@@ -516,19 +522,21 @@ export function StudyResultPanel({
         )}
 
         {/* Live level progress bar — shows after save completes */}
-        {totalXp !== undefined && !saving && (
+        {saved && totalXp !== undefined && !saving && (
           <MiniXpBar totalXp={totalXp} newXp={sessionXp} />
         )}
         {saving && <p className="study-muted study-save-message">Saving progress...</p>}
         {!saving && saveMessage && <p className="study-muted study-save-message">{saveMessage}</p>}
 
         <div className="study-action-row">
+          {onRetrySave && <button disabled={saving} onClick={onRetrySave} className="btn btn-primary">Retry save</button>}
+          {onSignIn && <button onClick={onSignIn} className="btn btn-primary">Sign in to save this session</button>}
           {onReview && (
             <button onClick={onReview} className="btn btn-primary">
               🔁 Review {result.wrongQuestions.length} Missed
             </button>
           )}
-          <button onClick={onReset} className="btn btn-secondary">Study Again</button>
+          <button disabled={saving} onClick={onReset} className="btn btn-secondary">Study Again</button>
           <button onClick={onBack} className="btn btn-secondary">Back to Study</button>
         </div>
       </div>

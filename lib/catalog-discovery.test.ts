@@ -85,7 +85,7 @@ test("Explore server-renders the initial catalog and avoids a duplicate browser 
   assert.match(serverPage, /getInitialExploreCatalog/);
   assert.match(serverCatalog, /unstable_cache/);
   assert.match(serverPage, /initialCatalog=/);
-  assert.match(serverPage, /key=\{initialCategory\}/);
+  assert.match(serverPage, /key=\{`\$\{initialCategory\}:\$\{initialSearch\}`\}/);
   assert.match(serverPage, /searchParams/);
   assert.match(clientPage, /initialCatalog/);
   assert.match(clientPage, /skipInitialFetchRef/);

@@ -228,6 +228,7 @@ export default function ClassroomDetailPage() {
       if (role === "teacher") {
         const grid: MasteryGrid = {};
         (progressRes.data ?? []).forEach((row: { user_id: string; quiz_id: string; mastery: number; correct: number; questions_studied: number; last_studied: string }) => {
+          if (!studentIds.has(row.user_id)) return;
           if (!grid[row.user_id]) grid[row.user_id] = {};
           grid[row.user_id][row.quiz_id] = {
             mastery: row.mastery,
@@ -276,7 +277,7 @@ export default function ClassroomDetailPage() {
         const quizMasteryAvg: Record<string, number[]> = {};
         Object.values(grid).forEach(userQuizzes => {
           Object.entries(userQuizzes).forEach(([qid, cell]) => {
-            if (cell.mastery !== null) {
+            if (cell.mastery !== null && cell.questions_studied > 0) {
               if (!quizMasteryAvg[qid]) quizMasteryAvg[qid] = [];
               quizMasteryAvg[qid].push(cell.mastery);
             }
@@ -290,14 +291,14 @@ export default function ClassroomDetailPage() {
         });
         if (weakestQuiz && weakestAvg < 60) {
           const wTitle = quizzesRes.data?.find(q => q.id === weakestQuiz)?.title ?? "A quiz";
-          builtInsights.push({ type: "warning", text: `"${wTitle}" has the lowest class average: ${Math.round(weakestAvg)}%. Consider reviewing this material.` });
+          builtInsights.push({ type: "warning", text: `"${wTitle}" has the lowest average mastery on studied work: ${Math.round(weakestAvg)}%. Consider reviewing this material.` });
         }
 
         // Top performer
         let topUser: string | null = null;
         let topAvg = -1;
         Object.entries(grid).forEach(([uid, quizzes]) => {
-          const scores = Object.values(quizzes).map(c => c.mastery ?? 0);
+          const scores = Object.values(quizzes).filter(c => c.mastery !== null && c.questions_studied > 0).map(c => c.mastery!);
           if (!scores.length) return;
           const avg = scores.reduce((s, v) => s + v, 0) / scores.length;
           if (avg > topAvg) { topAvg = avg; topUser = uid; }
@@ -305,7 +306,7 @@ export default function ClassroomDetailPage() {
         if (topUser && topAvg >= 80) {
           const tp = profiles?.find(p => p.id === topUser);
           const tName = tp?.display_name || tp?.username || "A student";
-          builtInsights.push({ type: "success", text: `🏆 ${tName} is leading the class with ${Math.round(topAvg)}% average mastery across all assignments.` });
+          builtInsights.push({ type: "success", text: `🏆 ${tName} is leading the class with ${Math.round(topAvg)}% average mastery across studied assignments.` });
         }
 
         // Overall completion is based on fetched assignment completion rows,

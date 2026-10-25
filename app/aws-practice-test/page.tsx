@@ -132,10 +132,10 @@ export default function AWSPracticeTestPage() {
               {exam.description}
             </p>
             <div style={{ display: "flex", gap: "0.5rem" }}>
-              <Link href="/explore/technology" className="btn btn-secondary btn-compact" style={{ flex: 1, textAlign: "center" }}>
+              <Link href={`/explore?q=${encodeURIComponent(exam.code)}`} className="btn btn-secondary btn-compact" style={{ flex: 1, textAlign: "center" }}>
                 Browse Quizzes
               </Link>
-              <Link href="/create" className="btn btn-primary btn-compact" style={{ flex: 1, textAlign: "center" }}>
+              <Link href={`/create?source=topic&topic=${encodeURIComponent(`${exam.code} ${exam.name}: ${exam.description}`)}`} className="btn btn-primary btn-compact" style={{ flex: 1, textAlign: "center" }}>
                 Create Test
               </Link>
             </div>
