@@ -27,6 +27,9 @@ jobs:
           elixir-version: '1.17'
           otp-version: '27'
 
+      - name: Install Redis regression dependency
+        run: sudo apt-get update && sudo apt-get install -y redis-server
+
       - name: Install Phoenix dependencies
         working-directory: services/quizworld_realtime
         run: mix deps.get
