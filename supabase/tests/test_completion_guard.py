@@ -129,6 +129,24 @@ RESET ROLE; SELECT count(*) FROM study_sessions; SELECT total_xp FROM profiles W
     def test_missing_quiz_denied(self):
         self.deny(quiz=9)
 
+    def test_profile_column_guards_preserve_atomic_completion_rewards(self):
+        # Additional production columns/auth parent absent from this narrow fixture.
+        setup = '''
+CREATE TABLE auth.users(id uuid PRIMARY KEY);
+ALTER TABLE profiles ADD COLUMN username text, ADD COLUMN display_name text, ADD COLUMN avatar text,
+  ADD COLUMN created_at timestamptz DEFAULT now(), ADD COLUMN updated_at timestamptz, ADD COLUMN username_changed_at timestamptz, ADD COLUMN is_admin boolean DEFAULT false;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY owner_update ON profiles FOR UPDATE USING(id=auth.uid());
+CREATE POLICY read_profiles ON profiles FOR SELECT USING(true);
+GRANT SELECT,INSERT,UPDATE ON profiles TO anon,authenticated;
+CREATE FUNCTION public.increment_xp(uuid,integer) RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN RETURN; END $$;
+CREATE FUNCTION public.update_study_streak(uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN RETURN; END $$;
+''' + (ROOT/'supabase/migrations/20261025120000_profile_guards_durable_ai_quota.sql').read_text()
+        lines = self.query(f"SELECT {self.call()}; SELECT {self.call()}; RESET ROLE; SELECT total_xp,study_streak FROM profiles WHERE id='{USER}2'; SELECT count(*) FROM study_sessions", setup=setup).splitlines()
+        self.assertEqual(json.loads(lines[0])['xp_earned'],175)
+        self.assertTrue(json.loads(lines[1])['idempotent_replay'])
+        self.assertEqual(lines[2:],['175|1','1'])
+
     def test_internal_function_not_client_callable(self):
         for role in ['anon','authenticated','service_role']:
             self.deny(actor=2, role=role, call=self.call(function=RPC+'_internal'), error='permission denied for function')

@@ -7,15 +7,23 @@ const summary = { aggregates_available: true, game_mode: "classic", total_player
   leaderboard: [{ nickname: "PRIVATE CHILD", score: 1000, correct: 1 }], question_stats: [{ text: "Capital?", correct_pct: 100, avg_time: 1 }], eliminated: [], teams: [] };
 const request = (gameData: unknown = summary, origin = "https://quizworld.local") => new NextRequest("https://quizworld.local/api/ai-game-insights", { method: "POST", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify({ gameData }) });
 
-// Fixture identities and AI response; real handler, body parser and account limiter.
+// Fixture identities, quota service and AI response; real handler/body parser.
+// Atomic counters, cross-route allowance and expiry are tested on PostgreSQL in
+// supabase/tests/test_audit_data_guards.py (no provider calls).
 test("insights rejects anonymous, cross-origin, malformed, oversized and over-limit requests before spending", async () => {
   const path = "./ai-game-insights";
   const ai = await import(path).catch(() => null);
   assert.equal(typeof ai?.createGameInsightsHandler, "function", "bounded authenticated insights handler missing");
   let calls = 0;
   let identity: string | null = null;
+  const reservations = new Map<string, number>();
   const handler = ai.createGameInsightsHandler({
-    guard: (req: NextRequest) => checkRateLimit(req, async () => identity),
+    guard: (req: NextRequest) => checkRateLimit(req, async () => identity, async (userId) => {
+      const count = reservations.get(userId) ?? 0;
+      if (count >= 10) return { allowed: false, reason: "route", limit: 10, retry_after: 60, reset_at: 1234567 };
+      reservations.set(userId, count + 1);
+      return { allowed: true };
+    }),
     complete: async (payload: Record<string, unknown>, cap: number) => {
       calls++;
       assert.equal(cap, 800);
@@ -40,16 +48,18 @@ test("insights rejects anonymous, cross-origin, malformed, oversized and over-li
   assert.equal(calls, 10);
 });
 
-test("AI account daily allowance is shared across AI routes", async (t) => {
-  let now = Date.now();
-  t.mock.method(Date, "now", () => now);
-  const resolve = async () => "daily-fixture";
-  for (let i = 0; i < 50; i++) {
-    now += 61_000;
-    const req = new NextRequest(`https://quizworld.local/api/${i % 2 ? "ai-enrich" : "ai-game-insights"}`);
-    assert.equal(await checkRateLimit(req, resolve), null);
+test("durable daily denial and storage outage prevent AI provider calls", async () => {
+  const { createGameInsightsHandler } = await import("./ai-game-insights");
+  let calls = 0;
+  for (const unavailable of [false, true]) {
+    const handler = createGameInsightsHandler({
+      guard: req => checkRateLimit(req, async () => "fixture", async () => {
+        if (unavailable) throw new Error("offline storage");
+        return { allowed: false, reason: "daily", limit: 50, retry_after: 3600, reset_at: 1234567 };
+      }),
+      complete: async () => { calls++; throw new Error("must not spend"); },
+    });
+    assert.equal((await handler(request())).status, unavailable ? 503 : 429);
   }
-  now += 61_000;
-  const denied = await checkRateLimit(new NextRequest("https://quizworld.local/api/ai-source-draft"), resolve);
-  assert.equal(denied?.status, 429);
+  assert.equal(calls, 0);
 });

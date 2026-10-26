@@ -27,20 +27,11 @@ export function OnboardingChecklist({
     {
       id: "profile",
       label: "Complete your profile",
-      description: "Add a display name & avatar",
+      description: "Add a display name",
       href: "/profile",
       completed: hasDisplayName,
       emoji: "👤",
       iconColor: "var(--accent)",
-    },
-    {
-      id: "explore",
-      label: "Explore quizzes",
-      description: "Browse the community",
-      href: "/explore",
-      completed: false,
-      emoji: "🔍",
-      iconColor: "var(--secondary)",
     },
     {
       id: "create",
@@ -59,15 +50,6 @@ export function OnboardingChecklist({
       completed: gamesPlayed > 0,
       emoji: "🎮",
       iconColor: "var(--success)",
-    },
-    {
-      id: "study",
-      label: "Study a topic",
-      description: "Flashcards at your own pace",
-      href: "/study",
-      completed: false,
-      emoji: "📚",
-      iconColor: "var(--primary)",
     },
   ];
 

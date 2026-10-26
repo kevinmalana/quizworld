@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { prepareHostLogin } from "@/lib/auth/redirects";
-import { Suspense, useEffect, useState, useMemo } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
@@ -10,6 +10,7 @@ import { HostIcon } from "@/components/shared/host-icon";
 import { HostPlayOption } from "@/components/host/HostPlayOption";
 import { HostSelectedQuiz } from "@/components/host/HostSelectedQuiz";
 import { CATEGORY_EMOJIS } from "@/lib/shared";
+import { fetchCatalogPage, normalizeCatalogSearch, mergeCatalogPage, CATALOG_QUIZ_SELECT, type CatalogCursor, type CatalogRow } from "@/lib/catalog-discovery";
 import { launchHostedSession } from "@/lib/game-engine/host-launch";
 import {
   isPhoenixGameEngine,
@@ -144,8 +145,6 @@ function HostPageContent() {
   const preSelectedId = searchParams.get("quiz");
   const { user, loading: authLoading } = useAuth();
 
-  const [myQuizzes, setMyQuizzes] = useState<QuizSummary[]>([]);
-  const [publicQuizzes, setPublicQuizzes] = useState<QuizSummary[]>([]);
   const [recentQuizIds, setRecentQuizIds] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(preSelectedId);
   const [search, setSearch] = useState("");
@@ -165,82 +164,80 @@ function HostPageContent() {
   const [hostPlayerName, setHostPlayerName] = useState("");
   const [hostPlayerAvatar, setHostPlayerAvatar] = useState("🎮");
 
+  const [catalogRows, setCatalogRows] = useState<QuizSummary[]>([]);
+  const [selectedSummary, setSelectedSummary] = useState<QuizSummary | null>(null);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [cursor, setCursor] = useState<CatalogCursor | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [page, setPage] = useState(0);
+  const requestEpoch = useRef(0);
+  const normalizedSearch = normalizeCatalogSearch(search);
+  const summary = (q: CatalogRow): QuizSummary => ({ ...q, question_count: q.questions?.length ?? 0, is_mine: q.creator_id === user?.id });
+
+  useEffect(() => {
+    try {
+      const recent = JSON.parse(localStorage.getItem("qw_recent_hosted") || "[]");
+      setRecentQuizIds(Array.isArray(recent) ? recent.filter(id => typeof id === "string").slice(0, 5) : []);
+    } catch { /* storage is optional */ }
+  }, []);
+
+  useEffect(() => {
+    if (!user || !preSelectedId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data, error } = await supabase.from("quizzes").select(CATALOG_QUIZ_SELECT).eq("id", preSelectedId).is("archived_at", null).single();
+        if (cancelled) return;
+        if (error || !data) throw new Error("Could not load your selected quiz.");
+        setSelectedSummary(current => current ?? summary(data as unknown as CatalogRow));
+      } catch { if (!cancelled) setCatalogError("Could not load your selected quiz. Retry to try again."); }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, preSelectedId, retry]);
+
   useEffect(() => {
     if (!user) return;
-
-    async function load() {
-      // Load quiz summaries only (no question data — loaded at launch time)
-      const { data } = await supabase
-        .from("quizzes")
-        .select("id, title, emoji, color, category, plays, creator_id, questions(id)")
-        .or(`is_public.eq.true,creator_id.eq.${user!.id}`)
-        .is("archived_at", null)
-        .order("plays", { ascending: false });
-
-      if (!data) return;
-
-      const mine: QuizSummary[] = [];
-      const pub: QuizSummary[] = [];
-
-      data.forEach(q => {
-        const isMine = q.creator_id === user!.id;
-        const summary: QuizSummary = {
-          id: q.id,
-          title: q.title,
-          emoji: q.emoji,
-          color: q.color,
-          category: q.category,
-          question_count: Array.isArray(q.questions) ? q.questions.length : 0,
-          plays: q.plays ?? 0,
-          is_mine: isMine,
-        };
-        if (isMine) mine.push(summary);
-        else pub.push(summary);
-      });
-
-      setMyQuizzes(mine);
-      setPublicQuizzes(pub);
-
-      // Auto-select pre-selected quiz
-      if (preSelectedId) {
-        setSelectedId(preSelectedId);
-        const found = [...mine, ...pub].find(q => q.id === preSelectedId);
-        if (found) setSection(found.is_mine ? "mine" : "public");
-      } else if (mine.length > 0) {
-        // Default to My Quizzes section, no auto-select
-        setSection("mine");
-      } else {
-        setSection("public");
-      }
-
-      // Recent hosted quizzes from localStorage
+    const epoch = ++requestEpoch.current;
+    setCatalogLoading(true);
+    setCatalogError("");
+    void (async () => {
       try {
-        const recent = JSON.parse(localStorage.getItem("qw_recent_hosted") || "[]") as string[];
-        setRecentQuizIds(recent.filter(id => data.some(q => q.id === id)));
-      } catch { /* ignore */ }
-    }
+        if (section === "recent") {
+          const { data, error } = recentQuizIds.length ? await supabase.from("quizzes").select(CATALOG_QUIZ_SELECT).in("id", recentQuizIds).is("archived_at", null) : { data: [], error: null };
+          if (error) throw error;
+          if (epoch !== requestEpoch.current) return;
+          setCatalogRows((data as unknown as CatalogRow[]).map(summary));
+          setHasMore(false);
+        } else {
+          const result = await fetchCatalogPage(supabase, {
+            search: section === "public" ? normalizedSearch : "",
+            creatorId: section === "mine" ? user.id : undefined,
+            cursor: page > 0 ? cursor : null, loadedCount: page > 0 ? catalogRows.length : 0,
+          });
+          if (epoch !== requestEpoch.current) return;
+          const rows = result.quizzes.map(summary);
+          setCatalogRows(current => page > 0 ? mergeCatalogPage(current, rows) : rows);
+          setCursor(result.nextCursor);
+          setHasMore(result.hasMore);
+        }
+      } catch {
+        if (epoch === requestEpoch.current) setCatalogError("Could not load quizzes. Your selection and search are unchanged.");
+      } finally {
+        if (epoch === requestEpoch.current) setCatalogLoading(false);
+      }
+    })();
+    return () => { ++requestEpoch.current; };
+    // Cursor and loaded rows are the last successful page, retained for retry.
+  }, [user?.id, section, normalizedSearch, page, retry, recentQuizIds]);
 
-    load();
-  }, [user?.id, preSelectedId]);
-
-  const recentQuizzes = useMemo(() => {
-    const all = [...myQuizzes, ...publicQuizzes];
-    return recentQuizIds.map(id => all.find(q => q.id === id)).filter(Boolean) as QuizSummary[];
-  }, [recentQuizIds, myQuizzes, publicQuizzes]);
-
-  const filteredPublic = useMemo(() => {
-    if (!search.trim()) return publicQuizzes;
-    const q = search.toLowerCase();
-    return publicQuizzes.filter(quiz =>
-      quiz.title.toLowerCase().includes(q) || quiz.category.toLowerCase().includes(q)
-    );
-  }, [publicQuizzes, search]);
-
-  const activeList = section === "mine" ? myQuizzes
-    : section === "recent" ? recentQuizzes
-    : filteredPublic;
-
-  const selectedQuiz = [...myQuizzes, ...publicQuizzes].find(q => q.id === selectedId) ?? null;
+  function changeSection(next: "mine" | "recent" | "public") {
+    if (next === section) return;
+    setSection(next); setPage(0); setCatalogRows([]); setCursor(null);
+  }
+  const activeList = catalogRows;
+  const selectedQuiz = selectedId ? selectedSummary : null;
 
   async function handleLaunch() {
     if (!user || !selectedId) return;
@@ -450,16 +447,16 @@ function HostPageContent() {
       <section className="host-picker" aria-label="Choose a quiz">
       {/* Quiz picker */}
       <div className="social-tabs host-section-tabs">
-        <button className={`social-tab${section === "mine" ? " is-active" : ""}`} onClick={() => setSection("mine")}>
-          ✏️ My Quizzes {myQuizzes.length > 0 && `(${myQuizzes.length})`}
+        <button className={`social-tab${section === "mine" ? " is-active" : ""}`} onClick={() => changeSection("mine")}>
+          ✏️ My Quizzes
         </button>
-        {recentQuizzes.length > 0 && (
-          <button className={`social-tab${section === "recent" ? " is-active" : ""}`} onClick={() => setSection("recent")}>
-            🕐 Recently Hosted ({recentQuizzes.length})
+        {recentQuizIds.length > 0 && (
+          <button className={`social-tab${section === "recent" ? " is-active" : ""}`} onClick={() => changeSection("recent")}>
+            🕐 Recently Hosted ({recentQuizIds.length})
           </button>
         )}
-        <button className={`social-tab${section === "public" ? " is-active" : ""}`} onClick={() => setSection("public")}>
-          🌐 Public Library ({publicQuizzes.length})
+        <button className={`social-tab${section === "public" ? " is-active" : ""}`} onClick={() => changeSection("public")}>
+          🌐 Public Library
         </button>
       </div>
 
@@ -471,13 +468,15 @@ function HostPageContent() {
             aria-label="Search public quizzes to host"
             placeholder="Search public quizzes..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); if (normalizeCatalogSearch(e.target.value) !== normalizedSearch) { setPage(0); setCatalogRows([]); setCursor(null); } }}
           />
         </div>
       )}
 
       {/* Quiz list */}
-      {activeList.length === 0 ? (
+      {catalogLoading && <p role="status">Loading quizzes…</p>}
+      {catalogError && <div role="alert">{catalogError} <button className="btn btn-secondary" disabled={catalogLoading} onClick={() => setRetry(n => n + 1)}>Retry</button></div>}
+      {!catalogLoading && !catalogError && activeList.length === 0 ? (
         <div className="host-empty">
           {section === "mine" ? (
             <>
@@ -497,12 +496,13 @@ function HostPageContent() {
               key={quiz.id}
               quiz={quiz}
               selected={selectedId === quiz.id}
-              onClick={() => setSelectedId(quiz.id)}
+              onClick={() => { setSelectedId(quiz.id); setSelectedSummary(quiz); }}
             />
           ))}
         </div>
       )}
 
+      {hasMore && !catalogError && <button className="btn btn-secondary" disabled={catalogLoading} onClick={() => setPage(n => n + 1)}>Load more quizzes</button>}
       </section>
       </div>
       {/* Launch button — bottom sticky on mobile */}

@@ -7,7 +7,7 @@ import { useAuth } from "@/components/supabase-provider";
 import { checkAndGrantAchievements } from "@/lib/achievements";
 
 import type { CardState, SessionResult, StudyMode, StudyQuestion, StudyQuiz } from "@/lib/study/types";
-import { calculateStudyXp, shouldExpireQuickFireQuestion } from "@/lib/study/session";
+import { shouldExpireQuickFireQuestion } from "@/lib/study/session";
 import {
   FlashcardPanel,
   QuickFirePanel,
@@ -37,6 +37,10 @@ export default function StudyPageClient() {
   const [answeredCount, setAnsweredCount] = useState(0);
   const [wrongQuestions, setWrongQuestions] = useState<StudyQuestion[]>([]);
   const [sessionResult, setSessionResult] = useState<SessionResult | null>(null);
+  const [saved, setSaved] = useState(false);
+  const saveInFlight = useRef(false);
+  const recoveryLoaded = useRef(false);
+  const completedAttemptRef = useRef<{ result: SessionResult; mode: "flashcard" | "quickfire" } | null>(null);
   const [saving, setSaving]           = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [totalXp, setTotalXp]         = useState<number | undefined>(undefined);
@@ -107,50 +111,80 @@ export default function StudyPageClient() {
     void recordAnswer(false, null);
   }, [advancing, currentQuestion, mode, quickFireTimeLeft, sessionResult, timerPaused]);
 
-  const persistProgress = async (result: SessionResult) => {
+  const persistProgress = async (result: SessionResult, studyMode: StudyMode = mode) => {
     if (!user || !quiz) {
       setSaveMessage("Sign in to save progress across devices.");
       return;
     }
-    if (mode === "review") {
-      setSaveMessage("Review round complete. Your original session remains saved.");
+    if (studyMode === "review") {
+      setSaveMessage(saved ? "Review round complete. Your original session remains saved." : "Review round complete. Your original session has not been saved yet.");
       return;
     }
-    if (mode !== "flashcard" && mode !== "quickfire") {
+    if (studyMode !== "flashcard" && studyMode !== "quickfire") {
       setSaveMessage("Choose a study mode before saving progress.");
       return;
     }
+    if (saveInFlight.current || saved) return;
+    saveInFlight.current = true;
     setSaving(true);
-    const sessionXp      = calculateStudyXp({ mode, correct: result.correct, total: result.total }).totalXp;
-    const studyMode      = mode;
-    const { data: completion, error: completionError } = await supabase.rpc("complete_study_session_atomic", {
-      p_quiz_id: quiz.id,
-      p_attempt_id: attemptIdRef.current,
-      p_answers: submittedAnswersRef.current,
-      p_study_mode: studyMode,
-      p_duration_secs: null,
-    });
-    if (completionError) console.error("Error completing study session:", completionError);
-    const returned = completion as { total_xp?: number; xp_earned?: number } | null;
-    if (typeof returned?.total_xp === "number") setTotalXp(returned.total_xp);
-    const persistedXp = typeof returned?.xp_earned === "number" ? returned.xp_earned : sessionXp;
-    const saved = !completionError;
-    setSaveMessage(saved ? `Progress saved · +${persistedXp} XP` : "Could not save progress this time.");
-    setSaving(false);
-
-    // Check + grant achievements after save
-    if (saved) {
-      const granted = await checkAndGrantAchievements({
-        userId: user.id,
-        supabase,
-        sessionResult: { correct: result.correct, total: result.total, mode },
+    setSaveMessage("");
+    try {
+      const { data: completion, error: completionError } = await supabase.rpc("complete_study_session_atomic", {
+        p_quiz_id: quiz.id,
+        p_attempt_id: attemptIdRef.current,
+        p_answers: submittedAnswersRef.current,
+        p_study_mode: studyMode,
+        p_duration_secs: null,
       });
-      if (granted.length > 0) setNewAchievements(granted);
+      if (completionError || !completion || typeof completion.xp_earned !== "number" || typeof completion.total_xp !== "number") {
+        throw new Error("Could not confirm progress was saved.");
+      }
+      setTotalXp(completion.total_xp);
+      setSaved(true);
+      setSaveMessage(`Progress saved · +${completion.xp_earned} XP`);
+      try { sessionStorage.removeItem("qw_pending_study"); } catch { /* optional storage */ }
+      try {
+        const granted = await checkAndGrantAchievements({ userId: user.id, supabase,
+          sessionResult: { correct: result.correct, total: result.total, mode: studyMode } });
+        setNewAchievements(granted);
+      } catch { /* progress is saved even if achievement lookup fails */ }
+    } catch {
+      setSaveMessage("Could not save progress. Retry to save this same attempt.");
+    } finally {
+      saveInFlight.current = false;
+      setSaving(false);
     }
   };
 
+  useEffect(() => {
+    if (!quiz || recoveryLoaded.current) return;
+    recoveryLoaded.current = true;
+    try {
+      const pending = JSON.parse(sessionStorage.getItem("qw_pending_study") || "null");
+      if (pending?.quizId !== quiz.id || !UUID_RE.test(pending.attemptId) ||
+          !["flashcard", "quickfire"].includes(pending.mode) || !Array.isArray(pending.answers) ||
+          !pending.result || !Array.isArray(pending.result.wrongQuestions)) return;
+      attemptIdRef.current = pending.attemptId;
+      submittedAnswersRef.current = pending.answers;
+      completedAttemptRef.current = { result: pending.result, mode: pending.mode };
+      setMode(pending.mode);
+      setSessionResult(pending.result);
+      setWrongQuestions(pending.result.wrongQuestions);
+      setSaveMessage("Your completed session is ready to save. Choose Retry save.");
+    } catch { /* no recoverable session */ }
+  }, [quiz]);
+
+  function signInToSave() {
+    try {
+      sessionStorage.setItem("qw_pending_study", JSON.stringify({ quizId: quiz!.id,
+        attemptId: attemptIdRef.current, answers: submittedAnswersRef.current, mode: completedAttemptRef.current?.mode ?? mode, result: completedAttemptRef.current?.result ?? sessionResult }));
+      router.push(`/login?next=${encodeURIComponent(`/study/${quizId}`)}`);
+    } catch { setSaveMessage("Could not preserve this session. Allow browser storage, then try signing in again."); }
+  }
+
   const finishSession = async (correct: number, total: number, wrong: StudyQuestion[]) => {
     const result: SessionResult = { correct, total, wrongQuestions: wrong };
+    if (mode === "flashcard" || mode === "quickfire") completedAttemptRef.current = { result, mode };
     setSessionResult(result);
     await persistProgress(result);
   };
@@ -227,6 +261,10 @@ export default function StudyPageClient() {
   };
 
   const resetSession = () => {
+    if (saveInFlight.current) return;
+    try { sessionStorage.removeItem("qw_pending_study"); } catch { /* optional storage */ }
+    setSaved(false);
+    completedAttemptRef.current = null;
     submittedAnswersRef.current = [];
     setCurrentIndex(0);
     setCardState("front");
@@ -261,11 +299,14 @@ export default function StudyPageClient() {
         result={sessionResult}
         mode={mode}
         saving={saving}
+        saved={saved}
+        onRetrySave={user && !saved ? () => void persistProgress(completedAttemptRef.current?.result ?? sessionResult, completedAttemptRef.current?.mode ?? mode) : undefined}
+        onSignIn={!user && !saved ? signInToSave : undefined}
         saveMessage={saveMessage}
         totalXp={totalXp}
         newAchievements={newAchievements}
         onReset={resetSession}
-        onReview={sessionResult.wrongQuestions.length > 0 ? startReviewRound : undefined}
+        onReview={!saving && sessionResult.wrongQuestions.length > 0 ? startReviewRound : undefined}
         onBack={() => router.push("/study")}
       />
     );

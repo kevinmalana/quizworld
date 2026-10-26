@@ -54,6 +54,7 @@ type Options = {
   router: { push(href: string): void };
   storageKey: string;
   currentRemoteDraftId: string | null;
+  skipLocalRecovery?: boolean;
   currentDraft: CurrentDraft;
   makeBlankQuestion: () => QuestionData;
   onRecover: (state: RecoveredQuizAuthoringState) => void;
@@ -71,6 +72,7 @@ export function useQuizAuthoringRecovery(options: Options): void {
     router,
     storageKey,
     currentRemoteDraftId,
+    skipLocalRecovery = false,
     currentDraft,
     makeBlankQuestion,
     onRecover,
@@ -104,7 +106,7 @@ export function useQuizAuthoringRecovery(options: Options): void {
   }, [authLoading, currentRemoteDraftId, draftParam, duplicateParam, makeBlankQuestion, onLoadError, onRecover, quizParam, router, userId, versionParam]);
 
   useEffect(() => {
-    if (draftParam || quizParam || versionParam) return;
+    if (skipLocalRecovery || draftParam || quizParam || versionParam) return;
     const recovered = recoverLocalDraft(sessionStorage.getItem(storageKey));
     if (!recovered) return;
     onRecover({
@@ -116,7 +118,7 @@ export function useQuizAuthoringRecovery(options: Options): void {
       draftState: "dirty",
       markAsSaved: false,
     });
-  }, [draftParam, onRecover, quizParam, storageKey, versionParam]);
+  }, [skipLocalRecovery, draftParam, onRecover, quizParam, storageKey, versionParam]);
 
   useEffect(() => {
     if (draftParam || quizParam || versionParam || currentRemoteDraftId) return;

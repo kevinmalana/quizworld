@@ -10,6 +10,8 @@ const QUESTION_COUNTS: AIQuestionCount[] = [5, 10, 20, 30, 50, 65];
 
 type SourceModalProps = {
   sourceType: SourceType;
+  isSignedIn?: boolean;
+  onSignIn?: () => void;
   aiTopic: string;
   aiUrl: string;
   pasteText: string;
@@ -30,6 +32,8 @@ type SourceModalProps = {
 
 export function CreateSourceModals({
   sourceType,
+  isSignedIn = false,
+  onSignIn,
   aiTopic,
   aiUrl,
   pasteText,
@@ -47,9 +51,15 @@ export function CreateSourceModals({
   onPasteImport,
   onUrlFetch,
 }: SourceModalProps) {
+  const accountNotice = !isSignedIn && <div role="status">
+    <p>Sign in to use AI generation. Your input will be kept when you return.</p>
+    {sourceType === "paste" && <p>Structured questions are parsed on this device and can be imported without signing in.</p>}
+    <button className="btn btn-secondary" onClick={onSignIn}>Sign in to use AI</button>
+  </div>;
   if (sourceType === "ai-topic") {
     return (
       <BuilderSourceModal title="💡 AI Topic Generator" onClose={onClose}>
+        {accountNotice}
         <textarea
           value={aiTopic}
           onChange={(e) => onAiTopicChange(e.target.value)}
@@ -62,7 +72,7 @@ export function CreateSourceModals({
         <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
-          <button onClick={() => onAiGenerate("topic")} disabled={aiLoading || aiTopic.trim().length < 5} className="btn btn-primary btn-compact builder-source-action">
+          <button onClick={() => onAiGenerate("topic")} disabled={!isSignedIn || aiLoading || aiTopic.trim().length < 5} className="btn btn-primary btn-compact builder-source-action">
             {aiLoading ? "Generating…" : "Generate ✨"}
           </button>
         </ModalFooter>
@@ -73,6 +83,7 @@ export function CreateSourceModals({
   if (sourceType === "paste") {
     return (
       <BuilderSourceModal title="📋 Paste Questions" onClose={onClose}>
+        {accountNotice}
         <textarea
           value={pasteText}
           onChange={(e) => onPasteTextChange(e.target.value)}
@@ -96,6 +107,7 @@ export function CreateSourceModals({
   if (sourceType === "ai-url") {
     return (
       <BuilderSourceModal title="🔗 AI from URL" onClose={onClose}>
+        {accountNotice}
         <input
           value={aiUrl}
           onChange={(e) => onAiUrlChange(e.target.value)}
@@ -107,7 +119,7 @@ export function CreateSourceModals({
         <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
-          <button onClick={onUrlFetch} disabled={aiLoading || !aiUrl.trim()} className="btn btn-primary btn-compact builder-source-action">
+          <button onClick={onUrlFetch} disabled={!isSignedIn || aiLoading || !aiUrl.trim()} className="btn btn-primary btn-compact builder-source-action">
             {aiLoading ? "Fetching…" : "Fetch & Generate ✨"}
           </button>
         </ModalFooter>
@@ -118,12 +130,13 @@ export function CreateSourceModals({
   if (sourceType === "ai-document") {
     return (
       <BuilderSourceModal title="📄 AI from Document" onClose={onClose}>
+        {accountNotice}
         <FileUploadArea onTextExtracted={(text) => onAiTopicChange(text)} currentText={aiTopic} />
         <AIOptionsPanel options={aiOptions} onChange={onAiOptionsChange} />
         <SourceError message={aiError} />
         <ModalFooter>
           <QuestionCountPicker value={aiCount} onChange={onAiCountChange} />
-          <button onClick={() => onAiGenerate("document")} disabled={aiLoading || aiTopic.trim().length < 20} className="btn btn-primary btn-compact builder-source-action">
+          <button onClick={() => onAiGenerate("document")} disabled={!isSignedIn || aiLoading || aiTopic.trim().length < 20} className="btn btn-primary btn-compact builder-source-action">
             {aiLoading ? "Generating…" : "Generate ✨"}
           </button>
         </ModalFooter>

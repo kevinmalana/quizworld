@@ -1,50 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
-/**
- * Rate limiter for QuizWorld API routes.
- *
- * Strategy:
- * - Primary guard: require authentication (unauthenticated → 401)
- * - Secondary: per-user fixed window in-process store
- * - Limitation: resets on Vercel cold start; not a durable budget
- * - Upgrade path: verify a shared durable quota and provider hard spend cap before scaling
- */
+// Limits live in consume_ai_request_quota, not in browser-supplied arguments.
+// Every protected route awaits this guard before any conversion/provider call.
+const PROTECTED_ROUTES = new Set([
+  "/api/ai-source-draft", "/api/ai-presentation-draft", "/api/import-url",
+  "/api/ai-enrich", "/api/present/import-pdf", "/api/present/import-deck",
+  "/api/ai-game-insights",
+]);
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+type QuotaConsumer = (userId: string, path: string) => Promise<unknown>;
 
-const ROUTE_LIMITS: Record<string, { maxRequests: number; windowMs: number }> = {
-  "/api/ai-source-draft": { maxRequests: 15, windowMs: 60_000 },
-  "/api/ai-presentation-draft": { maxRequests: 10, windowMs: 60_000 },
-  "/api/import-url":       { maxRequests: 10, windowMs: 60_000 },
-  "/api/ai-enrich":        { maxRequests: 20, windowMs: 60_000 },
-  // 2026-08-13 — bounds file-conversion endpoints:
-  // /api/present/import-pdf  : 10/min per user — single-classroom upload workload
-  // /api/present/import-deck : 10/min per user — pptx conversion is CPU-bound (LibreOffice)
-  "/api/present/import-pdf":  { maxRequests: 10, windowMs: 60_000 },
-  "/api/present/import-deck": { maxRequests: 10, windowMs: 60_000 },
-  // 2026-08-13 — AI insights was unprotected from authDoS /api/ai-game-insights: 10/min
-  "/api/ai-game-insights": { maxRequests: 10, windowMs: 60_000 },
-};
-
-// ─── In-process store ─────────────────────────────────────────────────────────
-
-type RateEntry = { count: number; resetAt: number };
-const store = new Map<string, RateEntry>();
-const dailyStore = new Map<string, RateEntry>();
-const MAX_KEYS = 10_000;
-const EVICT_OLDER_THAN_MS = 5 * 60_000;
-
-function evictStale() {
-  if (store.size < MAX_KEYS) return;
-  const cutoff = Date.now() - EVICT_OLDER_THAN_MS;
-  for (const [key, entry] of store.entries()) {
-    if (entry.resetAt < cutoff) store.delete(key);
-    if (store.size < MAX_KEYS * 0.8) break;
-  }
+async function consumeDurableQuota(userId: string, path: string): Promise<unknown> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Quota service not configured");
+  // Server-only service credential. Identity is obtained using auth.getUser()
+  // below, never from request JSON, a header or an unverified session object.
+  const service = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  const { data, error } = await service.rpc("consume_ai_request_quota", {
+    p_user_id: userId, p_path: path,
+  }).abortSignal(AbortSignal.timeout(5_000));
+  if (error) throw new Error("Quota storage unavailable");
+  return data;
 }
-
-// ─── Auth helper ──────────────────────────────────────────────────────────────
 
 async function resolveUserId(request: NextRequest): Promise<string | null> {
   try {
@@ -53,75 +35,51 @@ async function resolveUserId(request: NextRequest): Promise<string | null> {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { cookies: { getAll: () => request.cookies.getAll(), setAll: () => {} } }
     );
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id ?? null;
+    const { data: { user }, error } = await supabase.auth.getUser();
+    return error ? null : user?.id ?? null;
   } catch {
     return null;
   }
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────────
-
+/** Atomic durable per-route limits plus a shared 50/24h per-account AI allowance.
+ * Storage/migration/configuration failure denies spending; no process-local fallback.
+ * This is an account quota, not a global provider billing cap.
+ * Injectable identity/storage seams are used by offline tests only.
+ */
 export async function checkRateLimit(
   request: NextRequest,
   resolveIdentity: (request: NextRequest) => Promise<string | null> = resolveUserId,
+  consumeQuota: QuotaConsumer = consumeDurableQuota,
 ): Promise<NextResponse | null> {
   const path = request.nextUrl.pathname;
-  const limit = ROUTE_LIMITS[path];
-  if (!limit) return null;
-
-  // 1. Require authentication
+  if (!PROTECTED_ROUTES.has(path)) return null;
   const userId = await resolveIdentity(request);
-  if (!userId) {
-    return NextResponse.json(
-      { error: "Sign in to use AI features." },
-      { status: 401 }
-    );
+  if (!userId) return NextResponse.json({ error: "Sign in to use AI features." }, { status: 401 });
+
+  try {
+    const decision = await consumeQuota(userId, path);
+    if (!decision || typeof decision !== "object" || Array.isArray(decision)) throw new Error("Invalid quota decision");
+    const row = decision as Record<string, unknown>;
+    if (row.allowed === true) return null;
+    if (row.allowed !== false || !["daily", "route"].includes(String(row.reason)) ||
+      !Number.isSafeInteger(row.retry_after) || (row.retry_after as number) < 1 ||
+      !Number.isSafeInteger(row.limit) || (row.limit as number) < 1 ||
+      !Number.isSafeInteger(row.reset_at) || (row.reset_at as number) < 1) throw new Error("Invalid quota denial");
+    return NextResponse.json({ error: row.reason === "daily"
+      ? "Daily AI allowance reached. Try again later."
+      : `Too many requests. Try again in ${row.retry_after}s.` }, {
+      status: 429,
+      headers: {
+        "Retry-After": String(row.retry_after),
+        "X-RateLimit-Limit": String(row.limit),
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": String(row.reset_at),
+      },
+    });
+  } catch {
+    return NextResponse.json({ error: "AI allowance verification unavailable. Try again later." }, {
+      status: 503, headers: { "Retry-After": "60" },
+    });
   }
-
-  // Shared per-account AI allowance. Process-local: not a durable billing budget.
-  if (path.startsWith("/api/ai-")) {
-    const now = Date.now();
-    for (const [id, entry] of dailyStore) if (entry.resetAt <= now) dailyStore.delete(id);
-    const entry = dailyStore.get(userId) ?? { count: 0, resetAt: now + 86_400_000 };
-    if (entry.count >= 50 || (!dailyStore.has(userId) && dailyStore.size >= MAX_KEYS)) {
-      return NextResponse.json({ error: "Daily AI allowance reached. Try again later." }, {
-        status: 429, headers: { "Retry-After": String(Math.max(1, Math.ceil((entry.resetAt - now) / 1000))) },
-      });
-    }
-    entry.count++;
-    dailyStore.set(userId, entry);
-  }
-
-  // 2. Per-user fixed window
-  const key = `${userId}:${path}`;
-  const now = Date.now();
-  evictStale();
-
-  const entry = store.get(key);
-  const remaining_header_base = { "X-RateLimit-Limit": String(limit.maxRequests) };
-
-  if (!entry || now > entry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + limit.windowMs });
-    return null; // first request in window — allow
-  }
-
-  if (entry.count >= limit.maxRequests) {
-    const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
-    return NextResponse.json(
-      { error: `Too many requests. Try again in ${retryAfter}s.` },
-      {
-        status: 429,
-        headers: {
-          ...remaining_header_base,
-          "Retry-After": String(retryAfter),
-          "X-RateLimit-Remaining": "0",
-          "X-RateLimit-Reset": String(Math.ceil(entry.resetAt / 1000)),
-        },
-      }
-    );
-  }
-
-  entry.count++;
-  return null;
 }

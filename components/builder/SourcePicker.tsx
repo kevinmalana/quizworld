@@ -51,7 +51,7 @@ export function SourcePicker({ onSelect, onTemplateSelect }: Props) {
         <div className="builder-source-picker__header">
           <div className="tag tag-accent builder-source-picker__tag">✦ Quiz Builder</div>
           <h1 className="font-display builder-source-picker__title">Create a new quiz</h1>
-          <p className="builder-source-picker__subtitle">Choose how you want to start.</p>
+          <p className="builder-source-picker__subtitle">Choose how you want to start. AI generation requires an account; manual creation and structured question imports do not.</p>
         </div>
 
         <div className="builder-source-picker__list">
