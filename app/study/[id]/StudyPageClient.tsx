@@ -169,6 +169,7 @@ export default function StudyPageClient() {
       completedAttemptRef.current = { result: pending.result, mode: pending.mode };
       setMode(pending.mode);
       setSessionResult(pending.result);
+      setWrongQuestions(pending.result.wrongQuestions);
       setSaveMessage("Your completed session is ready to save. Choose Retry save.");
     } catch { /* no recoverable session */ }
   }, [quiz]);

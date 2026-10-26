@@ -111,11 +111,11 @@ test('guest completed session sign-in keeps answers and exact attempt for later 
   await page.goto('/study/local-study');
   await page.getByRole('button',{name:/Flashcards/}).click();
   await page.getByRole('button',{name:'Reveal answers'}).click();
-  await page.getByRole('button',{name:/Paris/}).click();
+  await page.getByRole('button',{name:/London/}).click();
   await page.getByRole('button',{name:'Sign in to save this session'}).click();
   await expect(page).toHaveURL(url=>url.pathname==='/login' && url.searchParams.get('next')==='/study/local-study');
   const pending=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('qw_pending_study')!));
-  expect(pending).toMatchObject({quizId,mode:'flashcard',answers:[{question_id:'q1',answer_id:'a1'}],result:{correct:1,total:1}});
+  expect(pending).toMatchObject({quizId,mode:'flashcard',answers:[{question_id:'q1',answer_id:'a2'}],result:{correct:0,total:1}});
   expect(pending.attemptId).toMatch(/^[0-9a-f-]{36}$/);
   await authenticated(context,baseURL!);
   let payload: unknown;
@@ -123,6 +123,9 @@ test('guest completed session sign-in keeps answers and exact attempt for later 
     payload=route.request().postDataJSON();return route.fulfill({json:{total_xp:175,xp_earned:175}});
   });
   await page.goto('/study/local-study');
+  await page.getByRole('button',{name:/Review 1 Missed/}).click();
+  await expect(page.getByText('No questions available.')).not.toBeVisible();
+  await page.getByRole('button',{name:/Paris/}).click();
   await page.getByRole('button',{name:'Retry save',exact:true}).click();
   await expect(page.getByText('Progress saved · +175 XP')).toBeVisible();
   expect(payload).toMatchObject({p_attempt_id:pending.attemptId,p_answers:pending.answers});
