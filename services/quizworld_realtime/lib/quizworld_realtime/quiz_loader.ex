@@ -14,7 +14,7 @@ defmodule QuizworldRealtime.QuizLoader do
              params: %{
                id: "eq.#{quiz_id}",
                select:
-                 "id,creator_id,is_public,category,questions(id,text,image_url,video_url,question_type,time_limit,points,order_index,shuffle_answers,answers(id,text,image_url,is_correct,order_index))"
+                 "id,creator_id,is_public,archived_at,category,questions(id,text,image_url,video_url,question_type,time_limit,points,order_index,shuffle_answers,answers(id,text,image_url,is_correct,order_index))"
              },
              headers: headers(api_key),
              receive_timeout: 10_000
@@ -46,7 +46,7 @@ defmodule QuizworldRealtime.QuizLoader do
 
   @doc false
   def authorize_record(%{"creator_id" => creator_id} = quiz, user_id) do
-    if creator_id == user_id or quiz["is_public"] == true,
+    if creator_id == user_id or (quiz["is_public"] == true and is_nil(quiz["archived_at"])),
       do: {:ok, quiz},
       else: {:error, :quiz_forbidden}
   end
