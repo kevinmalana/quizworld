@@ -35,12 +35,23 @@ test('round illustration explains a phase through real controls without claiming
  await expect(page.getByRole('status').filter({hasText:'See the answer. See where you stand.'})).toBeVisible();
 });
 
-test('essential cookie notice stays compact on a phone with usable dismissal', async ({page})=>{
+test('analytics preferences fit a phone and retain an explicit rejection', async ({page})=>{
  await page.setViewportSize({width:320,height:844});await page.goto('/');
- const notice=page.getByRole('complementary',{name:'Cookie notice'});
+ const notice=page.getByRole('complementary',{name:'Analytics preferences'});
  await expect(notice).toBeVisible();
- expect((await notice.boundingBox())!.height).toBeLessThan(175);
- await notice.getByRole('button',{name:'Dismiss cookie notice'}).click();await expect(notice).not.toBeVisible();
+ const box=(await notice.boundingBox())!;
+ expect(box.width).toBeLessThanOrEqual(320);
+ expect(box.height).toBeLessThan(844);
+ expect(box.x).toBeGreaterThanOrEqual(0);
+ expect(box.x+box.width).toBeLessThanOrEqual(320);
+ await notice.getByRole('button',{name:'Reject analytics',exact:true}).click();
+ await expect(notice).not.toBeVisible();
+ expect(await page.evaluate(()=>localStorage.getItem('qw_analytics_consent_v1'))).toBe('denied');
+ await page.reload();await expect(notice).not.toBeVisible();
+ await page.getByRole('button',{name:'Analytics preferences',exact:true}).click();
+ await expect(notice).toBeVisible();
+ await notice.getByRole('button',{name:'Close analytics preferences',exact:true}).click();
+ await expect(notice).not.toBeVisible();
 });
 
 test('mobile navigation is a keyboard-contained dismissible dialog', async ({page})=>{

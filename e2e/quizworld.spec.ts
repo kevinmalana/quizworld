@@ -788,7 +788,9 @@ test.describe('Result screen — XP breakdown and How XP works', () => {
     }
     await expect(page.getByRole('heading', { name: 'Session Complete' })).toBeVisible({ timeout: 10000 });
     await expect(page.locator('.study-xp-breakdown')).toBeVisible();
-    await expect(page.locator('.study-xp-breakdown__title')).toContainText('XP Earned');
+    await expect(page.locator('.study-xp-breakdown__title')).toHaveText('XP preview — not saved');
+    await expect(page.getByText('⭐ XP Earned', { exact: true })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign in to save this session', exact: true })).toBeVisible();
   });
 
   test('result screen shows How XP works info box', async ({ page }) => {
