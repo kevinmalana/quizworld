@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CATEGORY_EMOJIS, type Quiz } from "@/lib/shared";
 import { catalogQuestionCount } from "@/lib/catalog-discovery";
+import { formatPlayCount, playCountTitle } from "@/lib/catalog-metrics";
 import { HostIcon } from "@/components/shared/host-icon";
 
 export type QuizWithCreator = Quiz & {
@@ -90,9 +91,9 @@ export function ExploreQuizCard({ quiz }: { quiz: QuizWithCreator }) {
           <span className="explore-quiz-meta-icon">📝</span>
           {catalogQuestionCount(quiz)} questions
         </span>
-        <span className="explore-quiz-meta-item">
+        <span className="explore-quiz-meta-item" title={playCountTitle(quiz.plays)}>
           <span className="explore-quiz-meta-icon">▶️</span>
-          {quiz.plays.toLocaleString()} plays
+          {formatPlayCount(quiz.plays)}
         </span>
       </div>
 

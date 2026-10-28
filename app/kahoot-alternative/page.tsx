@@ -2,28 +2,30 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Free Kahoot Alternative — Up to 200 Players, Free | QuizWorld",
+  title: "Free Kahoot Alternative — Live Group Quiz Games | QuizWorld",
   description:
-    "QuizWorld is a free Kahoot alternative with quiz creation, live multiplayer games, AI quiz generation, and up to 200 participants per live game. Perfect for classrooms and trivia nights.",
+    "QuizWorld is a free Kahoot alternative with quiz creation, live multiplayer games, AI quiz generation, and up to 200 players per game (roster cap). Built for classrooms and trivia nights.",
   alternates: { canonical: "https://www.quizworld.xyz/kahoot-alternative" },
   openGraph: {
-    title: "Free Kahoot Alternative — Up to 200 Players, Free | QuizWorld",
+    title: "Free Kahoot Alternative — Live Group Quiz Games | QuizWorld",
     description:
-      "QuizWorld is a free Kahoot alternative with quiz creation, live multiplayer games, AI quiz generation, and up to 200 participants per live game.",
+      "QuizWorld is a free Kahoot alternative with quiz creation, live multiplayer games, AI quiz generation, and up to 200 players per game (roster cap).",
     url: "https://www.quizworld.xyz/kahoot-alternative",
     type: "website",
   },
 };
 
+// What QuizWorld actually offers today. Competitor specifics are deliberately
+// omitted: we do not republish unverified claims about other products' plans.
 const COMPARISON = [
-  { feature: "Free to use", quizworld: "✅ Always free", kahoot: "⚠️ Limited free tier" },
-  { feature: "Participant limit", quizworld: "✅ Up to 200", kahoot: "⚠️ 10 in free plan" },
-  { feature: "Questions per quiz", quizworld: "✅ Free quiz builder", kahoot: "⚠️ Limited in free" },
-  { feature: "AI quiz generation", quizworld: "✅ Built-in", kahoot: "❌ Paid add-on" },
-  { feature: "Study mode", quizworld: "✅ Included", kahoot: "⚠️ Separate product" },
-  { feature: "Sign-up to play", quizworld: "✅ No sign-up needed", kahoot: "⚠️ Recommended" },
-  { feature: "Import from URL/PDF", quizworld: "✅ Included", kahoot: "❌ Not available" },
-  { feature: "Public quiz library", quizworld: "✅ Thousands of quizzes", kahoot: "✅ Large library" },
+  { feature: "Free to use", quizworld: "✅ Core tools free today — create, host, join and study at no cost" },
+  { feature: "Participant limit", quizworld: "✅ Up to 200 players per game (roster cap)" },
+  { feature: "Questions per quiz", quizworld: "✅ Free quiz builder" },
+  { feature: "AI quiz generation", quizworld: "✅ Built-in, with per-account daily limits" },
+  { feature: "Study mode", quizworld: "✅ Included" },
+  { feature: "Sign-up to play", quizworld: "✅ No account needed to join and play" },
+  { feature: "Import from URL/PDF", quizworld: "✅ Included" },
+  { feature: "Public quiz library", quizworld: "✅ Public community quiz library" },
 ];
 
 export default function KahootAlternativePage() {
@@ -36,8 +38,8 @@ export default function KahootAlternativePage() {
           The Best Free Kahoot Alternative
         </h1>
         <p className="text-muted" style={{ fontSize: "1.1rem", maxWidth: "640px", margin: "0 auto 1.5rem" }}>
-          QuizWorld gives you everything Kahoot does — live multiplayer games, classroom quizzes, leaderboards —
-          with free quiz creation and live games for up to 200 participants.
+          QuizWorld runs live multiplayer quiz games, classroom rounds and leaderboards — with free
+          quiz creation, solo study and hosting for up to 200 players per game (roster cap).
         </p>
         <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
           <Link href="/create" className="btn btn-primary">
@@ -51,7 +53,7 @@ export default function KahootAlternativePage() {
 
       {/* Comparison table */}
       <h2 className="font-display" style={{ fontSize: "1.4rem", marginBottom: "1.25rem" }}>
-        QuizWorld vs Kahoot
+        What QuizWorld offers today
       </h2>
       <div className="card" style={{ marginBottom: "3rem", padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9375rem" }}>
@@ -67,15 +69,10 @@ export default function KahootAlternativePage() {
                   fontWeight: 700,
                   background: "var(--primary-light)",
                   color: "var(--primary)",
-                  width: "30%",
+                  width: "60%",
                 }}
               >
                 🌍 QuizWorld
-              </th>
-              <th
-                style={{ padding: "0.875rem 1.25rem", textAlign: "center", fontWeight: 700, width: "30%" }}
-              >
-                Kahoot
               </th>
             </tr>
           </thead>
@@ -97,7 +94,6 @@ export default function KahootAlternativePage() {
                 >
                   {row.quizworld}
                 </td>
-                <td style={{ padding: "0.75rem 1.25rem", textAlign: "center" }}>{row.kahoot}</td>
               </tr>
             ))}
           </tbody>
@@ -191,7 +187,7 @@ export default function KahootAlternativePage() {
           Switch to QuizWorld — It&apos;s Free
         </h2>
         <p className="text-muted" style={{ marginBottom: "1.5rem" }}>
-          No credit card. Up to 200 participants per live game. Free core quiz tools.
+          No credit card required. Up to 200 players per game (roster cap). Core quiz tools are free today.
         </p>
         <Link href="/create" className="btn btn-primary" style={{ fontSize: "1.05rem", padding: "0.75rem 2rem" }}>
           Create Your First Quiz Free
