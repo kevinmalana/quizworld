@@ -107,6 +107,7 @@ function classroomsHarness() {
   const loadAs = (user: { id: string } | null) => bind(js, {
     supabase, user, beginRead: scope.beginRead,
     setClassrooms: (v: unknown[]) => { state.classrooms = v; },
+    setClassroomsOwner: () => {},
     setLoading: () => {},
   }, "load") as () => Promise<void>;
   return { state, gateA, loadAs };
@@ -153,6 +154,7 @@ function presentHarness() {
   const runAs = (user: { id: string } | null) => (bind(`const effect = ${js}`, {
     supabase, user, beginRead: scope.beginRead, listOwner,
     setPresentations: (v: unknown[]) => { state.presentations = v; },
+    setPresentationsOwner: () => {},
     setPresLoading: () => {},
   }, "effect") as () => void)();
   return { state, gate, runAs };
@@ -192,7 +194,7 @@ test("present: an uninterrupted read still applies", async () => {
 function reportHarness() {
   const scope = asyncScopeSim();
   const state = { result: null as unknown, error: null as string | null, pushes: [] as string[] };
-  const reportKey = { current: null as string | null };
+  const reportRequestKey = { current: null as string | null };
   const gate = deferred();
   const fetchMock = async (url: string) => {
     await gate.promise;
@@ -200,9 +202,10 @@ function reportHarness() {
   };
   const js = effectText("app/report/[pin]/page.tsx", "pin");
   const runAs = (user: { id: string } | null, pin: string) => (bind(`const effect = ${js}`, {
-    fetch: fetchMock, user, pin, authLoading: false, beginRead: scope.beginRead, reportKey,
+    fetch: fetchMock, user, pin, key: `${user?.id ?? ""}:${pin}`, authLoading: false, beginRead: scope.beginRead, reportRequestKey,
     router: { push: (p: string) => state.pushes.push(p) },
     setResult: (v: unknown) => { state.result = v; },
+    setResultKey: () => {},
     setError: (v: string | null) => { state.error = v; },
     setLoading: () => {},
   }, "effect") as () => void)();

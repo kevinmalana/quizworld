@@ -47,6 +47,7 @@ export default function PresentPage() {
   const [importCreating, setImportCreating] = useState(false);
   const [importError, setImportError] = useState("");
   const [presentations, setPresentations] = useState<PresentationRow[]>([]);
+  const [presentationsOwner, setPresentationsOwner] = useState<string | null>(null);
   const [presLoading, setPresLoading] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -88,6 +89,7 @@ export default function PresentPage() {
             }))
           );
         }
+        setPresentationsOwner(owner);
         setPresLoading(false);
       });
   }, [user]);
@@ -404,7 +406,7 @@ export default function PresentPage() {
           <p style={{ color: "var(--muted)", marginBottom: "1rem" }}>Sign in to see and manage your presentations</p>
           <Link href="/login" className="btn btn-primary">Sign in</Link>
         </div>
-      ) : presLoading ? (
+      ) : presLoading || presentationsOwner !== user.id ? (
         <div style={{ color: "var(--muted)", textAlign: "center", padding: "2rem" }}>Loading presentations…</div>
       ) : presentations.length === 0 ? (
         <div className="card" style={{ padding: "2rem", textAlign: "center" }}>

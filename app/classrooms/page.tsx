@@ -26,6 +26,7 @@ export default function ClassroomsPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [classroomsOwner, setClassroomsOwner] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
@@ -42,6 +43,7 @@ export default function ClassroomsPage() {
     // out also discards an in-flight read for the previous account.
     const current = beginRead();
     if (!user) return;
+    const owner = user.id;
     setLoading(true);
     const { data: memberships } = await supabase
       .from("classroom_members")
@@ -49,7 +51,7 @@ export default function ClassroomsPage() {
       .eq("user_id", user.id);
     if (!current()) return;
 
-    if (!memberships || memberships.length === 0) { setClassrooms([]); setLoading(false); return; }
+    if (!memberships || memberships.length === 0) { setClassrooms([]); setClassroomsOwner(owner); setLoading(false); return; }
 
     const ids = memberships.map(m => m.classroom_id);
     const { data: rooms } = await supabase.from("classrooms").select("*").in("id", ids);
@@ -70,6 +72,7 @@ export default function ClassroomsPage() {
       role: memberships.find(m => m.classroom_id === r.id)?.role ?? "student",
       member_count: countMap[r.id] ?? 1,
     })));
+    setClassroomsOwner(owner);
     setLoading(false);
   }
 
@@ -169,7 +172,7 @@ export default function ClassroomsPage() {
         </div>
       )}
 
-      {loading ? (
+      {loading || classroomsOwner !== user.id ? (
         <div className="social-empty"><div className="social-empty-icon">📡</div><div>Loading...</div></div>
       ) : classrooms.length === 0 ? (
         <div className="social-empty">

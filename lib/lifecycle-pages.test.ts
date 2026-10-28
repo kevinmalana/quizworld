@@ -6,7 +6,7 @@ import { mkdirSync } from 'node:fs';
 import type { PresentationParticipantSession } from './presentation/client';
 import type { PresentationCommandOutcome } from './presentation/command-outcome';
 
-type Snapshot = { presentation: { title: string; creator_id: string; run_id: string; join_code: string; status: string; current_slide_index?: number; slides: { id: string; slide_type: string; order_index: number; title?: string; content: { title?: string; question?: string } }[] } };
+type Snapshot = { presentation: { title: string; creator_id: string; run_id: string; join_code: string; status: string; current_slide_index?: number; slides: { id: string; slide_type: string; order_index: number; title?: string; content: { title?: string; question?: string; answers?: { id: string; text: string; is_correct?: boolean }[] } }[] } };
 type FixtureFrame = [string | null, string | null, string, string, unknown];
 type FixtureSocket = {
   sent: FixtureFrame[];
@@ -14,7 +14,7 @@ type FixtureSocket = {
   reply: (ref: string | null, status: string, response?: unknown) => void;
 };
 type FixtureWindow = {
-  user: { id: string } | null; code: string; queries: unknown[]; calls: string[]; activities: number;
+  user: { id: string } | null; code: string; queries: unknown[]; calls: string[]; commands: string[]; activities: number; submissions: number;
   subscriptions: { callbacks: Record<string, (data?: unknown) => void> }[]; disconnects: number;
   rows: Record<string, Record<string, unknown>[]>;
   presentation: (code: string, status?: string) => Snapshot;
@@ -33,7 +33,7 @@ async function fixture(kind: 'study' | 'present', run: (page: Page) => Promise<v
     '@/components/supabase-provider': `export const useAuth=()=>({user:window.user,loading:false});`,
     '@/lib/supabase/client': `export const supabase={from(table){const filters=[];let head=false;const q={select(s,o){head=o?.head;return q},eq(k,v){filters.push(r=>r[k]===v);return q},is(k,v){filters.push(r=>r[k]===v);return q},in(k,v){filters.push(r=>v.includes(r[k]));return q},or(){return q},order(){return q},limit(){return q},ilike(k,v){filters.push(r=>r[k].toLowerCase().includes(v.replaceAll('%','').toLowerCase()));return q},maybeSingle(){return q},then(resolve){window.queries.push({table,head});const data=(window.rows[table]||[]).filter(r=>filters.every(f=>f(r)));return Promise.resolve({data:table==='profiles'?data[0]:data,count:data.length}).then(resolve)}};return q}};`,
     '@/lib/presentation/client': `export const readParticipantSession=()=>window.participant||null;export const readPresenterToken=()=> 'local-fixture-token';export const fetchPhoenixPresentation=(code)=>{window.calls.push(code);return window.fetchPresentation(code)};export const fetchPhoenixSlideActivity=(code,id)=>{window.activities++;return Promise.resolve({responses:[],questions:[],own_response:((window.answers)||{})[id]?{id:'own-'+id}:null})};`,
-    '@/lib/presentation/presentation-socket': `export function subscribeToPresentation(o){window.subscriptions.push(o);const outcome=()=>window.nextOutcome||{status:'confirmed'};const c={disconnect(){window.disconnects++},nextSlide:async()=>outcome(),prevSlide:async()=>outcome(),gotoSlide:async()=>outcome(),setResultsHidden:async()=>outcome(),revealQuizAnswers:async()=>outcome(),endPresentation(){o.callbacks.onPresentationEnded();return outcome()},submitResponse:async(id)=>{const result=await(window.submitPromise||outcome());if(result.status==='confirmed')window.answers[id]=true;return result},submitQna:async()=>outcome(),upvoteQna:async()=>outcome()};return c}`
+    '@/lib/presentation/presentation-socket': `export function subscribeToPresentation(o){window.subscriptions.push(o);const outcome=()=>window.nextOutcome||{status:'confirmed'};const c={disconnect(){window.disconnects++},nextSlide:async()=>{window.commands.push('next');return outcome()},prevSlide:async()=>outcome(),gotoSlide:async()=>outcome(),setResultsHidden:async()=>outcome(),revealQuizAnswers:async()=>outcome(),endPresentation(){o.callbacks.onPresentationEnded();return outcome()},submitResponse:async(id)=>{window.submissions++;const result=await(window.submitPromise||outcome());if(result.status==='confirmed')window.answers[id]=true;return result},submitQna:async()=>outcome(),upvoteQna:async()=>outcome()};return c}`
   };
   if (realTransport) {
     delete mocks['@/lib/presentation/presentation-socket'];
@@ -51,7 +51,7 @@ async function fixture(kind: 'study' | 'present', run: (page: Page) => Promise<v
     await page.goto('http://qw-lifecycle.local/');
     await page.addScriptTag({content:'window.__name = (fn) => fn; window.process={env:{}};'});
     await page.evaluate(()=>{
-      const w=window as unknown as FixtureWindow;w.user={id:'owner'};w.code='A';w.queries=[];w.calls=[];w.activities=0;w.subscriptions=[];w.disconnects=0;w.answers={};w.participant=null;w.nextOutcome=null;
+      const w=window as unknown as FixtureWindow;w.user={id:'owner'};w.code='A';w.queries=[];w.calls=[];w.commands=[];w.activities=0;w.submissions=0;w.subscriptions=[];w.disconnects=0;w.answers={};w.participant=null;w.nextOutcome=null;
       const quiz=(id:string,archived_at:string|null)=>({id,title:id,archived_at,category:'Science & Nature',created_at:'2026-01-01',questions:[{id:'q'}]});
       w.rows={quizzes:[quiz('archived assigned quiz','2026-01-02'),quiz('available private quiz',null)],study_progress:[{user_id:'owner',quiz_id:'archived assigned quiz',questions_studied:4,correct:3,mastery:75,last_studied:'2026-01-01'}],study_sessions:[{user_id:'owner',id:'session',xp_earned:295,correct:3,total:4,created_at:'2026-01-01'}],profiles:[{id:'owner',total_xp:295}],classroom_members:[{user_id:'owner',classroom_id:'class'}],classroom_assignments:[{classroom_id:'class',quiz_id:'archived assigned quiz'}]};
       w.presentation=(code:string,status='live')=>({presentation:{title:'Deck '+code,creator_id:'owner',run_id:'run-'+code,join_code:'123456',status,slides:[{id:'slide-'+code,slide_type:'content',order_index:0,content:{title:'Content '+code}}]}});
@@ -334,6 +334,49 @@ test('Presenter command failures are visible, honest and recoverable',async()=>f
   w.presentation=(code:string,status='live')=>({presentation:{title:'Host deck',creator_id:'owner',run_id:'run-A',join_code:'123456',status,current_slide_index:w.index||0,slides:[
     {id:'h0',order_index:0,slide_type:'content',title:'Slide one',content:{}},
     {id:'h1',order_index:1,slide_type:'content',title:'Slide two',content:{}}]}});
+  w.fetchPresentation=(code:string)=>Promise.resolve(w.presentation(code));
+});}));
+
+test('Join overlay traps focus and isolates presenter keyboard shortcuts',async()=>fixture('present',async page=>{
+  const dialog=page.getByRole('dialog',{name:'Audience join code'});
+  await dialog.waitFor();
+  await page.evaluate(()=>{const w=window as unknown as FixtureWindow;w.subscriptions[0].callbacks.onJoined();});
+  await page.getByRole('button',{name:'Copy invite link'}).focus();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('ArrowRight');
+  const result=await page.evaluate(()=>({
+    focusInside:Boolean(document.querySelector('[role="dialog"]')?.contains(document.activeElement)),
+    commands:(window as unknown as FixtureWindow).commands,
+  }));
+  assert.equal(result.focusInside,true,'Tab from the last dialog control wraps to the first');
+  assert.deepEqual(result.commands,[],'hidden slide controls do not receive presentation shortcuts');
+},async page=>{await page.evaluate(()=>{
+  const w=window as unknown as FixtureWindow;
+  w.presentation=(code:string,status='live')=>({presentation:{title:'Host deck',creator_id:'owner',run_id:'run-A',join_code:'123456',status,current_slide_index:0,slides:[
+    {id:'h0',order_index:0,slide_type:'content',title:'Slide one',content:{}},
+    {id:'h1',order_index:1,slide_type:'content',title:'Slide two',content:{}}]}});
+  w.fetchPresentation=(code:string)=>Promise.resolve(w.presentation(code));
+});}));
+
+test('A pending quiz command admits no second optimistic pick or cleanup',async()=>fixture('present',async page=>{
+  const first=page.getByRole('button',{name:/First/});
+  const second=page.getByRole('button',{name:/Second/});
+  await first.waitFor();
+  await page.evaluate(()=>{const w=window as unknown as FixtureWindow;w.submitPromise=new Promise(resolve=>{w.releaseSubmit=()=>resolve({status:'confirmed'})});});
+  await first.click();
+  assert.equal(await first.getAttribute('aria-pressed'),'true');
+  await second.click();
+  assert.equal(await first.getAttribute('aria-pressed'),'true','the admitted first pick stays visible');
+  assert.equal(await second.getAttribute('aria-pressed'),'false','the rejected second pick is never written');
+  assert.equal(await page.evaluate(()=>(window as unknown as FixtureWindow).submissions),1);
+  await page.evaluate(()=>(window as unknown as FixtureWindow).releaseSubmit());
+},async page=>{await page.evaluate(()=>{
+  const w=window as unknown as FixtureWindow;
+  w.user=null;
+  w.participant={participantId:'quiz-player',participantToken:'local-synthetic-token',runId:'run-A',participantName:'Quiz player'};
+  w.presentation=(code:string,status='live')=>({presentation:{title:'Quiz deck',creator_id:'owner',run_id:'run-A',join_code:'123456',status,slides:[
+    {id:'quiz0',order_index:0,slide_type:'quiz',content:{question:'Choose one',answers:[
+      {id:'answer-a',text:'First',is_correct:true},{id:'answer-b',text:'Second'}]}}]}});
   w.fetchPresentation=(code:string)=>Promise.resolve(w.presentation(code));
 });}));
 

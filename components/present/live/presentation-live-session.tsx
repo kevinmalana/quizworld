@@ -88,13 +88,14 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
     return true;
   }, [markEnded]);
 
-  const runCommand = useCallback(async (command: () => Promise<PresentationCommandOutcome>) => {
+  const runCommand = useCallback(async (command: () => Promise<PresentationCommandOutcome>, onAdmitted?: () => void) => {
     if (pendingCommandRef.current || endedRef.current || !currentSlideIdRef.current) return false;
     const ticket = {};
     const identity = snapshotRef.current;
     const epoch = slideEpochRef.current;
     const channel = channelRef.current;
     pendingCommandRef.current = ticket;
+    onAdmitted?.();
     try {
       const outcome = await command();
       if (endedRef.current || slideEpochRef.current !== epoch || channelRef.current !== channel ||
@@ -275,6 +276,14 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
       const tag = target?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
 
+      if (showJoinOverlay) {
+        if (event.key === "Escape" || event.key.toLowerCase() === "i") {
+          event.preventDefault();
+          setShowJoinOverlay(false);
+        }
+        return;
+      }
+
       if (event.key === "ArrowRight" || event.key === "PageDown") {
         event.preventDefault();
         if (channelJoined && channelRef.current && currentIndex < slides.length - 1) void runCommand(() => channelRef.current!.nextSlide());
@@ -307,7 +316,7 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isHost, ended, loading, loadError, channelJoined, currentIndex, slides.length, resultsHidden, toggleFullscreen, runCommand]);
+  }, [isHost, ended, loading, loadError, showJoinOverlay, channelJoined, currentIndex, slides.length, resultsHidden, toggleFullscreen, runCommand]);
 
   useEffect(() => {
     const slideId = slides[currentIndex]?.id;
@@ -399,13 +408,19 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
     const slideId = slides[currentIndex].id;
     // Show the pick optimistically only once the submit is actually going out.
     const optimisticChoice = choiceFromPayload(data);
-    if (optimisticChoice) setSelectedOption(optimisticChoice);
-    const ok = await runCommand(() => channelRef.current!.submitResponse(slideId, data, name || participantSession.participantName || "Anonymous"));
+    let admitted = false;
+    const ok = await runCommand(
+      () => channelRef.current!.submitResponse(slideId, data, name || participantSession.participantName || "Anonymous"),
+      () => {
+        admitted = true;
+        if (optimisticChoice) setSelectedOption(optimisticChoice);
+      }
+    );
+    if (!admitted) return;
     if (ok) {
       setSubmitted(true);
-      const choice = choiceFromPayload(data);
-      if (choice) setSelectedOption(choice);
-    } else if (choiceFromPayload(data)) {
+      if (optimisticChoice) setSelectedOption(optimisticChoice);
+    } else if (optimisticChoice) {
       // A rejected/unconfirmed vote must not look chosen; recovery restores it if the server has it.
       setSelectedOption(null);
     }

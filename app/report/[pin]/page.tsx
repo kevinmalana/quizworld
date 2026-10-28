@@ -13,9 +13,11 @@ export default function ReportPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { beginRead } = useAsyncScope();
-  const reportKey = useRef<string | null>(null);
+  const reportRequestKey = useRef<string | null>(null);
   const pin = params.pin as string;
+  const key = `${user?.id ?? ""}:${pin}`;
   const [result, setResult] = useState<GameResult | null>(null);
+  const [resultKey, setResultKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,10 +26,10 @@ export default function ReportPage() {
     // Supersede any in-flight read whenever the pin or account changes,
     // including sign-out, and clear the previous report for a new key.
     const current = beginRead();
-    const key = `${user?.id ?? ""}:${pin}`;
-    if (reportKey.current !== key) {
-      reportKey.current = key;
+    if (reportRequestKey.current !== key) {
+      reportRequestKey.current = key;
       setResult(null);
+      setResultKey(null);
       setError(null);
       setLoading(true);
     }
@@ -45,33 +47,39 @@ export default function ReportPage() {
       if (!current()) return;
       if (res.status === 401) {
         setError("Sign in to view this report.");
+        setResultKey(key);
         setLoading(false);
         return;
       }
       if (res.status === 403) {
         setError("This game report is only visible to the host who started the game.");
+        setResultKey(key);
         setLoading(false);
         return;
       }
       if (res.status === 404) {
         setError("Game report not found.");
+        setResultKey(key);
         setLoading(false);
         return;
       }
       if (!res.ok) {
         setError("Could not load the report. Please try again.");
+        setResultKey(key);
         setLoading(false);
         return;
       }
       const { result } = await res.json();
       if (!current()) return;
       setResult(result as GameResult);
+      setResultKey(key);
       setLoading(false);
     }
     load();
   }, [pin, user, authLoading]);
 
-  if (loading) {
+  // State from another owner/PIN is private even before the effect below runs.
+  if (authLoading || loading || resultKey !== key) {
     return <div className="container report-status">Loading report...</div>;
   }
 
