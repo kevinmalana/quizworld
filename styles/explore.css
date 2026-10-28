@@ -10,6 +10,9 @@
 .explore-search-input { width: 100%; min-width: 0; text-transform: none; text-align: left; font-size: 1rem; letter-spacing: 0; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); padding: .9rem 1rem; }
 .explore-clear-search { justify-self: start; }
 .explore-sort-row { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+/* Compact disclosure: it must not push the first catalog card below the
+   mobile content budget. Full provenance is the tooltip/assistive text. */
+.explore-counter-note { margin: 0; font-size: .8125rem; line-height: 1.4; color: var(--muted); }
 .explore-sort-icon { display: none; }
 .explore-results-badge { display: inline-flex; padding: .4rem .75rem; border-radius: 999px; font-size: .8rem; font-weight: 700; white-space: nowrap; color: var(--ink-secondary); background: var(--bg-subtle); margin-left: auto; }
 .explore-family-selector { display: grid; gap: .75rem; }

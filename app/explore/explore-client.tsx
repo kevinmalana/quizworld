@@ -8,7 +8,7 @@ import { calcLevel } from "@/components/study/study-session-panels";
 
 import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/shared";
 import { canonicalizeCategory, catalogQuestionCount, formatCatalogCount, mergeCatalogPage, fetchCatalogPage, normalizeCatalogSearch, catalogCursorForRow, type CatalogCursor } from "@/lib/catalog-discovery";
-import { formatPlayCount, playCountTitle, MOST_PLAYED_SORT_HINT } from "@/lib/catalog-metrics";
+import { formatPlayCount, playCountTitle, MOST_PLAYED_SORT_HINT, PLAY_COUNTER_PROVENANCE, PLAY_COUNTER_SUMMARY } from "@/lib/catalog-metrics";
 import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/explore-quiz-card";
 import { type CategoryFamilyId } from "@/lib/category-families";
 import type { InitialExploreCatalog } from "@/lib/catalog-server";
@@ -516,7 +516,7 @@ function ExplorePageContent({
               </div>
             </div>
 
-            <p className="text-muted">Play counters include seeded values and anonymous increments, not verified completions.</p>
+            <p className="explore-counter-note" title={PLAY_COUNTER_PROVENANCE}>{PLAY_COUNTER_SUMMARY}</p>
             {/* Super-category selector (replaces flat chip row) */}
             <details className="explore-topics">
               <summary><span>Browse topics</span><span>{activeCategory === "All" ? "All topics" : activeCategory}</span></summary>

@@ -15,6 +15,12 @@ export const PLAY_COUNTER_PROVENANCE =
 export const MOST_PLAYED_SORT_HINT =
   "Sorts by the community play counter, which includes seeded values and anonymous increments — not verified completions.";
 
+/** Visible, compact disclosure for surfaces that show the counter. Kept
+ * short on purpose: the full provenance above is the tooltip/assistive text,
+ * and this line must not push real catalog content below the fold. */
+export const PLAY_COUNTER_SUMMARY =
+  "Play counts include seeded and anonymous values, not verified completions.";
+
 export function formatPlayCount(plays: number): string {
   if (!Number.isSafeInteger(plays) || plays < 0) return "plays unknown";
   const safe = plays;
