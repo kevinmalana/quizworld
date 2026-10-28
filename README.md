@@ -85,7 +85,13 @@ It runs:
 4. the Next.js production build
 5. Phoenix formatting, warnings-as-errors compilation and ExUnit tests
 
-Browser tests are separate:
+The unit suite includes real React/browser fixtures with synthetic, network-isolated transport. Install Chromium before running it (including CI):
+
+```bash
+npx playwright install chromium
+```
+
+The separate Playwright E2E suite is:
 
 ```bash
 npm run test:e2e
@@ -97,7 +103,7 @@ npm run test:e2e
 BASE_URL=http://127.0.0.1:3000 npm run test:e2e
 ```
 
-Some browser tests still depend on deployed services and authenticated fixtures. Do not treat a skipped full-flow test as proof that the journey works. Pull requests run deterministic code, unit, build and Phoenix checks; the production-coupled browser suite runs after a push to `main`. Run focused browser tests against a candidate `BASE_URL` before merging user-facing changes.
+Some E2E tests depend on deployed services and authenticated fixtures. Do not treat a skipped full-flow test as proof that the journey works. Pull requests run deterministic code, browser-backed component tests, build, Phoenix checks and the loopback-only `local-fixtures` E2E project. The production-coupled `chromium` project runs after a push to `main`. `playwright.local.config.ts` and `.github/workflows/ci.yml` are the selection contracts; do not run local fixtures against production.
 
 ## Development workflow
 
@@ -114,7 +120,9 @@ Vercel's Git integration deploys `main` automatically. Render deploys the Phoeni
 
 The live-game browser interface is intentionally split by responsibility:
 
-- `lib/game-engine/client.ts` — Phoenix HTTP commands
+- `lib/game-engine/client.ts` — bounded Phoenix HTTP reads/commands; uncertain mutations are never automatically replayed
+- `lib/game/command-errors.ts` — stable server reasons and legacy-message normalization, separate from UI copy
+- `lib/game/session-storage.ts` — verified browser credential persistence; host/player identity and expiry policy stay in their role modules
 - `lib/game-engine/phoenix-socket.ts` — low-level channel connection and reconnect policy
 - `lib/game/use-phoenix-game-channel.ts` — subscription state and disconnected fallback polling
 - `lib/game/session-normalizers.ts` — snapshot normalization and revision checks
@@ -174,7 +182,7 @@ Quiz generation uses `POST /api/ai-source-draft`. All four AI routes share `lib/
 
 Insights require cookie authentication and a same-origin request, enforce 10 requests/minute per account, a 32 KiB request limit, bounded summary fields, and an 800-token output ceiling. Participant nicknames, IDs, avatars and team names are not sent to the AI provider. Other AI output ceilings are 16,384 tokens for quiz generation and 8,192 for presentation/enrichment; all calls have a 60-second deadline, a 128 KiB serialized prompt limit, a 1 MiB response limit and no automatic retry.
 
-The shared limiter also allows at most 50 authenticated AI attempts per account per 24-hour window across AI routes. Both windows are **process-local** and reset on cold starts; this is not a durable quota or guaranteed spend budget. Before production approval, verify the configured model's output-token support and provider-side hard spend cap, and validate a shared durable quota if deploying across workers/regions. No paid provider call is part of deterministic tests.
+The server reserves a **durable, atomic per-account quota** through `consume_ai_request_quota`, using the verified `auth.getUser()` identity. The database owns the route-specific per-minute limits and shared 50-attempt/24-hour AI allowance; imports have their own route limits and do not consume the AI allowance. `lib/rate-limit.ts` fails closed with 503 when quota storage, configuration or its decision is invalid—there is no process-local fallback. The reviewed migration is `20261025120000_profile_guards_durable_ai_quota.sql`; inspect actual hosted state before any rollout rather than reapplying it blindly. This account allowance is **not** a global provider billing cap. Verify provider output-token support and hard spending controls separately. No paid provider call is part of deterministic tests.
 
 Supported generated question counts are **5, 10, 20, 30, 50 and 65**. Treat those values and the route's request/response shape as the module interface when changing clients or providers.
 

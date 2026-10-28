@@ -25,6 +25,10 @@ function fixture(file: string, name: string, reply: (url: URL, init: RequestInit
   } } });
   const run = handler(file, name, {
     supabase, user: { id: "actor" }, id: "classroom", myRole: "teacher", joinCode: " ab12cd ",
+    // Handlers may fence late completions against their current component
+    // scope. The harness scope is always current, so the guard never
+    // suppresses the mutation result these tests assert on.
+    capture: () => () => true, beginRead: () => () => true,
     setMsg: (v: string) => state.msg = v, setMsgType: (v: string) => state.type = v,
     setShowJoin: (v: boolean) => state.closed = !v, setJoinCode: () => {},
     setTimeout: () => {}, confirm: () => true, load: () => state.loads++,

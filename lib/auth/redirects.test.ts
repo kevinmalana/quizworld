@@ -6,6 +6,7 @@ import {
   consumePostLoginRedirect,
   normalizePostLoginRedirect,
   rememberPostLoginRedirect,
+  resolveLoginReturnParam,
   validateNewPassword,
 } from "./redirects";
 
@@ -37,4 +38,25 @@ test("password reset validation distinguishes mismatch and weak passwords", () =
   assert.equal(validateNewPassword("short", "short"), "Use at least 8 characters.");
   assert.equal(validateNewPassword("long-enough", "different"), "Passwords do not match.");
   assert.equal(validateNewPassword("long-enough", "long-enough"), null);
+});
+
+test("login reads the shared next param and tolerates the legacy redirect alias", () => {
+  assert.equal(resolveLoginReturnParam("?next=%2Fadmin"), "/admin");
+  assert.equal(resolveLoginReturnParam("?redirect=%2Fadmin"), "/admin");
+  assert.equal(resolveLoginReturnParam("?next=%2Fhost%3Fquiz%3Dabc&redirect=%2Fdashboard"), "/host?quiz=abc");
+  assert.equal(resolveLoginReturnParam(""), null);
+  assert.equal(resolveLoginReturnParam("?unrelated=1"), null);
+});
+
+test("values from the legacy redirect alias still pass the same safe normalization", () => {
+  const storage = new MemoryStorage();
+  assert.equal(
+    consumePostLoginRedirect(storage, resolveLoginReturnParam("?redirect=https%3A%2F%2Fattacker.example")),
+    "/dashboard",
+  );
+  assert.equal(
+    consumePostLoginRedirect(storage, resolveLoginReturnParam("?redirect=%2F%2Fattacker.example")),
+    "/dashboard",
+  );
+  assert.equal(consumePostLoginRedirect(storage, resolveLoginReturnParam("?redirect=%2Fadmin")), "/admin");
 });

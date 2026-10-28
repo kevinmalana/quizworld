@@ -29,6 +29,18 @@ export function consumePostLoginRedirect(storage: RedirectStorage, requested?: s
   return normalizePostLoginRedirect(requested || stored);
 }
 
+/**
+ * Single reader for the login page's return-path URL parameter. `next` is the
+ * one supported convention (also used by /auth/callback and buildLoginHref);
+ * the legacy `redirect` alias emitted by older middleware is still read so an
+ * operator's stale bookmark returns to Admin instead of the default page.
+ * Whatever is returned must still pass normalizePostLoginRedirect before use.
+ */
+export function resolveLoginReturnParam(search: string): string | null {
+  const params = new URLSearchParams(search);
+  return params.get("next") ?? params.get("redirect");
+}
+
 export function peekPostLoginRedirect(storage: Pick<RedirectStorage, "getItem">, requested?: string | null): string {
   return normalizePostLoginRedirect(requested || storage.getItem(REDIRECT_KEY));
 }

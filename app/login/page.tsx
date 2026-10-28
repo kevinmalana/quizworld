@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { consumePostLoginRedirect, peekPostLoginRedirect } from "@/lib/auth/redirects";
+import { consumePostLoginRedirect, peekPostLoginRedirect, resolveLoginReturnParam } from "@/lib/auth/redirects";
 
 type Status = { kind: "error" | "success"; message: string } | null;
 
 function requestedRedirect() {
   if (typeof window === "undefined") return null;
-  return new URLSearchParams(window.location.search).get("next");
+  return resolveLoginReturnParam(window.location.search);
 }
 
 export default function LoginPage() {

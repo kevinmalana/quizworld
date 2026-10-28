@@ -1,3 +1,4 @@
+import { readGameSessionValue, writeGameSessionValue, removeGameSessionValue } from "./game/session-storage";
 // Host sessions include an expiry timestamp so stale tokens do not linger across sessions.
 export type StoredHostSession = {
   hostId: string;
@@ -20,13 +21,13 @@ const HOST_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 export function readHostSessionAge(pin: string): number | null {
   if (typeof window === "undefined") return null;
   const storageKey = getHostSessionStorageKey(pin);
-  const raw = sessionStorage.getItem(storageKey) ?? localStorage.getItem(storageKey);
+  const raw = readGameSessionValue(storageKey);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<StoredHostSessionRaw>;
-    if (!parsed.expiresAt) return null;
+    if (!parsed.expiresAt || parsed.expiresAt <= Date.now()) return null;
     const createdAt = parsed.expiresAt - HOST_SESSION_TTL_MS;
-    return Date.now() - createdAt;
+    return Math.max(0, Date.now() - createdAt);
   } catch {
     return null;
   }
@@ -40,7 +41,7 @@ export function readHostSession(pin: string): StoredHostSession | null {
   if (typeof window === "undefined") return null;
 
   const storageKey = getHostSessionStorageKey(pin);
-  const raw = sessionStorage.getItem(storageKey) ?? localStorage.getItem(storageKey);
+  const raw = readGameSessionValue(storageKey);
   if (!raw) return null;
 
   try {
@@ -69,14 +70,12 @@ export function writeHostSession(pin: string, session: StoredHostSession) {
     ...session,
     expiresAt: Date.now() + HOST_SESSION_TTL_MS,
   } satisfies StoredHostSessionRaw);
-  sessionStorage.setItem(storageKey, value);
-  localStorage.setItem(storageKey, value);
+  writeGameSessionValue(storageKey, value);
 }
 
 export function clearHostSession(pin: string) {
   if (typeof window === "undefined") return;
 
   const storageKey = getHostSessionStorageKey(pin);
-  sessionStorage.removeItem(storageKey);
-  localStorage.removeItem(storageKey);
+  removeGameSessionValue(storageKey);
 }

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
+import { useAsyncScope } from "@/lib/use-async-scope";
 import { calcLevel } from "@/components/study/study-session-panels";
 import "@/styles/social.css";
 
@@ -14,8 +15,14 @@ type PinnedQuiz = { id: string; quiz_id: string; quiz_title: string; quiz_catego
 
 export default function GroupDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return <div className="container social-shell"><p role="status">Loading group...</p></div>;
+  return <GroupDetailSession key={`${user?.id ?? "guest"}:${id}`} id={id} user={user} />;
+}
+
+function GroupDetailSession({ id, user }: { id: string; user: { id: string } | null }) {
   const router = useRouter();
+  const { capture, beginRead } = useAsyncScope();
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [pinnedQuizzes, setPinnedQuizzes] = useState<PinnedQuiz[]>([]);
@@ -30,11 +37,14 @@ export default function GroupDetailPage() {
   const [mutationError, setMutationError] = useState("");
 
   async function load() {
+    const current = beginRead();
+    if (!current()) return;
     setLoading(true);
     const [groupRes, memberRes] = await Promise.all([
       supabase.from("trivia_groups").select("*").eq("id", id).single(),
       supabase.from("trivia_group_members").select("id, user_id, role").eq("group_id", id),
     ]);
+    if (!current()) return;
 
     if (groupRes.error || !groupRes.data) { router.push("/groups"); return; }
     setGroup(groupRes.data);
@@ -46,6 +56,7 @@ export default function GroupDetailPage() {
 
     const userIds = memberRows.map(m => m.user_id);
     const { data: profiles } = await supabase.from("profiles").select("id, username, display_name, avatar, total_xp, study_streak").in("id", userIds);
+    if (!current()) return;
 
     setMembers(memberRows.map(m => {
       const p = profiles?.find(p => p.id === m.user_id);
@@ -54,6 +65,7 @@ export default function GroupDetailPage() {
 
     // Pinned quizzes
     const { data: pins } = await supabase.from("group_pinned_quizzes").select("id, quiz_id, pinned_by").eq("group_id", id).order("pinned_at", { ascending: false });
+    if (!current()) return;
     if (pins && pins.length > 0) {
       const qIds = pins.map(p => p.quiz_id);
       const pinnedByIds = pins.map(p => p.pinned_by);
@@ -61,6 +73,7 @@ export default function GroupDetailPage() {
         supabase.from("quizzes").select("id, title, category, plays, emoji").in("id", qIds),
         supabase.from("profiles").select("id, username").in("id", pinnedByIds),
       ]);
+      if (!current()) return;
       setPinnedQuizzes(pins.map(p => {
         const q = quizRes.data?.find(q => q.id === p.quiz_id);
         const pinner = pinnerRes.data?.find(pr => pr.id === p.pinned_by);
@@ -110,8 +123,10 @@ export default function GroupDetailPage() {
 
   async function handleLeave() {
     if (!user || !group) return;
+    const current = capture();
     if (!confirm(`Leave "${group.name}"?`)) return;
     const { data, error } = await supabase.from("trivia_group_members").delete().eq("group_id", group.id).eq("user_id", user.id).select("id");
+    if (!current()) return;
     if (error || data?.length !== 1) { setMutationError("Could not leave group. Please try again."); return; }
     router.push("/groups");
   }

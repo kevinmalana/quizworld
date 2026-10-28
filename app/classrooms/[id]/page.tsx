@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
+import { useAsyncScope } from "@/lib/use-async-scope";
 import { calcLevel } from "@/components/study/study-session-panels";
 import { TeacherJourneyCard } from "@/components/classroom/TeacherJourneyCard";
 import { buildClassroomInviteText, buildTeacherClassroomJourney } from "@/lib/classroom/teacher-journey";
@@ -114,8 +115,16 @@ function exportCSV(members: Member[], assignments: Assignment[], masteryGrid: Ma
 
 export default function ClassroomDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return <div className="container social-shell"><p role="status">Loading classroom...</p></div>;
+  if (!user) return <div className="container social-shell"><p>Log in to view this classroom.</p><Link href={`/login?next=${encodeURIComponent(`/classrooms/${encodeURIComponent(id)}`)}`}>Log in</Link></div>;
+  return <ClassroomDetailSession key={`${user.id}:${id}`} id={id} user={user} />;
+}
+
+function ClassroomDetailSession({ id, user }: { id: string; user: { id: string } }) {
   const router = useRouter();
+  const { capture, beginRead } = useAsyncScope();
+  const { beginRead: beginQuizRead } = useAsyncScope();
 
   const [classroom, setClassroom] = useState<Classroom | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -139,19 +148,22 @@ export default function ClassroomDetailPage() {
 
   const load = useCallback(async () => {
     if (!user) return;
+    const current = beginRead();
+    if (!current()) return;
     setLoading(true);
 
     const [roomRes, memberRes] = await Promise.all([
       supabase.from("classrooms").select("*").eq("id", id).single(),
       supabase.from("classroom_members").select("id, user_id, role").eq("classroom_id", id),
     ]);
+    if (!current()) return;
 
     if (roomRes.error || !roomRes.data) { router.push("/classrooms"); return; }
-    setClassroom(roomRes.data);
 
     const memberRows = memberRes.data ?? [];
     const myMembership = memberRows.find(m => m.user_id === user.id);
     if (!myMembership) { router.push("/classrooms"); return; }
+    setClassroom(roomRes.data);
     const role = myMembership.role as "teacher" | "student";
     setMyRole(role);
 
@@ -160,6 +172,7 @@ export default function ClassroomDetailPage() {
       .from("profiles")
       .select("id, username, display_name, avatar, total_xp, study_streak")
       .in("id", userIds);
+    if (!current()) return;
 
     const builtMembers: Member[] = memberRows.map(m => {
       const p = profiles?.find(p => p.id === m.user_id);
@@ -182,6 +195,7 @@ export default function ClassroomDetailPage() {
       .select("id, quiz_id, due_date, created_at")
       .eq("classroom_id", id)
       .order("created_at", { ascending: false });
+    if (!current()) return;
 
     if (aData && aData.length > 0) {
       const qIds = aData.map(a => a.quiz_id);
@@ -199,6 +213,7 @@ export default function ClassroomDetailPage() {
           ? supabase.from("study_progress").select("user_id, quiz_id, mastery, correct, questions_studied, last_studied").in("user_id", userIds).in("quiz_id", qIds)
           : Promise.resolve({ data: [] }),
       ]);
+      if (!current()) return;
 
       const myCompletionMap = new Map(
         (myCompletionsRes.data ?? []).map(c => [c.assignment_id, c.source as "manual" | "study_session"])
@@ -247,6 +262,7 @@ export default function ClassroomDetailPage() {
           .in("quiz_id", qIds)
           .order("finished_at", { ascending: false })
           .limit(20);
+        if (!current()) return;
 
         const builtGames: GameResult[] = (gData ?? []).map(g => ({
           id: g.id,
@@ -339,11 +355,13 @@ export default function ClassroomDetailPage() {
     }
 
     setLoading(false);
-  }, [id, user?.id]);
+  }, [id, user.id, beginRead]);
 
   useEffect(() => { load(); }, [load]);
 
   const loadTeacherQuizzes = useCallback(async () => {
+    const current = beginQuizRead();
+    if (!current()) return;
     if (myRole !== "teacher" || !user) {
       setTeacherQuizzesLoaded(false);
       setTeacherQuizError("");
@@ -357,6 +375,7 @@ export default function ClassroomDetailPage() {
       .select("id, title")
       .eq("creator_id", user.id)
       .is("archived_at", null);
+    if (!current()) return;
 
     if (error) {
       setMyQuizzes([]);
@@ -365,7 +384,7 @@ export default function ClassroomDetailPage() {
       setMyQuizzes(data ?? []);
     }
     setTeacherQuizzesLoaded(true);
-  }, [myRole, user?.id]);
+  }, [myRole, user.id, beginQuizRead]);
 
   useEffect(() => {
     void loadTeacherQuizzes();
@@ -480,7 +499,9 @@ export default function ClassroomDetailPage() {
       return;
     }
     if (!confirm(`Leave "${classroom.name}"?`)) return;
+    const current = capture();
     const { data, error } = await supabase.from("classroom_members").delete().eq("classroom_id", id).eq("user_id", user.id).select("id");
+    if (!current()) return;
     if (error || data?.length !== 1) { setMsg("Could not leave classroom. Please try again."); setMsgType("error"); return; }
     router.push("/classrooms");
   }
@@ -525,7 +546,7 @@ export default function ClassroomDetailPage() {
 
   // ── Derived ─────────────────────────────────────────────────────────────────
 
-  if (!classroom) return null;
+  if (!classroom) return <div className="container social-shell"><p role="status">Loading classroom...</p></div>;
   const leaderboard = [...members].sort((a, b) => b.total_xp - a.total_xp);
   const students = members.filter(m => m.role === "student");
   const assignedQuizIds = assignments.map(a => a.quiz_id);

@@ -1,3 +1,6 @@
+import { readGameSessionValue, writeGameSessionValue, removeGameSessionValue } from "./game/session-storage";
+import { hasGameErrorReason } from "./game/command-errors";
+
 // Player sessions include an expiry timestamp so reconnect tokens do not persist indefinitely.
 export type StoredPlayerSession = {
   playerId: string;
@@ -10,14 +13,8 @@ type StoredPlayerSessionRaw = StoredPlayerSession & {
 
 const PLAYER_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
-const DEFINITIVE_PLAYER_SESSION_ERRORS = new Set([
-  "Player session is invalid.",
-  "Player session was not found.",
-]);
-
 export function shouldDiscardPlayerSession(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  return DEFINITIVE_PLAYER_SESSION_ERRORS.has(message);
+  return hasGameErrorReason(error, "invalid_player_token", "unknown_player");
 }
 
 export function getPlayerSessionStorageKey(pin: string) {
@@ -28,7 +25,7 @@ export function readPlayerSession(pin: string): StoredPlayerSession | null {
   if (typeof window === "undefined") return null;
 
   const storageKey = getPlayerSessionStorageKey(pin);
-  const raw = sessionStorage.getItem(storageKey) ?? localStorage.getItem(storageKey);
+  const raw = readGameSessionValue(storageKey);
   if (!raw) return null;
 
   try {
@@ -57,14 +54,12 @@ export function writePlayerSession(pin: string, session: StoredPlayerSession) {
     ...session,
     expiresAt: Date.now() + PLAYER_SESSION_TTL_MS,
   } satisfies StoredPlayerSessionRaw);
-  sessionStorage.setItem(storageKey, value);
-  localStorage.setItem(storageKey, value);
+  writeGameSessionValue(storageKey, value);
 }
 
 export function clearPlayerSession(pin: string) {
   if (typeof window === "undefined") return;
 
   const storageKey = getPlayerSessionStorageKey(pin);
-  sessionStorage.removeItem(storageKey);
-  localStorage.removeItem(storageKey);
+  removeGameSessionValue(storageKey);
 }

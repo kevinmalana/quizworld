@@ -8,6 +8,7 @@ import { calcLevel } from "@/components/study/study-session-panels";
 
 import { CATEGORY_COLORS, CATEGORY_EMOJIS } from "@/lib/shared";
 import { canonicalizeCategory, catalogQuestionCount, formatCatalogCount, mergeCatalogPage, fetchCatalogPage, normalizeCatalogSearch, catalogCursorForRow, type CatalogCursor } from "@/lib/catalog-discovery";
+import { formatPlayCount, playCountTitle, MOST_PLAYED_SORT_HINT } from "@/lib/catalog-metrics";
 import { ExploreQuizCard, type QuizWithCreator } from "@/components/explore/explore-quiz-card";
 import { type CategoryFamilyId } from "@/lib/category-families";
 import type { InitialExploreCatalog } from "@/lib/catalog-server";
@@ -177,7 +178,7 @@ function SurpriseModal({
           <span className="tag" style={{ marginBottom: "0.75rem", display: "inline-block" }}>{quiz.category}</span>
           <div style={{ display: "flex", gap: "1rem", fontSize: "0.8125rem", color: "var(--muted)", flexWrap: "wrap" }}>
             <span>📝 {catalogQuestionCount(quiz)} questions</span>
-            <span>▶️ {quiz.plays.toLocaleString()} plays</span>
+            <span title={playCountTitle(quiz.plays)}>▶️ {formatPlayCount(quiz.plays)}</span>
           </div>
         </div>
 
@@ -503,7 +504,7 @@ function ExplorePageContent({
                   <button
                     key={opt.value}
                     onClick={() => setSortMode(opt.value)}
-                    title={opt.label}
+                    title={opt.value === "popular" ? MOST_PLAYED_SORT_HINT : opt.label}
                     aria-pressed={sortMode === opt.value}
                     className={sortMode === opt.value ? "btn btn-pill explore-sort-btn is-active" : "btn btn-pill explore-sort-btn"}
                   >
@@ -515,6 +516,7 @@ function ExplorePageContent({
               </div>
             </div>
 
+            <p className="text-muted">Play counters include seeded values and anonymous increments, not verified completions.</p>
             {/* Super-category selector (replaces flat chip row) */}
             <details className="explore-topics">
               <summary><span>Browse topics</span><span>{activeCategory === "All" ? "All topics" : activeCategory}</span></summary>

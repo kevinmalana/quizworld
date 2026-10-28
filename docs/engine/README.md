@@ -1,6 +1,6 @@
 # QuizWorld live-game engine contracts
 
-Audit base: remote `main` at `d284a567c7b3f0c27518b2554d943b80c48a7191` (2026-09-13). This document describes the live **quiz** engine, not presentation sessions or self-paced study. See [CONTEXT.md](CONTEXT.md) for domain vocabulary and [AUDIT.md](AUDIT.md) for risks and evidence boundaries.
+This document describes the live **quiz** engine, not presentation sessions or self-paced study. Checkpoint/outbox contracts were refreshed against `487a7c2b6c65ca920344c03fc50d93a2f7fc8b26` (2026-10-28); [AUDIT.md](AUDIT.md) retains historical audit evidence, not a current deployment receipt. See [CONTEXT.md](CONTEXT.md) for domain vocabulary.
 
 ## Module ownership and the seam
 
@@ -23,7 +23,7 @@ HTTP SessionController / Phoenix GameChannel / GameLive
 - `Game` contains game rules, answer locking, scoring, mode rules and snapshot projection. It has no Redis/network calls, but reads UTC directly and generates credentials; it is not a completely pure module.
 - `GameServer` serializes changes to a room. Successful mutations prepare timers, persist the game and publish role-scoped snapshots before replying. Timer callbacks follow a separate, substantially duplicated publication path.
 - `Games` is the external seam for transports. Callers should not reproduce lookup/recovery logic. A missing actor and an uncertain command outcome are different results.
-- `GameStore` has two actual adapters: production `StateStore` and local `TestGameStore`. Its declared `:ok` write contract currently cannot express degraded durability.
+- `GameStore` has two actual adapters: production `StateStore` and local `TestGameStore`. Persist/delete operations return `:ok | {:error, reason}`. The live actor logs checkpoint failures, emits failure telemetry and schedules a one-second retry; gameplay continuing is not proof that Redis accepted the checkpoint.
 - `ResultSync` creates a durable report through `record_game_result_v2`, separately from live Redis recovery. A live game acknowledgment is not a durable-report acknowledgment.
 
 ### The reliability change
@@ -120,10 +120,10 @@ These topics remain scoped by **PIN**, not game instance. Atomic initial snapsho
 - Restore callers do not write the store. Only the Registry-owning actor upgrades legacy instance IDs and persists recovered state; a lagging restore cannot roll back a newer actor's acknowledged roster.
 - Stored active games preserve the original question start. Timer references are cleared for production persistence; in-flight result sync becomes pending. TestGameStore is in-memory and does not model Redis serialization, TTL or failure.
 - Waiting inactivity cleanup is two hours; active/reveal cleanup one hour; finished cleanup fifteen minutes. Transitions reset cleanup timers. Timer-reference fencing ignores already-delivered canceled cleanup events. Finished games with sync not succeeded postpone cleanup.
-- Redis records use a six-hour TTL refreshed by writes. This is bounded recovery, not a permanent event journal. A sufficiently long downtime can lose even pending report state.
-- `StateStore` currently returns `:ok` if Redis is absent, ignores Redis write failures, and rescues some errors as success. `fetch_game` also collapses transport/decode failures to `:not_found`. This refactor does **not** fix store-level error classification.
+- Active/successfully synchronized Redis snapshots use a six-hour TTL refreshed by writes. Unsent finished results are also retained in a **non-expiring, instance-keyed outbox** and pending index; PIN reuse and ordinary snapshot deletion do not erase that report. This is not protection from loss of Redis storage itself or a failure before its first successful checkpoint.
+- `StateStore` surfaces absent Redis and transport/write errors instead of claiming success; missing or undecodable game payloads return `:not_found`. A failed checkpoint is observable and retried, but the actor can still acknowledge live gameplay while durability is degraded.
 - On ordinary child restart, missing/mismatched stored state can cause initialization from creation attributes (fresh credentials/empty roster). Restore-only references fail instead. No production failover guarantee is made.
-- Result sync is a Task.Supervisor child with retries on reported errors and bounded exponential delay (maximum sixty seconds). Exceptions/exits raised within the task are converted to errors; an externally killed/hung task lacks an owner-side monitor/watchdog and can leave `:in_flight` stuck until room restart.
+- The room result-sync task retries reported failures with bounded exponential delay (maximum sixty seconds). Its in-memory status can remain `:in_flight` after an externally killed/hung task. Independently, `ResultRecovery` scans the Redis outbox at boot and periodically, with monitored tasks and bounded attempts. It can retry persisted pending reports without browser traffic or room restoration. A payload-matching acknowledgment removes only the exact outbox version sent, so a late completion cannot overwrite a newer checkpoint or reused PIN.
 - Redis recovery and durable Supabase reports are separate. Result payloads contain per-question analytics and game instance identity. This local audit validates payload/test contracts, not deployed RPC atomicity or successful live writes.
 - Redis alone does **not** make multi-node mutation safe. Without a distributed owner/fencing scheme two nodes can restore and mutate the same PIN independently.
 

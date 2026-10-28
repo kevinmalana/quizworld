@@ -150,9 +150,9 @@ export default function AWSPracticeTestPage() {
         </h2>
         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           {[
-            ["🆓", "100% free — no paywalls, no limits"],
+            ["🆓", "Free to use — create, host and play practice quizzes at no cost"],
             ["🎮", "Play solo or host live multiplayer quiz sessions with your study group"],
-            ["🤖", "AI-powered quiz generation — paste exam objectives, get practice questions instantly"],
+            ["🤖", "AI-powered quiz generation — draft practice questions from exam objectives, with daily account limits"],
             ["📊", "Track your progress, see where you need to improve"],
             ["📱", "Works on any device — phone, tablet, or desktop"],
           ].map(([icon, text]) => (
@@ -178,7 +178,7 @@ export default function AWSPracticeTestPage() {
           Ready to start practicing?
         </h2>
         <p className="text-muted" style={{ marginBottom: "1.5rem" }}>
-          Join thousands of students using QuizWorld to ace their AWS exams.
+          Create practice quizzes, drill solo, or host a live review session with your study group.
         </p>
         <Link href="/create" className="btn btn-primary" style={{ fontSize: "1.05rem", padding: "0.75rem 2rem" }}>
           Create a Free Practice Test

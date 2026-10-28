@@ -4,22 +4,15 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { PlayerIdentityForm } from "@/components/game/PlayerIdentityForm";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase/client";
 import { writePlayerSession, readPlayerSession } from "@/lib/player-session";
 import { fetchPhoenixSession, joinPhoenixSession } from "@/lib/game-engine/client";
+import { gameErrorReason, hasGameErrorReason } from "@/lib/game/command-errors";
 import {
-  isPhoenixGameEngine,
   legacySupabaseGameEngine,
   liveGameEngineMisconfigured,
 } from "@/lib/game-engine/config";
 
 const AVATARS = ["🦁", "🐯", "🐺", "🦊", "🐸", "🦄", "🐉", "🦋", "🦅", "🐬", "🦝", "🐱"];
-type JoinGameResponse = {
-  player_id: string;
-  player_token: string;
-  session_id: string;
-};
-
 function JoinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -109,42 +102,21 @@ function JoinForm() {
     setJoining(true);
 
     try {
-      if (isPhoenixGameEngine) {
-        const response = await fetchPhoenixSession(p);
-        const session = response.session;
+      const response = await fetchPhoenixSession(p);
+      const session = response.session;
 
-        if (session.status !== "waiting") {
-          setError("This game has already started.");
-          setJoining(false);
-          return;
-        }
-
-        setPin(p);
-        setStep("nickname");
+      if (session.status !== "waiting") {
+        setError("This game has already started.");
         setJoining(false);
         return;
       }
 
-      const { data: session } = await supabase
-        .rpc("lookup_game_by_pin", { p_pin: p })
-        .single();
-
-      if (session) {
-        if ((session as { status: string }).status !== "waiting") {
-          setError("This game has already started.");
-          setJoining(false);
-          return;
-        }
-        setPin(p);
-        setStep("nickname");
-        setJoining(false);
-        return;
-      }
-
-      setError("Game not found. Check the PIN and try again.");
+      setPin(p);
+      setStep("nickname");
       setJoining(false);
+      return;
     } catch (error) {
-      setError(error instanceof Error && (error.message === "Session not found" || error.message === "Session not found.")
+      setError(hasGameErrorReason(error, "not_found")
         ? "Game not found. Check the PIN with your host and try again."
         : "Could not reach the game service. Your PIN is still here. Check your connection and try again.");
       setJoining(false);
@@ -157,59 +129,37 @@ function JoinForm() {
     setJoining(true);
 
     try {
-      if (isPhoenixGameEngine) {
-        const response = await joinPhoenixSession(pin, {
-          nickname: nickname.trim(),
-          avatar,
+      const response = await joinPhoenixSession(pin, {
+        nickname: nickname.trim(),
+        avatar,
+      });
+
+      if (response?.player_id && response?.player_token) {
+        writePlayerSession(pin, {
+          playerId: response.player_id,
+          playerToken: response.player_token,
         });
-
-        if (response?.player_id && response?.player_token) {
-          writePlayerSession(pin, {
-            playerId: response.player_id,
-            playerToken: response.player_token,
-          });
-          router.push(`/game/${pin}`);
-          return;
-        }
-
-        // joinPhoenixSession throws on non-2xx — if we get here the response was
-        // a 2xx but missing player credentials (shouldn't happen, treat as error)
-        setError("Could not join this game right now. Please try again.");
-        setJoining(false);
+        router.push(`/game/${pin}`);
         return;
-      } else {
-        const { data, error } = await supabase
-          .rpc("join_game_session", {
-            p_pin: pin,
-            p_nickname: nickname.trim(),
-            p_avatar: avatar,
-          })
-          .single<JoinGameResponse>();
-
-        if (data?.player_id && data?.player_token) {
-          writePlayerSession(pin, {
-            playerId: data.player_id,
-            playerToken: data.player_token,
-          });
-          router.push(`/game/${pin}`);
-          return;
-        }
-
-        if (error) throw error;
       }
 
+      // joinPhoenixSession throws on non-2xx — if we get here the response was
+      // a 2xx but missing player credentials (shouldn't happen, treat as error)
       setError("Could not join this game right now. Please try again.");
-    } catch (error: any) {
+      setJoining(false);
+      return;
+    } catch (error: unknown) {
       console.error("Join game error:", error);
-      const msg = error?.message ?? "";
+      const msg = error instanceof Error ? error.message : "";
+      const reason = gameErrorReason(error);
       setError(
-        msg === "Game is not accepting new players." || msg === "Session not found."
+        reason === "session_closed" || reason === "not_found"
           ? "This game is no longer accepting new players."
-          : msg === "Nickname is required."
+          : reason === "invalid_player"
             ? "Enter a nickname."
-            : msg === "That nickname is already taken in this game."
+            : reason === "nickname_taken"
               ? "That nickname is already taken. Choose a different one."
-              : msg === "This game is full."
+              : reason === "game_full"
                 ? "This game is full. Ask the host to start a new session."
                 : msg
                   ? msg  // show actual Phoenix error message

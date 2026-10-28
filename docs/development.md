@@ -11,7 +11,7 @@ Read the [domain context](../CONTEXT.md) before changing behavior and [product c
 - `components/game/PlayerAnswerGrid.tsx`: selected/sending/acknowledged state and accessible answer targets. The route passes authoritative own-answer evidence; selection alone is not acknowledgement.
 - `components/game/RoundPreview.tsx`: a local explanatory illustration, completely separate from multiplayer state.
 - `WaitingLobbyPanel` and `GameFinishedPanel`: render roles and real derived results; they do not create players, allocate teams, persist scores or mutate engine state.
-- `app/game/[pin]/page.tsx`: remains the orchestration boundary. Its complexity is an acknowledged follow-up seam, not an excuse to rewrite the working engine into React.
+- `app/game/[pin]/page.tsx`: Phoenix-only route orchestration; unsupported legacy-engine configuration still refuses explicitly. Shared transport/error/storage seams do not move game rules or scoring into React.
 
 Do not add another skin override stylesheet. Change the owner, run its regressions, then remove superseded selectors/imports. The former warm skin was removed; duplicated Explore globals moved to its owner. Other historical global utilities remain and must be removed only after their callers are verified. `SectionCard` remains available for unrelated routes; discovery deliberately uses semantic flat regions instead of nesting it around every grid/control.
 
@@ -25,7 +25,7 @@ npm run build
 npm run check:phoenix
 ```
 
-These are the same stages as `npm run check`. Supply the documented build environment from `.env.example`; public runtime URLs are embedded at build time. `ERL_FLAGS='+S 2:2'` can constrain Erlang schedulers in small CI/local environments without changing product behavior. Phoenix dependencies must be installed even for the TypeScript suite's cross-runtime report test.
+These are the same stages as `npm run check`. Supply the documented build environment from `.env.example`; public runtime URLs are embedded at build time. `ERL_FLAGS='+S 2:2'` can constrain Erlang schedulers in small CI/local environments without changing product behavior. Phoenix dependencies must be installed even for the TypeScript suite's cross-runtime report test. The unit command also runs real React fixtures in Chromium: install Playwright Chromium before it, as CI does, and never turn a missing browser into a skipped regression. On constrained hosts run heavy browser/build/Phoenix stages serially. A system-Chrome adapter is a local environment override, not a repository dependency or physical-device acceptance.
 
 Focused browser checks against a **running candidate build**:
 
@@ -38,6 +38,12 @@ BASE_URL=http://127.0.0.1:3000 npx playwright test \
 The older `warm-*` test names retain useful PIN/search/QR regressions; they no longer load the deleted skin. `warm-lobby-layout` renders the real component via a separate `node --import tsx` process because Playwright's JSX transform is not React SSR. It is a layout check, **not multiplayer proof**.
 
 Tests for changed contracts include native identity submission/name/avatar labeling, selected/sending/unconfirmed answer status, honest catalog counts/search behavior, mobile navigation, no duplicate shelves, early real library content, and compact cookie dismissal. Red tests must fail for the missing behavior before implementation; do not accept a broken import as the only behavioral evidence.
+
+## Credential and identity regressions
+
+- `lib/game-route-contract.test.ts` exercises bounded HTTP requests, structured reasons and no automatic mutation replay. Malformed confirmations are uncertain outcomes, not successful acknowledgments.
+- `lib/game-session-storage.test.ts` exercises denied storage getters, fallback writes, readback verification and stale-value shadowing. Role-specific expiry and identity rules remain in host/player modules.
+- `lib/social-identity.test.ts` bundles actual classroom/group routes, stubbing only auth, data and navigation boundaries. It checks immediate display isolation on sign-out/room/account change and late failed-load navigation fencing. These are synthetic browser acceptance checks—not real account/RLS or production multiplayer proof.
 
 ## Real isolated multiplayer acceptance
 

@@ -1,4 +1,35 @@
+import { gameCommandError } from "@/lib/game/command-errors";
 import { gameServiceUrl, getGameSocketUrl, isPhoenixGameEngine } from "@/lib/game-engine/config";
+
+const REQUEST_TIMEOUT_MS = 15_000;
+type CreatedSession = {
+  host_token?: string;
+  host_player?: { player_id?: string; player_token?: string };
+  session?: { pin?: string } & Record<string, unknown>;
+};
+
+/** One bounded HTTP seam; uncertain commands are never automatically replayed. */
+async function requestPhoenix<T>(path: string, init: RequestInit, fallback: string): Promise<T> {
+  if (!isPhoenixGameEngine) throw new Error("Phoenix game engine is not enabled.");
+  const headers = new Headers(init.headers);
+  headers.set("Content-Type", "application/json");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${gameServiceUrl}${path}`, { ...init, headers, signal: controller.signal });
+    let body: unknown;
+    try { body = await response.json(); }
+    catch {
+      // Bad confirmation bytes do not establish whether a mutation committed.
+      throw gameCommandError({ reason: "unavailable" }, fallback);
+    }
+    if (!response.ok) throw gameCommandError(body, fallback);
+    return body as T;
+  } catch (error) {
+    if (controller.signal.aborted) throw gameCommandError({ reason: "timeout" }, fallback);
+    throw error;
+  } finally { clearTimeout(timer); }
+}
 
 export function getGameServiceBaseUrl() {
   return gameServiceUrl;
@@ -12,55 +43,24 @@ export async function createPhoenixSession(
   payload: Record<string, unknown>,
   authToken: string
 ) {
-  if (!isPhoenixGameEngine) {
-    throw new Error("Phoenix game engine is not enabled.");
-  }
-
-  const response = await fetch(`${gameServiceUrl}/api/sessions`, {
+  return requestPhoenix<CreatedSession>("/api/sessions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${authToken}`,
     },
     body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(body.error || "Could not create realtime session.");
-  }
-
-  return response.json() as Promise<{
-    host_token?: string;
-    host_player?: {
-      player_id?: string;
-      player_token?: string;
-    };
-    session?: {
-      pin?: string;
-    } & Record<string, unknown>;
-  }>;
+  }, "Could not create realtime session.");
 }
 
 export async function fetchPhoenixSession(pin: string) {
-  if (!isPhoenixGameEngine) {
-    throw new Error("Phoenix game engine is not enabled.");
-  }
-
-  const response = await fetch(`${gameServiceUrl}/api/sessions/${encodeURIComponent(pin)}`, {
+  return requestPhoenix<{ session: Record<string, unknown> }>(`/api/sessions/${encodeURIComponent(pin)}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
     },
     cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(body.error || "Could not load realtime session.");
-  }
-
-  return response.json() as Promise<{ session: Record<string, unknown> }>;
+  }, "Could not load realtime session.");
 }
 
 export async function joinPhoenixSession(
@@ -128,26 +128,14 @@ async function postPhoenixSessionAction<T extends Record<string, unknown> = Reco
   action: string,
   payload: Record<string, unknown>
 ): Promise<T> {
-  if (!isPhoenixGameEngine) {
-    throw new Error("Phoenix game engine is not enabled.");
-  }
-
-  const response = await fetch(
-    `${gameServiceUrl}/api/sessions/${encodeURIComponent(pin)}/${action}`,
+  return requestPhoenix<T>(
+    `/api/sessions/${encodeURIComponent(pin)}/${action}`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
-    }
+    }, "Phoenix session action failed."
   );
-
-  const body = await response.json().catch(() => ({})) as { error?: string; reason?: string };
-
-  if (!response.ok) {
-    throw Object.assign(new Error(body.error || "Phoenix session action failed."), {reason: body.reason});
-  }
-
-  return body as T;
 }
