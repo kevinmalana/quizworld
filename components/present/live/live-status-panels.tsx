@@ -38,7 +38,10 @@ type JoinOverlayProps = {
 export function JoinOverlay({ joinCode, joinUrl, onClose }: JoinOverlayProps) {
   return (
     <div className="present-join-overlay" onClick={onClose}>
-      <div className="present-join-overlay-card" onClick={(e) => e.stopPropagation()}>
+      <div className="present-join-overlay-card" role="dialog" aria-label="Audience join code" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="present-join-overlay-close" onClick={onClose} aria-label="Close join code and show presenter controls">
+          Close ✕
+        </button>
         <div className="present-join-overlay-label">Audience join</div>
         <div className="present-join-overlay-code">{joinCode}</div>
         <div className="present-join-overlay-body">
@@ -47,7 +50,7 @@ export function JoinOverlay({ joinCode, joinUrl, onClose }: JoinOverlayProps) {
             <div className="present-join-overlay-title">Scan or enter the code</div>
             <div className="present-join-overlay-url">{DISPLAY_SITE_HOST}/present/join</div>
             <button onClick={() => { void navigator.clipboard?.writeText(joinUrl); }} className="btn btn-primary btn-lg">Copy invite link</button>
-            <div className="present-join-overlay-hint">Shortcut: press I to show/hide this overlay</div>
+            <div className="present-join-overlay-hint">Close this to reach the slide controls. Press I to show it again.</div>
           </div>
         </div>
       </div>

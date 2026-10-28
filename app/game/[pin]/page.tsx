@@ -19,6 +19,7 @@ import {
   WaitingLobbyPanel,
 } from "@/components/game";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { revealCountdownLabel, useRevealCountdown } from "@/lib/game/use-reveal-countdown";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/supabase-provider";
 import {
@@ -479,6 +480,14 @@ export default function GamePage() {
   const ownAnswer = playerSession?.playerId
     ? currentAnswers.find((answer) => answer.player_id === playerSession.playerId) ?? null
     : null;
+  const revealSecondsLeft = useRevealCountdown({
+    instanceId: (session?.game_instance_id as string | undefined) ?? null,
+    questionIndex: (session?.current_question_index as number | undefined) ?? -1,
+    status: gameStatus,
+  });
+  const isLastQuestion = ((session?.current_question_index as number) ?? 0) >=
+    (((session?.quiz as { questions?: unknown[] })?.questions?.length ?? 1) - 1);
+  const revealCountdown = revealCountdownLabel(revealSecondsLeft, isLastQuestion);
   const answerCounts = currentQuestion?.answers?.map((answer) => ({
     ...answer,
     count: currentAnswers.filter((row) => row.answer_id === answer.id).length,
@@ -831,6 +840,10 @@ export default function GamePage() {
             </div>
           )}
 
+          {revealCountdown && (
+            <p className="game-reveal-countdown" role="status" aria-live="polite">{revealCountdown}</p>
+          )}
+
           <AnswerRevealList
             answerCounts={answerCounts}
             showCounts={isHost}
@@ -876,10 +889,7 @@ export default function GamePage() {
         {isHost && (
           <div className="game-next-area">
             <button onClick={() => void goToNextQuestion()} className="btn btn-primary btn-lg">
-              {((session?.current_question_index as number) ?? 0) >=
-              (((session?.quiz as { questions?: unknown[] })?.questions?.length ?? 1) - 1)
-                ? "Finish Game"
-                : "Next Question"}
+              {isLastQuestion ? "Finish Game" : "Next Question"}
             </button>
           </div>
         )}

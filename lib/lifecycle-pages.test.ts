@@ -225,7 +225,7 @@ test('Real transport + React: uncertain submit, disconnect fallback, reconnect a
   await page.getByRole('button',{name:'Submit',exact:true}).click();
   await page.waitForFunction(()=>(window as unknown as FixtureWindow).sockets[0].sent.some((f:FixtureFrame)=>f[3]==='response:submit'));
   await page.evaluate(()=>{const w=window as unknown as FixtureWindow;w.sockets[0].close();w.answers.s0=true;});
-  await page.getByText(/Action unconfirmed/).waitFor();
+  await page.getByText(/couldn't confirm that action/).waitFor();
   await page.getByText(/Using read-only fallback/).waitFor();
   await page.waitForFunction(()=>(window as unknown as FixtureWindow).sockets.length===2);
   await page.getByText('✅ Submitted!',{exact:true}).waitFor({timeout:6000});

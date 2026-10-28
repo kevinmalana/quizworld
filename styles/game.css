@@ -905,3 +905,4 @@
 .game-reveal-label { min-width: 0; overflow-wrap: anywhere; }
 .game-reveal-count { font-size: .8rem; text-align: right; }
 @media(max-width:420px) { .game-final-row { align-items: start; flex-direction: column; gap: .25rem; } .game-personal-result { padding: 1rem; } }
+.game-reveal-countdown { margin: 0.5rem 0 0.75rem; font-size: 0.875rem; font-weight: 600; color: var(--muted); }

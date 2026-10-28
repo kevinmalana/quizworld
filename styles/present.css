@@ -1327,3 +1327,22 @@
   .present-ai-create__fields { grid-template-columns: 1fr; }
   .present-ai-create__brief { grid-column: auto; }
 }
+
+.present-join-overlay-card { position: relative; }
+.present-join-overlay-close {
+  position: absolute; top: 0.75rem; right: 0.75rem;
+  min-height: 44px; padding: 0.5rem 0.9rem; border-radius: 999px;
+  border: 1px solid var(--border, #d6dbe6); background: var(--surface, #fff);
+  font-weight: 700; font-size: 0.875rem; cursor: pointer;
+}
+.present-join-overlay-close:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Participant's own pick in live quizzes (before and after the reveal). */
+.present-quiz-option.is-own { outline: 3px solid var(--accent); outline-offset: -3px; }
+.present-own-choice {
+  margin-left: auto; white-space: nowrap; font-size: 0.75rem; font-weight: 700;
+  color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 0.1rem 0.5rem;
+}
+.present-own-choice + .present-correct-mark,
+.present-own-choice + .present-wrong-mark { margin-left: 0.4rem; }
+.present-wrong-mark { margin-left: auto; }

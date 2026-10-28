@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { QnaQuestion, Slide, SlideResponse } from "@/lib/presentation/types";
 import { shouldShowPresentationResults } from "@/lib/presentation/runtime";
+import { quizOptionView } from "@/lib/presentation/own-choice";
 
 type WordCloudWord = [string, number];
 
@@ -171,18 +172,18 @@ export function LiveSlideStage({
                       {ov.question && <h3 className="font-display" style={{ textAlign: "center", marginBottom: "0.75rem", fontSize: "1.1rem" }}>{ov.question}</h3>}
                       <div className="present-option-list present-option-list--quiz">
                         {(ov.answers || []).map((ans, i) => {
-                          const revealed = revealedAnswers[currentSlide.id];
-                          const isRevealed = !!revealed;
-                          const isCorrect = isRevealed && revealed.includes(ans.id);
+                          const view = quizOptionView({ answerId: ans.id, ownChoice: selectedOption, revealedCorrectIds: revealedAnswers[currentSlide.id] });
                           return (
                             <button key={ans.id}
-                              onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id }); }}
+                              onClick={() => { if (!submitted && !isHost) { setSelectedOption(ans.id); submitResponse({ answer_id: ans.id }); } }}
                               disabled={submitted || isHost}
-                              className={["present-quiz-option", submitted && isRevealed && isCorrect ? " is-correct" : "", submitted && isRevealed && !isCorrect ? " is-wrong" : ""].join("")}>
+                              aria-pressed={view.isOwn}
+                              className={view.className}>
                               <span className="present-answer-letter">{String.fromCharCode(65 + i)}</span>
                               <span className="present-answer-text">{ans.text}</span>
-                              {isRevealed && isCorrect && <span className="present-correct-mark">✅</span>}
-                              {isRevealed && !isCorrect && submitted && <span style={{ marginLeft: "auto" }}>❌</span>}
+                              {view.isOwn && <span className="present-own-choice">Your answer</span>}
+                              {view.mark === "correct" && <span className="present-correct-mark" aria-label="Correct answer">✅</span>}
+                              {view.mark === "wrong" && <span className="present-wrong-mark" aria-label="Your answer was wrong">❌</span>}
                             </button>
                           );
                         })}
@@ -357,22 +358,18 @@ export function LiveSlideStage({
             <h2 className="font-display present-slide-title is-centered">{currentSlide.content?.question || currentSlide.title || "Quiz"}</h2>
             <div className="present-option-list present-option-list--quiz">
               {(currentSlide.content?.answers || []).map((ans, i) => {
-                const revealed = revealedAnswers[currentSlide.id];
-                const isRevealed = !!revealed;
-                const isCorrect = isRevealed && revealed.includes(ans.id);
+                const view = quizOptionView({ answerId: ans.id, ownChoice: selectedOption, revealedCorrectIds: revealedAnswers[currentSlide.id] });
                 return (
                   <button key={ans.id}
-                    onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id }); }}
+                    onClick={() => { if (!submitted && !isHost) { setSelectedOption(ans.id); submitResponse({ answer_id: ans.id }); } }}
                     disabled={submitted || isHost}
-                    className={[
-                      "present-quiz-option",
-                      submitted && isRevealed && isCorrect ? " is-correct" : "",
-                      submitted && isRevealed && !isCorrect ? " is-wrong" : "",
-                    ].join("")}>
+                    aria-pressed={view.isOwn}
+                    className={view.className}>
                     <span className="present-answer-letter">{String.fromCharCode(65 + i)}</span>
                     <span className="present-answer-text">{ans.text}</span>
-                    {isRevealed && isCorrect && <span className="present-correct-mark">✅</span>}
-                    {isRevealed && !isCorrect && submitted && <span style={{ marginLeft: "auto" }}>❌</span>}
+                    {view.isOwn && <span className="present-own-choice">Your answer</span>}
+                    {view.mark === "correct" && <span className="present-correct-mark" aria-label="Correct answer">✅</span>}
+                    {view.mark === "wrong" && <span className="present-wrong-mark" aria-label="Your answer was wrong">❌</span>}
                   </button>
                 );
               })}
@@ -381,7 +378,11 @@ export function LiveSlideStage({
               <p className="present-submitted-text">✅ Answered! Waiting for host to reveal…</p>
             )}
             {submitted && revealedAnswers[currentSlide.id] && (
-              <p className="present-submitted-text">Results revealed!</p>
+              <p className="present-submitted-text" role="status">
+                {selectedOption && revealedAnswers[currentSlide.id].includes(selectedOption)
+                  ? "✅ You got it right!"
+                  : selectedOption ? "Not this time — the correct answer is marked ✅." : "Results revealed!"}
+              </p>
             )}
             {/* Host: reveal button + response count */}
             {isHost && (
