@@ -24,8 +24,9 @@ export function presentationCommandNotice(outcome: Exclude<PresentationCommandOu
   if (outcome.status === "uncertain") {
     return "We couldn't confirm that action. Check the slide before trying again; it won't be resent automatically.";
   }
-  if (known) return known;
+  // Rejected means definitely not executed; always say so before the reason.
+  if (known) return `That didn't go through. ${known}`;
   // Already a readable sentence from the client transport (e.g. "Presentation socket is not connected.").
-  if (/\s/.test(reason)) return `That didn't go through: ${reason}`;
+  if (/\s/.test(reason)) return `That didn't go through. ${reason}`;
   return "That didn't go through. Please try again.";
 }

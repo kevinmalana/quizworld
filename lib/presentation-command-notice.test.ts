@@ -3,6 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { presentationCommandNotice } from "./presentation/command-notice";
 
+test("rejected outcomes always say the action did not go through", () => {
+  for (const reason of ["invalid_participant_token", "Presentation socket is not connected.", "weird"]) {
+    assert.match(presentationCommandNotice({ status: "rejected", reason }), /^That didn't go through\./);
+  }
+});
+
 test("server reason codes never reach the audience verbatim", () => {
   for (const reason of ["invalid_participant_token", "bad_slide", "insert_failed", "something_new"]) {
     const text = presentationCommandNotice({ status: "rejected", reason });

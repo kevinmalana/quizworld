@@ -319,16 +319,16 @@ test('Presenter command failures are visible, honest and recoverable',async()=>f
   await page.evaluate(()=>{const w=window as unknown as FixtureWindow;w.subscriptions[0].callbacks.onJoined();});
   await page.evaluate(()=>{const w=window as unknown as FixtureWindow;w.nextOutcome={status:'uncertain',reason:'No reply from the presentation service.'};});
   await page.getByRole('button',{name:'Next →'}).click();
-  await page.getByText(/unconfirmed/i).waitFor({timeout:3000});
+  await page.getByText(/couldn't confirm that action/i).waitFor({timeout:3000});
   await shot(page,'command-uncertain');
 
   await page.evaluate(()=>{const w=window as unknown as FixtureWindow;w.nextOutcome={status:'rejected',reason:'Presentation socket is not connected.'};});
   await page.getByRole('button',{name:'Next →'}).click();
-  await page.getByText(/not sent/i).waitFor({timeout:3000});
+  await page.getByText(/didn't go through/i).waitFor({timeout:3000});
 
   await page.evaluate(()=>{const w=window as unknown as FixtureWindow;w.nextOutcome=null;w.index=1;w.subscriptions[0].callbacks.onPresentationUpdate(w.presentation('A').presentation);});
   await page.getByRole('heading',{name:'Slide two'}).waitFor({timeout:3000});
-  assert.equal(await page.getByText(/unconfirmed|not sent/i).count(),0,'successful recovery clears the notice');
+  assert.equal(await page.getByText(/couldn't confirm that action|didn't go through/i).count(),0,'successful recovery clears the notice');
 },async page=>{await page.evaluate(()=>{
   const w=window as unknown as FixtureWindow;
   w.presentation=(code:string,status='live')=>({presentation:{title:'Host deck',creator_id:'owner',run_id:'run-A',join_code:'123456',status,current_slide_index:w.index||0,slides:[
@@ -350,7 +350,7 @@ test('Transport disconnect immediately resumes read-only fallback and own-respon
   await page.evaluate(()=>{const w=window as unknown as FixtureWindow;w.nextOutcome={status:'rejected',reason:'Presentation socket is not connected.'};});
   await page.getByPlaceholder('Type your response…').fill('Unsure answer');
   await page.getByRole('button',{name:'Submit',exact:true}).click();
-  await page.getByText(/not sent/i).waitFor({timeout:2000});
+  await page.getByText(/didn't go through/i).waitFor({timeout:2000});
 
   // Earlier uncertain submit recorded server-side: fallback polling must
   // surface own-response evidence again.
