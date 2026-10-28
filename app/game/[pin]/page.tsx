@@ -11,6 +11,7 @@ import {
   LeaderboardList,
   PlayerAnswerGrid,
   QuestionMedia,
+  RevealStatsLine,
   SpectatorPanel,
   SurvivalStatusBar,
   TeamScoreBar,
@@ -810,10 +811,13 @@ export default function GamePage() {
             {isPoll ? "Poll Results — unscored" : "Answer Reveal"}
           </h2>
           <p className="game-question-text">{currentQuestion.text}</p>
-          {/* Feature 10: Question breakdown */}
-          <div className="game-stats-bar">
-            {isPoll ? "Opinions have no right or wrong answer." : `${correctCountThisQ}/${totalAnsweredThisQ} correct (${totalAnsweredThisQ > 0 ? Math.round((correctCountThisQ / totalAnsweredThisQ) * 100) : 0}%)`}
-          </div>
+          {/* Feature 10: Question breakdown (host only — players only receive their own answer) */}
+          <RevealStatsLine
+            isPoll={isPoll}
+            isHost={isHost}
+            correctCount={correctCountThisQ}
+            totalAnswered={totalAnsweredThisQ}
+          />
           <QuestionMedia question={currentQuestion} maxHeight={200} margin="0" />
 
           {ownAnswer && (
@@ -827,7 +831,11 @@ export default function GamePage() {
             </div>
           )}
 
-          <AnswerRevealList answerCounts={answerCounts} />
+          <AnswerRevealList
+            answerCounts={answerCounts}
+            showCounts={isHost}
+            ownAnswerId={ownAnswer?.answer_id ?? null}
+          />
 
           {/* Mode-specific reveal panels */}
           {gameMode === "survival" && (

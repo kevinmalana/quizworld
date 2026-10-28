@@ -5,7 +5,7 @@ export { WaitingLobbyPanel } from "./WaitingLobbyPanel";
 export { ActiveHostDashboard } from "./ActiveHostDashboard";
 export { SpectatorPanel } from "./SpectatorPanel";
 export { PlayerAnswerGrid } from "./PlayerAnswerGrid";
-export { AnswerRevealList } from "./AnswerRevealList";
+export { AnswerRevealList, RevealStatsLine } from "./AnswerRevealList";
 export { LeaderboardList } from "./LeaderboardList";
 export { GameFinishedPanel } from "./GameFinishedPanel";
 export { SurvivalStatusBar } from "./SurvivalStatusBar";
