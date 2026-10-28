@@ -1,3 +1,4 @@
+import { gameCommandError } from "@/lib/game/command-errors";
 import { getGameServiceSocketUrl } from "@/lib/game-engine/client";
 
 type PhoenixMessage = [string | null, string | null, string, string, unknown];
@@ -20,28 +21,6 @@ const MAX_RECONNECT_ATTEMPTS = 8;
 const BASE_RECONNECT_DELAY_MS = 1_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const DEFAULT_COMMAND_TIMEOUT_MS = 10_000;
-const COMMAND_ERROR_MESSAGES: Record<string, string> = {
-  timeout: "The command outcome is not confirmed. Checking game state.",
-  unavailable: "The command outcome is not confirmed. Checking game state.",
-  invalid_player_token: "Player session is invalid.",
-  unknown_player: "Player session was not found.",
-  already_answered: "Your answer is already locked in.",
-  answer_window_closed: "Answer window has closed.",
-  not_host: "Only the host can perform this action.",
-  invalid_state: "This action is not allowed right now.",
-  bad_answer: "Answer does not belong to the current question.",
-  eliminated: "You have been eliminated from this game.",
-};
-
-function commandError(response: unknown) {
-  const error = response as { reason?: string; message?: string } | null;
-  const message =
-    error?.message ||
-    (error?.reason ? COMMAND_ERROR_MESSAGES[error.reason] : undefined) ||
-    "Game command failed.";
-  return Object.assign(new Error(message), {reason: error?.reason});
-}
-
 export function subscribeToPhoenixTopic(options: SubscribeOptions) {
   const socketUrl = getGameServiceSocketUrl();
 
@@ -149,7 +128,7 @@ export function subscribeToPhoenixTopic(options: SubscribeOptions) {
           pendingCommands.delete(messageRef);
           window.clearTimeout(pending.timeout);
           if (reply.status === "ok") pending.resolve(reply.response);
-          else pending.reject(commandError(reply.response));
+          else pending.reject(gameCommandError(reply.response));
           return;
         }
 

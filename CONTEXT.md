@@ -29,6 +29,9 @@ This file names the concepts and ownership rules that should remain stable acros
 - Reconnection restores the latest authoritative snapshot. An optimistic answer selection is not proof of acceptance.
 - A timed-out command has an uncertain outcome: do not replay it automatically. Private result reads bind authorization and snapshot to the same game-process mailbox turn.
 - Clients may ignore stale snapshots, but backend correctness must not depend on client-side deduplication.
+- HTTP deadlines and socket timeouts mean an uncertain outcome, not server-side cancellation. Reconcile authoritative state; do not replay a mutation automatically.
+- Browser credential writes count as persisted only after readback. A denied store must not crash recovery, silently lose access or leave stale preferred-store credentials shadowing the new role.
+- Classroom/group state is keyed by room and account. Replaced scopes disappear synchronously; old async completions must not repopulate them or redirect the current account.
 - Completion writes must be idempotent before browser-owned result writes are removed.
 
 ## Deployment ownership
@@ -50,7 +53,7 @@ This file names the concepts and ownership rules that should remain stable acros
 
 1. Keep one publication point for Phoenix transitions.
 2. Replace false-confidence E2E checks with deterministic behaviour tests.
-3. Remove the legacy Supabase live-game adapter only after its rollback status is explicitly confirmed.
+3. Game/join routes use Phoenix only. Preserve the explicit unsupported legacy-engine refusal; removing unreachable Supabase branches does not reactivate that configuration.
 4. Deepen the route-orchestration seam without moving server authority into React.
 5. Preserve backend-owned, idempotent durable multiplayer results and transaction-owned study completion.
 6. Keep shared presentation behind controlled modules; the interface contracts and stylesheet owners are documented in `docs/product-design.md` and `docs/development.md`.

@@ -19,7 +19,6 @@ import {
 } from "@/components/game";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
 import {
   advancePhoenixSession,
@@ -53,7 +52,6 @@ import {
   normalizePhoenixSession,
   shouldApplySessionSnapshot,
   shouldApplyFallbackSnapshot,
-  sortQuizQuestions,
   type CurrentAnswer,
   type GamePlayer,
   type GameQuestion,
@@ -64,6 +62,7 @@ import { useGameAudio } from "@/lib/game/use-game-audio";
 import { usePhoenixGameChannel } from "@/lib/game/use-phoenix-game-channel";
 import { useRequestEpoch } from "@/lib/game/use-request-epoch";
 import { executePhoenixGameCommand } from "@/lib/game/command-transport";
+import { hasGameErrorReason } from "@/lib/game/command-errors";
 import { shouldShowGameReconnectNotice } from "@/lib/game/reconnect-notice";
 import {
   calculatePlayerAchievements,
@@ -108,12 +107,8 @@ export default function GamePage() {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const { playCorrect, playWrong, playTick, playFanfare } = useGameAudio();
-  const isHost = isPhoenixGameEngine
-    ? !!user?.id && !!hostSession && hostSession.hostId === user.id
-    : !!user?.id && session?.host_id === user.id;
-  const hasActiveSessionKey = isPhoenixGameEngine
-    ? !!(session as { pin?: string })?.pin
-    : !!(session as { id?: string })?.id;
+  const isHost = !!user?.id && !!hostSession && hostSession.hostId === user.id;
+  const hasActiveSessionKey = !!session?.pin;
 
   if (liveGameEngineMisconfigured) {
     return (
@@ -174,26 +169,10 @@ export default function GamePage() {
       // Prevents REST responses from racing against WS broadcasts and overwriting fresher state.
       if (!shouldApplySessionSnapshot(sessionRef.current, rawSession, options)) return;
 
-      const normalizedSession = (
-        isPhoenixGameEngine
-          ? normalizePhoenixSession(rawSession)
-          : {
-              ...rawSession,
-              quiz: sortQuizQuestions((rawSession as { quiz?: unknown }).quiz),
-            }
-      ) as Record<string, unknown>;
+      const normalizedSession = normalizePhoenixSession(rawSession) as Record<string, unknown>;
       const nextPlayers = (normalizedSession.players as typeof players) ?? [];
-      const nextQuestion =
-        isPhoenixGameEngine
-          ? (normalizedSession.current_question as typeof currentQuestion) ?? null
-          : ((normalizedSession.quiz as { questions?: typeof currentQuestion[] })?.questions?.[
-              (normalizedSession.current_question_index as number) ?? 0
-            ] ?? null);
-      const nextAnswers =
-        explicitAnswers ??
-        (isPhoenixGameEngine
-          ? (normalizedSession.current_answers as typeof currentAnswers) ?? []
-          : []);
+      const nextQuestion = (normalizedSession.current_question as typeof currentQuestion) ?? null;
+      const nextAnswers = explicitAnswers ?? (normalizedSession.current_answers as typeof currentAnswers) ?? [];
 
       const sameRound = sessionRef.current?.game_instance_id === normalizedSession.game_instance_id &&
         sessionRef.current?.current_question_index === normalizedSession.current_question_index;
@@ -227,97 +206,38 @@ export default function GamePage() {
   );
 
   const loadSession = useCallback(async () => {
-    if (isPhoenixGameEngine) {
-      if (!playerSessionReady) return;
-      const isCurrentRequest = captureRequestGuard();
-      const sessionAtRequestStart = sessionRef.current;
-      try {
-        const credentialed = Object.keys(gameChannelJoinPayload).length > 0;
-        const response = credentialed
-          ? await reconnectPhoenixSession(pin, gameChannelJoinPayload)
-          : await fetchPhoenixSession(pin);
-        if (!isCurrentRequest() || !response.session) return;
-        if (sessionAtRequestStart?.game_instance_id && sessionAtRequestStart.game_instance_id !== response.session.game_instance_id) {
-          setNotice("This PIN now belongs to a different game. Rejoin from the PIN screen.");
-          return;
-        }
-        if (!shouldApplyFallbackSnapshot(sessionRef.current, sessionAtRequestStart, response.session)) return;
-        applySessionSnapshot(response.session, undefined, { allowEqual: true });
-        setCommandUnknown(false);
-        setNotice(null);
-        return;
-      } catch (readError) {
-        if (!isCurrentRequest()) return;
-        if (shouldDiscardPlayerSession(readError) || (readError as {reason?:string}).reason === "invalid_token") {
-          clearPlayerSession(pin); setPlayerSession(null);
-          clearHostSession(pin); setHostSession(null);
-          setNotice("Your game credentials expired. Rejoin from the PIN screen.");
-        } else if (sessionRef.current) {
-          setNotice("Game state is not confirmed. Check your connection, then check game status.");
-        } else {
-          setError((readError as Error).message === "Session not found" ? "Game not found. Check the PIN." : "Game service temporarily unavailable. Please reconnect.");
-        }
-        setLoading(false);
+    if (!playerSessionReady) return;
+    const isCurrentRequest = captureRequestGuard();
+    const sessionAtRequestStart = sessionRef.current;
+    try {
+      const credentialed = Object.keys(gameChannelJoinPayload).length > 0;
+      const response = credentialed
+        ? await reconnectPhoenixSession(pin, gameChannelJoinPayload)
+        : await fetchPhoenixSession(pin);
+      if (!isCurrentRequest() || !response.session) return;
+      if (sessionAtRequestStart?.game_instance_id && sessionAtRequestStart.game_instance_id !== response.session.game_instance_id) {
+        setNotice("This PIN now belongs to a different game. Rejoin from the PIN screen.");
         return;
       }
-    }
-
-    const { data: gameSession, error: sessionError } = await supabase
-      .from("game_sessions")
-      .select("*, quiz:quizzes(*, questions(*, answers(*)))")
-      .eq("pin", pin)
-      .single();
-
-    if (sessionError || !gameSession) {
-      setError("Game not found. Check the PIN.");
+      if (!shouldApplyFallbackSnapshot(sessionRef.current, sessionAtRequestStart, response.session)) return;
+      applySessionSnapshot(response.session, undefined, { allowEqual: true });
+      setCommandUnknown(false);
+      setNotice(null);
+      return;
+    } catch (readError) {
+      if (!isCurrentRequest()) return;
+      if (shouldDiscardPlayerSession(readError) || hasGameErrorReason(readError, "invalid_token")) {
+        clearPlayerSession(pin); setPlayerSession(null);
+        clearHostSession(pin); setHostSession(null);
+        setNotice("Your game credentials expired. Rejoin from the PIN screen.");
+      } else if (sessionRef.current) {
+        setNotice("Game state is not confirmed. Check your connection, then check game status.");
+      } else {
+        setError(hasGameErrorReason(readError, "not_found") ? "Game not found. Check the PIN." : "Game service temporarily unavailable. Please reconnect.");
+      }
       setLoading(false);
       return;
     }
-
-    const normalizedSession = {
-      ...gameSession,
-      quiz: sortQuizQuestions(gameSession.quiz),
-    };
-
-    const { data: playerList, error: playerError } = await supabase
-      .from("players")
-      .select("*")
-      .eq("session_id", (normalizedSession as { id?: string }).id)
-      .order("created_at", { ascending: true });
-
-    if (playerError) {
-      console.error("Error loading players:", playerError);
-    }
-
-    const nextPlayers = playerList ?? [];
-    const nextQuestion =
-      (normalizedSession.quiz as { questions?: typeof currentQuestion[] })?.questions?.[
-        (normalizedSession as { current_question_index?: number }).current_question_index ?? 0
-      ] ?? null;
-
-    let nextAnswers: typeof currentAnswers = [];
-    if (nextQuestion) {
-      const { data: answerRows, error: answerError } = await supabase
-        .from("player_answers")
-        .select("*")
-        .eq("session_id", (normalizedSession as { id?: string }).id)
-        .eq("question_id", (nextQuestion as { id?: string }).id);
-
-      if (answerError) {
-        console.error("Error loading answers:", answerError);
-      } else {
-        nextAnswers = (answerRows ?? []) as typeof currentAnswers;
-      }
-    }
-
-    applySessionSnapshot(
-      {
-        ...(normalizedSession as Record<string, unknown>),
-        players: nextPlayers,
-      },
-      nextAnswers,
-      { allowEqual: true }
-    );
   }, [applySessionSnapshot, captureRequestGuard, pin, playerSessionReady, gameChannelJoinPayload]);
 
   const revealCurrentQuestion = useCallback(async () => {
@@ -329,31 +249,16 @@ export default function GamePage() {
     const isCurrentCommand = beginCommand();
 
     try {
-      if (isPhoenixGameEngine) {
-        if (!hostSession?.hostToken) {
-          throw new Error("Host session is invalid.");
-        }
-
-        const response = await revealPhoenixSession(pin, hostSession.hostToken) as { session?: Record<string, unknown> };
-        if (!isCurrentCommand()) return false;
-        if (response?.session) applySessionSnapshot(response.session);
-      } else {
-        const { error: revealError } = await supabase.rpc("reveal_current_question", {
-          p_session_id: (session as { id?: string }).id,
-        });
-
-        if (revealError) {
-          throw revealError;
-        }
-
-        await loadSession();
+      if (!hostSession?.hostToken) {
+        throw new Error("Host session is invalid.");
       }
 
-      return true;
+      const response = await revealPhoenixSession(pin, hostSession.hostToken) as { session?: Record<string, unknown> };
+      if (!isCurrentCommand()) return false;
+      if (response?.session) applySessionSnapshot(response.session);
     } catch (revealError) {
       if (!isCurrentCommand()) return false;
-      const msg = (revealError as Error)?.message ?? "";
-      if (msg === "This action is not allowed right now.") {
+      if (hasGameErrorReason(revealError, "invalid_state")) {
         return true;
       }
       console.error("Error revealing question:", revealError);
@@ -369,66 +274,6 @@ export default function GamePage() {
   useEffect(() => {
     loadSession();
   }, [loadSession]);
-
-  useEffect(() => {
-    if (isPhoenixGameEngine) return;
-
-    const channel = supabase
-      .channel(`game-session:${pin}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "game_sessions",
-          filter: `pin=eq.${pin}`,
-        },
-        () => {
-          void loadSession();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [pin, loadSession]);
-
-  useEffect(() => {
-    if (isPhoenixGameEngine || !(session as { id?: string })?.id) return;
-
-    const channel = supabase
-      .channel(`game-live:${(session as { id: string }).id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "players",
-          filter: `session_id=eq.${(session as { id: string }).id}`,
-        },
-        () => {
-          void loadSession();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "player_answers",
-          filter: `session_id=eq.${(session as { id: string }).id}`,
-        },
-        () => {
-          void loadSession();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [(session as { id?: string })?.id, loadSession]);
 
   // Channel joins can restore role-private data at the same game revision.
   const applyChannelSnapshot = useCallback((snapshot: Record<string, unknown>, options?: { allowEqual?: boolean }) => {
@@ -650,37 +495,24 @@ export default function GamePage() {
 
     const isCurrentCommand = beginCommand();
     try {
-      if (isPhoenixGameEngine) {
-        if (!hostSession?.hostToken) {
-          throw new Error("Host session is invalid.");
-        }
-
-        const payload = { host_token: hostSession.hostToken };
-        const response = await executePhoenixGameCommand<{ session?: Record<string, unknown> }>({
-          connected: phoenixChannelConnected,
-          event: "host:start",
-          payload,
-          sendSocketCommand: sendPhoenixCommand,
-          sendRestCommand: () => startPhoenixSession(pin, hostSession.hostToken),
-        });
-        if (!isCurrentCommand()) return;
-        if (response?.session) applySessionSnapshot(response.session);
-      } else {
-        const { error: startError } = await supabase.rpc("start_game_session", {
-          p_session_id: (session as { id: string }).id,
-        });
-
-        if (startError) {
-          throw startError;
-        }
-
-        await loadSession();
+      if (!hostSession?.hostToken) {
+        throw new Error("Host session is invalid.");
       }
+
+      const payload = { host_token: hostSession.hostToken };
+      const response = await executePhoenixGameCommand<{ session?: Record<string, unknown> }>({
+        connected: phoenixChannelConnected,
+        event: "host:start",
+        payload,
+        sendSocketCommand: sendPhoenixCommand,
+        sendRestCommand: () => startPhoenixSession(pin, hostSession.hostToken),
+      });
+      if (!isCurrentCommand()) return;
+      if (response?.session) applySessionSnapshot(response.session);
     } catch (startError) {
       if (!isCurrentCommand()) return;
-      const msg = (startError as Error)?.message ?? "";
       console.error("Error starting game:", startError);
-      if (msg === "Only the host can perform this action." || msg === "Host session is invalid.") {
+      if (hasGameErrorReason(startError, "not_host", "invalid_host_session")) {
         clearHostSession(pin);
         setHostSession(null);
         setError("Your host session expired. Return to host and launch the game again.");
@@ -727,48 +559,26 @@ export default function GamePage() {
       return;
     }
 
-    const questions = (session as { quiz?: { questions?: unknown[] } })?.quiz?.questions ?? [];
-    const currentIndex = (session as { current_question_index?: number })?.current_question_index ?? 0;
-    const isLastQuestion = currentIndex >= questions.length - 1;
-
     const isCurrentCommand = beginCommand();
     try {
-      if (isPhoenixGameEngine) {
-        if (!hostSession?.hostToken) {
-          throw new Error("Host session is invalid.");
-        }
-
-        const payload = { host_token: hostSession.hostToken };
-        const response = await executePhoenixGameCommand<{ session?: Record<string, unknown> }>({
-          connected: phoenixChannelConnected,
-          event: "host:advance",
-          payload,
-          sendSocketCommand: sendPhoenixCommand,
-          sendRestCommand: () => advancePhoenixSession(pin, hostSession.hostToken),
-        });
-        if (!isCurrentCommand()) return;
-        if (response?.session) applySessionSnapshot(response.session);
-      } else {
-        if (isLastQuestion) {
-          // Finish + record results in one call
-          const { error: finishError } = await supabase.rpc("finish_game_and_record_results", {
-            p_session_id: (session as { id: string }).id,
-          });
-          if (finishError) throw finishError;
-        } else {
-          const { error: advanceError } = await supabase.rpc("advance_game_session", {
-            p_session_id: (session as { id: string }).id,
-          });
-          if (advanceError) throw advanceError;
-        }
-
-        await loadSession();
+      if (!hostSession?.hostToken) {
+        throw new Error("Host session is invalid.");
       }
+
+      const payload = { host_token: hostSession.hostToken };
+      const response = await executePhoenixGameCommand<{ session?: Record<string, unknown> }>({
+        connected: phoenixChannelConnected,
+        event: "host:advance",
+        payload,
+        sendSocketCommand: sendPhoenixCommand,
+        sendRestCommand: () => advancePhoenixSession(pin, hostSession.hostToken),
+      });
+      if (!isCurrentCommand()) return;
+      if (response?.session) applySessionSnapshot(response.session);
     } catch (advanceError) {
       if (!isCurrentCommand()) return;
-      const msg = (advanceError as Error)?.message ?? "";
       console.error("Error advancing game:", advanceError);
-      if (msg === "Only the host can perform this action." || msg === "Host session is invalid.") {
+      if (hasGameErrorReason(advanceError, "not_host", "invalid_host_session")) {
         clearHostSession(pin);
         setHostSession(null);
         setError("Your host session expired. Return to host and relaunch the session.");
@@ -809,48 +619,31 @@ export default function GamePage() {
       : Date.now();
     const responseTimeMs = Math.max(Date.now() - questionStart, 0);
     try {
-      if (isPhoenixGameEngine) {
-        const payload = {
-          player_id: currentPlayer.id,
-          player_token: playerSession.playerToken,
-          answer_id: answer.id,
-          response_time_ms: responseTimeMs,
-        };
-        const response = await executePhoenixGameCommand<{ session?: Record<string, unknown> }>({
-          connected: phoenixChannelConnected,
-          event: "player:answer",
-          payload,
-          sendSocketCommand: sendPhoenixCommand,
-          sendRestCommand: () => answerPhoenixSession(pin, payload),
-        });
-        if (!isCurrentCommand()) return;
-        if (response?.session) applySessionSnapshot(response.session);
-      } else {
-        const { error: answerError } = await supabase.rpc("submit_player_answer", {
-          p_player_id: currentPlayer.id,
-          p_player_token: playerSession.playerToken,
-          p_answer_id: answer.id,
-          p_response_time_ms: responseTimeMs,
-        });
-
-        if (answerError) {
-          throw answerError;
-        }
-
-        await loadSession();
-      }
+      const payload = {
+        player_id: currentPlayer.id,
+        player_token: playerSession.playerToken,
+        answer_id: answer.id,
+        response_time_ms: responseTimeMs,
+      };
+      const response = await executePhoenixGameCommand<{ session?: Record<string, unknown> }>({
+        connected: phoenixChannelConnected,
+        event: "player:answer",
+        payload,
+        sendSocketCommand: sendPhoenixCommand,
+        sendRestCommand: () => answerPhoenixSession(pin, payload),
+      });
+      if (!isCurrentCommand()) return;
+      if (response?.session) applySessionSnapshot(response.session);
     } catch (answerError) {
       if (!isCurrentCommand()) return;
-      const msg = (answerError as { message?: string; code?: string })?.message ?? "";
-      const code = (answerError as { code?: string })?.code ?? "";
       console.error("Error submitting answer:", answerError);
-      if (msg === "Player session is invalid.") {
+      if (shouldDiscardPlayerSession(answerError)) {
         clearPlayerSession(pin);
         setPlayerSession(null);
         setNotice("Your player session expired. Rejoin the game from the PIN screen.");
-      } else if (code === "23505" || msg === "Your answer is already locked in.") {
+      } else if (hasGameErrorReason(answerError, "already_answered")) {
         setNotice("Your answer is already locked in.");
-      } else if (msg === "Answer window has closed.") {
+      } else if (hasGameErrorReason(answerError, "answer_window_closed")) {
         setNotice("Time is up for this question.");
       } else {
         setCommandUnknown(true);
