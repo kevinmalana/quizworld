@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { GameReport } from "@/components/report/GameReport";
 import type { GameResult } from "@/lib/report-analytics";
 import { useAuth } from "@/components/supabase-provider";
+import { useAsyncScope } from "@/lib/use-async-scope";
 
 export default function ReportPage() {
   const params = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { beginRead } = useAsyncScope();
+  const reportKey = useRef<string | null>(null);
   const pin = params.pin as string;
   const [result, setResult] = useState<GameResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -18,6 +21,16 @@ export default function ReportPage() {
 
 
   useEffect(() => {
+    // Supersede any in-flight read whenever the pin or account changes,
+    // including sign-out, and clear the previous report for a new key.
+    const current = beginRead();
+    const key = `${user?.id ?? ""}:${pin}`;
+    if (reportKey.current !== key) {
+      reportKey.current = key;
+      setResult(null);
+      setError(null);
+      setLoading(true);
+    }
     if (authLoading) return;
     if (!user) {
       router.push(`/login?next=/report/${pin}`);
@@ -29,6 +42,7 @@ export default function ReportPage() {
       // can no longer read results directly. The server endpoint uses the
       // service-role client for the lookup and re-checks ownership.
       const res = await fetch(`/api/reports/${encodeURIComponent(pin)}`);
+      if (!current()) return;
       if (res.status === 401) {
         setError("Sign in to view this report.");
         setLoading(false);
@@ -50,6 +64,7 @@ export default function ReportPage() {
         return;
       }
       const { result } = await res.json();
+      if (!current()) return;
       setResult(result as GameResult);
       setLoading(false);
     }
