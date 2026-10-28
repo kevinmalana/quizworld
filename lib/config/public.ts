@@ -17,11 +17,6 @@ export function presentationJoinUrl(joinCode: string) {
   return absoluteUrl(`/present/join?code=${encodeURIComponent(joinCode)}`);
 }
 
-export function qrCodeUrl(data: string, size = 260) {
-  const boundedSize = Math.max(96, Math.min(size, 512));
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${boundedSize}x${boundedSize}&data=${encodeURIComponent(data)}`;
-}
-
 function normalizeSiteUrl(value: string) {
   return value.trim().replace(/\/+$/, "");
 }

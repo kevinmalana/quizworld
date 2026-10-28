@@ -11,6 +11,7 @@ import {
   LeaderboardList,
   PlayerAnswerGrid,
   QuestionMedia,
+  RevealStatsLine,
   SpectatorPanel,
   SurvivalStatusBar,
   TeamScoreBar,
@@ -18,6 +19,8 @@ import {
   WaitingLobbyPanel,
 } from "@/components/game";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { revealCountdownLabel, useRevealCountdown } from "@/lib/game/use-reveal-countdown";
+import { revealTotals } from "@/lib/game/reveal-totals";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/supabase-provider";
 import {
@@ -420,10 +423,6 @@ export default function GamePage() {
   const { counts: playerCorrectCounts, total: scoredQuestions } = useMemo(() => getGameAccuracy(session), [session]);
   const isPoll = currentQuestion?.question_type === "poll";
 
-  // Feature 10: Question breakdown
-  const correctCountThisQ = currentAnswers.filter(a => a.is_correct).length;
-  const totalAnsweredThisQ = currentAnswers.length;
-
   const leaderboard = useMemo(() => sortLeaderboard(players), [players]);
 
   // Mode-specific derived state
@@ -478,10 +477,18 @@ export default function GamePage() {
   const ownAnswer = playerSession?.playerId
     ? currentAnswers.find((answer) => answer.player_id === playerSession.playerId) ?? null
     : null;
-  const answerCounts = currentQuestion?.answers?.map((answer) => ({
-    ...answer,
-    count: currentAnswers.filter((row) => row.answer_id === answer.id).length,
-  })) ?? [];
+  const revealSecondsLeft = useRevealCountdown({
+    instanceId: (session?.game_instance_id as string | undefined) ?? null,
+    questionIndex: (session?.current_question_index as number | undefined) ?? -1,
+    status: gameStatus,
+  });
+  const isLastQuestion = ((session?.current_question_index as number) ?? 0) >=
+    (((session?.quiz as { questions?: unknown[] })?.questions?.length ?? 1) - 1);
+  const revealCountdown = revealCountdownLabel(revealSecondsLeft, isLastQuestion);
+  // Class-wide totals come from Phoenix's per-option counts: a player's
+  // current_answers holds only their own row (see lib/game/reveal-totals.ts).
+  const reveal = revealTotals(currentQuestion?.answers, currentAnswers, isHost);
+  const answerCounts = reveal.answerCounts;
 
   const startGame = async () => {
     if (commandUnknown) return;
@@ -810,10 +817,13 @@ export default function GamePage() {
             {isPoll ? "Poll Results — unscored" : "Answer Reveal"}
           </h2>
           <p className="game-question-text">{currentQuestion.text}</p>
-          {/* Feature 10: Question breakdown */}
-          <div className="game-stats-bar">
-            {isPoll ? "Opinions have no right or wrong answer." : `${correctCountThisQ}/${totalAnsweredThisQ} correct (${totalAnsweredThisQ > 0 ? Math.round((correctCountThisQ / totalAnsweredThisQ) * 100) : 0}%)`}
-          </div>
+          {/* Feature 10: Question breakdown (host only — players only receive their own answer) */}
+          <RevealStatsLine
+            isPoll={isPoll}
+            isHost={reveal.classWide}
+            correctCount={reveal.correct}
+            totalAnswered={reveal.total}
+          />
           <QuestionMedia question={currentQuestion} maxHeight={200} margin="0" />
 
           {ownAnswer && (
@@ -827,7 +837,15 @@ export default function GamePage() {
             </div>
           )}
 
-          <AnswerRevealList answerCounts={answerCounts} />
+          {revealCountdown && (
+            <p className="game-reveal-countdown" role="status" aria-live="polite">{revealCountdown}</p>
+          )}
+
+          <AnswerRevealList
+            answerCounts={answerCounts}
+            showCounts={reveal.classWide}
+            ownAnswerId={ownAnswer?.answer_id ?? null}
+          />
 
           {/* Mode-specific reveal panels */}
           {gameMode === "survival" && (
@@ -868,10 +886,7 @@ export default function GamePage() {
         {isHost && (
           <div className="game-next-area">
             <button onClick={() => void goToNextQuestion()} className="btn btn-primary btn-lg">
-              {((session?.current_question_index as number) ?? 0) >=
-              (((session?.quiz as { questions?: unknown[] })?.questions?.length ?? 1) - 1)
-                ? "Finish Game"
-                : "Next Question"}
+              {isLastQuestion ? "Finish Game" : "Next Question"}
             </button>
           </div>
         )}

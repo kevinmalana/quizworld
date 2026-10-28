@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { useAsyncScope } from "@/lib/use-async-scope";
 import type { AIPresentationDraft, AIInteractionDensity, AIPresentationSourceMode } from "@/lib/presentation/ai-draft";
 import { useAuth } from "@/components/supabase-provider";
 import { ImportDeckPanel } from "@/components/present/edit/import-deck-panel";
@@ -26,6 +27,8 @@ function statusBadge(status: string) {
 export default function PresentPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { beginRead } = useAsyncScope();
+  const listOwner = useRef<string | null>(null);
   const [title, setTitle] = useState("");
   const [showAI, setShowAI] = useState(false);
   const [aiSourceMode, setAiSourceMode] = useState<AIPresentationSourceMode | "template">("topic");
@@ -44,6 +47,7 @@ export default function PresentPage() {
   const [importCreating, setImportCreating] = useState(false);
   const [importError, setImportError] = useState("");
   const [presentations, setPresentations] = useState<PresentationRow[]>([]);
+  const [presentationsOwner, setPresentationsOwner] = useState<string | null>(null);
   const [presLoading, setPresLoading] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -59,6 +63,14 @@ export default function PresentPage() {
 
   // Load existing presentations
   useEffect(() => {
+    // Supersede any in-flight read on every auth change, including sign-out,
+    // and drop the previous account's rows before the new account's arrive.
+    const current = beginRead();
+    const owner = user?.id ?? null;
+    if (listOwner.current !== owner) {
+      listOwner.current = owner;
+      setPresentations([]);
+    }
     if (!user) return;
     setPresLoading(true);
     supabase
@@ -68,6 +80,7 @@ export default function PresentPage() {
       .order("created_at", { ascending: false })
       .limit(20)
       .then(({ data }) => {
+        if (!current()) return;
         if (data) {
           setPresentations(
             data.map((p) => ({
@@ -76,6 +89,7 @@ export default function PresentPage() {
             }))
           );
         }
+        setPresentationsOwner(owner);
         setPresLoading(false);
       });
   }, [user]);
@@ -392,7 +406,7 @@ export default function PresentPage() {
           <p style={{ color: "var(--muted)", marginBottom: "1rem" }}>Sign in to see and manage your presentations</p>
           <Link href="/login" className="btn btn-primary">Sign in</Link>
         </div>
-      ) : presLoading ? (
+      ) : presLoading || presentationsOwner !== user.id ? (
         <div style={{ color: "var(--muted)", textAlign: "center", padding: "2rem" }}>Loading presentations…</div>
       ) : presentations.length === 0 ? (
         <div className="card" style={{ padding: "2rem", textAlign: "center" }}>

@@ -137,6 +137,17 @@ button { font-family: inherit; }
   outline-offset: 2px;
 }
 
+/* Disabled actions must look unavailable, not like a live primary button. */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: saturate(0.6);
+}
+.btn-primary:disabled:hover {
+  background: var(--accent);
+}
+
 .btn-primary {
   background: var(--accent);
   color: #fff;

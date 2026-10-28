@@ -1,3 +1,4 @@
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { QrCode } from "@/components/shared/qr-code";
 import { DISPLAY_SITE_HOST } from "@/lib/config/public";
 
@@ -36,9 +37,36 @@ type JoinOverlayProps = {
 };
 
 export function JoinOverlay({ joinCode, joinUrl, onClose }: JoinOverlayProps) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Move focus into the overlay and give it back to whatever opened it.
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    return () => { if (previous && document.contains(previous)) previous.focus(); };
+  }, []);
+  const trapFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") return;
+    const controls = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (!controls?.length) return;
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
   return (
     <div className="present-join-overlay" onClick={onClose}>
-      <div className="present-join-overlay-card" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className="present-join-overlay-card" role="dialog" aria-modal="true" aria-label="Audience join code" onClick={(e) => e.stopPropagation()} onKeyDown={trapFocus}>
+        <button ref={closeRef} type="button" className="present-join-overlay-close" onClick={onClose} aria-label="Close join code and show presenter controls">
+          Close ✕
+        </button>
         <div className="present-join-overlay-label">Audience join</div>
         <div className="present-join-overlay-code">{joinCode}</div>
         <div className="present-join-overlay-body">
@@ -47,7 +75,7 @@ export function JoinOverlay({ joinCode, joinUrl, onClose }: JoinOverlayProps) {
             <div className="present-join-overlay-title">Scan or enter the code</div>
             <div className="present-join-overlay-url">{DISPLAY_SITE_HOST}/present/join</div>
             <button onClick={() => { void navigator.clipboard?.writeText(joinUrl); }} className="btn btn-primary btn-lg">Copy invite link</button>
-            <div className="present-join-overlay-hint">Shortcut: press I to show/hide this overlay</div>
+            <div className="present-join-overlay-hint">Close this to reach the slide controls. Press I to show it again.</div>
           </div>
         </div>
       </div>

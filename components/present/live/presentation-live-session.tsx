@@ -17,6 +17,8 @@ import {
 } from "@/lib/presentation/client";
 import { presentationJoinUrl } from "@/lib/config/public";
 import { HostDock, JoinOverlay, LiveStatusRail } from "@/components/present/live/live-status-panels";
+import { presentationCommandNotice } from "@/lib/presentation/command-notice";
+import { choiceFromPayload, ownChoiceFrom } from "@/lib/presentation/own-choice";
 import { LiveSlideStage } from "@/components/present/live/live-slide-stage";
 import { PresentationLiveGuard } from "@/components/present/live/live-route-guards";
 
@@ -86,13 +88,14 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
     return true;
   }, [markEnded]);
 
-  const runCommand = useCallback(async (command: () => Promise<PresentationCommandOutcome>) => {
+  const runCommand = useCallback(async (command: () => Promise<PresentationCommandOutcome>, onAdmitted?: () => void) => {
     if (pendingCommandRef.current || endedRef.current || !currentSlideIdRef.current) return false;
     const ticket = {};
     const identity = snapshotRef.current;
     const epoch = slideEpochRef.current;
     const channel = channelRef.current;
     pendingCommandRef.current = ticket;
+    onAdmitted?.();
     try {
       const outcome = await command();
       if (endedRef.current || slideEpochRef.current !== epoch || channelRef.current !== channel ||
@@ -102,9 +105,7 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
         setCommandNotice(null);
         return true;
       }
-      setCommandNotice(outcome.status === "uncertain"
-        ? `Action unconfirmed. ${outcome.reason} Check the current slide/results before trying again. It will not be retried automatically.`
-        : `Action not sent or rejected. ${outcome.reason}`);
+      setCommandNotice(presentationCommandNotice(outcome));
       setRecovering(true); // Read-only reconciliation, never mutation replay.
       return false;
     } finally {
@@ -197,7 +198,11 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
             setAllResponses(activity.responses as SlideResponse[]);
             setSafeResponseCount(activity.responseCount);
             setSafeAggregates(activity.aggregates);
-            if (!isHost && activity.ownResponse) setSubmitted(true);
+            if (!isHost && activity.ownResponse) {
+              setSubmitted(true);
+              const choice = ownChoiceFrom(activity.ownResponse);
+              if (choice) setSelectedOption(choice);
+            }
           }
         },
         onQnaNew: (data) => {
@@ -271,6 +276,14 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
       const tag = target?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
 
+      if (showJoinOverlay) {
+        if (event.key === "Escape" || event.key.toLowerCase() === "i") {
+          event.preventDefault();
+          setShowJoinOverlay(false);
+        }
+        return;
+      }
+
       if (event.key === "ArrowRight" || event.key === "PageDown") {
         event.preventDefault();
         if (channelJoined && channelRef.current && currentIndex < slides.length - 1) void runCommand(() => channelRef.current!.nextSlide());
@@ -303,7 +316,7 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isHost, ended, loading, loadError, channelJoined, currentIndex, slides.length, resultsHidden, toggleFullscreen, runCommand]);
+  }, [isHost, ended, loading, loadError, showJoinOverlay, channelJoined, currentIndex, slides.length, resultsHidden, toggleFullscreen, runCommand]);
 
   useEffect(() => {
     const slideId = slides[currentIndex]?.id;
@@ -330,6 +343,8 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
         setSafeAggregates(normalized.aggregates);
         setQnaQuestions(normalized.questions as QnaQuestion[]);
         if (normalized.ownResponse || responses.some((r) => r.participant_id === participantId)) setSubmitted(true);
+        const restoredChoice = ownChoiceFrom(normalized.ownResponse);
+        if (!isHost && restoredChoice) setSelectedOption(restoredChoice);
       } catch (err) {
         if (!cancelled && !endedRef.current) setChannelError(err instanceof Error ? err.message : "Could not load slide activity.");
       }
@@ -372,7 +387,11 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
             setSafeResponseCount(normalized.responseCount);
             setSafeAggregates(normalized.aggregates);
             setQnaQuestions(normalized.questions as QnaQuestion[]);
-            if (normalized.ownResponse) { setSubmitted(true); setCommandNotice(null); }
+            if (normalized.ownResponse) {
+              setSubmitted(true); setCommandNotice(null);
+              const choice = ownChoiceFrom(normalized.ownResponse);
+              if (!isHost && choice) setSelectedOption(choice);
+            }
           }
         }
         if (!cancelled && !endedRef.current && channelJoined) setRecovering(false);
@@ -387,8 +406,26 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
   const submitResponse = useCallback(async (data: Record<string, unknown>) => {
     if (!slides[currentIndex] || submitted || !channelRef.current || !participantSession) return;
     const slideId = slides[currentIndex].id;
-    const ok = await runCommand(() => channelRef.current!.submitResponse(slideId, data, name || participantSession.participantName || "Anonymous"));
-    if (ok) setSubmitted(true);
+    // Show the pick optimistically only once the submit is actually going out.
+    const optimisticChoice = choiceFromPayload(data);
+    const submitEpoch = slideEpochRef.current;
+    let admitted = false;
+    const ok = await runCommand(
+      () => channelRef.current!.submitResponse(slideId, data, name || participantSession.participantName || "Anonymous"),
+      () => {
+        admitted = true;
+        if (optimisticChoice) setSelectedOption(optimisticChoice);
+      }
+    );
+    if (!admitted) return;
+    if (ok) {
+      setSubmitted(true);
+      if (optimisticChoice) setSelectedOption(optimisticChoice);
+    } else if (optimisticChoice && slideEpochRef.current === submitEpoch) {
+      // A rejected/unconfirmed vote must not look chosen; recovery restores it if the server has it.
+      // A stale reply for a slide the presenter has left must not clear the new slide's choice.
+      setSelectedOption(null);
+    }
   }, [currentIndex, slides, name, submitted, participantSession, runCommand]);
 
   // Submit Q&A via channel
