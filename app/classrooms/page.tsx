@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/supabase-provider";
+import { useAsyncScope } from "@/lib/use-async-scope";
 import { calcLevel } from "@/components/study/study-session-panels";
 import { checkAndGrantAchievements } from "@/lib/achievements";
 import { buildLoginHref } from "@/lib/auth/redirects";
@@ -33,26 +34,33 @@ export default function ClassroomsPage() {
   const [joinCode, setJoinCode] = useState("");
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"success" | "error">("success");
+  const { beginRead } = useAsyncScope();
   const [creating, setCreating] = useState(false);
 
   async function load() {
+    // Begin (and so supersede older reads) before the user check, so signing
+    // out also discards an in-flight read for the previous account.
+    const current = beginRead();
     if (!user) return;
     setLoading(true);
     const { data: memberships } = await supabase
       .from("classroom_members")
       .select("classroom_id, role")
       .eq("user_id", user.id);
+    if (!current()) return;
 
     if (!memberships || memberships.length === 0) { setClassrooms([]); setLoading(false); return; }
 
     const ids = memberships.map(m => m.classroom_id);
     const { data: rooms } = await supabase.from("classrooms").select("*").in("id", ids);
+    if (!current()) return;
 
     // Get member counts
     const { data: counts } = await supabase
       .from("classroom_members")
       .select("classroom_id")
       .in("classroom_id", ids);
+    if (!current()) return;
 
     const countMap: Record<string, number> = {};
     (counts ?? []).forEach(c => { countMap[c.classroom_id] = (countMap[c.classroom_id] ?? 0) + 1; });
@@ -65,7 +73,7 @@ export default function ClassroomsPage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, [user?.id]);
+  useEffect(() => { setClassrooms([]); load(); }, [user?.id]);
 
   async function handleCreate() {
     if (!user || !createName.trim() || creating) return;

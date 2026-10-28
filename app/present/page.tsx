@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { useAsyncScope } from "@/lib/use-async-scope";
 import type { AIPresentationDraft, AIInteractionDensity, AIPresentationSourceMode } from "@/lib/presentation/ai-draft";
 import { useAuth } from "@/components/supabase-provider";
 import { ImportDeckPanel } from "@/components/present/edit/import-deck-panel";
@@ -26,6 +27,8 @@ function statusBadge(status: string) {
 export default function PresentPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { beginRead } = useAsyncScope();
+  const listOwner = useRef<string | null>(null);
   const [title, setTitle] = useState("");
   const [showAI, setShowAI] = useState(false);
   const [aiSourceMode, setAiSourceMode] = useState<AIPresentationSourceMode | "template">("topic");
@@ -59,6 +62,14 @@ export default function PresentPage() {
 
   // Load existing presentations
   useEffect(() => {
+    // Supersede any in-flight read on every auth change, including sign-out,
+    // and drop the previous account's rows before the new account's arrive.
+    const current = beginRead();
+    const owner = user?.id ?? null;
+    if (listOwner.current !== owner) {
+      listOwner.current = owner;
+      setPresentations([]);
+    }
     if (!user) return;
     setPresLoading(true);
     supabase
@@ -68,6 +79,7 @@ export default function PresentPage() {
       .order("created_at", { ascending: false })
       .limit(20)
       .then(({ data }) => {
+        if (!current()) return;
         if (data) {
           setPresentations(
             data.map((p) => ({
