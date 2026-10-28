@@ -209,7 +209,8 @@
     gap: 1rem !important;
   }
 
-  .present-join-overlay-body img {
+  .present-join-overlay-body img,
+  .present-join-overlay-body .qr-code {
     width: min(58vw, 220px) !important;
     height: min(58vw, 220px) !important;
   }
