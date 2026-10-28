@@ -1,9 +1,12 @@
 import { getGameServiceSocketUrl } from "@/lib/game-engine/client";
+import type { PresentationCommandOutcome } from "./command-outcome";
 
 type PresentationMessage = [string | null, string | null, string, string, unknown];
 
 type PresentationCallbacks = {
   onJoined?: () => void;
+  /** Fired immediately on any unintentional close so consumers can fall back at once. */
+  onDisconnected?: (message: string) => void;
   onPresentationUpdate?: (presentation: unknown) => void;
   onSlideChanged?: (presentation: unknown) => void;
   onResponseNew?: (data: { slide_id: string; responses: unknown[] }) => void;
@@ -16,13 +19,37 @@ type PresentationCallbacks = {
   onClose?: () => void;
 };
 
+type PendingReply = {
+  generation: number;
+  stateRevision: number;
+  topic: string;
+  resolve: (outcome: PresentationCommandOutcome) => void;
+  timer: number;
+};
+
+const REPLY_TIMEOUT_MS = 8_000;
+const MAX_RECONNECT_ATTEMPTS = 8;
+
+export type PresentationChannel = {
+  nextSlide: () => Promise<PresentationCommandOutcome>;
+  prevSlide: () => Promise<PresentationCommandOutcome>;
+  gotoSlide: (index: number) => Promise<PresentationCommandOutcome>;
+  submitResponse: (slideId: string, responseData: Record<string, unknown>, participantName: string) => Promise<PresentationCommandOutcome>;
+  submitQna: (slideId: string, question: string, participantName: string) => Promise<PresentationCommandOutcome>;
+  upvoteQna: (questionId: string, slideId: string) => Promise<PresentationCommandOutcome>;
+  setResultsHidden: (hidden: boolean) => Promise<PresentationCommandOutcome>;
+  endPresentation: () => Promise<PresentationCommandOutcome>;
+  revealQuizAnswers: (slideId: string, correctAnswers: string[]) => Promise<PresentationCommandOutcome>;
+  disconnect: () => void;
+};
+
 export function subscribeToPresentation(options: {
   presentationId: string;
   presenterToken?: string | null;
   participantId?: string | null;
   participantToken?: string | null;
   callbacks: PresentationCallbacks;
-}) {
+}): PresentationChannel {
   const socketUrl = getGameServiceSocketUrl();
 
   if (!socketUrl) {
@@ -30,13 +57,23 @@ export function subscribeToPresentation(options: {
   }
 
   let ref = 0;
+  // Generation fencing: every connect() supersedes all older sockets, so a
+  // superseded generation can neither publish events nor alter (reconnect
+  // scheduling, heartbeat, pending replies) the live connection.
+  let generation = 0;
   let heartbeat: number | null = null;
   let reconnectTimer: number | null = null;
   let reconnectAttempts = 0;
   let intentionalClose = false;
-  let joinRef: string | null = null;
+  let joined = false;
+  let stateRevision = 0;
+  let lastStateReplyRef = 0;
   let socket: WebSocket;
-  const pendingReplies = new Map<string, (ok: boolean) => void>();
+  // The actual ref of THIS generation's phx_join — join replies are
+  // correlated to what was really sent, not to a predicted value.
+  let joinRef: string | null = null;
+
+  const pendingReplies = new Map<string, PendingReply>();
 
   const topic = `presentation:${options.presentationId}`;
 
@@ -45,26 +82,63 @@ export function subscribeToPresentation(options: {
     return String(ref);
   };
 
-  const sendMessage = (msgTopic: string, event: string, payload: unknown = {}, trackReply = false) => {
-    if (socket.readyState !== WebSocket.OPEN) return Promise.resolve(false);
+  const settlePending = (targetGeneration: number, outcome: PresentationCommandOutcome) => {
+    for (const [messageRef, pending] of [...pendingReplies.entries()]) {
+      if (pending.generation !== targetGeneration) continue;
+      window.clearTimeout(pending.timer);
+      pendingReplies.delete(messageRef);
+      pending.resolve(outcome);
+    }
+  };
+
+  const settleAllPending = (outcome: PresentationCommandOutcome) => {
+    for (const targetGeneration of new Set([...pendingReplies.values()].map((p) => p.generation))) {
+      settlePending(targetGeneration, outcome);
+    }
+  };
+
+  const sendMessage = (
+    msgTopic: string,
+    event: string,
+    payload: unknown = {},
+    trackReply = false,
+  ): { ref: string | null; settled: Promise<PresentationCommandOutcome> } => {
+    if (intentionalClose || socket.readyState !== WebSocket.OPEN || (trackReply && event !== "phx_join" && !joined)) {
+      // Definitely not sent — an explicit rejection, never a silent drop.
+      return {
+        ref: null,
+        settled: Promise.resolve({ status: "rejected", reason: "Presentation socket is not connected." }),
+      };
+    }
 
     const messageRef = nextRef();
     const message: PresentationMessage = [null, messageRef, msgTopic, event, payload];
-    socket.send(JSON.stringify(message));
+    try {
+      socket.send(JSON.stringify(message));
+    } catch {
+      return { ref: null, settled: Promise.resolve({ status: "uncertain", reason: "Connection failed while sending the presentation action." }) };
+    }
 
-    if (!trackReply) return Promise.resolve(true);
+    if (!trackReply) {
+      return { ref: messageRef, settled: Promise.resolve({ status: "confirmed" }) };
+    }
 
-    return new Promise<boolean>((resolve) => {
-      pendingReplies.set(messageRef, resolve);
-      window.setTimeout(() => {
-        if (pendingReplies.delete(messageRef)) resolve(false);
-      }, 8_000);
-    });
+    const replyGeneration = generation;
+    return {
+      ref: messageRef,
+      settled: new Promise<PresentationCommandOutcome>((resolve) => {
+        const timer = window.setTimeout(() => {
+          if (pendingReplies.delete(messageRef)) {
+            resolve({ status: "uncertain", reason: "No reply from the presentation service." });
+          }
+        }, REPLY_TIMEOUT_MS);
+        pendingReplies.set(messageRef, { generation: replyGeneration, stateRevision, topic: msgTopic, resolve, timer });
+      }),
+    };
   };
 
-  const push = (event: string, payload: unknown = {}, trackReply = false) => {
-    return sendMessage(topic, event, payload, trackReply);
-  };
+  const push = (event: string, payload: unknown = {}, trackReply = false) =>
+    sendMessage(topic, event, payload, trackReply).settled;
 
   const clearHeartbeat = () => {
     if (heartbeat !== null) {
@@ -74,23 +148,47 @@ export function subscribeToPresentation(options: {
   };
 
   const connect = () => {
+    generation += 1;
+    joined = false;
+    joinRef = null;
+    const socketGeneration = generation;
+    let socketClosed = false;
+
     socket = new WebSocket(socketUrl);
 
     socket.addEventListener("open", () => {
-      reconnectAttempts = 0;
-      joinRef = String(ref + 1);
-      void push("phx_join", {
-        presenter_token: options.presenterToken || undefined,
-        participant_id: options.participantId || undefined,
-        participant_token: options.participantToken || undefined,
+      if (socketGeneration !== generation || socketClosed) return;
+      const join = sendMessage(
+        topic,
+        "phx_join",
+        {
+          presenter_token: options.presenterToken || undefined,
+          participant_id: options.participantId || undefined,
+          participant_token: options.participantToken || undefined,
+        },
+        true,
+      );
+      joinRef = join.ref;
+      void join.settled.then((outcome) => {
+        if (socketGeneration !== generation || socketClosed || intentionalClose) return;
+        if (outcome.status !== "confirmed") {
+          options.callbacks.onError?.(`Could not join the presentation channel. ${"reason" in outcome ? outcome.reason : ""}`);
+          socket.close();
+        }
       });
 
       heartbeat = window.setInterval(() => {
-        void sendMessage("phoenix", "heartbeat", {});
+        if (socketGeneration !== generation || socketClosed || intentionalClose) return;
+        void sendMessage("phoenix", "heartbeat", {}, true).settled.then((outcome) => {
+          if (socketGeneration !== generation || socketClosed || intentionalClose) return;
+          if (outcome.status !== "confirmed") socket.close();
+        });
       }, 30_000);
     });
 
     socket.addEventListener("message", (event) => {
+      if (socketGeneration !== generation || socketClosed) return;
+
       let parsed: PresentationMessage;
 
       try {
@@ -99,40 +197,55 @@ export function subscribeToPresentation(options: {
         return;
       }
 
+      if (!Array.isArray(parsed) || parsed.length !== 5) return;
       const [, messageRef, msgTopic, msgEvent, payload] = parsed;
 
-      if (msgTopic !== topic) {
+      if (msgTopic !== topic && msgTopic !== "phoenix") {
         return;
       }
 
       const p = payload as Record<string, unknown>;
 
       if (msgEvent === "phx_reply") {
+        if (messageRef === null) return;
+        const pending = pendingReplies.get(messageRef);
+        if (!pending || pending.topic !== msgTopic) return;
+
         const ok = p?.status === "ok";
-        if (messageRef && pendingReplies.has(messageRef)) {
-          pendingReplies.get(messageRef)?.(ok);
-          pendingReplies.delete(messageRef);
-        }
+        const replyStateRevision = pending.stateRevision;
+        window.clearTimeout(pending.timer);
+        pendingReplies.delete(messageRef);
+        pending.resolve(ok ? { status: "confirmed" } : { status: "rejected", reason: replyReason(p) });
+        if (msgTopic !== topic) return;
 
         if (ok) {
-          if (messageRef === joinRef) options.callbacks.onJoined?.();
+          if (messageRef === joinRef) {
+            joinRef = null;
+            joined = true;
+            reconnectAttempts = 0;
+            options.callbacks.onJoined?.();
+          }
           const response = p?.response as Record<string, unknown> | undefined;
-          if (response?.presentation) {
+          if (response?.presentation && replyStateRevision === stateRevision && Number(messageRef) > lastStateReplyRef) {
+            lastStateReplyRef = Number(messageRef);
             options.callbacks.onPresentationUpdate?.(response.presentation);
           }
-        } else {
-          const response = p?.response as { reason?: string } | undefined;
-          options.callbacks.onError?.(response?.reason || "Presentation action failed.");
+        } else if (messageRef === joinRef) {
+          joinRef = null; // join.settled reports the error and reconnects.
         }
         return;
       }
 
+      if (!joined || msgTopic !== topic) return;
+
       if (msgEvent === "presentation:update") {
+        stateRevision += 1;
         options.callbacks.onPresentationUpdate?.(p?.presentation);
         return;
       }
 
       if (msgEvent === "slide:changed") {
+        stateRevision += 1;
         options.callbacks.onSlideChanged?.(p?.presentation);
         return;
       }
@@ -176,8 +289,9 @@ export function subscribeToPresentation(options: {
         return;
       }
 
-      if (msgEvent === "phx_error") {
+      if (msgEvent === "phx_error" || msgEvent === "phx_close") {
         options.callbacks.onError?.("Presentation channel error.");
+        socket.close();
       }
     });
 
@@ -186,14 +300,26 @@ export function subscribeToPresentation(options: {
     });
 
     socket.addEventListener("close", () => {
+      if (socketGeneration !== generation || socketClosed) return; // a stale close must not touch the live connection
+      socketClosed = true;
+      joined = false;
+
       clearHeartbeat();
+      settlePending(socketGeneration, {
+        status: "uncertain",
+        reason: "Connection lost before the presentation service replied.",
+      });
 
       if (intentionalClose) {
         options.callbacks.onClose?.();
         return;
       }
 
-      if (reconnectAttempts >= 8) {
+      // Immediate, observable disconnect signal: consumers can enter their
+      // read-only fallback right now instead of silently dropping commands.
+      options.callbacks.onDisconnected?.("Realtime connection lost — reconnecting.");
+
+      if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         options.callbacks.onError?.("Connection lost. Please refresh.");
         options.callbacks.onClose?.();
         return;
@@ -203,7 +329,7 @@ export function subscribeToPresentation(options: {
       reconnectAttempts += 1;
 
       reconnectTimer = window.setTimeout(() => {
-        if (!intentionalClose) {
+        if (!intentionalClose && socketGeneration === generation) {
           connect();
         }
       }, delay);
@@ -253,19 +379,20 @@ export function subscribeToPresentation(options: {
       }, true),
     disconnect: () => {
       intentionalClose = true;
+      generation += 1; // fence every listener and timer of this connection
+      joined = false;
+      settleAllPending({ status: "uncertain", reason: "Presentation socket closed before reply." });
       clearHeartbeat();
       if (reconnectTimer !== null) {
         window.clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
-      if (socket.readyState === WebSocket.OPEN) {
-        try {
-          void push("phx_leave", {});
-        } catch {
-          // Ignore cleanup errors
-        }
-      }
       socket.close();
     },
   };
+}
+
+function replyReason(payload: Record<string, unknown> | undefined): string {
+  const response = payload?.response as { reason?: string } | undefined;
+  return typeof response?.reason === "string" && response.reason ? response.reason : "Presentation action failed.";
 }

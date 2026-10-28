@@ -6,6 +6,8 @@ import type { Slide, SlideResponse, QnaQuestion } from "@/lib/presentation/types
 import { getParticipantName } from "@/lib/presentation/types";
 import { activityMatchesSlide, normalizePresentationActivity, summarizePresentationActivity } from "@/lib/presentation/runtime";
 import { subscribeToPresentation } from "@/lib/presentation/presentation-socket";
+import { applyPresentationSnapshot, type PresentationSnapshotState } from "@/lib/presentation/snapshot";
+import type { PresentationCommandOutcome } from "@/lib/presentation/command-outcome";
 import {
   fetchPhoenixPresentation,
   fetchPhoenixSlideActivity,
@@ -40,6 +42,12 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
   const [name, setName] = useState(""); const [response, setResponse] = useState("");
   const [selectedOption, setSelectedOption] = useState<string | null>(null); const [scaleValue, setScaleValue] = useState(5);
   const [submitted, setSubmitted] = useState(false);
+  const [commandNotice, setCommandNotice] = useState<string | null>(null);
+  const [recovering, setRecovering] = useState(false);
+  const snapshotRef = useRef<PresentationSnapshotState<Slide>>({ slides: [], currentIndex: 0, runId: null });
+  const revisionRef = useRef(0);
+  const slideEpochRef = useRef(0);
+  const pendingCommandRef = useRef<object | null>(null);
   const [allResponses, setAllResponses] = useState<SlideResponse[]>([]); const [safeResponseCount, setSafeResponseCount] = useState(0);
   const [safeAggregates, setSafeAggregates] = useState<Record<string, unknown>>({});
   const [qnaQuestions, setQnaQuestions] = useState<QnaQuestion[]>([]); const [newQnaQuestion, setNewQnaQuestion] = useState("");
@@ -48,11 +56,62 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
   const participantId = participantSession?.participantId || ""; const currentSlideId = slides[currentIndex]?.id;
   const channelRef = useRef<ReturnType<typeof subscribeToPresentation> | null>(null); const currentSlideIdRef = useRef<string | undefined>(undefined);
 
-  useEffect(() => {
-    currentSlideIdRef.current = currentSlideId;
-    setAllResponses([]); setSafeResponseCount(0);
-    setSafeAggregates({}); setQnaQuestions([]);
-  }, [currentSlideId]);
+  const applySnapshot = useCallback((pres: unknown) => {
+    const previous = snapshotRef.current;
+    const next = applyPresentationSnapshot(previous, pres);
+    // Never carry credentials from an immutable run into a relaunched deck.
+    if (previous.runId && next.runId !== previous.runId) {
+      revisionRef.current += 1;
+      currentSlideIdRef.current = undefined;
+      setChannelJoined(false);
+      setLoadError("This presentation has started a new run. Rejoin to continue.");
+      channelRef.current?.disconnect();
+      return false;
+    }
+    revisionRef.current += 1;
+    snapshotRef.current = next;
+    currentSlideIdRef.current = next.slides[next.currentIndex]?.id;
+    setSlides(next.slides);
+    setCurrentIndex(next.currentIndex);
+    if (next.resultsHidden !== null) setResultsHidden(next.resultsHidden);
+    if (next.revealedAnswers !== null) setRevealedAnswers(next.revealedAnswers);
+    if (next.slideChanged) {
+      slideEpochRef.current += 1;
+      setSubmitted(false); setResponse(""); setSelectedOption(null);
+      setScaleValue(5); setNewQnaQuestion("");
+      setAllResponses([]); setSafeResponseCount(0); setSafeAggregates({}); setQnaQuestions([]);
+      setCommandNotice(null);
+    }
+    if (next.ended) markEnded();
+    return true;
+  }, [markEnded]);
+
+  const runCommand = useCallback(async (command: () => Promise<PresentationCommandOutcome>) => {
+    if (pendingCommandRef.current || endedRef.current || !currentSlideIdRef.current) return false;
+    const ticket = {};
+    const identity = snapshotRef.current;
+    const epoch = slideEpochRef.current;
+    const channel = channelRef.current;
+    pendingCommandRef.current = ticket;
+    try {
+      const outcome = await command();
+      if (endedRef.current || slideEpochRef.current !== epoch || channelRef.current !== channel ||
+          snapshotRef.current.runId !== identity.runId ||
+          currentSlideIdRef.current !== identity.slides[identity.currentIndex]?.id) return false;
+      if (outcome.status === "confirmed") {
+        setCommandNotice(null);
+        return true;
+      }
+      setCommandNotice(outcome.status === "uncertain"
+        ? `Action unconfirmed. ${outcome.reason} Check the current slide/results before trying again. It will not be retried automatically.`
+        : `Action not sent or rejected. ${outcome.reason}`);
+      setRecovering(true); // Read-only reconciliation, never mutation replay.
+      return false;
+    } finally {
+      if (pendingCommandRef.current === ticket) pendingCommandRef.current = null;
+    }
+  }, []);
+
 
   const toggleFullscreen = useCallback(() => {
     if (typeof document === "undefined") return;
@@ -95,12 +154,7 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
       setIsHost(host);
       setPresenterToken(readPresenterToken(code, pres.run_id));
       setParticipantSession(activeParticipantSession);
-      setCurrentIndex(pres.current_slide_index || 0);
-      setResultsHidden(pres.results_hidden === true);
-      setRevealedAnswers(pres.quiz_reveals || {});
-      if (pres.status === "finished") markEnded();
-      const sorted = (pres.slides || []).sort((a: Slide, b: Slide) => a.order_index - b.order_index);
-      setSlides(sorted);
+      applySnapshot(pres);
 
       const savedName = activeParticipantSession?.participantName || getParticipantName();
       if (host || activeParticipantSession || savedName !== "Anonymous") {
@@ -111,7 +165,7 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
     }
     void load();
     return () => { cancelled = true; };
-  }, [code, userId, markEnded]);
+  }, [code, userId, applySnapshot]);
 
   useEffect(() => {
     if (loading || ended || loadError) return;
@@ -130,34 +184,11 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
         },
         onPresentationUpdate: (pres: any) => {
           if (!active || endedRef.current) return;
-          if (pres?.status === "finished") { markEnded(); return; }
-          if (pres?.slides) {
-            const sorted = [...(pres.slides || [])].sort((a: Slide, b: Slide) => a.order_index - b.order_index);
-            setSlides(sorted);
-          }
-          if (pres?.current_slide_index !== undefined) {
-            setCurrentIndex(pres.current_slide_index);
-            setSubmitted(false);
-            setResponse("");
-            setSelectedOption(null);
-          }
-          if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
-          if (pres?.quiz_reveals) setRevealedAnswers(pres.quiz_reveals);
+          applySnapshot(pres);
         },
         onSlideChanged: (pres: any) => {
           if (!active || endedRef.current) return;
-          if (pres?.slides) {
-            const sorted = [...(pres.slides || [])].sort((a: Slide, b: Slide) => a.order_index - b.order_index);
-            setSlides(sorted);
-          }
-          if (pres?.current_slide_index !== undefined) {
-            setCurrentIndex(pres.current_slide_index);
-            setSubmitted(false);
-            setResponse("");
-            setSelectedOption(null);
-          }
-          if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
-          if (pres?.quiz_reveals) setRevealedAnswers(pres.quiz_reveals);
+          applySnapshot(pres);
         },
         onResponseNew: (data) => {
           if (!active || endedRef.current) return;
@@ -199,6 +230,11 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
           setChannelJoined(false);
           setChannelError(msg);
         },
+        onDisconnected: (msg) => {
+          if (!active || endedRef.current) return;
+          setChannelJoined(false);
+          setChannelError(msg);
+        },
         onClose: () => { if (active && !endedRef.current) setChannelJoined(false); },
       },
     });
@@ -210,7 +246,7 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
       if (channelRef.current === channel) channelRef.current = null;
       channel.disconnect();
     };
-  }, [loading, ended, loadError, code, isHost, presenterToken, participantSession?.participantId, participantSession?.participantToken, markEnded]);
+  }, [loading, ended, loadError, code, isHost, presenterToken, participantSession?.participantId, participantSession?.participantToken, markEnded, applySnapshot]);
 
   useEffect(() => {
     if (!isHost || !joinCode) return;
@@ -237,12 +273,12 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
 
       if (event.key === "ArrowRight" || event.key === "PageDown") {
         event.preventDefault();
-        if (channelJoined && channelRef.current && currentIndex < slides.length - 1) void channelRef.current.nextSlide();
+        if (channelJoined && channelRef.current && currentIndex < slides.length - 1) void runCommand(() => channelRef.current!.nextSlide());
       }
 
       if (event.key === "ArrowLeft" || event.key === "PageUp") {
         event.preventDefault();
-        if (channelJoined && channelRef.current && currentIndex > 0) void channelRef.current.prevSlide();
+        if (channelJoined && channelRef.current && currentIndex > 0) void runCommand(() => channelRef.current!.prevSlide());
       }
 
       if (event.key.toLowerCase() === "i") {
@@ -252,7 +288,7 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
 
       if (event.key.toLowerCase() === "h") {
         event.preventDefault();
-        if (channelJoined && channelRef.current) void channelRef.current.setResultsHidden(!resultsHidden);
+        if (channelJoined && channelRef.current) void runCommand(() => channelRef.current!.setResultsHidden(!resultsHidden));
       }
 
       if (event.key.toLowerCase() === "f") {
@@ -267,7 +303,7 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isHost, ended, loading, loadError, channelJoined, currentIndex, slides.length, resultsHidden, toggleFullscreen]);
+  }, [isHost, ended, loading, loadError, channelJoined, currentIndex, slides.length, resultsHidden, toggleFullscreen, runCommand]);
 
   useEffect(() => {
     const slideId = slides[currentIndex]?.id;
@@ -276,17 +312,16 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
     if (!isHost && !participantSession) return;
 
     let cancelled = false;
-    setAllResponses([]);
-    setQnaQuestions([]);
-
     async function loadResponses() {
+      const identity = snapshotRef.current;
+      const epoch = slideEpochRef.current;
       try {
         const activity = await fetchPhoenixSlideActivity(code, slideId, {
           presenterToken: isHost ? presenterToken : null,
           participantId: participantSession?.participantId,
           participantToken: participantSession?.participantToken,
         });
-        if (cancelled || endedRef.current || currentSlideIdRef.current !== slideId) return;
+        if (cancelled || endedRef.current || slideEpochRef.current !== epoch || currentSlideIdRef.current !== slideId || snapshotRef.current.runId !== identity.runId) return;
 
         const normalized = normalizePresentationActivity(activity as Record<string, unknown>, isHost);
         const responses = normalized.responses as SlideResponse[];
@@ -294,7 +329,7 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
         setSafeResponseCount(normalized.responseCount);
         setSafeAggregates(normalized.aggregates);
         setQnaQuestions(normalized.questions as QnaQuestion[]);
-        setSubmitted(Boolean(normalized.ownResponse) || responses.some((r) => r.participant_id === participantId));
+        if (normalized.ownResponse || responses.some((r) => r.participant_id === participantId)) setSubmitted(true);
       } catch (err) {
         if (!cancelled && !endedRef.current) setChannelError(err instanceof Error ? err.message : "Could not load slide activity.");
       }
@@ -302,72 +337,72 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
 
     void loadResponses();
     return () => { cancelled = true; };
-  }, [loading, ended, loadError, code, currentIndex, slides, participantId, isHost, presenterToken, participantSession]);
+  }, [loading, ended, loadError, code, currentSlideId, participantId, isHost, presenterToken, participantSession]);
 
   // Periodic presenter activity refresh and disconnected-channel fallback.
   useEffect(() => {
-    if (loading || ended || loadError || (channelJoined && !isHost)) return;
+    if (loading || ended || loadError || (channelJoined && !isHost && !recovering)) return;
     let cancelled = false;
     let refreshing = false;
     const timer = window.setInterval(async () => {
       if (cancelled || endedRef.current || refreshing) return;
       refreshing = true;
       try {
-        if (!channelJoined) {
+        if (!channelJoined || recovering) {
+          const revision = revisionRef.current;
           const latest = await fetchPhoenixPresentation(code, {
             presenterToken: isHost ? presenterToken : null,
           }) as { presentation?: any };
-          if (cancelled || endedRef.current) return;
-          const pres = latest.presentation;
-          if (pres?.status === "finished") { markEnded(); return; }
-          if (pres?.slides) setSlides([...(pres.slides || [])].sort((a: Slide, b: Slide) => a.order_index - b.order_index));
-          if (pres?.current_slide_index !== undefined) setCurrentIndex(pres.current_slide_index);
-          if (pres?.results_hidden !== undefined) setResultsHidden(pres.results_hidden === true);
-          if (pres?.quiz_reveals) setRevealedAnswers(pres.quiz_reveals);
+          if (cancelled || endedRef.current || revision !== revisionRef.current) return;
+          if (!applySnapshot(latest.presentation) || endedRef.current) return;
         }
 
-        const slideId = slides[currentIndex]?.id;
+        const identity = snapshotRef.current;
+        const epoch = slideEpochRef.current;
+        const slideId = identity.slides[identity.currentIndex]?.id;
         if (slideId && !slideId.startsWith("temp_") && (isHost || participantSession)) {
           const activity = await fetchPhoenixSlideActivity(code, slideId, {
             presenterToken: isHost ? presenterToken : null,
             participantId: participantSession?.participantId,
             participantToken: participantSession?.participantToken,
           });
-          if (!cancelled && !endedRef.current && currentSlideIdRef.current === slideId) {
+          if (!cancelled && !endedRef.current && slideEpochRef.current === epoch && currentSlideIdRef.current === slideId && snapshotRef.current.runId === identity.runId) {
             const normalized = normalizePresentationActivity(activity as Record<string, unknown>, isHost);
             setAllResponses(normalized.responses as SlideResponse[]);
             setSafeResponseCount(normalized.responseCount);
             setSafeAggregates(normalized.aggregates);
             setQnaQuestions(normalized.questions as QnaQuestion[]);
+            if (normalized.ownResponse) { setSubmitted(true); setCommandNotice(null); }
           }
         }
+        if (!cancelled && !endedRef.current && channelJoined) setRecovering(false);
       } catch {
         // Keep current screen stable; explicit channelError is already shown.
       } finally { refreshing = false; }
     }, 2500);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [loading, ended, loadError, channelJoined, code, slides, currentIndex, isHost, presenterToken, participantSession, markEnded]);
+  }, [loading, ended, loadError, channelJoined, code, isHost, presenterToken, participantSession, applySnapshot, recovering]);
 
   // Submit response via channel
   const submitResponse = useCallback(async (data: Record<string, unknown>) => {
     if (!slides[currentIndex] || submitted || !channelRef.current || !participantSession) return;
     const slideId = slides[currentIndex].id;
-    const ok = await channelRef.current.submitResponse(slideId, data, name || participantSession.participantName || "Anonymous");
+    const ok = await runCommand(() => channelRef.current!.submitResponse(slideId, data, name || participantSession.participantName || "Anonymous"));
     if (ok) setSubmitted(true);
-  }, [currentIndex, slides, name, submitted, participantSession]);
+  }, [currentIndex, slides, name, submitted, participantSession, runCommand]);
 
   // Submit Q&A via channel
   const submitQnaQuestion = useCallback(async () => {
     if (!newQnaQuestion.trim() || !slides[currentIndex] || !channelRef.current || !participantSession) return;
-    const ok = await channelRef.current.submitQna(slides[currentIndex].id, newQnaQuestion.trim(), name || participantSession.participantName || "Anonymous");
+    const ok = await runCommand(() => channelRef.current!.submitQna(slides[currentIndex].id, newQnaQuestion.trim(), name || participantSession.participantName || "Anonymous"));
     if (ok) setNewQnaQuestion("");
-  }, [currentIndex, slides, name, newQnaQuestion, participantSession]);
+  }, [currentIndex, slides, name, newQnaQuestion, participantSession, runCommand]);
 
   // Upvote via channel
   const upvoteQna = useCallback((qnaId: string) => {
     if (!slides[currentIndex] || !channelRef.current || !participantSession) return;
-    void channelRef.current.upvoteQna(qnaId, slides[currentIndex].id);
-  }, [currentIndex, slides, participantSession]);
+    void runCommand(() => channelRef.current!.upvoteQna(qnaId, slides[currentIndex].id));
+  }, [currentIndex, slides, participantSession, runCommand]);
 
   const navigate = (path: string) => router.push(path);
   if (loading) return <PresentationLiveGuard state="loading" />;
@@ -415,7 +450,10 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
         </div>
       )}
 
+      {commandNotice && <div className="present-channel-error" role="status">{commandNotice}</div>}
+
       <LiveSlideStage
+        key={currentSlide.id}
         currentSlide={currentSlide}
         isHost={isHost}
         resultsHidden={resultsHidden}
@@ -439,7 +477,7 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
           const correctIds = (slide.content.answers || [])
             .filter((a) => a.is_correct)
             .map((a) => a.id);
-          void channelRef.current.revealQuizAnswers(slide.id, correctIds);
+          void runCommand(() => channelRef.current!.revealQuizAnswers(slide.id, correctIds));
         }}
         onReconnect={() => {
           if (channelRef.current) {
@@ -466,15 +504,15 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
           slideCount={slides.length}
           resultsHidden={resultsHidden}
           isFullscreen={isFullscreen}
-          onPrev={() => { if (channelJoined && channelRef.current) void channelRef.current.prevSlide(); }}
-          onNext={() => { if (channelJoined && channelRef.current) void channelRef.current.nextSlide(); }}
+          onPrev={() => { if (channelJoined && channelRef.current) void runCommand(() => channelRef.current!.prevSlide()); }}
+          onNext={() => { if (channelJoined && channelRef.current) void runCommand(() => channelRef.current!.nextSlide()); }}
           onJoin={() => setShowJoinOverlay(true)}
           onToggleResults={() => {
             const hidden = !resultsHidden;
-            if (channelJoined && channelRef.current) void channelRef.current.setResultsHidden(hidden);
+            if (channelJoined && channelRef.current) void runCommand(() => channelRef.current!.setResultsHidden(hidden));
           }}
           onToggleFullscreen={toggleFullscreen}
-          onEnd={() => { if (channelJoined && channelRef.current) void channelRef.current.endPresentation(); }}
+          onEnd={() => { if (channelJoined && channelRef.current) void runCommand(() => channelRef.current!.endPresentation()); }}
         />
       )}
 
