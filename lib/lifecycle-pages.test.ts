@@ -32,7 +32,7 @@ async function fixture(kind: 'study' | 'present', run: (page: Page) => Promise<v
     'next/navigation': `export const useParams=()=>({code:window.code});const router={push(){}};export const useRouter=()=>router;`,
     '@/components/supabase-provider': `export const useAuth=()=>({user:window.user,loading:false});`,
     '@/lib/supabase/client': `export const supabase={from(table){const filters=[];let head=false;const q={select(s,o){head=o?.head;return q},eq(k,v){filters.push(r=>r[k]===v);return q},is(k,v){filters.push(r=>r[k]===v);return q},in(k,v){filters.push(r=>v.includes(r[k]));return q},or(){return q},order(){return q},limit(){return q},ilike(k,v){filters.push(r=>r[k].toLowerCase().includes(v.replaceAll('%','').toLowerCase()));return q},maybeSingle(){return q},then(resolve){window.queries.push({table,head});const data=(window.rows[table]||[]).filter(r=>filters.every(f=>f(r)));return Promise.resolve({data:table==='profiles'?data[0]:data,count:data.length}).then(resolve)}};return q}};`,
-    '@/lib/presentation/client': `export const readParticipantSession=()=>window.participant||null;export const readPresenterToken=()=> 'local-fixture-token';export const fetchPhoenixPresentation=(code)=>{window.calls.push(code);return window.fetchPresentation(code)};export const fetchPhoenixSlideActivity=(code,id)=>{window.activities++;return Promise.resolve({responses:[],questions:[],own_response:((window.answers)||{})[id]?{id:'own-'+id}:null})};`,
+    '@/lib/presentation/client': `export const readParticipantSession=()=>window.participant||null;export const readPresenterToken=()=> 'local-fixture-token';export const fetchPhoenixPresentation=(code)=>{window.calls.push(code);return window.fetchPresentation(code)};export const fetchPhoenixSlideActivity=(code,id)=>{window.activities++;return Promise.resolve({responses:[],questions:[],own_response:((window.answers)||{})[id]?{id:'own-'+id}:((window.recoveredResponses||{})[id]||null)})};`,
     '@/lib/presentation/presentation-socket': `export function subscribeToPresentation(o){window.subscriptions.push(o);const outcome=()=>window.nextOutcome||{status:'confirmed'};const c={disconnect(){window.disconnects++},nextSlide:async()=>{window.commands.push('next');return outcome()},prevSlide:async()=>outcome(),gotoSlide:async()=>outcome(),setResultsHidden:async()=>outcome(),revealQuizAnswers:async()=>outcome(),endPresentation(){o.callbacks.onPresentationEnded();return outcome()},submitResponse:async(id)=>{window.submissions++;const result=await(window.submitPromise||outcome());if(result.status==='confirmed')window.answers[id]=true;return result},submitQna:async()=>outcome(),upvoteQna:async()=>outcome()};return c}`
   };
   if (realTransport) {
@@ -401,3 +401,45 @@ test('Transport disconnect immediately resumes read-only fallback and own-respon
   await page.getByText('✅ Submitted!',{exact:true}).waitFor({timeout:6000});
   await shot(page,'fallback-evidence');
 },openTextParticipantDeck));
+
+test('real transport: stale quiz completion cannot erase an HTTP-restored next-slide choice',async()=>fixture('present',async page=>{
+  await page.waitForFunction(()=>(window as any).sockets.length===1);
+  await page.evaluate(()=>{
+    const w=window as any,s=w.sockets[0];
+    s.open(); s.reply(s.sent[0][1],'ok',{presentation:w.presentation('A').presentation});
+  });
+  await page.getByRole('button',{name:/First zero/}).click();
+  await page.waitForFunction(()=>(window as any).sockets[0].sent.some((f:FixtureFrame)=>f[3]==='response:submit'));
+  await page.evaluate(()=>{
+    const w=window as any,s=w.sockets[0];
+    const f=s.sent.find((f:FixtureFrame)=>f[3]==='response:submit');
+    s.reply(f[1],'error',{reason:'activity_unavailable'});
+  });
+  await page.getByText(/didn't go through/).waitFor();
+  await page.getByRole('button',{name:/First zero/}).click();
+  await page.waitForFunction(()=>(window as any).sockets[0].sent.filter((f:FixtureFrame)=>f[3]==='response:submit').length===2);
+  // The host has now moved on. The already-running read-only recovery sees
+  // quiz1 and its previously saved own_response before the retry settles.
+  await page.evaluate(()=>{(window as any).index=1;});
+  await page.getByRole('heading',{name:'Question one'}).waitFor({timeout:6000});
+  const restored=page.getByRole('button',{name:/First one/});
+  await page.waitForFunction(()=>document.querySelector('button[aria-pressed="true"]')?.textContent?.includes('First one'));
+  await page.evaluate(()=>{
+    const w=window as any,s=w.sockets[0];
+    const f=s.sent.filter((f:FixtureFrame)=>f[3]==='response:submit')[1];
+    s.reply(f[1],'ok',{});
+  });
+  // Let the stale reply settle through runCommand and React before asserting.
+  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,50)))));
+  assert.equal(await restored.getAttribute('aria-pressed'),'true','stale previous-slide completion must preserve current slide server-confirmed own choice');
+},async page=>{await page.evaluate(()=>{
+  const w=window as any;
+  w.user=null;w.index=0;
+  w.participant={participantId:'quiz-player',participantToken:'local-synthetic-token',runId:'run-A',participantName:'Quiz player'};
+  w.recoveredResponses={quiz1:{id:'previously-saved-quiz1',participant_id:'quiz-player',response_data:{answer_id:'q1-a'}}};
+  w.presentation=(code:string,status='live')=>({presentation:{title:'Quiz deck',creator_id:'owner',run_id:'run-A',join_code:'123456',status,current_slide_index:w.index,quiz_reveals:{quiz1:['q1-a']},slides:[
+    {id:'quiz0',order_index:0,slide_type:'quiz',content:{question:'Question zero',answers:[{id:'q0-a',text:'First zero',is_correct:true},{id:'q0-b',text:'Second zero'}]}},
+    {id:'quiz1',order_index:1,slide_type:'quiz',content:{question:'Question one',answers:[{id:'q1-a',text:'First one',is_correct:true},{id:'q1-b',text:'Second one'}]}}
+  ]}});
+  w.fetchPresentation=(code:string)=>Promise.resolve(w.presentation(code));
+});},true));

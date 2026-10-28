@@ -408,6 +408,7 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
     const slideId = slides[currentIndex].id;
     // Show the pick optimistically only once the submit is actually going out.
     const optimisticChoice = choiceFromPayload(data);
+    const submitEpoch = slideEpochRef.current;
     let admitted = false;
     const ok = await runCommand(
       () => channelRef.current!.submitResponse(slideId, data, name || participantSession.participantName || "Anonymous"),
@@ -420,8 +421,9 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
     if (ok) {
       setSubmitted(true);
       if (optimisticChoice) setSelectedOption(optimisticChoice);
-    } else if (optimisticChoice) {
+    } else if (optimisticChoice && slideEpochRef.current === submitEpoch) {
       // A rejected/unconfirmed vote must not look chosen; recovery restores it if the server has it.
+      // A stale reply for a slide the presenter has left must not clear the new slide's choice.
       setSelectedOption(null);
     }
   }, [currentIndex, slides, name, submitted, participantSession, runCommand]);
