@@ -150,7 +150,7 @@ export function LiveSlideStage({
                           const pct = total > 0 ? Math.round(count / total * 100) : 0;
                           return (
                             <button key={opt.id}
-                              onClick={() => { if (!submitted && !isHost) { setSelectedOption(opt.id); submitResponse({ option_id: opt.id }); } }}
+                              onClick={() => { if (!submitted && !isHost) submitResponse({ option_id: opt.id }); }}
                               disabled={submitted || isHost}
                               className={selectedOption === opt.id ? "present-poll-option is-selected" : "present-poll-option"}>
                               {shouldShowResults && <div className="present-poll-bar" style={{ width: `${pct}%` }} />}
@@ -175,7 +175,7 @@ export function LiveSlideStage({
                           const view = quizOptionView({ answerId: ans.id, ownChoice: selectedOption, revealedCorrectIds: revealedAnswers[currentSlide.id] });
                           return (
                             <button key={ans.id}
-                              onClick={() => { if (!submitted && !isHost) { setSelectedOption(ans.id); submitResponse({ answer_id: ans.id }); } }}
+                              onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id }); }}
                               disabled={submitted || isHost}
                               aria-pressed={view.isOwn}
                               className={view.className}>
@@ -338,7 +338,7 @@ export function LiveSlideStage({
                 const total = Object.values(pollCounts).reduce((s, c) => s + c, 0);
                 const pct = total > 0 ? Math.round(count / total * 100) : 0;
                 return (
-                  <button key={opt.id} onClick={() => { if (!submitted && !isHost) { setSelectedOption(opt.id); submitResponse({ option_id: opt.id }); } }}
+                  <button key={opt.id} onClick={() => { if (!submitted && !isHost) submitResponse({ option_id: opt.id }); }}
                     disabled={submitted || isHost}
                     className={selectedOption === opt.id ? "present-poll-option is-selected" : "present-poll-option"}>
                     {shouldShowResults && <div className="present-poll-bar" style={{ width: `${pct}%` }} />}
@@ -361,7 +361,7 @@ export function LiveSlideStage({
                 const view = quizOptionView({ answerId: ans.id, ownChoice: selectedOption, revealedCorrectIds: revealedAnswers[currentSlide.id] });
                 return (
                   <button key={ans.id}
-                    onClick={() => { if (!submitted && !isHost) { setSelectedOption(ans.id); submitResponse({ answer_id: ans.id }); } }}
+                    onClick={() => { if (!submitted && !isHost) submitResponse({ answer_id: ans.id }); }}
                     disabled={submitted || isHost}
                     aria-pressed={view.isOwn}
                     className={view.className}>

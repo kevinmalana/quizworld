@@ -397,6 +397,9 @@ export function PresentationLiveSession({ code, userId }: { code: string; userId
   const submitResponse = useCallback(async (data: Record<string, unknown>) => {
     if (!slides[currentIndex] || submitted || !channelRef.current || !participantSession) return;
     const slideId = slides[currentIndex].id;
+    // Show the pick optimistically only once the submit is actually going out.
+    const optimisticChoice = choiceFromPayload(data);
+    if (optimisticChoice) setSelectedOption(optimisticChoice);
     const ok = await runCommand(() => channelRef.current!.submitResponse(slideId, data, name || participantSession.participantName || "Anonymous"));
     if (ok) {
       setSubmitted(true);

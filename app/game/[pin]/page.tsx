@@ -20,6 +20,7 @@ import {
 } from "@/components/game";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { revealCountdownLabel, useRevealCountdown } from "@/lib/game/use-reveal-countdown";
+import { revealTotals } from "@/lib/game/reveal-totals";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/supabase-provider";
 import {
@@ -422,10 +423,6 @@ export default function GamePage() {
   const { counts: playerCorrectCounts, total: scoredQuestions } = useMemo(() => getGameAccuracy(session), [session]);
   const isPoll = currentQuestion?.question_type === "poll";
 
-  // Feature 10: Question breakdown
-  const correctCountThisQ = currentAnswers.filter(a => a.is_correct).length;
-  const totalAnsweredThisQ = currentAnswers.length;
-
   const leaderboard = useMemo(() => sortLeaderboard(players), [players]);
 
   // Mode-specific derived state
@@ -488,10 +485,10 @@ export default function GamePage() {
   const isLastQuestion = ((session?.current_question_index as number) ?? 0) >=
     (((session?.quiz as { questions?: unknown[] })?.questions?.length ?? 1) - 1);
   const revealCountdown = revealCountdownLabel(revealSecondsLeft, isLastQuestion);
-  const answerCounts = currentQuestion?.answers?.map((answer) => ({
-    ...answer,
-    count: currentAnswers.filter((row) => row.answer_id === answer.id).length,
-  })) ?? [];
+  // Class-wide totals come from Phoenix's per-option counts: a player's
+  // current_answers holds only their own row (see lib/game/reveal-totals.ts).
+  const reveal = revealTotals(currentQuestion?.answers, currentAnswers, isHost);
+  const answerCounts = reveal.answerCounts;
 
   const startGame = async () => {
     if (commandUnknown) return;
@@ -823,9 +820,9 @@ export default function GamePage() {
           {/* Feature 10: Question breakdown (host only — players only receive their own answer) */}
           <RevealStatsLine
             isPoll={isPoll}
-            isHost={isHost}
-            correctCount={correctCountThisQ}
-            totalAnswered={totalAnsweredThisQ}
+            isHost={reveal.classWide}
+            correctCount={reveal.correct}
+            totalAnswered={reveal.total}
           />
           <QuestionMedia question={currentQuestion} maxHeight={200} margin="0" />
 
@@ -846,7 +843,7 @@ export default function GamePage() {
 
           <AnswerRevealList
             answerCounts={answerCounts}
-            showCounts={isHost}
+            showCounts={reveal.classWide}
             ownAnswerId={ownAnswer?.answer_id ?? null}
           />
 
